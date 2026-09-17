@@ -150,15 +150,36 @@ public class Select<T> : IQuery
     {
         using var read = DataSourceAccess.BeginRead(
             query.DataSource, "read query rows", owner, cancellationToken);
-        using var command = ToDbCommand();
-        cancellationToken.ThrowIfCancellationRequested();
-        using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
+        using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+        IDataLinqDataReader reader;
+        var stage = ExecutionFailureStage.Validation;
+        try
+        {
+            var command = resources.OwnCommand(ToDbCommand());
+            cancellationToken.ThrowIfCancellationRequested();
+            stage = ExecutionFailureStage.CommandExecution;
+            reader = resources.OwnReader(query.DataSource.DatabaseAccess.ExecuteReader(command));
+        }
+        catch (Exception failure)
+        {
+            resources.RecordFailure(failure, stage);
+            throw;
+        }
 
         while (true)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var hasRow = reader.ReadNextRow();
-            cancellationToken.ThrowIfCancellationRequested();
+            bool hasRow;
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                hasRow = reader.ReadNextRow();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            catch (Exception failure)
+            {
+                resources.RecordFailure(failure, ExecutionFailureStage.RowLoading);
+                throw;
+            }
             if (!hasRow)
                 yield break;
 
@@ -192,21 +213,42 @@ public class Select<T> : IQuery
     internal RowData? ReadFirstRow(TransactionOperationGate.Step? owner)
     {
         using var read = DataSourceAccess.BeginRead(query.DataSource, "read the first query row", owner);
-        // Resolve the actual columns being fetched to ensure the RowData
-        // reader aligns with the DataReader's fields.
-        var columnsToRead = GetColumnsToRead();
+        try
+        {
+            using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+            var stage = ExecutionFailureStage.Validation;
+            try
+            {
+                // Resolve the actual columns being fetched to ensure the RowData
+                // reader aligns with the DataReader's fields.
+                var columnsToRead = GetColumnsToRead();
 
-        using var command = query.DataSource.Provider.ToDbCommand(this);
-        using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
+                var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
+                stage = ExecutionFailureStage.CommandExecution;
+                var reader = resources.OwnReader(query.DataSource.DatabaseAccess.ExecuteReader(command));
+                stage = ExecutionFailureStage.RowLoading;
 
-        return reader.ReadNextRow()
-            ? new RowData(
-                reader,
-                query.Table,
-                columnsToRead,
-                true,
-                $"sql:{query.DataSource.Provider.DatabaseType}:select-first-row")
-            : null;
+                if (!reader.ReadNextRow())
+                    return null;
+                stage = ExecutionFailureStage.Materialization;
+                return new RowData(
+                        reader,
+                        query.Table,
+                        columnsToRead,
+                        true,
+                        $"sql:{query.DataSource.Provider.DatabaseType}:select-first-row");
+            }
+            catch (Exception failure)
+            {
+                resources.RecordFailure(failure, stage);
+                throw;
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     private IReadOnlyList<ColumnDefinition> GetColumnsToRead()
@@ -415,46 +457,66 @@ public class Select<T> : IQuery
     {
         using var read = DataSourceAccess.BeginRead(
             query.DataSource, "execute a scalar query", owner, cancellationToken);
-        var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
-        var activity = DataLinqTelemetry.StartQueryActivity(
-            telemetryContext,
-            query.Table.DbName,
-            "scalar",
-            query.DataSource is Mutation.Transaction);
-        var startedAt = Stopwatch.GetTimestamp();
-        var succeeded = false;
-
-        DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
-
         try
         {
-            using var command = query.DataSource.Provider.ToDbCommand(this);
-            cancellationToken.ThrowIfCancellationRequested();
-            var result = query.DataSource.DatabaseAccess.ExecuteScalar<V>(command);
-            succeeded = true;
-            return result;
-        }
-        catch (Exception exception)
-        {
-            DataLinqTelemetry.RecordException(activity, exception);
-            throw;
-        }
-        finally
-        {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordQueryExecution(
+            var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
+            var activity = DataLinqTelemetry.StartQueryActivity(
                 telemetryContext,
                 query.Table.DbName,
                 "scalar",
-                query.DataSource is Mutation.Transaction,
-                succeeded,
-                duration);
+                query.DataSource is Mutation.Transaction);
+            var startedAt = Stopwatch.GetTimestamp();
+            var succeeded = false;
 
-            if (activity is not null)
+            DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
+
+            try
             {
-                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity.Dispose();
+                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+                var stage = ExecutionFailureStage.Validation;
+                try
+                {
+                    var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
+                    stage = ExecutionFailureStage.CommandExecution;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var result = query.DataSource.DatabaseAccess.ExecuteScalar<V>(command);
+                    resources.Dispose();
+                    succeeded = true;
+                    return result;
+                }
+                catch (Exception failure)
+                {
+                    resources.RecordFailure(failure, stage);
+                    throw;
+                }
             }
+            catch (Exception exception)
+            {
+                DataLinqTelemetry.RecordException(activity, exception);
+                throw;
+            }
+            finally
+            {
+                var duration = Stopwatch.GetElapsedTime(startedAt);
+                DataLinqTelemetry.RecordQueryExecution(
+                    telemetryContext,
+                    query.Table.DbName,
+                    "scalar",
+                    query.DataSource is Mutation.Transaction,
+                    succeeded,
+                    duration);
+
+                if (activity is not null)
+                {
+                    activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                    activity.Dispose();
+                }
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
         }
     }
 
@@ -465,46 +527,66 @@ public class Select<T> : IQuery
     {
         using var read = DataSourceAccess.BeginRead(
             query.DataSource, "execute a scalar query", owner, cancellationToken);
-        var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
-        var activity = DataLinqTelemetry.StartQueryActivity(
-            telemetryContext,
-            query.Table.DbName,
-            "scalar",
-            query.DataSource is Mutation.Transaction);
-        var startedAt = Stopwatch.GetTimestamp();
-        var succeeded = false;
-
-        DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
-
         try
         {
-            using var command = query.DataSource.Provider.ToDbCommand(this);
-            cancellationToken.ThrowIfCancellationRequested();
-            var result = query.DataSource.DatabaseAccess.ExecuteScalar(command);
-            succeeded = true;
-            return result;
-        }
-        catch (Exception exception)
-        {
-            DataLinqTelemetry.RecordException(activity, exception);
-            throw;
-        }
-        finally
-        {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordQueryExecution(
+            var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
+            var activity = DataLinqTelemetry.StartQueryActivity(
                 telemetryContext,
                 query.Table.DbName,
                 "scalar",
-                query.DataSource is Mutation.Transaction,
-                succeeded,
-                duration);
+                query.DataSource is Mutation.Transaction);
+            var startedAt = Stopwatch.GetTimestamp();
+            var succeeded = false;
 
-            if (activity is not null)
+            DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
+
+            try
             {
-                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity.Dispose();
+                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+                var stage = ExecutionFailureStage.Validation;
+                try
+                {
+                    var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
+                    stage = ExecutionFailureStage.CommandExecution;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var result = query.DataSource.DatabaseAccess.ExecuteScalar(command);
+                    resources.Dispose();
+                    succeeded = true;
+                    return result;
+                }
+                catch (Exception failure)
+                {
+                    resources.RecordFailure(failure, stage);
+                    throw;
+                }
             }
+            catch (Exception exception)
+            {
+                DataLinqTelemetry.RecordException(activity, exception);
+                throw;
+            }
+            finally
+            {
+                var duration = Stopwatch.GetElapsedTime(startedAt);
+                DataLinqTelemetry.RecordQueryExecution(
+                    telemetryContext,
+                    query.Table.DbName,
+                    "scalar",
+                    query.DataSource is Mutation.Transaction,
+                    succeeded,
+                    duration);
+
+                if (activity is not null)
+                {
+                    activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                    activity.Dispose();
+                }
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
         }
     }
 

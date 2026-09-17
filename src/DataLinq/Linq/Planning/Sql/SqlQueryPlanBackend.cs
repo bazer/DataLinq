@@ -91,11 +91,19 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
 
         using var read = DataSourceAccess.BeginRead(dataSource, "execute a scalar query plan",
             cancellationToken: request.Context.CancellationToken);
-        var value = new QueryPlanSqlBuilder(request.Invocation, dataSource)
-            .BuildSelect<object>()
-            .ExecuteScalar(request.Context.CancellationToken, read?.Step);
+        try
+        {
+            var value = new QueryPlanSqlBuilder(request.Invocation, dataSource)
+                .BuildSelect<object>()
+                .ExecuteScalar(request.Context.CancellationToken, read?.Step);
 
-        return ConvertScalarResult<TResult>(value, request.Invocation.Template.Result);
+            return ConvertScalarResult<TResult>(value, request.Invocation.Template.Result);
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     public bool TryExecuteTerminalEntity(
@@ -195,52 +203,59 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(table);
         using var read = DataSourceAccess.BeginRead(dataSource, "execute an exact primary-key terminal query");
-
-        var telemetryContext = DataLinqTelemetryContext.FromProvider(dataSource.Provider);
-        var activity = DataLinqTelemetry.StartQueryActivity(
-            telemetryContext,
-            table.DbName,
-            "entity",
-            dataSource is Transaction);
-        var startedAt = Stopwatch.GetTimestamp();
-        var succeeded = false;
-
-        DataLinqMetrics.RecordEntityQueryExecution(dataSource.Provider);
-
         try
         {
-            var row = primaryKey is null
-                ? null
-                : GetRowByScalarPrimaryKey(dataSource, table, primaryKey, read?.Step);
-
-            var result = ExactPrimaryKeyTerminalExecution.ApplyResultSemantics(row, resultKind);
-            succeeded = true;
-            return result;
-        }
-        catch (Exception exception)
-        {
-            DataLinqTelemetry.RecordException(activity, exception);
-            throw;
-        }
-        finally
-        {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordQueryExecution(
+            var telemetryContext = DataLinqTelemetryContext.FromProvider(dataSource.Provider);
+            var activity = DataLinqTelemetry.StartQueryActivity(
                 telemetryContext,
                 table.DbName,
                 "entity",
-                dataSource is Transaction,
-                succeeded,
-                duration);
+                dataSource is Transaction);
+            var startedAt = Stopwatch.GetTimestamp();
+            var succeeded = false;
 
-            if (activity is not null)
+            DataLinqMetrics.RecordEntityQueryExecution(dataSource.Provider);
+
+            try
             {
-                if (!succeeded)
-                    activity.SetStatus(ActivityStatusCode.Error);
+                var row = primaryKey is null
+                    ? null
+                    : GetRowByScalarPrimaryKey(dataSource, table, primaryKey, read?.Step);
 
-                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity.Dispose();
+                var result = ExactPrimaryKeyTerminalExecution.ApplyResultSemantics(row, resultKind);
+                succeeded = true;
+                return result;
             }
+            catch (Exception exception)
+            {
+                DataLinqTelemetry.RecordException(activity, exception);
+                throw;
+            }
+            finally
+            {
+                var duration = Stopwatch.GetElapsedTime(startedAt);
+                DataLinqTelemetry.RecordQueryExecution(
+                    telemetryContext,
+                    table.DbName,
+                    "entity",
+                    dataSource is Transaction,
+                    succeeded,
+                    duration);
+
+                if (activity is not null)
+                {
+                    if (!succeeded)
+                        activity.SetStatus(ActivityStatusCode.Error);
+
+                    activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                    activity.Dispose();
+                }
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
         }
     }
 

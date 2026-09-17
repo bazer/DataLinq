@@ -1581,6 +1581,7 @@ public sealed partial class TransactionMutationFailureTests
         internal Action? CommandDisposed { get; set; }
         internal Func<IDataLinqDataReader>? ReaderFactory { get; set; }
         internal object? ScalarResult { get; set; } = 1L;
+        internal Action? ScalarExecuting { get; set; }
         internal int CommandCreations { get; set; }
         internal int CommandDisposals { get; set; }
         internal Exception? CommandDisposeFailure { get; set; }
@@ -1622,7 +1623,11 @@ public sealed partial class TransactionMutationFailureTests
                 Disposals);
     }
 
-    private sealed class ScriptedMutationProvider : DatabaseProvider<TransactionMutationGuardDb>
+    private sealed class ScriptedMutationProvider(ScriptedMutationScenario scenario)
+        : ScriptedMutationProvider<TransactionMutationGuardDb>(scenario);
+
+    private class ScriptedMutationProvider<TModel> : DatabaseProvider<TModel>
+        where TModel : class, IDatabaseModel<TModel>
     {
         private readonly ScriptedMutationScenario scenario;
         private readonly ScriptedDatabaseAccess databaseAccess;
@@ -1759,6 +1764,7 @@ public sealed partial class TransactionMutationFailureTests
         public override object? ExecuteScalar(IDbCommand command)
         {
             scenario.ScalarExecutions++;
+            scenario.ScalarExecuting?.Invoke();
             return scenario.ScalarResult;
         }
 
@@ -1768,6 +1774,7 @@ public sealed partial class TransactionMutationFailureTests
         public override object? ExecuteScalar(string query)
         {
             scenario.ScalarExecutions++;
+            scenario.ScalarExecuting?.Invoke();
             return scenario.ScalarResult;
         }
 

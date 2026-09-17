@@ -282,6 +282,7 @@ public sealed partial class TransactionMutationFailureTests
         internal Action? OnRead { get; set; }
         internal Action? OnDispose { get; set; }
         internal Exception? DisposeFailure { get; set; }
+        internal Exception? ValueFailure { get; set; }
         internal int Disposals { get; private set; }
         public bool ReadNextRow() { OnRead?.Invoke(); return moves++ == 0; }
         public void Dispose()
@@ -290,17 +291,17 @@ public sealed partial class TransactionMutationFailureTests
             OnDispose?.Invoke();
             if (DisposeFailure is not null) throw DisposeFailure;
         }
-        public object GetValue(int ordinal) => row[ordinal]!;
+        public object GetValue(int ordinal) => ValueFailure is { } failure ? throw failure : row[ordinal]!;
         public int GetOrdinal(string name) => row.Table.GetColumnByDbName(name).Index;
         public string GetString(int ordinal) => (string)row[ordinal]!;
         public bool GetBoolean(int ordinal) => (bool)row[ordinal]!;
-        public int GetInt32(int ordinal) => (int)row[ordinal]!;
+        public int GetInt32(int ordinal) => (int)GetValue(ordinal);
         public DateOnly GetDateOnly(int ordinal) => (DateOnly)row[ordinal]!;
         public Guid GetGuid(int ordinal) => (Guid)row[ordinal]!;
         public byte[]? GetBytes(int ordinal) => (byte[]?)row[ordinal];
         public long GetBytes(int ordinal, Span<byte> buffer) => throw new NotSupportedException();
-        public T? GetValue<T>(ColumnDefinition column) => (T?)row[column];
-        public T? GetValue<T>(ColumnDefinition column, int ordinal) => (T?)row[ordinal];
+        public T? GetValue<T>(ColumnDefinition column) => ValueFailure is { } failure ? throw failure : (T?)row[column];
+        public T? GetValue<T>(ColumnDefinition column, int ordinal) => (T?)GetValue(ordinal);
         public bool IsDbNull(int ordinal) => row[ordinal] is null or DBNull;
     }
 }

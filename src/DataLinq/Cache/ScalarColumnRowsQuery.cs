@@ -39,17 +39,38 @@ internal sealed class ScalarColumnRowsQuery(
     internal RowData? ReadFirstRow(TransactionOperationGate.Step? owner = null)
     {
         using var read = DataSourceAccess.BeginRead(dataSource, "read a cache row", owner);
-        using var command = ToDbCommand();
-        using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
+        try
+        {
+            using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
+            var stage = ExecutionFailureStage.Validation;
+            try
+            {
+                var command = resources.OwnCommand(ToDbCommand());
+                stage = ExecutionFailureStage.CommandExecution;
+                var reader = resources.OwnReader(dataSource.DatabaseAccess.ExecuteReader(command));
+                stage = ExecutionFailureStage.RowLoading;
 
-        return reader.ReadNextRow()
-            ? new RowData(
-                reader,
-                table,
-                table.Columns,
-                true,
-                $"sql:{dataSource.Provider.DatabaseType}:cache-scalar-row")
-            : null;
+                if (!reader.ReadNextRow())
+                    return null;
+                stage = ExecutionFailureStage.Materialization;
+                return new RowData(
+                        reader,
+                        table,
+                        table.Columns,
+                        true,
+                        $"sql:{dataSource.Provider.DatabaseType}:cache-scalar-row");
+            }
+            catch (Exception failure)
+            {
+                resources.RecordFailure(failure, stage);
+                throw;
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     private string GetSqlText(string parameterName)
