@@ -53,7 +53,7 @@ PR CI is recorded separately against its head commit. These are modified-checkou
 
 ## Remaining Work
 
-The next W1.3 slice is automatic recovery orchestration with the independent, captured rollback budget: begin the budget at rollback, attempt once, retain ownership until actual provider completion, and continue safe independent cleanup without losing the primary failure. Explicit caller rollback and recovery rollback must keep distinct token policies. The accepted 30-second default still needs provider feasibility evidence before API freeze.
+The subsequent [automatic recovery rollback slice](W1%20Automatic%20Recovery%20Rollback.md) implements an internal owned boundary with a validated captured budget, one rollback attempt, ownership through actual completion and safe independent cleanup. Public/native wiring and helper callback admission/draining remain open. Explicit caller rollback and recovery rollback keep distinct token policies; the accepted 30-second default still needs provider feasibility evidence before API freeze.
 
 Native classification and initialization, the provider completion-confirmation split, async mutation/hydration finalization, helper callback admission/draining, owned generated commands, complete invocation capture, relation publication and full diagnostic reporting remain open. Coordination/allocation costs still require W0 comparison. No package dependency, pooling policy, benchmark target or public declaration changes; the 0.9.2 compatibility baseline and .NET 10 benchmark target remain fixed.
 
