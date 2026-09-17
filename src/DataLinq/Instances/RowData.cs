@@ -71,6 +71,32 @@ public sealed class RowData : IRowData, IEquatable<RowData>
             : ReadUnorderedReader(reader, columns, data, sourceName);
     }
 
+    internal RowData(IDataLinqDataReader reader, TableDefinition table,
+        IReadOnlyList<(ColumnDefinition Column, int ReaderOrdinal)> layout, string sourceName)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(layout);
+        ProviderRowMaterializer.ValidateSourceName(sourceName);
+        Table = table;
+        data = new object?[table.ColumnCount];
+        var populated = new bool[table.ColumnCount];
+        var populatedCount = 0;
+        var size = 0;
+        foreach (var (column, ordinal) in layout)
+        {
+            if (!ReferenceEquals(column.Table, table) || ordinal < 0)
+                throw new ArgumentException("The captured row layout does not belong to this table or reader.", nameof(layout));
+            var value = CanonicalProviderValueRow.CopyMutableValue(ReadModelValue(reader, column, ordinal, sourceName));
+            if (populated[column.Index]) size -= GetSize(column, data[column.Index]);
+            else { populated[column.Index] = true; populatedCount++; }
+            data[column.Index] = value;
+            size += GetSize(column, value);
+        }
+        Size = size;
+        populatedColumns = populatedCount == table.ColumnCount ? null : populated;
+    }
+
     /// <summary>
     /// Creates public model-valued row state from a complete canonical provider row and already-materialized
     /// model values. The provider row supplies the validated table layout and a per-column canonical

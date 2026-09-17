@@ -12,7 +12,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Query;
 
-public class Select<T> : IQuery
+public partial class Select<T> : IQuery
 {
     protected readonly SqlQuery<T> query;
     public SqlQuery<T> Query => query;
