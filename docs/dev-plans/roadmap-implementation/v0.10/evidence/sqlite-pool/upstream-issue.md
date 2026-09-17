@@ -127,3 +127,7 @@ I have prepared a minimal change that sets the weak owner before the volatile ac
 - The corrected upstream project builds with zero warnings/errors using its own toolchain. Its SQLite test application reports 714 passed, 7 existing skips, zero failures (using the repository's normal `category=failing` exclusion). Six skips reference #35585; one references ericsink/SQLitePCL.raw#421. This is the SQLite driver test application, not the full EF Core provider matrix.
 
 I would like to contribute this correction and regression test. Since the issue also affects published 10.0.11, a servicing backport would be useful if the diagnosis is accepted.
+
+### AI disclosure
+
+This fix was found, reproduced and posted with GPT-6 Astra on Extra High, with the repository owner's authorization.

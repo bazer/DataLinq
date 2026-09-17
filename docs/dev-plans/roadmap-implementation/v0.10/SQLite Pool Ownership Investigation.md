@@ -7,7 +7,7 @@
 
 **Finding:** Microsoft.Data.Sqlite can lend one pooled internal connection to two distinct, still-open outer connections. Starting independent transactions then produces SQLite error 1, `cannot start a transaction within a transaction`, matching the W0 failure.
 
-**Disposition:** preserve the tested upstream correction and reproducer; submit upstream after authorization, seek a 10.0 servicing fix, adopt a corrected official package through a separate DataLinq PR, and rerun the affected evidence. No dependency replacement, lock, retry, or pooling configuration change is included here.
+**Disposition:** submitted [upstream issue #39008](https://github.com/dotnet/efcore/issues/39008) and [fix PR #39009](https://github.com/dotnet/efcore/pull/39009) on 2026-09-17 with the user's authorization, including a request to consider 10.0 servicing. Maintainer review, contributor agreement completion, a corrected official package and DataLinq adoption remain pending. No dependency replacement, lock, retry, or pooling configuration change is included here.
 
 ## Root Cause And Correction
 
@@ -53,9 +53,11 @@ The failure mechanism and exact error are independently reproduced with the same
 
 ## Reviewable Patch And Reproducer
 
-- [Prepared upstream issue and standalone reproducer](evidence/sqlite-pool/upstream-issue.md): complete project and program using published packages, observed output, mechanism and validation. This is a draft, not a submitted issue.
+- [Submitted upstream issue and standalone reproducer](evidence/sqlite-pool/upstream-issue.md): complete project and program using published packages, observed output, mechanism, validation and AI disclosure; published as [dotnet/efcore#39008](https://github.com/dotnet/efcore/issues/39008).
 - [Upstream correction and regression test](evidence/sqlite-pool/0001-Publish-SQLite-pooled-connection-ownership-before-ac.patch): applicable to upstream base `961b3cb6fe78daf720068a5166218138c6c04f73` using `git am` in an EF Core checkout. It does not apply to DataLinq.
-- Local upstream commit: `4198aba3e42cf76a436edb08070e7e32da44bcd2`. It has not been pushed to an upstream fork or submitted as a PR.
+- Upstream fix commit: [`4198aba3e42cf76a436edb08070e7e32da44bcd2`](https://github.com/bazer/efcore/commit/4198aba3e42cf76a436edb08070e7e32da44bcd2), pushed to `bazer/efcore:codex/sqlite-pool-owner-publication` and submitted to upstream `main` in [dotnet/efcore#39009](https://github.com/dotnet/efcore/pull/39009). The submitted source and test are unchanged from the tested patch.
+
+Both the issue and PR disclose: "This fix was found, reproduced and posted with GPT-6 Astra on Extra High, with the repository owner's authorization." The PR leaves maintainer approval and upstream automated checks unchecked. The [CLA bot request](https://github.com/dotnet/efcore/pull/39009#issuecomment-5714780475) requires the contributor's personal review and response; no agreement was accepted on the user's behalf.
 
 The upstream regression uses upstream's existing xUnit test project. No xUnit project or dependency is added to DataLinq; new DataLinq tests still belong in its TUnit projects.
 
@@ -76,9 +78,11 @@ All 142 archive entries, including the manifest, passed ZIP integrity checking; 
 
 The raw archive is local only. The patch and standalone reproducer are tracked here, but no external backup or upload of the raw evidence is claimed.
 
+The sealed archive predates upstream submission and retains the original draft without the subsequently requested AI disclosure. Its submission status is historical; the archive and its hashes remain unchanged. The tracked report above contains the submitted disclosure and current upstream links.
+
 ## Remaining Integration Work
 
-1. Submit the prepared report and correction to `dotnet/efcore` with maintainer review and a request to consider 10.0 servicing. Upstream submission is outside DataLinq and awaits explicit authorization; any contributor agreement must be handled by the contributor personally.
+1. Follow up on submitted issue #39008 and PR #39009 for maintainer review and 10.0 servicing consideration. The contributor must personally handle the pending CLA request. Submission is complete; approval, CI acceptance and a release are not implied.
 2. Obtain and pin a corrected official package. Record the actual version, upstream fix and package hashes; do not assume that the next version contains the correction.
 3. Make the DataLinq dependency update on `master`, test it, then merge it forward into `v0.10` under the accepted branch workflow. Preserve the published 0.9.2 compatibility baseline and original pre-async evidence.
 4. Rerun the published-package ownership/transaction reproducer, focused parallel transaction coverage, quick plan and full supported provider matrix. Rebuild and recapture affected package/consumer/performance evidence against a clean frozen candidate with the new dependency. Record the new dependency graph and exact evidence target rather than relabeling W0's old results.
