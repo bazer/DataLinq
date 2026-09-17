@@ -25,6 +25,8 @@ Development follows the accepted [branch, PR and benchmark workflow](Branch%20PR
 
 W0-F1 follow-up, 2026-09-17: the [SQLite pool ownership investigation](SQLite%20Pool%20Ownership%20Investigation.md) reproduces the driver race and records the tested correction submitted in [dotnet/efcore#39009](https://github.com/dotnet/efcore/pull/39009). DataLinq's dependency is unchanged. The user's accepted limited exception permits W1 internal contracts and controllable-provider tests while SQLite integration, W0-F1 closeout and release approval remain blocked pending verified package adoption.
 
+W1 has started with the [internal command/reader contracts and controllable test foundation](W1%20Internal%20Execution%20Contracts.md). Existing production provider execution and public APIs are unchanged; the page records the verified first slice and the remaining ownership, recovery and invocation-capture work.
+
 Every workstream in this document is required. There is no stretch-goal section and no automatic rule that completed work creates room for another feature.
 
 Adding scope requires all of the following before implementation:
