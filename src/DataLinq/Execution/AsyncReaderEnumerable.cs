@@ -36,8 +36,8 @@ internal sealed class AsyncReaderEnumerable<T> : IAsyncEnumerable<T>
             materialize, transaction, methodToken, cancellationToken);
 }
 
-// An internal evidence record, not the eventual public failure-context API or a trust verdict.
-internal sealed record AsyncEnumerationFailure(Exception Cause, Exception? CleanupFailure);
+internal sealed record AsyncEnumerationFailure(Exception Cause, Exception? CleanupFailure,
+    ExecutionFailureContext Context);
 
 internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>
 {
@@ -97,43 +97,57 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>
                 return false;
             hasCurrent = false;
             current = default!;
+            ExecutionFailures? failures = null;
+            var stage = ExecutionFailureStage.Validation;
+            var cause = ExecutionFailureCause.Unknown;
             try
             {
                 transaction?.EnsureCanRead(Operation, ownership?.Step);
                 if (!started)
                 {
                     source.Validate();
-                    token.ThrowIfCancellationRequested();
+                    CheckCancellation();
                     if (transaction is not null)
                         ownership = DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token);
                     started = true;
+                    stage = ExecutionFailureStage.CommandExecution;
                     // Assignment precedes cancellation: a successfully acquired reader must
                     // be cleaned up even if its provider completed despite a cancellation request.
                     reader = await source.OpenReaderAsync(token).ConfigureAwait(false)
                         ?? throw new InvalidOperationException("Reader acquisition returned no reader.");
                 }
 
-                token.ThrowIfCancellationRequested();
+                stage = ExecutionFailureStage.RowLoading;
+                CheckCancellation();
                 var hasRow = await reader!.ReadNextRowAsync(token).ConfigureAwait(false);
-                token.ThrowIfCancellationRequested();
-                if (!hasRow)
+                CheckCancellation();
+                if (hasRow)
                 {
-                    await FinishAsync().ConfigureAwait(false);
-                    return false;
+                    stage = ExecutionFailureStage.Materialization;
+                    cause = ExecutionFailureCause.MaterializationError;
+                    var value = materialize(reader);
+                    CheckCancellation();
+                    current = value;
+                    hasCurrent = true;
+                    return true;
                 }
-                var value = materialize(reader);
-                token.ThrowIfCancellationRequested();
-                current = value;
-                hasCurrent = true;
-                return true;
             }
             catch (Exception primary)
             {
-                Exception? cleanupFailure = null;
-                try { await FinishAsync().ConfigureAwait(false); }
-                catch (Exception cleanup) { cleanupFailure = cleanup; }
-                Failure = new(primary, ReferenceEquals(primary, cleanupFailure) ? null : cleanupFailure);
-                throw;
+                failures = new ExecutionFailures();
+                failures.Add(primary, cause, stage);
+            }
+            failures ??= new ExecutionFailures();
+            await FinishAsync(failures).ConfigureAwait(false);
+            failures.ThrowIfAny();
+            return false;
+
+            void CheckCancellation()
+            {
+                if (!token.IsCancellationRequested)
+                    return;
+                cause = ExecutionFailureCause.Cancellation;
+                token.ThrowIfCancellationRequested();
             }
         }
     }
@@ -144,16 +158,13 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>
     {
         using (call)
         {
-            try { await FinishAsync().ConfigureAwait(false); }
-            catch (Exception cleanup)
-            {
-                Failure = new(cleanup, null);
-                throw;
-            }
+            var failures = new ExecutionFailures();
+            await FinishAsync(failures).ConfigureAwait(false);
+            failures.ThrowIfAny();
         }
     }
 
-    private async ValueTask FinishAsync()
+    private async ValueTask FinishAsync(ExecutionFailures failures)
     {
         if (finished)
             return;
@@ -164,9 +175,46 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>
         reader = null;
         try
         {
-            // Cleanup never inherits a canceled enumeration token or uses sync fallback.
-            if (ownedReader is not null)
-                await ownedReader.DisposeAsync().ConfigureAwait(false);
+            try
+            {
+                // Cleanup never inherits a canceled enumeration token or uses sync fallback.
+                if (ownedReader is not null)
+                    await ownedReader.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception cleanup)
+            {
+                failures.Add(cleanup, ExecutionFailureCause.Unknown, ExecutionFailureStage.Cleanup);
+            }
+
+            if (failures.Primary is { } primary)
+            {
+                var evidence = new ReadFailureEvidence();
+                var assessmentSucceeded = true;
+                if (started && source is IAsyncReadFailureEvidence classifier)
+                {
+                    try
+                    {
+                        evidence = classifier.GetReadFailureEvidence(primary)
+                            ?? throw new InvalidOperationException("The provider returned no failure evidence.");
+                    }
+                    catch (Exception assessment)
+                    {
+                        assessmentSucceeded = false;
+                        failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery);
+                    }
+                }
+                var recovery = ownership is null ? ExecutionRecoveryActions.None
+                    : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessmentSucceeded);
+                var context = failures.Snapshot(evidence,
+                    transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
+                    recovery, transaction?.TransactionID);
+                // Publish restrictions before releasing admission: another operation must
+                // never observe a free gate with the old, apparently reusable state.
+                if (ownership is not null)
+                    transaction!.RecordAsyncReadFailure(ownership.Step, context);
+                ExecutionFailureContexts.Attach(primary, context);
+                Failure = new(primary, ReferenceEquals(primary, failures.FirstCleanupFailure) ? null : failures.FirstCleanupFailure, context);
+            }
         }
         finally
         {

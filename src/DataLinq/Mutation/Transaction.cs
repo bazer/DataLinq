@@ -111,6 +111,50 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     internal bool IsDisposed => Volatile.Read(ref disposeState) != 0;
     internal TransactionFailure? Failure => Volatile.Read(ref failure);
     internal bool IsPoisoned => Failure is not null;
+    private ExecutionFailureContext? asyncFailureContext;
+    internal ExecutionFailureContext? AsyncFailureContext => Volatile.Read(ref asyncFailureContext);
+
+    internal void RecordAsyncReadFailure(TransactionOperationGate.Step owner, ExecutionFailureContext context)
+    {
+        ExecutionGate.ValidateStep(owner);
+        Volatile.Write(ref asyncFailureContext, context);
+    }
+
+    private void EnsureAsyncRecoveryAllowed(string operation, ExecutionRecoveryActions required)
+    {
+        var context = AsyncFailureContext;
+        if (context is not null && (context.Recovery & required) == 0)
+            throw new InvalidOperationException(
+                $"Cannot {operation} through transaction {TransactionID} after asynchronous execution failed. " +
+                $"Permitted recovery: {context.Recovery}. A released execution slot does not establish transaction integrity.");
+    }
+
+    private void UpdateAsyncRecovery(ExecutionCompletion completion, ExecutionRecoveryActions recovery)
+    {
+        var context = AsyncFailureContext;
+        if (context is not null)
+            Volatile.Write(ref asyncFailureContext, context.AfterRecovery(completion, recovery));
+    }
+
+    private void UpdateAsyncRecoveryAfterCommitFailure()
+    {
+        var context = AsyncFailureContext;
+        if (context is null)
+            return;
+        var recovery = ExecutionRecoveryActions.Dispose;
+        try
+        {
+            if ((context.Recovery & ExecutionRecoveryActions.Rollback) != 0 &&
+                Status is not (DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack))
+                recovery |= ExecutionRecoveryActions.Rollback;
+        }
+        catch
+        {
+            // An unavailable provider state is not evidence that rollback is safe,
+            // and inspecting it must not replace the original completion failure.
+        }
+        UpdateAsyncRecovery(ExecutionCompletion.Unknown, recovery);
+    }
 
     /// <summary>
     /// Gets the ID of the transaction.
@@ -629,6 +673,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 }
                 catch (Exception providerFailure)
                 {
+                    UpdateAsyncRecoveryAfterCommitFailure();
                     var recoveryFailures = FinalizeUncertainCompletionState(
                         MutableTransactionOutcome.CommitOutcomeUnknown,
                         MutableInvalidationReason.CommitOutcomeUnknown);
@@ -640,6 +685,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                     throw;
                 }
 
+                UpdateAsyncRecovery(ExecutionCompletion.Committed, ExecutionRecoveryActions.Dispose);
                 try
                 {
                     Provider.State.ApplyChanges(successfulChanges);
@@ -704,6 +750,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                     : attachedRollbackWasAmbiguous || !rolledBack
                         ? MutableInvalidationReason.RollbackOutcomeUnknown
                         : MutableInvalidationReason.RolledBack;
+                UpdateAsyncRecovery(outcome == MutableTransactionOutcome.RolledBack
+                    ? ExecutionCompletion.RolledBack : ExecutionCompletion.Unknown, ExecutionRecoveryActions.Dispose);
                 if (outcome != MutableTransactionOutcome.RolledBack &&
                     providerFailure is null)
                 {
@@ -1117,6 +1165,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             allowRollback: false);
         ThrowIfRollbackAttemptFailed($"execute {operation.ToString().ToLowerInvariant()}");
         ThrowIfPoisoned($"execute {operation.ToString().ToLowerInvariant()}");
+        EnsureAsyncRecoveryAllowed($"execute {operation.ToString().ToLowerInvariant()}", ExecutionRecoveryActions.Continue);
     }
 
     internal void EnsureMutationCommitOutcomeKnown(TransactionChangeType operation)
@@ -1159,6 +1208,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             ExecutionGate.ValidateStep(owner);
 
         ThrowIfPoisoned(operation);
+        EnsureAsyncRecoveryAllowed(operation, ExecutionRecoveryActions.Continue);
     }
 
     internal void EnsureTerminalReadSourceFallbackAllowed(string operation)
@@ -1166,6 +1216,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         EnsureAttachedTransactionNotCompletedExternally(operation);
         ThrowIfExternalCompletionUnknown(operation);
         ThrowIfCommitOutcomeUnknown(operation, allowRollback: false);
+        var asyncContext = AsyncFailureContext;
+        if (asyncContext is not null && asyncContext.Completion is not (ExecutionCompletion.Committed or ExecutionCompletion.RolledBack))
+            EnsureAsyncRecoveryAllowed(operation, ExecutionRecoveryActions.Continue);
 
         if (MutableOwnership.Outcome is
             MutableTransactionOutcome.RollbackOutcomeUnknown or
@@ -1222,6 +1275,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         ThrowIfRollbackAttemptFailed(operation);
 
+        EnsureAsyncRecoveryAllowed(operation, rejectPoisoned ? ExecutionRecoveryActions.Continue : ExecutionRecoveryActions.Rollback);
         if (rejectPoisoned)
         {
             ThrowIfPoisoned(operation);
@@ -1420,6 +1474,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
         finally
         {
+            if (IsDisposed)
+                UpdateAsyncRecovery(AsyncFailureContext?.Completion ?? ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.None);
             operation.Dispose();
         }
     }

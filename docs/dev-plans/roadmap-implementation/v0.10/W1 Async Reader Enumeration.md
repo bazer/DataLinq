@@ -44,7 +44,7 @@ These are modified-checkout development checks, not frozen release evidence; PR 
 
 ## Remaining Gates And Next Slice
 
-Next, establish W1.3's internal failure/recovery orchestration: distinguish interrupted reads from writes and initialization failure, retain completion certainty independently of cleanup, preserve ordered secondary failures and define safe permitted recovery. This enumerator's gate release must not be mistaken for proof that a native connection can continue after an interrupted operation or failed cleanup.
+The subsequent [read failure/recovery slice](W1%20Read%20Failure%20and%20Recovery.md) adds explicit evidence requirements for reuse, ordered secondary failures and immutable completion/recovery snapshots. Independent automatic rollback budgets and native classification/confirmation remain open. Gate release alone is still not proof that a native connection can continue after an interrupted operation or failed cleanup.
 
 Owned string-command construction/disposal, native initialization, async private hydration, helper callback admission/draining, full ordinary/prepared/mutation capture, relation coordination/publication and routing all inventoried I/O families remain open. Public diagnostic access and async declarations still require W3 consumer evidence. Native adapters and actual provider interruption/trust evidence remain W2 work.
 

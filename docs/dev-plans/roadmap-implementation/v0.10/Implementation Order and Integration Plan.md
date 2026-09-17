@@ -186,7 +186,7 @@ Exit gate:
 
 Execution record and PR-sized slices: [W1 internal execution contracts](W1%20Internal%20Execution%20Contracts.md). The command/reader acquisition foundation is internal and is not wired into production providers. The [transaction ownership and initialization foundation](W1%20Transaction%20Ownership%20and%20Initialization.md) shares leases with the existing synchronous mutation/completion guard, while native initialization, complete transaction/source orchestration and the full W1 exit gate remain open.
 
-The merged [owned read integration](W1%20Owned%20Read%20Execution.md) removes synchronous thread-based hydration permission; [query and relation ownership](W1%20Query%20and%20Relation%20Ownership.md) extends admission through synchronous outer enumeration. The subsequent [async reader enumeration](W1%20Async%20Reader%20Enumeration.md) implements an internal single-reader lifetime with combined tokens, shared transaction admission and awaited cleanup. Native wiring, failure/recovery orchestration, helper draining, full invocation capture and coordination cost acceptance remain pending.
+The merged [owned reads](W1%20Owned%20Read%20Execution.md), [query/relation ownership](W1%20Query%20and%20Relation%20Ownership.md) and [async reader enumeration](W1%20Async%20Reader%20Enumeration.md) establish bounded synchronous and internal asynchronous ownership. The subsequent [read failure/recovery integration](W1%20Read%20Failure%20and%20Recovery.md) requires evidence before transaction reuse and preserves immutable failure/completion snapshots. Automatic recovery budgets, native wiring, helper draining, full invocation capture and coordination cost acceptance remain pending.
 
 Required work:
 
