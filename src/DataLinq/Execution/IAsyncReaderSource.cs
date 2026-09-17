@@ -6,11 +6,16 @@ using System.Threading.Tasks;
 namespace DataLinq.Execution;
 
 /// <summary>
-/// Deferred reader acquisition for later row-enumerator orchestration. Construction performs
+/// Deferred reader acquisition for row-enumerator orchestration. Construction performs
 /// no I/O; each explicit open transfers one reader to the caller, which must dispose it.
+/// If acquisition fails before transfer, the source must clean up its partial resources.
+/// A successfully returned reader owns any source-created resources needed for its lifetime;
+/// a borrowed command remains caller-owned.
 /// </summary>
 internal interface IAsyncReaderSource
 {
+    // Must not acquire resources, execute user conversion, or perform database I/O.
+    void Validate();
     Task<IAsyncDataReader> OpenReaderAsync(CancellationToken cancellationToken);
 }
 
@@ -31,6 +36,8 @@ internal sealed class BorrowedCommandReaderSource : IAsyncReaderSource
         this.access = access;
         this.command = command;
     }
+
+    public void Validate() => access.ValidateReader(command);
 
     public Task<IAsyncDataReader> OpenReaderAsync(CancellationToken cancellationToken)
         => access.ExecuteReaderAsync(command, cancellationToken);

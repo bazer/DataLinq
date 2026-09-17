@@ -4,7 +4,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Execution;
 
 /// <summary>
-/// Owns one synchronous read, including its cache work and resource cleanup. Private
+/// Owns one managed read, including its cache work and resource cleanup. Private
 /// nested dispatch receives Step explicitly; models and callbacks never receive it.
 /// </summary>
 internal sealed class TransactionReadScope : IDisposable

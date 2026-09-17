@@ -86,14 +86,15 @@ internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = 
     }
 }
 
-internal sealed class ControlledAsyncDataReader : IAsyncDataReader
+internal sealed class ControlledAsyncDataReader(int[]? values = null) : IAsyncDataReader
 {
-    private readonly int[] rows = [11, 22];
+    private readonly int[] rows = values ?? [11, 22];
     private int position = -1;
 
     internal AsyncCheckpoint Advance { get; set; } = new();
     internal AsyncCheckpoint Cleanup { get; set; } = new();
     internal int AsyncDisposeCalls { get; private set; }
+    internal int AsyncReadCalls { get; private set; }
     internal int SyncCalls { get; private set; }
     internal bool IsDisposed { get; private set; }
 
@@ -101,6 +102,7 @@ internal sealed class ControlledAsyncDataReader : IAsyncDataReader
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         cancellationToken.ThrowIfCancellationRequested();
+        AsyncReadCalls++;
         await Advance.ReachAsync(cancellationToken).ConfigureAwait(false);
         return ++position < rows.Length;
     }
