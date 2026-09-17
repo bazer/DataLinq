@@ -367,6 +367,7 @@ internal readonly record struct LoadedCanonicalRow
 
     internal CanonicalProviderValueRow ProviderRow { get; }
     internal DataLinqKey CanonicalProviderKey { get; }
+    internal RowReadGeneration? ReadGeneration { get; init; }
 }
 
 /// <summary>

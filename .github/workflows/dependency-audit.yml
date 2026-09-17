@@ -1,0 +1,42 @@
+name: Dependency advisory audit
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * *'
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: 1
+
+jobs:
+  audit:
+    name: Dependencies and advisory feed
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Install workload required to restore the complete solution
+        run: dotnet workload install wasm-tools --skip-manifest-update
+      - name: Verify advisory and feed failure detection
+        shell: pwsh
+        run: ./scripts/audit-dependencies.ps1 -SelfTestOnly
+      - name: Audit every solution project and transitive dependency
+        shell: pwsh
+        run: ./scripts/audit-dependencies.ps1
+      - name: Retain audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/dependency-audit/*.log
+          if-no-files-found: warn

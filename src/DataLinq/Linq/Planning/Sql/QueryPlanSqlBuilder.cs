@@ -215,9 +215,9 @@ internal sealed class QueryPlanSqlBuilder
                 var column = source.Table.PrimaryKeyColumns[columnIndex];
                 var alias = GetJoinedPrimaryKeyAlias(sourceIndex, columnIndex);
                 var sourceSql = derivedColumns is null
-                    ? $"{source.Alias}.{escape}{column.DbName}{escape}"
-                    : $"{derivedColumns.SourceAlias}.{escape}{alias}{escape}";
-                selectors.Add($"{sourceSql} AS {escape}{alias}{escape}");
+                    ? $"{SqlIdentifier.Quote(source.Alias, escape)}.{SqlIdentifier.Quote(column.DbName, escape)}"
+                    : $"{SqlIdentifier.Quote(derivedColumns.SourceAlias, escape)}.{SqlIdentifier.Quote(alias, escape)}";
+                selectors.Add($"{sourceSql} AS {SqlIdentifier.Quote(alias, escape)}");
             }
         }
 
@@ -367,7 +367,7 @@ internal sealed class QueryPlanSqlBuilder
                     $"Grouped aggregate projection value '{member.Value.Kind}' is not supported by SQL rendering.")
             };
 
-            selectors.Add($"{expression} AS {escape}{member.Name}{escape}");
+            selectors.Add($"{expression} AS {SqlIdentifier.Quote(member.Name, escape)}");
         }
 
         return selectors;
@@ -377,7 +377,7 @@ internal sealed class QueryPlanSqlBuilder
     {
         var value = new QueryPlanColumnValue(projection.Source, projection.Column, projection.ResultType);
         var escape = dataSource.Provider.Constants.EscapeCharacter;
-        return $"{valueRenderer.RenderSqlExpression(value)} AS {escape}{ScalarProjectionAlias}{escape}";
+        return $"{valueRenderer.RenderSqlExpression(value)} AS {SqlIdentifier.Quote(ScalarProjectionAlias, escape)}";
     }
 
     private IReadOnlyList<string> GetProjectionRowSelectors(IReadOnlyList<QueryPlanProjectionMember> members)
@@ -386,7 +386,7 @@ internal sealed class QueryPlanSqlBuilder
         var escape = dataSource.Provider.Constants.EscapeCharacter;
 
         foreach (var member in members)
-            selectors.Add($"{valueRenderer.RenderSqlExpression(member.Value)} AS {escape}{member.Name}{escape}");
+            selectors.Add($"{valueRenderer.RenderSqlExpression(member.Value)} AS {SqlIdentifier.Quote(member.Name, escape)}");
 
         return selectors;
     }

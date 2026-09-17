@@ -152,6 +152,20 @@ When `generate models` updates existing files in `ModelDirectory`, DataLinq pres
 
 For the full preservation rules, unsupported edits, nullable context behavior, `--fresh`, `--overwrite-types`, and `--stamp-generated-header`, see [Model Generation](../model-generation.md).
 
+## Using the Tools API directly
+
+`ModelGeneratorOptions.OverwriteExistingModels` defaults to `false`. Any existing
+generated destination makes `CreateModelWritePlan` or `CreateModels` fail the whole
+batch without writing files. Set it to `true` when you intend to regenerate files;
+the CLI's `generate models` command already opts in to that behavior.
+
+The returned `GeneratedModelWritePlan` retains this policy. `Write()` checks again
+and uses file moves that refuse replacement when overwriting is disabled. If a
+destination appears during the batch, the writer preserves it and rolls back
+earlier files created by that batch. A failed write reports any rollback failure.
+Reading supported edits with `ReadSourceModels` is independent of permission to
+overwrite their destinations.
+
 ## Optional: Generate SQL From Models
 
 If you want schema SQL from the model metadata:

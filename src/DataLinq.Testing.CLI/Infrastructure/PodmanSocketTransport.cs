@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using DataLinq.DevTools;
 
 namespace DataLinq.Testing.CLI;
 
@@ -203,7 +204,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
         string? containerName = null;
         var environment = new List<string>();
         string? image = null;
-        string? hostPort = null;
+        PodmanPortBinding? portBinding = null;
         var command = new List<string>();
 
         for (var index = 2; index < arguments.Count; index++)
@@ -221,7 +222,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
                     containerName = ReadOptionValue(arguments, ref index, argument);
                     break;
                 case "-p":
-                    hostPort = ParseHostPort(ReadOptionValue(arguments, ref index, argument));
+                    portBinding = PodmanPortBinding.Parse(ReadOptionValue(arguments, ref index, argument));
                     break;
                 case "-e":
                     environment.Add(ReadOptionValue(arguments, ref index, argument));
@@ -235,7 +236,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
             }
         }
 
-        if (string.IsNullOrWhiteSpace(containerName) || string.IsNullOrWhiteSpace(image) || string.IsNullOrWhiteSpace(hostPort))
+        if (string.IsNullOrWhiteSpace(containerName) || string.IsNullOrWhiteSpace(image) || portBinding is null)
             return Fail("The socket transport could not parse the requested 'podman run' arguments.");
 
         var createRequest = new ContainerCreateRequest(
@@ -251,7 +252,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
                 {
                     ["3306/tcp"] =
                     [
-                        new PortBindingRequest(HostPort: hostPort, HostIp: "0.0.0.0")
+                        new PortBindingRequest(HostPort: portBinding.HostPort, HostIp: portBinding.HostIp)
                     ]
                 }));
 
@@ -337,21 +338,24 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
                 ?? throw new PodmanTransportUnavailableException($"Failed to start '{curlExecutable}'.");
 
             byte[] bodyBytes;
+            string standardError;
+            int exitCode;
             if (captureBinaryBody)
             {
-                using var memory = new MemoryStream();
-                process.StandardOutput.BaseStream.CopyTo(memory);
-                bodyBytes = memory.ToArray();
+                var captured = ProcessOutputCapture.ReadBinaryAsync(process, TimeSpan.FromMinutes(30)).GetAwaiter().GetResult();
+                bodyBytes = captured.StandardOutput;
+                standardError = captured.StandardError;
+                exitCode = captured.ExitCode;
             }
             else
             {
-                bodyBytes = Encoding.UTF8.GetBytes(process.StandardOutput.ReadToEnd());
+                var captured = ProcessOutputCapture.ReadTextAsync(process, TimeSpan.FromMinutes(30)).GetAwaiter().GetResult();
+                bodyBytes = Encoding.UTF8.GetBytes(captured.StandardOutput);
+                standardError = captured.StandardError;
+                exitCode = captured.ExitCode;
             }
 
-            var standardError = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-
-            if (process.ExitCode != 0)
+            if (exitCode != 0)
             {
                 throw new PodmanTransportUnavailableException(
                     $"Could not communicate with the Podman socket '{SocketPath}'. Ensure the Podman service is running.{Environment.NewLine}{standardError}".TrimEnd());
@@ -411,15 +415,6 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
 
         index++;
         return arguments[index];
-    }
-
-    private static string ParseHostPort(string value)
-    {
-        var segments = value.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (segments.Length != 2 || segments[1] != "3306")
-            throw new InvalidOperationException($"Unsupported port mapping '{value}'.");
-
-        return segments[0];
     }
 
     private static string ReadError(PodmanApiResponse response)

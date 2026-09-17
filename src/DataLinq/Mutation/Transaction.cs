@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using DataLinq.Exceptions;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -92,7 +93,7 @@ internal sealed record TransactionFailure(
 /// <summary>
 /// Represents a database transaction.
 /// </summary>
-public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction>
+public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction>
 {
     private static uint transactionCount = 0;
     private readonly List<StateChange> successfulChanges = [];
@@ -100,8 +101,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         new(ReferenceEqualityComparer.Instance);
     private readonly bool isAttachedTransaction;
     private TransactionFailure? failure;
-    private int exclusiveOperationState;
-    private int internalReadThreadId;
+    internal TransactionOperationGate ExecutionGate { get; }
     private int managedCommitFinalizationState;
     private int deferredCommittedStatus;
     private int managedRollbackFinalizationState;
@@ -111,6 +111,52 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     internal bool IsDisposed => Volatile.Read(ref disposeState) != 0;
     internal TransactionFailure? Failure => Volatile.Read(ref failure);
     internal bool IsPoisoned => Failure is not null;
+    private ExecutionFailureContext? asyncFailureContext;
+    internal ExecutionFailureContext? AsyncFailureContext => Volatile.Read(ref asyncFailureContext);
+
+    internal void RecordAsyncReadFailure(TransactionOperationGate.Step owner, ExecutionFailureContext context)
+    {
+        ExecutionGate.ValidateStep(owner);
+        Volatile.Write(ref asyncFailureContext, context);
+    }
+
+    private void EnsureAsyncRecoveryAllowed(string operation, ExecutionRecoveryActions required)
+    {
+        if (DatabaseAccess is IAsyncTransactionCompletion { InitializationState: TransactionInitializationState.Failed or TransactionInitializationState.Disposed })
+            throw new InvalidOperationException($"Cannot {operation} after transaction initialization became unusable; only disposal is permitted.");
+        var context = AsyncFailureContext;
+        if (context is not null && (context.Recovery & required) == 0)
+            throw new InvalidOperationException(
+                $"Cannot {operation} through transaction {TransactionID} after asynchronous execution failed. " +
+                $"Permitted recovery: {context.Recovery}. A released execution slot does not establish transaction integrity.");
+    }
+
+    private void UpdateAsyncRecovery(ExecutionCompletion completion, ExecutionRecoveryActions recovery)
+    {
+        var context = AsyncFailureContext;
+        if (context is not null)
+            Volatile.Write(ref asyncFailureContext, context.AfterRecovery(completion, recovery));
+    }
+
+    private void UpdateAsyncRecoveryAfterCommitFailure()
+    {
+        var context = AsyncFailureContext;
+        if (context is null)
+            return;
+        var recovery = ExecutionRecoveryActions.Dispose;
+        try
+        {
+            if ((context.Recovery & ExecutionRecoveryActions.Rollback) != 0 &&
+                Status is not (DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack))
+                recovery |= ExecutionRecoveryActions.Rollback;
+        }
+        catch
+        {
+            // An unavailable provider state is not evidence that rollback is safe,
+            // and inspecting it must not replace the original completion failure.
+        }
+        UpdateAsyncRecovery(ExecutionCompletion.Unknown, recovery);
+    }
 
     /// <summary>
     /// Gets the ID of the transaction.
@@ -172,6 +218,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         isAttachedTransaction = false;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
+        ExecutionGate = new TransactionOperationGate(TransactionID);
         MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
     }
 
@@ -196,6 +243,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         isAttachedTransaction = true;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
+        ExecutionGate = new TransactionOperationGate(TransactionID);
         MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
     }
 
@@ -427,8 +475,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="query">The query to execute.</param>
     /// <returns>The models returned by the query.</returns>
     public override IEnumerable<T> GetFromQuery<T>(string query)
+        => ReadSequence(this, "execute a query", owner => GetFromQueryCore<T>(query, owner));
+
+    private IEnumerable<T> GetFromQueryCore<T>(string query, TransactionOperationGate.Step? owner)
+        where T : IModel
     {
-        EnsureCanRead("execute a query");
+        using var read = BeginRead(this, "execute a query", owner);
         var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
         foreach (var reader in DatabaseAccess.ReadReader(query))
@@ -450,8 +502,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="dbCommand">The command to execute.</param>
     /// <returns>The models returned by the command.</returns>
     public override IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand)
+        => ReadSequence(this, "execute a command query", owner => GetFromCommandCore<T>(dbCommand, owner));
+
+    private IEnumerable<T> GetFromCommandCore<T>(IDbCommand dbCommand, TransactionOperationGate.Step? owner)
+        where T : IModel
     {
-        EnsureCanRead("execute a command query");
+        using var read = BeginRead(this, "execute a command query", owner);
         var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
         foreach (var reader in DatabaseAccess.ReadReader(dbCommand))
@@ -475,7 +531,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
     private IImmutableInstance? ExecutePreflightedStateChange(StateChange change)
     {
-        BeginExclusiveOperation("execute a mutation");
+        var operation = BeginExclusiveOperation("execute a mutation");
         try
         {
             successfulChanges.EnsureCapacity(successfulChanges.Count + 1);
@@ -502,7 +558,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 }
 
                 failureStage = TransactionFailureStage.Hydration;
-                var immutable = LoadAuthoritativeStateChange(change);
+                var immutable = LoadAuthoritativeStateChange(change, operation);
                 if (!change.HasSameFinalizedMutation())
                 {
                     throw new InvalidOperationException(
@@ -533,13 +589,19 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 throw;
             }
         }
+        catch (Exception failure)
+        {
+            operation.ReportFailure(failure);
+            throw;
+        }
         finally
         {
-            EndExclusiveOperation();
+            operation.Dispose();
         }
     }
 
-    private IImmutableInstance? LoadAuthoritativeStateChange(StateChange change)
+    private IImmutableInstance? LoadAuthoritativeStateChange(
+        StateChange change, TransactionOperationGate.Lease operation)
     {
         if (change.Type == TransactionChangeType.Delete ||
             change.Model is not IMutableLifecycle)
@@ -547,18 +609,11 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             return null;
         }
 
-        BeginInternalRead();
-        try
-        {
-            return Provider
-                .GetTableCache(change.Table)
-                .GetRow(change.PrimaryKeys, this) ??
-                throw new ModelLoadFailureException(change.PrimaryKeys);
-        }
-        finally
-        {
-            EndInternalRead();
-        }
+        using var step = ExecutionGate.EnterStep(operation);
+        return Provider
+            .GetTableCache(change.Table)
+            .GetOwnedRow(change.PrimaryKeys, this, step) ??
+            throw new ModelLoadFailureException(change.PrimaryKeys);
     }
 
     private void FinalizeSuccessfulStateChange(
@@ -612,7 +667,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public void Commit()
     {
-        BeginExclusiveOperation("commit");
+        var operation = BeginExclusiveOperation("commit", completion: true);
         try
         {
             EnsureTransactionCanComplete("commit", rejectPoisoned: true);
@@ -625,6 +680,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 }
                 catch (Exception providerFailure)
                 {
+                    UpdateAsyncRecoveryAfterCommitFailure();
                     var recoveryFailures = FinalizeUncertainCompletionState(
                         MutableTransactionOutcome.CommitOutcomeUnknown,
                         MutableInvalidationReason.CommitOutcomeUnknown);
@@ -636,16 +692,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                     throw;
                 }
 
-                try
-                {
-                    Provider.State.ApplyChanges(successfulChanges);
-                    Provider.State.RemoveTransactionFromCache(this);
-                    PromoteTouchedMutablesAfterCommit();
-                }
-                catch (Exception finalizationFailure)
-                {
-                    ThrowCommittedStateFinalizationFailure(finalizationFailure);
-                }
+                UpdateAsyncRecovery(ExecutionCompletion.Committed, ExecutionRecoveryActions.Dispose);
+                FinalizeCommittedState();
 
                 Volatile.Write(ref managedCommitFinalizationState, 2);
                 PublishDeferredCommittedStatus();
@@ -658,7 +706,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
         finally
         {
-            EndExclusiveOperation();
+            operation.Dispose();
         }
     }
 
@@ -667,7 +715,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public void Rollback()
     {
-        BeginExclusiveOperation("roll back");
+        var operation = BeginExclusiveOperation("roll back", completion: true);
         try
         {
             EnsureTransactionCanComplete("roll back", rejectPoisoned: false);
@@ -700,6 +748,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                     : attachedRollbackWasAmbiguous || !rolledBack
                         ? MutableInvalidationReason.RollbackOutcomeUnknown
                         : MutableInvalidationReason.RolledBack;
+                UpdateAsyncRecovery(outcome == MutableTransactionOutcome.RolledBack
+                    ? ExecutionCompletion.RolledBack : ExecutionCompletion.Unknown, ExecutionRecoveryActions.Dispose);
                 if (outcome != MutableTransactionOutcome.RolledBack &&
                     providerFailure is null)
                 {
@@ -734,7 +784,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
         finally
         {
-            EndExclusiveOperation();
+            operation.Dispose();
         }
     }
 
@@ -748,6 +798,20 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
     private void RegisterTouchedMutable(IMutableLifecycle mutable) =>
         touchedMutables.Add(mutable);
+
+    private void FinalizeCommittedState()
+    {
+        try
+        {
+            Provider.State.ApplyChanges(successfulChanges);
+            Provider.State.RemoveTransactionFromCache(this);
+            PromoteTouchedMutablesAfterCommit();
+        }
+        catch (Exception finalizationFailure)
+        {
+            ThrowCommittedStateFinalizationFailure(finalizationFailure);
+        }
+    }
 
     private void PromoteTouchedMutablesAfterCommit()
     {
@@ -1113,6 +1177,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             allowRollback: false);
         ThrowIfRollbackAttemptFailed($"execute {operation.ToString().ToLowerInvariant()}");
         ThrowIfPoisoned($"execute {operation.ToString().ToLowerInvariant()}");
+        EnsureAsyncRecoveryAllowed($"execute {operation.ToString().ToLowerInvariant()}", ExecutionRecoveryActions.Continue);
     }
 
     internal void EnsureMutationCommitOutcomeKnown(TransactionChangeType operation)
@@ -1126,7 +1191,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             allowRollback: false);
     }
 
-    internal void EnsureCanRead(string operation)
+    internal void EnsureCanRead(string operation, TransactionOperationGate.Step? owner = null)
     {
         if (IsDisposed)
             throw new ObjectDisposedException(nameof(Transaction));
@@ -1149,10 +1214,13 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         ThrowIfRollbackAttemptFailed(operation);
 
-        if (Volatile.Read(ref internalReadThreadId) != Environment.CurrentManagedThreadId)
+        if (owner is null)
             ThrowIfOperationInProgress(operation);
+        else
+            ExecutionGate.ValidateStep(owner);
 
         ThrowIfPoisoned(operation);
+        EnsureAsyncRecoveryAllowed(operation, ExecutionRecoveryActions.Continue);
     }
 
     internal void EnsureTerminalReadSourceFallbackAllowed(string operation)
@@ -1160,6 +1228,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         EnsureAttachedTransactionNotCompletedExternally(operation);
         ThrowIfExternalCompletionUnknown(operation);
         ThrowIfCommitOutcomeUnknown(operation, allowRollback: false);
+        var asyncContext = AsyncFailureContext;
+        if (asyncContext is not null && asyncContext.Completion is not (ExecutionCompletion.Committed or ExecutionCompletion.RolledBack))
+            EnsureAsyncRecoveryAllowed(operation, ExecutionRecoveryActions.Continue);
 
         if (MutableOwnership.Outcome is
             MutableTransactionOutcome.RollbackOutcomeUnknown or
@@ -1216,41 +1287,31 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         ThrowIfRollbackAttemptFailed(operation);
 
+        EnsureAsyncRecoveryAllowed(operation, rejectPoisoned ? ExecutionRecoveryActions.Continue : ExecutionRecoveryActions.Rollback);
         if (rejectPoisoned)
         {
             ThrowIfPoisoned(operation);
         }
     }
 
-    private void BeginExclusiveOperation(string operation)
+    private TransactionOperationGate.Lease BeginExclusiveOperation(string operation, bool completion = false)
     {
         if (IsDisposed)
             throw new ObjectDisposedException(nameof(Transaction));
 
-        if (Interlocked.CompareExchange(ref exclusiveOperationState, 1, 0) != 0)
-        {
-            throw new InvalidOperationException(
-                $"Cannot {operation} through transaction {TransactionID} while another managed transaction operation is being finalized.");
-        }
+        var lease = ExecutionGate.Enter(operation, completion);
 
         if (IsDisposed)
         {
-            EndExclusiveOperation();
+            lease.Dispose();
             throw new ObjectDisposedException(nameof(Transaction));
         }
+
+        return lease;
     }
 
-    private void EndExclusiveOperation() =>
-        Volatile.Write(ref exclusiveOperationState, 0);
-
-    private void ThrowIfOperationInProgress(string operation)
-    {
-        if (Volatile.Read(ref exclusiveOperationState) == 0)
-            return;
-
-        throw new InvalidOperationException(
-            $"Cannot {operation} through transaction {TransactionID} while another managed transaction operation is being finalized.");
-    }
+    private void ThrowIfOperationInProgress(string operation) =>
+        ExecutionGate.ThrowIfBusy(operation);
 
     private void ThrowIfRollbackAttemptFailed(string operation)
     {
@@ -1301,19 +1362,6 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             "DataLinq cannot infer whether it committed or rolled back. Only Dispose() remains legal; materialize fresh committed rows before retrying through a new transaction.");
     }
 
-    private void BeginInternalRead()
-    {
-        var threadId = Environment.CurrentManagedThreadId;
-        if (Interlocked.CompareExchange(ref internalReadThreadId, threadId, 0) != 0)
-        {
-            throw new InvalidOperationException(
-                $"Transaction {TransactionID} cannot start a second authoritative-row read while finalizing a mutation.");
-        }
-    }
-
-    private void EndInternalRead() =>
-        Volatile.Write(ref internalReadThreadId, 0);
-
     private void ThrowIfPoisoned(string operation)
     {
         var transactionFailure = Failure;
@@ -1341,9 +1389,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     public void Dispose()
     {
         if (IsDisposed)
+        {
+            ExecutionGate.ThrowIfActive("dispose");
             return;
+        }
 
-        BeginExclusiveOperation("dispose");
+        var operation = BeginExclusiveOperation("dispose", completion: true);
         try
         {
             if (Interlocked.Exchange(ref disposeState, 1) != 0)
@@ -1438,7 +1489,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
         finally
         {
-            EndExclusiveOperation();
+            if (IsDisposed)
+                UpdateAsyncRecovery(AsyncFailureContext?.Completion ?? ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.None);
+            operation.Dispose();
         }
     }
 

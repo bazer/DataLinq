@@ -71,6 +71,86 @@ public sealed class ScalarConverterGeneratorTests : GeneratorTestBase
             "global::DataLinq.Instances.KeyFactory.CreateKeyFromModelValues([tenant, id], [DataLinqColumn_Tenant, DataLinqColumn_Id])");
         await Assert.That(code).Contains(
             "public static ScalarRow? Get(int tenant, CustomerId id, IDataSourceAccess dataSource)");
+        await Assert.That(code).Contains(
+            "KeyFactory.CreateKeyFromModelValue(tenant, ScalarRow.DataLinqColumn_Tenant).Equals(");
+        await Assert.That(code).Contains(
+            "DataLinqKey.FromValue(model.PrimaryKeys().GetValue(0))");
+        await Assert.That(code).Contains(
+            "KeyFactory.CreateKeyFromModelValue(id, ScalarRow.DataLinqColumn_Id).Equals(");
+        await Assert.That(code).Contains(
+            "DataLinqKey.FromValue(model.PrimaryKeys().GetValue(1))");
+        await Assert.That(code).DoesNotContain("mutable.Tenant = tenant;");
+        await Assert.That(code).DoesNotContain("mutable.Id = id;");
+    }
+
+    [Test]
+    public async Task MutateOrNew_UsesCanonicalComparisonForGuidTypedAndBinaryKeyComponents()
+    {
+        var source = Parse(
+            """
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace ScalarGenerator;
+
+            public readonly record struct CustomerId(int Value);
+
+            public sealed class CustomerIdConverter : DataLinqScalarConverter<CustomerId, int>
+            {
+                public override int ToProvider(CustomerId value, in ScalarConversionContext context) => value.Value;
+                public override CustomerId FromProvider(int value, in ScalarConversionContext context) => new(value);
+            }
+
+            [Database("mixed_keys")]
+            public partial class MixedKeyDb(DataSourceAccess dataSource) : IDatabaseModel<MixedKeyDb>
+            {
+                public DbRead<MixedKeyRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("mixed_key_rows")]
+            public abstract partial class MixedKeyRow(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<MixedKeyRow, MixedKeyDb>(rowData, dataSource), ITableModel<MixedKeyDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.SQLite, "TEXT")]
+                [GuidStorage(GuidStorageFormat.Text36)]
+                [Column("guid_key")]
+                public abstract System.Guid GuidKey { get; }
+
+                [PrimaryKey]
+                [Type(DatabaseType.SQLite, "INTEGER")]
+                [ScalarConverter(typeof(CustomerIdConverter))]
+                [Column("typed_key")]
+                public abstract CustomerId TypedKey { get; }
+
+                [PrimaryKey]
+                [Type(DatabaseType.SQLite, "BLOB")]
+                [Column("binary_key")]
+                public abstract byte[] BinaryKey { get; }
+
+                [Type(DatabaseType.SQLite, "TEXT")]
+                [Column("name")]
+                public abstract string Name { get; }
+            }
+            """);
+
+        var (outputCompilation, diagnostics, generatedTrees) = RunGeneratorAgainstRuntimeWithDiagnostics([source]);
+        var code = string.Join(Environment.NewLine, generatedTrees.Select(static tree => tree.ToString()));
+
+        await AssertNoErrors(outputCompilation, diagnostics);
+        await Assert.That(code).Contains(
+            "KeyFactory.CreateKeyFromModelValue(guidKey, MixedKeyRow.DataLinqColumn_GuidKey).Equals(");
+        await Assert.That(code).Contains(
+            "KeyFactory.CreateKeyFromModelValue(typedKey, MixedKeyRow.DataLinqColumn_TypedKey).Equals(");
+        await Assert.That(code).Contains(
+            "KeyFactory.CreateKeyFromModelValue(binaryKey, MixedKeyRow.DataLinqColumn_BinaryKey).Equals(");
+        await Assert.That(code).Contains("mutable.Name = name;");
+        await Assert.That(code).DoesNotContain("mutable.GuidKey = guidKey;");
+        await Assert.That(code).DoesNotContain("mutable.TypedKey = typedKey;");
+        await Assert.That(code).DoesNotContain("mutable.BinaryKey = binaryKey;");
     }
 
     [Test]

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Cache;
 using DataLinq.Instances;
@@ -119,6 +121,84 @@ public class ProviderKeyRowStoreTests
         await Assert.That(cache.TryRemoveProviderKey(removalKey, out var rowsRemoved)).IsTrue();
         await Assert.That(rowsRemoved).IsEqualTo(1);
         await Assert.That(cache.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task RowStore_EvictionPreservesAgeOrderAcrossRemovalAndReplacement()
+    {
+        long tick = 10;
+        var store = new RowStore<int>(() => tick);
+        var row = new TestImmutableInstance(DataLinqKey.FromValue(1));
+        store.TryAdd(3, 10, 0, row);
+        store.TryAdd(1, 20, 0, row);
+        store.TryAdd(2, 30, 0, row);
+        store.TryRemove(1, out _);
+        tick = 20;
+        store.TryAdd(1, 40, 0, row);
+
+        await Assert.That(store.RemoveRowsOverRowLimitAndReturnKeys(2).Single()).IsEqualTo(DataLinqKey.FromValue(3));
+        await Assert.That(store.RemoveRowsOverSizeLimitAndReturnKeys(40).Single()).IsEqualTo(DataLinqKey.FromValue(2));
+        await Assert.That(store.RowPayloadBytes).IsEqualTo(40L);
+        await Assert.That(store.OldestTick).IsEqualTo(20L);
+        await Assert.That(store.NewestTick).IsEqualTo(20L);
+        await Assert.That(store.TryGet(1, out var retained)).IsTrue();
+        await Assert.That(retained).IsSameReferenceAs(row);
+        await Assert.That(store.RemoveOldestRows(0).Count).IsEqualTo(0);
+        await Assert.That(store.RemoveOldestRows(10).Single()).IsEqualTo(DataLinqKey.FromValue(1));
+        await Assert.That(store.RowPayloadBytes).IsEqualTo(0L);
+        await Assert.That(store.OldestTick).IsNull();
+        await Assert.That(store.NewestTick).IsNull();
+        await Assert.That(store.GetMemoryEstimate()).IsEqualTo(new RowStore<int>().GetMemoryEstimate());
+    }
+
+    [Test]
+    public async Task RowStore_AgeCutoffHandlesClockRollbackAndEqualTimestamps()
+    {
+        long tick = 30;
+        var store = new RowStore<int>(() => tick);
+        var row = new TestImmutableInstance(DataLinqKey.FromValue(1));
+        store.TryAdd(1, 8, 0, row);
+        tick = 10;
+        store.TryAdd(2, 8, 0, row);
+        tick = 20;
+        store.TryAdd(3, 8, 0, row);
+        store.TryAdd(4, 8, 0, row);
+        await Assert.That(store.OldestTick).IsEqualTo(10L);
+        await Assert.That(store.NewestTick).IsEqualTo(30L);
+        await Assert.That(store.RemoveRowsInsertedBeforeTickAndReturnKeys(20).Single()).IsEqualTo(DataLinqKey.FromValue(2));
+        await Assert.That(store.RemoveOldestRows(3).SequenceEqual(new[] { 3, 4, 1 }.Select(DataLinqKey.FromValue))).IsTrue();
+        store.TryAdd(5, 8, 0, row);
+        store.Clear();
+        await Assert.That(store.RemoveOldestRows(1).Count).IsEqualTo(0);
+        await Assert.That(store.GetMemoryEstimate()).IsEqualTo(new RowStore<int>().GetMemoryEstimate());
+    }
+
+    [Test]
+    public async Task RowStore_ConcurrentLookupChurnAndEvictionKeepAccountingConsistent()
+    {
+        var store = new RowStore<int>();
+        var row = new TestImmutableInstance(DataLinqKey.FromValue(1));
+        using var start = new ManualResetEventSlim();
+        var tasks = Enumerable.Range(0, 4).Select(worker => Task.Run(() =>
+        {
+            start.Wait();
+            for (var i = 0; i < 10_000; i++)
+            {
+                var key = worker * 10_000 + i;
+                store.TryAdd(key, 8, 0, row);
+                store.TryGet(key, out _);
+                if ((i & 1) == 0)
+                    store.TryRemove(key, out _);
+                store.RemoveRowsOverRowLimit(128);
+            }
+        })).ToArray();
+        start.Set();
+        await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(30));
+        await Assert.That(store.Count <= 128).IsTrue();
+        await Assert.That(store.RowPayloadBytes).IsEqualTo(store.Count * 8L);
+        await Assert.That(store.Rows.Count()).IsEqualTo(store.Count);
+        store.Clear();
+        await Assert.That(store.GetMemoryEstimate()).IsEqualTo(new RowStore<int>().GetMemoryEstimate());
     }
 
     private static async Task AssertProviderKeyRoundTrip<TKey>(DataLinqKey key, TKey providerKey)

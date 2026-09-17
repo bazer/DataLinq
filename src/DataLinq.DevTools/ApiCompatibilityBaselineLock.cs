@@ -11,12 +11,14 @@ namespace DataLinq.DevTools;
 internal static class ApiCompatibilityBaselineLock
 {
     public const string SchemaVersion = "v0.9.api-package-baseline-lock.v2";
+    public const string V010SchemaVersion = "v0.10.api-package-baseline-lock.v1";
 
     public static ApiCompatibilityBaselineLockReport Load(
         string path,
         string expectedVersion,
         IReadOnlyCollection<string> expectedPackageIds,
-        IReadOnlyCollection<string>? expectedDispositionPackageIds = null)
+        IReadOnlyCollection<string>? expectedDispositionPackageIds = null,
+        string expectedSchemaVersion = SchemaVersion)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedVersion);
@@ -50,13 +52,14 @@ internal static class ApiCompatibilityBaselineLock
             throw new InvalidDataException($"API baseline lock '{canonicalPath}' is empty.");
 
         var issues = new List<string>();
-        RequireExact(document.SchemaVersion, SchemaVersion, "schemaVersion", issues);
+        RequireExact(document.SchemaVersion, expectedSchemaVersion, "schemaVersion", issues);
         RequireExact(document.BaselineVersion, expectedVersion, "baselineVersion", issues);
         RequireNonblank(document.PackageSource, "packageSource", issues);
         RequireNonblank(document.RepositoryUrl, "repositoryUrl", issues);
         RequireGitCommit(document.RepositoryCommit, "repositoryCommit", issues);
         RequireNonblank(document.RepositoryTag, "repositoryTag", issues);
-        RequireExact(document.RepositoryTagObjectType, "commit", "repositoryTagObjectType", issues);
+        if (expectedSchemaVersion != V010SchemaVersion || document.RepositoryTagObjectType != "tag")
+            RequireExact(document.RepositoryTagObjectType, "commit", "repositoryTagObjectType", issues);
         RequireNonblank(document.ProvenanceNote, "provenanceNote", issues);
 
         var expectedIds = expectedPackageIds.ToHashSet(StringComparer.OrdinalIgnoreCase);

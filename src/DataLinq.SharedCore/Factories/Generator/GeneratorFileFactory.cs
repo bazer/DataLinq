@@ -1433,12 +1433,38 @@ public class GeneratorFileFactory
         {
             var constructorParams = requiredProps.Select(GetConstructorParam).ToJoinedString(", ");
             var constructorArgs = requiredProps.Select(v => v.Column.ValueProperty.PropertyName.ToCamelCase()).ToJoinedString(", ");
+            var requiredPrimaryKeys = model.Table.PrimaryKeyColumns
+                .Select((column, index) => (Property: column.ValueProperty, Index: index))
+                .Where(primaryKey => requiredProps.Contains(primaryKey.Property))
+                .ToList();
+            var requiredNonPrimaryKeys = requiredProps
+                .Where(property => !property.Column.PrimaryKey)
+                .ToList();
 
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name}{GetUseNullableReferenceTypes()} model, {constructorParams}) => model is null ? new Mutable{model.CsType.Name}({constructorArgs}) : model.Mutate(x =>";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name}{GetUseNullableReferenceTypes()} model, {constructorParams})";
             yield return $"{namespaceTab}{tab}{{";
-            foreach (var v in requiredProps)
-                yield return $"{namespaceTab}{tab}{tab}x.{v.PropertyName} = {v.Column.ValueProperty.PropertyName.ToCamelCase()};";
-            yield return $"{namespaceTab}{tab}}});";
+            yield return $"{namespaceTab}{tab}{tab}if (model is null)";
+            yield return $"{namespaceTab}{tab}{tab}{tab}return new Mutable{model.CsType.Name}({constructorArgs});";
+
+            foreach (var primaryKey in requiredPrimaryKeys)
+            {
+                var property = primaryKey.Property;
+                var parameterName = property.PropertyName.ToCamelCase();
+                var columnHandle = GetGeneratedColumnHandleName(property);
+                var message = $"Primary-key argument '{parameterName}' does not match the existing {model.CsType.Name} row's authoritative key.";
+
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}if (!global::DataLinq.Instances.KeyFactory.CreateKeyFromModelValue({parameterName}, {model.CsType.Name}.{columnHandle}).Equals(";
+                yield return $"{namespaceTab}{tab}{tab}{tab}global::DataLinq.Instances.DataLinqKey.FromValue(model.PrimaryKeys().GetValue({primaryKey.Index.ToString(CultureInfo.InvariantCulture)}))))";
+                yield return $"{namespaceTab}{tab}{tab}{tab}throw new global::System.ArgumentException({FormatStringLiteral(message)}, nameof({parameterName}));";
+            }
+
+            yield return "";
+            yield return $"{namespaceTab}{tab}{tab}var mutable = new Mutable{model.CsType.Name}(model);";
+            foreach (var property in requiredNonPrimaryKeys)
+                yield return $"{namespaceTab}{tab}{tab}mutable.{property.PropertyName} = {property.PropertyName.ToCamelCase()};";
+            yield return $"{namespaceTab}{tab}{tab}return mutable;";
+            yield return $"{namespaceTab}{tab}}}";
             yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name}{GetUseNullableReferenceTypes()} model, {constructorParams}, Action<Mutable{model.CsType.Name}> changes) => model.MutateOrNew({constructorArgs}).Mutate(changes);";
         }
         else

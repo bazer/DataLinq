@@ -36,6 +36,10 @@ public partial class TableCache
     private int ApplyTransactionChanges(IReadOnlyList<StateChange> changes, Transaction transaction)
     {
         var startedAt = Stopwatch.GetTimestamp();
+        // Inserts can invalidate an in-flight empty relation load even when there
+        // is no transaction-local row to remove.
+        lock (publicationGate)
+            AdvanceReadGeneration();
         var impactBuilder = new CacheInvalidationImpactBuilder();
         var numRows = 0;
 

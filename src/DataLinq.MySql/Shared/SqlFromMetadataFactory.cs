@@ -17,6 +17,9 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
     protected abstract DatabaseType DatabaseType { get; }
     internal DatabaseType ProviderDatabaseType => DatabaseType;
 
+    /// <summary>Set when generated SQL will execute with NO_BACKSLASH_ESCAPES enabled.</summary>
+    public bool NoBackslashEscapes { get; set; }
+
     public static SqlFromMetadataFactory GetFactoryFromDatabaseType(DatabaseType databaseType)
     {
         if (databaseType == DatabaseType.MariaDB)
@@ -35,8 +38,8 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         connection.Open();
         var command = connection.CreateCommand();
 
-        command.CommandText = $"CREATE DATABASE IF NOT EXISTS `{databaseName}`;\n" +
-            $"USE `{databaseName}`;\n" +
+        command.CommandText = $"CREATE DATABASE IF NOT EXISTS {SqlIdentifier.Quote(databaseName, "`")};\n" +
+            $"USE {SqlIdentifier.Quote(databaseName, "`")};\n" +
             sql.Text;
 
         return command.ExecuteNonQuery();
@@ -44,7 +47,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
     public virtual Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
-        var sql = new MySqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
+        var sql = new MySqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n", NoBackslashEscapes);
         //sql.CreateDatabase(metadata.DbName);
 
         foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
@@ -77,7 +80,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
                 .Type(dbType.Name.ToUpper(), column.DbName, longestName);
 
             if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
-                sql.EnumValues(column.ValueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => x.name));
+                sql.EnumValues(column.ValueProperty.EnumProperty.Value.DbValuesOrCsValues.Select(x => x.name));
 
             if (!NoLengthTypes.Contains(dbType.Name.ToLower()) && dbType.Length.HasValue && dbType.Length != 0)
                 sql.TypeLength(dbType.Length, dbType.Decimals);
@@ -163,7 +166,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         {
             var enumDefaultValue = ResolveEnumDefaultValue(column.ValueProperty, defaultAttr);
             if (enumDefaultValue != null)
-                return $"'{enumDefaultValue.Replace("'", "''")}'";
+                return QuoteSqlString(enumDefaultValue);
         }
 
         var dbType = GetDbType(column);
@@ -188,7 +191,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             "TimeOnly" => QuoteSqlString(((TimeOnly)defaultAttr.Value).ToString("HH:mm:ss", CultureInfo.InvariantCulture)),
             "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
             "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
-            "TimeSpan" => QuoteSqlString(((TimeSpan)defaultAttr.Value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture)),
+            "TimeSpan" => QuoteSqlString(FormatTimeSpanDefaultValue((TimeSpan)defaultAttr.Value)),
             _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
         };
     }
@@ -214,7 +217,22 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             : checks.Where(x => x.DatabaseType == DatabaseType.Default);
     }
 
-    private static string QuoteSqlString(string value) => $"'{value.Replace("'", "''")}'";
+    private string QuoteSqlString(string value) => MySqlGeneration.QuoteString(value, NoBackslashEscapes);
+
+    private static string FormatTimeSpanDefaultValue(TimeSpan value)
+    {
+        if (value.Ticks % 10 != 0)
+            throw new InvalidOperationException("MySQL TIME defaults cannot represent fractions smaller than one microsecond.");
+
+        // Divide before taking the absolute value so even TimeSpan.MinValue cannot overflow.
+        var hours = Math.Abs(value.Ticks / TimeSpan.TicksPerHour);
+        var remainder = Math.Abs(value.Ticks % TimeSpan.TicksPerHour);
+        var minutes = remainder / TimeSpan.TicksPerMinute;
+        var seconds = (remainder % TimeSpan.TicksPerMinute) / TimeSpan.TicksPerSecond;
+        var microseconds = (remainder % TimeSpan.TicksPerSecond) / 10;
+        var fraction = microseconds == 0 ? "" : "." + microseconds.ToString("D6", CultureInfo.InvariantCulture).TrimEnd('0');
+        return FormattableString.Invariant($"{(value.Ticks < 0 ? "-" : "")}{hours:D2}:{minutes:D2}:{seconds:D2}{fraction}");
+    }
 
     private static string FormatBooleanDefaultValue(object value, DatabaseColumnType dbType)
     {

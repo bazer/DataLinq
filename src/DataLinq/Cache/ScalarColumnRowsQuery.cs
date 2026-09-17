@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Data;
 using System.Threading;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -35,20 +36,41 @@ internal sealed class ScalarColumnRowsQuery(
 
     public IDbCommand ToDbCommand() => dataSource.Provider.ToDbCommand(this);
 
-    internal RowData? ReadFirstRow()
+    internal RowData? ReadFirstRow(TransactionOperationGate.Step? owner = null)
     {
-        DataSourceAccess.EnsureReadAllowed(dataSource, "read a cache row");
-        using var command = ToDbCommand();
-        using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
+        using var read = DataSourceAccess.BeginRead(dataSource, "read a cache row", owner);
+        try
+        {
+            using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
+            var stage = ExecutionFailureStage.Validation;
+            try
+            {
+                var command = resources.OwnCommand(ToDbCommand());
+                stage = ExecutionFailureStage.CommandExecution;
+                var reader = resources.OwnReader(dataSource.DatabaseAccess.ExecuteReader(command));
+                stage = ExecutionFailureStage.RowLoading;
 
-        return reader.ReadNextRow()
-            ? new RowData(
-                reader,
-                table,
-                table.Columns,
-                true,
-                $"sql:{dataSource.Provider.DatabaseType}:cache-scalar-row")
-            : null;
+                if (!reader.ReadNextRow())
+                    return null;
+                stage = ExecutionFailureStage.Materialization;
+                return new RowData(
+                        reader,
+                        table,
+                        table.Columns,
+                        true,
+                        $"sql:{dataSource.Provider.DatabaseType}:cache-scalar-row");
+            }
+            catch (Exception failure)
+            {
+                resources.RecordFailure(failure, stage);
+                throw;
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     private string GetSqlText(string parameterName)
@@ -106,9 +128,7 @@ internal sealed class ScalarColumnRowsQuery(
     private void AddColumn(Sql sql, ColumnDefinition column)
     {
         var escapeCharacter = dataSource.Provider.Constants.EscapeCharacter;
-        sql.AddText(escapeCharacter);
-        sql.AddText(column.DbName);
-        sql.AddText(escapeCharacter);
+        SqlIdentifier.Append(sql, column.DbName, escapeCharacter);
     }
 
     private readonly record struct ScalarColumnRowsQueryTemplateKey(

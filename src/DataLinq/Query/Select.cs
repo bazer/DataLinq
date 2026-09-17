@@ -1,17 +1,18 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 
 namespace DataLinq.Query;
 
-public class Select<T> : IQuery
+public partial class Select<T> : IQuery
 {
     protected readonly SqlQuery<T> query;
     public SqlQuery<T> Query => query;
@@ -71,7 +72,7 @@ public class Select<T> : IQuery
         sql.AddText("(");
         sql.AddText(derivedSourceSql.Text);
         sql.AddText(") ");
-        sql.AddText(query.Alias ?? throw new InvalidOperationException("A derived query source requires an alias."));
+        SqlIdentifier.Append(sql, query.Alias ?? throw new InvalidOperationException("A derived query source requires an alias."), query.EscapeCharacter);
         sql.Parameters.AddRange(derivedSourceSql.Parameters);
     }
 
@@ -84,7 +85,7 @@ public class Select<T> : IQuery
             for (var i = 0; i < whatList.Count; i++)
             {
                 AddColumnSeparator(sql, i);
-                if (whatList[i].StartsWith(query.EscapeCharacter, StringComparison.Ordinal))
+                if (query.Table.TryGetColumnByDbName(SqlIdentifier.Unquote(whatList[i], query.EscapeCharacter), out _))
                     AddColumnPrefix(sql, alias);
 
                 sql.AddText(whatList[i]);
@@ -98,9 +99,7 @@ public class Select<T> : IQuery
         {
             AddColumnSeparator(sql, i);
             AddColumnPrefix(sql, alias);
-            sql.AddText(query.EscapeCharacter);
-            sql.AddText(columns[i].DbName);
-            sql.AddText(query.EscapeCharacter);
+            SqlIdentifier.Append(sql, columns[i].DbName, query.EscapeCharacter);
         }
     }
 
@@ -110,12 +109,12 @@ public class Select<T> : IQuery
             sql.AddText(", ");
     }
 
-    private static void AddColumnPrefix(Sql sql, string? alias)
+    private void AddColumnPrefix(Sql sql, string? alias)
     {
         if (alias is null)
             return;
 
-        sql.AddText(alias);
+        SqlIdentifier.Append(sql, alias, query.EscapeCharacter);
         sql.AddText(".");
     }
 
@@ -141,19 +140,46 @@ public class Select<T> : IQuery
     public IEnumerable<IDataLinqDataReader> ReadReader()
         => ReadReader(CancellationToken.None);
 
-    internal IEnumerable<IDataLinqDataReader> ReadReader(CancellationToken cancellationToken)
+    internal IEnumerable<IDataLinqDataReader> ReadReader(
+        CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null) =>
+        DataSourceAccess.ReadSequence(query.DataSource, "read query rows",
+            step => ReadReaderCore(cancellationToken, step), owner, cancellationToken);
+
+    private IEnumerable<IDataLinqDataReader> ReadReaderCore(
+        CancellationToken cancellationToken, TransactionOperationGate.Step? owner)
     {
-        DataSourceAccess.EnsureReadAllowed(query.DataSource, "read query rows");
-        cancellationToken.ThrowIfCancellationRequested();
-        using var command = ToDbCommand();
-        cancellationToken.ThrowIfCancellationRequested();
-        using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
+        using var read = DataSourceAccess.BeginRead(
+            query.DataSource, "read query rows", owner, cancellationToken);
+        using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+        IDataLinqDataReader reader;
+        var stage = ExecutionFailureStage.Validation;
+        try
+        {
+            var command = resources.OwnCommand(ToDbCommand());
+            cancellationToken.ThrowIfCancellationRequested();
+            stage = ExecutionFailureStage.CommandExecution;
+            reader = resources.OwnReader(query.DataSource.DatabaseAccess.ExecuteReader(command));
+        }
+        catch (Exception failure)
+        {
+            resources.RecordFailure(failure, stage);
+            throw;
+        }
 
         while (true)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var hasRow = reader.ReadNextRow();
-            cancellationToken.ThrowIfCancellationRequested();
+            bool hasRow;
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                hasRow = reader.ReadNextRow();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            catch (Exception failure)
+            {
+                resources.RecordFailure(failure, ExecutionFailureStage.RowLoading);
+                throw;
+            }
             if (!hasRow)
                 yield break;
 
@@ -161,13 +187,18 @@ public class Select<T> : IQuery
         }
     }
 
-    public IEnumerable<RowData> ReadRows()
+    public IEnumerable<RowData> ReadRows() => ReadRows(owner: null);
+
+    internal IEnumerable<RowData> ReadRows(TransactionOperationGate.Step? owner) =>
+        DataSourceAccess.ReadSequence(query.DataSource, "read query rows", ReadRowsCore, owner);
+
+    private IEnumerable<RowData> ReadRowsCore(TransactionOperationGate.Step? owner)
     {
         // Resolve the actual columns being fetched to ensure the RowData 
         // reader aligns with the DataReader's fields.
         var columnsToRead = GetColumnsToRead();
 
-        foreach (var reader in ReadReader())
+        foreach (var reader in ReadReader(default, owner))
             yield return new RowData(
                 reader,
                 query.Table,
@@ -177,23 +208,47 @@ public class Select<T> : IQuery
     }
 
     public RowData? ReadFirstRow()
+        => ReadFirstRow(owner: null);
+
+    internal RowData? ReadFirstRow(TransactionOperationGate.Step? owner)
     {
-        DataSourceAccess.EnsureReadAllowed(query.DataSource, "read the first query row");
-        // Resolve the actual columns being fetched to ensure the RowData
-        // reader aligns with the DataReader's fields.
-        var columnsToRead = GetColumnsToRead();
+        using var read = DataSourceAccess.BeginRead(query.DataSource, "read the first query row", owner);
+        try
+        {
+            using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+            var stage = ExecutionFailureStage.Validation;
+            try
+            {
+                // Resolve the actual columns being fetched to ensure the RowData
+                // reader aligns with the DataReader's fields.
+                var columnsToRead = GetColumnsToRead();
 
-        using var command = query.DataSource.Provider.ToDbCommand(this);
-        using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
+                var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
+                stage = ExecutionFailureStage.CommandExecution;
+                var reader = resources.OwnReader(query.DataSource.DatabaseAccess.ExecuteReader(command));
+                stage = ExecutionFailureStage.RowLoading;
 
-        return reader.ReadNextRow()
-            ? new RowData(
-                reader,
-                query.Table,
-                columnsToRead,
-                true,
-                $"sql:{query.DataSource.Provider.DatabaseType}:select-first-row")
-            : null;
+                if (!reader.ReadNextRow())
+                    return null;
+                stage = ExecutionFailureStage.Materialization;
+                return new RowData(
+                        reader,
+                        query.Table,
+                        columnsToRead,
+                        true,
+                        $"sql:{query.DataSource.Provider.DatabaseType}:select-first-row");
+            }
+            catch (Exception failure)
+            {
+                resources.RecordFailure(failure, stage);
+                throw;
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     private IReadOnlyList<ColumnDefinition> GetColumnsToRead()
@@ -210,7 +265,7 @@ public class Select<T> : IQuery
         foreach (var what in query.WhatList)
         {
             // Strip escape characters to match against DbName
-            var cleanName = what.Replace(escape, "");
+            var cleanName = SqlIdentifier.Unquote(what, escape);
 
             // Find the matching column. 
             // Note: If 'what' is a raw SQL expression (e.g. "COUNT(*)"), this will be null.
@@ -241,15 +296,10 @@ public class Select<T> : IQuery
         return definitions;
     }
 
-    private List<OrderBy> GetCacheOrderings()
-        => query.OrderByList
-            .Where(static ordering => ordering.Column is not null)
-            .Select(static ordering => new OrderBy(ordering.Column!, alias: null, ordering.Ascending))
-            .ToList();
-
     public IEnumerable<DataLinqKey> ReadKeys()
     {
-        return KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns);
+        return DataSourceAccess.ReadSequence(query.DataSource, "read query keys",
+            owner => KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns, owner));
     }
 
     //public IEnumerable<DataLinqKey> ReadForeignKeys(ColumnIndex foreignKeyIndex)
@@ -260,11 +310,16 @@ public class Select<T> : IQuery
     //}
 
     public IEnumerable<(DataLinqKey fk, DataLinqKey[] pks)> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
+        => DataSourceAccess.ReadSequence(query.DataSource, "read query key groups",
+            owner => ReadPrimaryAndForeignKeysCore(foreignKeyIndex, owner));
+
+    private IEnumerable<(DataLinqKey fk, DataLinqKey[] pks)> ReadPrimaryAndForeignKeysCore(
+        ColumnIndex foreignKeyIndex, TransactionOperationGate.Step? owner)
     {
         var columnsToRead = GetPrimaryAndForeignKeyColumns(foreignKeyIndex);
         var primaryKeysByForeignKey = new Dictionary<DataLinqKey, List<DataLinqKey>>();
 
-        foreach (var reader in ReadReader())
+        foreach (var reader in ReadReader(default, owner))
         {
             var row = new RowData(
                 reader,
@@ -308,10 +363,17 @@ public class Select<T> : IQuery
     }
 
     public IEnumerable<V> ExecuteAs<V>() =>
-        Execute().Select(x => (V)x);
+        DataSourceAccess.ReadSequence(query.DataSource, "execute a typed entity query",
+            owner => ExecuteCore(owner).Select(x => (V)x));
 
-    public IEnumerable<IImmutableInstance> Execute()
+    public IEnumerable<IImmutableInstance> Execute() => Execute(owner: null);
+
+    internal IEnumerable<IImmutableInstance> Execute(TransactionOperationGate.Step? owner) =>
+        DataSourceAccess.ReadSequence(query.DataSource, "execute an entity query", ExecuteCore, owner);
+
+    private IEnumerable<IImmutableInstance> ExecuteCore(TransactionOperationGate.Step? owner)
     {
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute an entity query", owner);
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,
@@ -330,20 +392,20 @@ public class Select<T> : IQuery
                 var tableCache = query.DataSource.Provider.GetTableCache(query.Table);
 
                 if (query.TryGetSimpleScalarPrimaryKey(out var simpleScalarKey) &&
-                    tableCache.TryGetRowFromProviderKeyValue(simpleScalarKey, query.DataSource, out var scalarRow))
+                    tableCache.TryGetRowFromProviderKeyValue(simpleScalarKey, query.DataSource, out var scalarRow, owner))
                 {
                     if (scalarRow is not null)
                         yield return scalarRow;
                 }
                 else if (query.TryGetSimplePrimaryKey() is DataLinqKey simpleKey)
                 {
-                    var row = tableCache.GetRow(simpleKey, query.DataSource);
+                    var row = tableCache.GetRow(simpleKey, query.DataSource, owner);
                     if (row is not null)
                         yield return row;
                 }
                 else if (!query.HasDerivedSource &&
                     !query.HasJoins &&
-                    tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, GetCacheOrderings(), out var providerKeyRows))
+                    tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, out var providerKeyRows, owner))
                 {
                     foreach (var row in providerKeyRows)
                         yield return row;
@@ -351,16 +413,16 @@ public class Select<T> : IQuery
                 else
                 {
                     this.What(query.Table.PrimaryKeyColumns);
-                    var keys = this.ReadKeys().ToArray();
-                    var orderings = query.HasJoins ? null : GetCacheOrderings();
-
-                    foreach (var row in tableCache.GetRows(keys, query.DataSource, orderings: orderings))
+                    var keys = KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns, owner).ToArray();
+                    // The database has already applied ordering, collation, and paging.
+                    // Replay that key sequence instead of sorting cached models in the CLR.
+                    foreach (var row in tableCache.GetRows(keys, query.DataSource, owner: owner))
                         yield return row;
                 }
             }
             else
             {
-                foreach (var rowData in this.ReadRows())
+                foreach (var rowData in this.ReadRows(owner))
                     yield return InstanceFactory.NewImmutableRow(rowData, query.DataSource);
             }
 
@@ -391,100 +453,140 @@ public class Select<T> : IQuery
     public V ExecuteScalar<V>()
         => ExecuteScalar<V>(CancellationToken.None);
 
-    internal V ExecuteScalar<V>(CancellationToken cancellationToken)
+    internal V ExecuteScalar<V>(CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
     {
-        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute a scalar query");
-        cancellationToken.ThrowIfCancellationRequested();
-        var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
-        var activity = DataLinqTelemetry.StartQueryActivity(
-            telemetryContext,
-            query.Table.DbName,
-            "scalar",
-            query.DataSource is Mutation.Transaction);
-        var startedAt = Stopwatch.GetTimestamp();
-        var succeeded = false;
-
-        DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
-
+        using var read = DataSourceAccess.BeginRead(
+            query.DataSource, "execute a scalar query", owner, cancellationToken);
         try
         {
-            using var command = query.DataSource.Provider.ToDbCommand(this);
-            cancellationToken.ThrowIfCancellationRequested();
-            var result = query.DataSource.DatabaseAccess.ExecuteScalar<V>(command);
-            succeeded = true;
-            return result;
-        }
-        catch (Exception exception)
-        {
-            DataLinqTelemetry.RecordException(activity, exception);
-            throw;
-        }
-        finally
-        {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordQueryExecution(
+            var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
+            var activity = DataLinqTelemetry.StartQueryActivity(
                 telemetryContext,
                 query.Table.DbName,
                 "scalar",
-                query.DataSource is Mutation.Transaction,
-                succeeded,
-                duration);
+                query.DataSource is Mutation.Transaction);
+            var startedAt = Stopwatch.GetTimestamp();
+            var succeeded = false;
 
-            if (activity is not null)
+            DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
+
+            try
             {
-                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity.Dispose();
+                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+                var stage = ExecutionFailureStage.Validation;
+                try
+                {
+                    var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
+                    stage = ExecutionFailureStage.CommandExecution;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var result = query.DataSource.DatabaseAccess.ExecuteScalar<V>(command);
+                    resources.Dispose();
+                    succeeded = true;
+                    return result;
+                }
+                catch (Exception failure)
+                {
+                    resources.RecordFailure(failure, stage);
+                    throw;
+                }
             }
+            catch (Exception exception)
+            {
+                DataLinqTelemetry.RecordException(activity, exception);
+                throw;
+            }
+            finally
+            {
+                var duration = Stopwatch.GetElapsedTime(startedAt);
+                DataLinqTelemetry.RecordQueryExecution(
+                    telemetryContext,
+                    query.Table.DbName,
+                    "scalar",
+                    query.DataSource is Mutation.Transaction,
+                    succeeded,
+                    duration);
+
+                if (activity is not null)
+                {
+                    activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                    activity.Dispose();
+                }
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
         }
     }
 
     public object? ExecuteScalar()
         => ExecuteScalar(CancellationToken.None);
 
-    internal object? ExecuteScalar(CancellationToken cancellationToken)
+    internal object? ExecuteScalar(CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
     {
-        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute a scalar query");
-        cancellationToken.ThrowIfCancellationRequested();
-        var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
-        var activity = DataLinqTelemetry.StartQueryActivity(
-            telemetryContext,
-            query.Table.DbName,
-            "scalar",
-            query.DataSource is Mutation.Transaction);
-        var startedAt = Stopwatch.GetTimestamp();
-        var succeeded = false;
-
-        DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
-
+        using var read = DataSourceAccess.BeginRead(
+            query.DataSource, "execute a scalar query", owner, cancellationToken);
         try
         {
-            using var command = query.DataSource.Provider.ToDbCommand(this);
-            cancellationToken.ThrowIfCancellationRequested();
-            var result = query.DataSource.DatabaseAccess.ExecuteScalar(command);
-            succeeded = true;
-            return result;
-        }
-        catch (Exception exception)
-        {
-            DataLinqTelemetry.RecordException(activity, exception);
-            throw;
-        }
-        finally
-        {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordQueryExecution(
+            var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
+            var activity = DataLinqTelemetry.StartQueryActivity(
                 telemetryContext,
                 query.Table.DbName,
                 "scalar",
-                query.DataSource is Mutation.Transaction,
-                succeeded,
-                duration);
+                query.DataSource is Mutation.Transaction);
+            var startedAt = Stopwatch.GetTimestamp();
+            var succeeded = false;
 
-            if (activity is not null)
+            DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
+
+            try
             {
-                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity.Dispose();
+                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+                var stage = ExecutionFailureStage.Validation;
+                try
+                {
+                    var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
+                    stage = ExecutionFailureStage.CommandExecution;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var result = query.DataSource.DatabaseAccess.ExecuteScalar(command);
+                    resources.Dispose();
+                    succeeded = true;
+                    return result;
+                }
+                catch (Exception failure)
+                {
+                    resources.RecordFailure(failure, stage);
+                    throw;
+                }
             }
+            catch (Exception exception)
+            {
+                DataLinqTelemetry.RecordException(activity, exception);
+                throw;
+            }
+            finally
+            {
+                var duration = Stopwatch.GetElapsedTime(startedAt);
+                DataLinqTelemetry.RecordQueryExecution(
+                    telemetryContext,
+                    query.Table.DbName,
+                    "scalar",
+                    query.DataSource is Mutation.Transaction,
+                    succeeded,
+                    duration);
+
+                if (activity is not null)
+                {
+                    activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                    activity.Dispose();
+                }
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
         }
     }
 

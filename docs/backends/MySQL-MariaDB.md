@@ -37,6 +37,7 @@ The test matrix follows each official image's rolling minor tag within its LTS s
 | `TINYINT` | `sbyte` |
 | `TINYINT UNSIGNED` | `byte` |
 | `BIT(1)` | `bool` |
+| `BIT(2)` through `BIT(64)` | `ulong` |
 | `DECIMAL` | `decimal` |
 | `DOUBLE`, `FLOAT` | `double`, `float` |
 | `VARCHAR`, `TEXT`, `CHAR`, etc. | `string` |
@@ -54,6 +55,23 @@ Additional notes:
 - `SET` is treated as `string`
 - `BINARY(16)` is MySQL's built-in `Guid` mapping, with the legacy little-endian layout as DataLinq's model-side compatibility default
 - enums are emitted as generated C# enums with value metadata
+
+`TIME` values mapped to `TimeOnly` must be within a single day, from `00:00:00`
+through `23:59:59.999999`. Negative values and durations of 24 hours or more
+throw `InvalidCastException` instead of wrapping into a different time of day.
+For duration columns, declare the model property as `TimeSpan` (or `TimeSpan?`
+for nullable columns) with a `time` provider type. This preserves negative and
+multi-day values. Model generation retains `TimeOnly` as its default mapping,
+so adjust generated model declarations for columns whose meaning is a duration.
+Duration defaults preserve the sign, total hours, and microseconds in generated
+MySQL/MariaDB SQL, and exact ticks in generated C# code. SQL generation rejects
+sub-microsecond duration defaults that MySQL/MariaDB cannot represent.
+
+Match time-of-day inputs to the column's fractional precision. For example,
+MySQL can round `23:59:59.999999` stored in `TIME(0)` to `24:00:00`, which is
+outside `TimeOnly`'s range. Use sufficient column precision or explicitly choose
+the application's rounding/truncation policy before writing. DataLinq does not
+silently wrap the stored duration to midnight.
 
 ## Default Value Handling
 
@@ -76,6 +94,19 @@ Examples:
 - `BIGINT DEFAULT '0'` -> C# `long` default `0L`
 - `ENUM('standard','premium') DEFAULT 'premium'` -> generated enum member default
 - `VARCHAR DEFAULT '""'` -> C# string default containing two double-quote characters, not leaked SQL quoting syntax
+
+Enum import preserves database labels and their one-based numeric identities,
+including quotes, backslashes, commas, and empty labels. Generated C# member names
+are made valid and distinct independently; the `[Enum]` attribute and generated
+schema retain the original database labels.
+
+When generating SQL for a session with `NO_BACKSLASH_ESCAPES` enabled, set
+`SqlFromMetadataFactory.NoBackslashEscapes = true` on the factory before calling
+`GetCreateTables`. The default is `false`. This selects the correct escaping for
+enum labels, defaults, and comments, since [MySQL string escaping](https://dev.mysql.com/doc/refman/8.0/en/string-literals.html)
+and [MariaDB string escaping](https://mariadb.com/docs/server/reference/sql-structure/sql-language-structure/string-literals)
+depend on that session setting. Metadata import reads the server's canonical enum
+representation, which is tested in both modes on every supported server target.
 
 ### Unsupported or Dangerous Defaults
 
@@ -139,12 +170,25 @@ When generating a schema from your DataLinq models:
 Default SQL generation is typed, not stringly:
 
 - string and char defaults are SQL-quoted and escaped correctly
-- `bit` defaults are emitted as `b'0'` and `b'1'`
+- `BIT(1)` defaults are emitted as `b'0'` and `b'1'`; wider bit-field defaults preserve their unsigned numeric value
 - numeric defaults use invariant formatting
 - `DateOnly`, `TimeOnly`, `DateTime`, and related values are emitted as provider-safe SQL literals
 - MariaDB `uuid` defaults and MySQL `binary(16)` `Guid` defaults are emitted differently because they are genuinely different storage shapes
 
 If DataLinq can parse a supported MySQL/MariaDB default and represent it in metadata, it should also be able to emit it back out correctly in generated SQL. That roundtrip is now something the test suite actually checks.
+
+## Database and table existence checks
+
+`DatabaseExists` and `TableExists` use parameterized equality searches in
+`information_schema`. Percent signs, underscores, quotes, and identifier delimiters
+are literal name characters, not patterns or SQL fragments. A missing schema/table
+returns `false`; metadata visibility still follows the connected account's privileges.
+
+Ordinary names retain the server's metadata case rules, including
+[`lower_case_table_names`](https://dev.mysql.com/doc/refman/8.4/en/charset-collation-information-schema.html).
+The virtual `information_schema` database and its tables accept either case; DataLinq
+normalizes their metadata spelling because current MySQL equality searches otherwise
+reject some valid case variants. Regression tests cover both provider families.
 
 ## Transaction Behavior
 

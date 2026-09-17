@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -31,9 +32,10 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
         request.Context.CancellationToken.ThrowIfCancellationRequested();
         DataSourceAccess.EnsureReadAllowed(dataSource, "execute a query plan");
 
-        var rows = new QueryPlanSqlBuilder(request.Invocation, dataSource)
-            .BuildSelect<object>()
-            .Execute();
+        var rows = DataSourceAccess.ReadSequence(dataSource, "execute an entity query plan",
+            owner => new QueryPlanSqlBuilder(request.Invocation, dataSource)
+                .BuildSelect<object>().Execute(owner),
+            cancellationToken: request.Context.CancellationToken);
 
         return new EnumeratorQueryEntityCursor(
             rows.GetEnumerator(),
@@ -47,40 +49,33 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
         request.Context.CancellationToken.ThrowIfCancellationRequested();
         DataSourceAccess.EnsureReadAllowed(dataSource, "execute a query plan");
 
-        var results = request.Invocation.Template.Projection switch
+        var results = DataSourceAccess.ReadSequence(dataSource, "execute a projection query plan",
+            owner => CreateProjectionResults<TResult>(request, owner),
+            cancellationToken: request.Context.CancellationToken);
+        return new EnumeratorQueryProjectionCursor<TResult>(results.GetEnumerator(), request.Context.CancellationToken);
+    }
+
+    private IEnumerable<TResult> CreateProjectionResults<TResult>(
+        ValidatedQueryExecutionRequest request, TransactionOperationGate.Step? owner) =>
+        request.Invocation.Template.Projection switch
         {
             QueryPlanProjection.ScalarMember or
             QueryPlanProjection.SqlRow or
             QueryPlanProjection.GroupedAggregate =>
                 new SqlDirectProjectionExecutor(
                         dataSource,
-                        request.Context.CancellationToken)
+                        request.Context.CancellationToken, owner)
                     .Execute<TResult>(request.Invocation),
             QueryPlanProjection.Anonymous or
             QueryPlanProjection.ComputedRowLocal or
             QueryPlanProjection.JoinedRowLocal =>
                 new SqlLocalProjectionExecutor(
                         dataSource,
-                        request.Context.CancellationToken)
+                        request.Context.CancellationToken, owner)
                     .Execute<TResult>(request.Invocation),
             var projection => throw new InvalidOperationException(
                 $"Projection '{projection.Kind}' is not an executable SQL projection.")
         };
-        var rows = results.GetEnumerator();
-
-        try
-        {
-            request.Context.CancellationToken.ThrowIfCancellationRequested();
-            return new EnumeratorQueryProjectionCursor<TResult>(
-                rows,
-                request.Context.CancellationToken);
-        }
-        catch
-        {
-            rows.Dispose();
-            throw;
-        }
-    }
 
     public TResult ExecuteScalar<TResult>(ValidatedQueryExecutionRequest request)
     {
@@ -94,13 +89,21 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
                 $"'{request.Invocation.Template.Result.ResultType.FullName}'.");
         }
 
-        DataSourceAccess.EnsureReadAllowed(dataSource, "execute a query plan");
+        using var read = DataSourceAccess.BeginRead(dataSource, "execute a scalar query plan",
+            cancellationToken: request.Context.CancellationToken);
+        try
+        {
+            var value = new QueryPlanSqlBuilder(request.Invocation, dataSource)
+                .BuildSelect<object>()
+                .ExecuteScalar(request.Context.CancellationToken, read?.Step);
 
-        var value = new QueryPlanSqlBuilder(request.Invocation, dataSource)
-            .BuildSelect<object>()
-            .ExecuteScalar(request.Context.CancellationToken);
-
-        return ConvertScalarResult<TResult>(value, request.Invocation.Template.Result);
+            return ConvertScalarResult<TResult>(value, request.Invocation.Template.Result);
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     public bool TryExecuteTerminalEntity(
@@ -199,66 +202,73 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(table);
-        DataSourceAccess.EnsureReadAllowed(dataSource, "execute an exact primary-key terminal query");
-
-        var telemetryContext = DataLinqTelemetryContext.FromProvider(dataSource.Provider);
-        var activity = DataLinqTelemetry.StartQueryActivity(
-            telemetryContext,
-            table.DbName,
-            "entity",
-            dataSource is Transaction);
-        var startedAt = Stopwatch.GetTimestamp();
-        var succeeded = false;
-
-        DataLinqMetrics.RecordEntityQueryExecution(dataSource.Provider);
-
+        using var read = DataSourceAccess.BeginRead(dataSource, "execute an exact primary-key terminal query");
         try
         {
-            var row = primaryKey is null
-                ? null
-                : GetRowByScalarPrimaryKey(dataSource, table, primaryKey);
-
-            var result = ExactPrimaryKeyTerminalExecution.ApplyResultSemantics(row, resultKind);
-            succeeded = true;
-            return result;
-        }
-        catch (Exception exception)
-        {
-            DataLinqTelemetry.RecordException(activity, exception);
-            throw;
-        }
-        finally
-        {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordQueryExecution(
+            var telemetryContext = DataLinqTelemetryContext.FromProvider(dataSource.Provider);
+            var activity = DataLinqTelemetry.StartQueryActivity(
                 telemetryContext,
                 table.DbName,
                 "entity",
-                dataSource is Transaction,
-                succeeded,
-                duration);
+                dataSource is Transaction);
+            var startedAt = Stopwatch.GetTimestamp();
+            var succeeded = false;
 
-            if (activity is not null)
+            DataLinqMetrics.RecordEntityQueryExecution(dataSource.Provider);
+
+            try
             {
-                if (!succeeded)
-                    activity.SetStatus(ActivityStatusCode.Error);
+                var row = primaryKey is null
+                    ? null
+                    : GetRowByScalarPrimaryKey(dataSource, table, primaryKey, read?.Step);
 
-                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity.Dispose();
+                var result = ExactPrimaryKeyTerminalExecution.ApplyResultSemantics(row, resultKind);
+                succeeded = true;
+                return result;
             }
+            catch (Exception exception)
+            {
+                DataLinqTelemetry.RecordException(activity, exception);
+                throw;
+            }
+            finally
+            {
+                var duration = Stopwatch.GetElapsedTime(startedAt);
+                DataLinqTelemetry.RecordQueryExecution(
+                    telemetryContext,
+                    table.DbName,
+                    "entity",
+                    dataSource is Transaction,
+                    succeeded,
+                    duration);
+
+                if (activity is not null)
+                {
+                    if (!succeeded)
+                        activity.SetStatus(ActivityStatusCode.Error);
+
+                    activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                    activity.Dispose();
+                }
+            }
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
         }
     }
 
     private static IImmutableInstance? GetRowByScalarPrimaryKey(
         IDataSourceAccess dataSource,
         TableDefinition table,
-        object primaryKey)
+        object primaryKey, TransactionOperationGate.Step? owner)
     {
         var tableCache = dataSource.Provider.GetTableCache(table);
-        if (tableCache.TryGetRowFromProviderKeyValue(primaryKey, dataSource, out var row))
+        if (tableCache.TryGetRowFromProviderKeyValue(primaryKey, dataSource, out var row, owner))
             return row;
 
-        return tableCache.GetRow(DataLinqKey.FromValue(primaryKey), dataSource);
+        return tableCache.GetRow(DataLinqKey.FromValue(primaryKey), dataSource, owner);
     }
 
     private static bool TryGetTerminalScalarPrimaryKeyInvocation(
@@ -456,6 +466,7 @@ internal sealed class EnumeratorQueryEntityCursor : IQueryEntityCursor
     private readonly CancellationToken cancellationToken;
     private IEnumerator<IImmutableInstance>? rows;
     private bool hasCurrent;
+    private readonly EnumeratorCallGate calls = new();
 
     public EnumeratorQueryEntityCursor(
         IEnumerator<IImmutableInstance> rows,
@@ -470,6 +481,7 @@ internal sealed class EnumeratorQueryEntityCursor : IQueryEntityCursor
     {
         get
         {
+            using var call = calls.Enter();
             if (!hasCurrent || rows is null)
                 throw new InvalidOperationException("The query cursor is not positioned on a row.");
 
@@ -479,6 +491,7 @@ internal sealed class EnumeratorQueryEntityCursor : IQueryEntityCursor
 
     public bool MoveNext()
     {
+        using var call = calls.Enter();
         if (rows is null)
             return false;
 
@@ -489,18 +502,24 @@ internal sealed class EnumeratorQueryEntityCursor : IQueryEntityCursor
             cancellationToken.ThrowIfCancellationRequested();
 
             if (!hasCurrent)
-                Dispose();
+                DisposeCore();
 
             return hasCurrent;
         }
         catch
         {
-            Dispose();
+            DisposeCore();
             throw;
         }
     }
 
     public void Dispose()
+    {
+        using var call = calls.Enter();
+        DisposeCore();
+    }
+
+    private void DisposeCore()
     {
         hasCurrent = false;
         var currentRows = Interlocked.Exchange(ref rows, null);
@@ -513,6 +532,7 @@ internal sealed class EnumeratorQueryProjectionCursor<TResult> : IQueryProjectio
     private readonly CancellationToken cancellationToken;
     private IEnumerator<TResult>? rows;
     private bool hasCurrent;
+    private readonly EnumeratorCallGate calls = new();
 
     public EnumeratorQueryProjectionCursor(
         IEnumerator<TResult> rows,
@@ -527,6 +547,7 @@ internal sealed class EnumeratorQueryProjectionCursor<TResult> : IQueryProjectio
     {
         get
         {
+            using var call = calls.Enter();
             if (!hasCurrent || rows is null)
                 throw new InvalidOperationException("The query projection cursor is not positioned on a result.");
 
@@ -536,6 +557,7 @@ internal sealed class EnumeratorQueryProjectionCursor<TResult> : IQueryProjectio
 
     public bool MoveNext()
     {
+        using var call = calls.Enter();
         if (rows is null)
             return false;
 
@@ -546,18 +568,24 @@ internal sealed class EnumeratorQueryProjectionCursor<TResult> : IQueryProjectio
             cancellationToken.ThrowIfCancellationRequested();
 
             if (!hasCurrent)
-                Dispose();
+                DisposeCore();
 
             return hasCurrent;
         }
         catch
         {
-            Dispose();
+            DisposeCore();
             throw;
         }
     }
 
     public void Dispose()
+    {
+        using var call = calls.Enter();
+        DisposeCore();
+    }
+
+    private void DisposeCore()
     {
         hasCurrent = false;
         var currentRows = Interlocked.Exchange(ref rows, null);

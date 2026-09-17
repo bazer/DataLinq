@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using DataLinq.Exceptions;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -169,14 +170,18 @@ internal static class ExpressionQueryPlanExecutor
         ValidateProjectionDisposition(template.Projection, projectionOptions);
 
         if (template.Projection is QueryPlanProjection.Entity)
-            return ExecuteEntitySequence<TElement>(request);
+            return GuardTransactionSequence(request, ExecuteEntitySequence<TElement>(request));
 
         if (IsBackendProjection(template.Projection))
-            return ExecuteProjectionSequence<TElement>(request);
+            return GuardTransactionSequence(request, ExecuteProjectionSequence<TElement>(request));
 
         throw new QueryTranslationException(
             $"Expression parser route cannot execute query plan projection '{template.Projection.Kind}'.");
     }
+
+    private static IEnumerable<TElement> GuardTransactionSequence<TElement>(
+        ValidatedQueryExecutionRequest request, IEnumerable<TElement> rows) =>
+        request.Context.Source is Transaction ? new GuardedEnumerable<TElement>(rows) : rows;
 
     public static TResult Execute<TResult>(
         IDataLinqReadSource source,

@@ -145,6 +145,28 @@ public class GeneratorFileFactoryTests
     }
 
     [Test]
+    public async Task CreateModelFiles_MutateOrNew_ValidatesRequiredPrimaryKeysWithoutAssigningThem()
+    {
+        var database = CreateDatabaseWithCompositePrimaryKey();
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "CompositeModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains(
+            "KeyFactory.CreateKeyFromModelValue(firstId, CompositeModel.DataLinqColumn_FirstId).Equals(");
+        await Assert.That(generatedFile.contents).Contains(
+            "DataLinqKey.FromValue(model.PrimaryKeys().GetValue(0))");
+        await Assert.That(generatedFile.contents).Contains(
+            "KeyFactory.CreateKeyFromModelValue(secondId, CompositeModel.DataLinqColumn_SecondId).Equals(");
+        await Assert.That(generatedFile.contents).Contains(
+            "DataLinqKey.FromValue(model.PrimaryKeys().GetValue(1))");
+        await Assert.That(generatedFile.contents).Contains("mutable.Name = name;");
+        await Assert.That(generatedFile.contents).DoesNotContain("mutable.FirstId = firstId;");
+        await Assert.That(generatedFile.contents).DoesNotContain("mutable.SecondId = secondId;");
+    }
+
+    [Test]
     public async Task CreateModelFiles_Model_EmitsIndexedGeneratedAccess()
     {
         var database = CreateDatabaseWithDefaultValue(
@@ -581,6 +603,13 @@ public class GeneratorFileFactoryTests
                                 {
                                     PrimaryKey = true,
                                     DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "int")]
+                                }),
+                            new MetadataValuePropertyDraft(
+                                "Name",
+                                new CsTypeDeclaration(typeof(string)),
+                                new MetadataColumnDraft("name")
+                                {
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "varchar", 100)]
                                 })
                         ]
                     },

@@ -36,6 +36,22 @@ Use this decision table:
 | bring test containers up or down | [`DataLinq.Testing.CLI`](DataLinq.Testing.CLI.md) |
 | run `quick`, `latest`, or `all` target aliases | [`DataLinq.Testing.CLI`](DataLinq.Testing.CLI.md) |
 | run or compare benchmarks | [`DataLinq.Benchmark.CLI`](DataLinq.Benchmark.CLI.md) |
+| audit direct/transitive dependencies against the online advisory feed | `scripts/audit-dependencies.ps1`, documented in [CI Test Lanes](CI%20Test%20Lanes.md#dependency-advisory-audit) |
+
+## Child process execution
+
+Shared developer-tool execution drains stdout and stderr concurrently, including
+the Podman socket transport's binary output. A verbose child can therefore fill
+either pipe without blocking the parent on the other pipe.
+
+`ExternalProcessRunner.ExecuteAsync` accepts an optional timeout and cancellation
+token. A timeout throws `TimeoutException`; caller cancellation preserves
+`OperationCanceledException`. Failure cleanup kills a running child process tree,
+waits for exit, and closes and observes the pipe reads. Cleanup failure is reported
+alongside the original failure. The synchronous `Execute` entry point retains its
+existing signature and has no implicit overall timeout. Podman CLI and socket
+commands have a 30-minute timeout, including image pulls. Output remains buffered
+in memory, so callers should avoid commands with unlimited output.
 
 ## Native Windows Sandbox Build Notes
 

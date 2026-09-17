@@ -142,6 +142,9 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(double)), 1.5d, "1.5");
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(DateOnly)), new DateOnly(2024, 1, 2), "'2024-01-02'");
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(TimeOnly)), new TimeOnly(12, 34, 56), "'12:34:56'");
+        yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(TimeSpan)), TimeSpan.FromHours(25), "'25:00:00'");
+        yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(TimeSpan)), TimeSpan.FromHours(-1), "'-01:00:00'");
+        yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(TimeSpan)), TimeSpan.FromHours(25) + TimeSpan.FromTicks(1234560), "'25:00:00.123456'");
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(DateTime)), new DateTime(2024, 1, 2, 3, 4, 5), "'2024-01-02 03:04:05'");
     }
 
@@ -342,11 +345,50 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         var (_, column, _) = CreateProperty(
             "test_col",
             testCase.CsType,
-            [new DefaultAttribute(testCase.DefaultValue)]);
+            [new DefaultAttribute(testCase.DefaultValue)],
+            dbTypes: testCase.DefaultValue is TimeSpan ? [new DatabaseColumnType(DataLinq.DatabaseType.MariaDB, "time", 6)] : null);
 
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
 
         await Assert.That(sqlDefault).IsEqualTo(testCase.ExpectedSqlDefault);
+    }
+
+    [Test]
+    public async Task DurationDefaultsPreserveExactTicksInGeneratedCodeAndRejectSubMicrosecondSqlLiterals()
+    {
+        foreach (var ticks in new[] { -TimeSpan.TicksPerHour, 25 * TimeSpan.TicksPerHour + 1234560, long.MinValue, 1L })
+        {
+            var (_, column, property) = CreateProperty(
+                "duration", new CsTypeDeclaration(typeof(TimeSpan)), [new DefaultAttribute(TimeSpan.FromTicks(ticks))],
+                dbTypes: [new DatabaseColumnType(DataLinq.DatabaseType.MySQL, "time", 6)]);
+            await Assert.That(property.GetDefaultValueCode()).IsEqualTo($"global::System.TimeSpan.FromTicks({ticks.ToString(System.Globalization.CultureInfo.InvariantCulture)}L)");
+            if (ticks % 10 != 0)
+                await Assert.That(() => SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MySQL).GetDefaultValue(column)).Throws<InvalidOperationException>();
+        }
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task DurationDefaultsRoundTripThroughServerSchema(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(provider, nameof(DurationDefaultsRoundTripThroughServerSchema));
+        using var connection = new MySqlConnection(schema.Connection.ConnectionString);
+        connection.Open();
+        var values = new[] { TimeSpan.FromHours(25), TimeSpan.FromHours(-1), TimeSpan.FromHours(25) + TimeSpan.FromTicks(1234560) };
+        for (var index = 0; index < values.Length; index++)
+        {
+            var (_, column, _) = CreateProperty(
+                "duration", new CsTypeDeclaration(typeof(TimeSpan)), [new DefaultAttribute(values[index])],
+                dbTypes: [new DatabaseColumnType(provider.DatabaseType, "time", 6)]);
+            var literal = SqlFromMetadataFactory.GetFactoryFromDatabaseType(provider.DatabaseType).GetDefaultValue(column);
+            schema.ExecuteNonQuery($"CREATE TABLE duration_default_{index} (value TIME(6) NOT NULL DEFAULT {literal}); INSERT INTO duration_default_{index} () VALUES ()");
+            using var command = connection.CreateCommand();
+            command.CommandText = $"SELECT value FROM duration_default_{index}";
+            using var reader = command.ExecuteReader();
+            await Assert.That(reader.Read()).IsTrue();
+            await Assert.That(reader.GetTimeSpan(0)).IsEqualTo(values[index]);
+        }
     }
 
     [Test]

@@ -3,20 +3,99 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Cache;
 using DataLinq.Exceptions;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using DataLinq.Tests.Unit.Fixtures;
 
 namespace DataLinq.Tests.Unit.Core;
 
-public sealed class TransactionMutationFailureTests
+public sealed partial class TransactionMutationFailureTests
 {
+    [Test]
+    public async Task AuthoritativeHydration_DoesNotGrantPublicReadPermissionToProviderCallbacks()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var mutable = fixture.CreateExistingMutable(401, "before");
+        mutable["Value"] = "after";
+        var callbackRan = false;
+        var publicReadAccepted = false;
+        fixture.Scenario.CommandCreated = () =>
+        {
+            if (fixture.Scenario.CommandCreations != 2)
+                return;
+            callbackRan = true;
+            try
+            {
+                _ = transaction.Query();
+                publicReadAccepted = true;
+            }
+            catch (InvalidOperationException) { }
+        };
+
+        // The statement-only fixture returns no authoritative row. The callback runs
+        // during hydration command construction, while the mutation still owns execution.
+        _ = Capture<ModelLoadFailureException>(() => transaction.Update(mutable));
+        await Assert.That(callbackRan).IsTrue();
+        await Assert.That(publicReadAccepted).IsFalse();
+    }
+
+    [Test]
+    public async Task LongTransactionDisposesEachOwnedMutationCommandImmediately()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        for (var index = 0; index < 1000; index++)
+        {
+            // Deletes exercise the production mutation boundary without asking this
+            // statement-only fake to supply an authoritative row reload.
+            transaction.Delete(fixture.CreateImmutable(index + 1, "before"));
+            if (fixture.Scenario.CommandDisposals != index + 1)
+                throw new InvalidOperationException("Mutation command survived its statement in an open transaction.");
+        }
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1000);
+        await Assert.That(fixture.Scenario.CommandCreations).IsEqualTo(1000);
+    }
+
+    [Test]
+    public async Task CommandCleanupFailurePoisonsAfterStatementAndDoesNotPublishSuccess()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var mutable = fixture.CreateExistingMutable(401, "before");
+        mutable["Value"] = "after";
+        var expected = new InjectedMutationException("command disposal");
+        fixture.Scenario.CommandDisposeFailure = expected;
+        var observed = Capture<InjectedMutationException>(() => transaction.Update(mutable));
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await AssertPoisoned(transaction, TransactionFailureStage.Hydration, expected);
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
+        await Assert.That(transaction.Changes).IsEmpty();
+    }
+
+    [Test]
+    public async Task ExplicitStateChangeCommandRemainsOwnedByItsCaller()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var mutable = fixture.CreateExistingMutable(401, "before");
+        mutable["Value"] = "after";
+        var change = new StateChange(mutable, fixture.RowTable, TransactionChangeType.Update);
+        var command = change.GetDbCommand(transaction);
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(0);
+        command.Dispose();
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
+    }
+
     [Test]
     public async Task CommandConstructionFailure_PoisonsAndExcludesCandidate()
     {
@@ -53,6 +132,7 @@ public sealed class TransactionMutationFailureTests
 
         var observed = Capture<InvalidOperationException>(() => transaction.Update(mutable));
 
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
         await Assert.That(observed.Message).Contains(
             "assignments changed during provider command preparation");
         await AssertPoisoned(
@@ -80,6 +160,7 @@ public sealed class TransactionMutationFailureTests
 
         var observed = Capture<InjectedMutationException>(() => transaction.Update(mutable));
 
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
         await Assert.That(observed).IsSameReferenceAs(expected);
         await AssertPoisoned(
             transaction,
@@ -104,6 +185,7 @@ public sealed class TransactionMutationFailureTests
         var observed = Capture<GeneratedValueDecodingException>(() =>
             transaction.Insert(mutable));
 
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
         await AssertPoisoned(
             transaction,
             TransactionFailureStage.Hydration,
@@ -640,7 +722,7 @@ public sealed class TransactionMutationFailureTests
         {
             await Assert.That(failure).IsTypeOf<InvalidOperationException>();
             await Assert.That(failure.Message).Contains(
-                "another managed transaction operation is being finalized");
+                "'execute a mutation' is active");
         }
 
         await Assert.That(transaction.IsPoisoned).IsFalse();
@@ -1239,7 +1321,7 @@ public sealed class TransactionMutationFailureTests
         await Assert.That(notification.Snapshot.MutableLifecycle.TransactionOwner)
             .IsSameReferenceAs(transaction.MutableOwnership);
         await Assert.That(notification.Snapshot.FallbackFailure.Message)
-            .Contains("while another managed transaction operation is being finalized");
+            .Contains("while 'commit' is active");
         await Assert.That(transactionBound.GetReadSource())
             .IsSameReferenceAs(fixture.Provider.ReadOnlyAccess);
     }
@@ -1397,10 +1479,10 @@ public sealed class TransactionMutationFailureTests
 
     private sealed class ScriptedFixture : IDisposable
     {
-        internal ScriptedFixture()
+        internal ScriptedFixture(bool captureSql = false)
         {
             Scenario = new ScriptedMutationScenario();
-            Provider = new ScriptedMutationProvider(Scenario);
+            Provider = captureSql ? new CapturedReadProvider(Scenario) : new ScriptedMutationProvider(Scenario);
             Database = new ScriptedDatabase(Provider);
             RowTable = Provider.Metadata.GetTableModel(typeof(TransactionMutationGuardRow)).Table;
             BinaryTable = Provider.Metadata.GetTableModel(typeof(TransactionMutationGuardBinaryRow)).Table;
@@ -1499,8 +1581,16 @@ public sealed class TransactionMutationFailureTests
 
         internal Exception? CommandFailure { get; set; }
         internal Action? CommandCreated { get; set; }
+        internal Action? CommandDisposed { get; set; }
+        internal Func<IDataLinqDataReader>? ReaderFactory { get; set; }
         internal object? ScalarResult { get; set; } = 1L;
+        internal Action? ScalarExecuting { get; set; }
+        internal ControlledCompletionProvider? AsyncCompletion { get; set; }
+        internal IAsyncSqlReaderFactory? AsyncSqlReaders { get; set; }
+        internal IAsyncSqlScalarFactory? AsyncSqlScalars { get; set; }
         internal int CommandCreations { get; set; }
+        internal int CommandDisposals { get; set; }
+        internal Exception? CommandDisposeFailure { get; set; }
         internal int NonQueryExecutions { get; set; }
         internal int ScalarExecutions { get; set; }
         internal int ReaderExecutions { get; set; }
@@ -1539,7 +1629,11 @@ public sealed class TransactionMutationFailureTests
                 Disposals);
     }
 
-    private sealed class ScriptedMutationProvider : DatabaseProvider<TransactionMutationGuardDb>
+    private class ScriptedMutationProvider(ScriptedMutationScenario scenario)
+        : ScriptedMutationProvider<TransactionMutationGuardDb>(scenario);
+
+    private class ScriptedMutationProvider<TModel> : DatabaseProvider<TModel>
+        where TModel : class, IDatabaseModel<TModel>
     {
         private readonly ScriptedMutationScenario scenario;
         private readonly ScriptedDatabaseAccess databaseAccess;
@@ -1553,7 +1647,7 @@ public sealed class TransactionMutationFailureTests
                 "transaction-mutation-failure-tests")
         {
             this.scenario = scenario;
-            databaseAccess = new ScriptedDatabaseAccess(this);
+            databaseAccess = new ScriptedDatabaseAccess(this, scenario);
         }
 
         public override IDatabaseProviderConstants Constants { get; } = new ScriptedProviderConstants();
@@ -1565,7 +1659,13 @@ public sealed class TransactionMutationFailureTests
             if (scenario.CommandFailure is not null)
                 throw scenario.CommandFailure;
 
-            var command = new ScriptedDbCommand();
+            var command = new ScriptedDbCommand(() =>
+            {
+                scenario.CommandDisposals++;
+                scenario.CommandDisposed?.Invoke();
+                if (scenario.CommandDisposeFailure is not null)
+                    throw scenario.CommandDisposeFailure;
+            });
             scenario.CommandCreated?.Invoke();
             return command;
         }
@@ -1596,8 +1696,14 @@ public sealed class TransactionMutationFailureTests
         public override IDbConnection GetDbConnection() => throw new NotSupportedException();
     }
 
-    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider) : DatabaseAccess(provider)
+    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
     {
+        public IAsyncReaderSource BindReader(CapturedSql sql) =>
+            (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).BindReader(sql);
+        public IAsyncScalarSource BindScalar(CapturedSql sql) =>
+            (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar(sql);
+        public AsyncScalarInvocation<T> BindScalar<T>(CapturedSql sql) =>
+            (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar<T>(sql);
         public override IDataLinqDataReader ExecuteReader(IDbCommand command) => throw new NotSupportedException();
         public override IDataLinqDataReader ExecuteReader(string query) => throw new NotSupportedException();
         public override object? ExecuteScalar(IDbCommand command) => throw new NotSupportedException();
@@ -1621,7 +1727,7 @@ public sealed class TransactionMutationFailureTests
         public object? ConvertValue(ColumnDefinition column, object? value) => value;
     }
 
-    private sealed class ScriptedDbCommand : IDbCommand
+    private sealed class ScriptedDbCommand(Action? onDispose = null) : IDbCommand
     {
         [AllowNull]
         public string CommandText { get; set; } = "SCRIPTED MUTATION";
@@ -1638,12 +1744,20 @@ public sealed class TransactionMutationFailureTests
         public IDataReader ExecuteReader(CommandBehavior behavior) => throw new NotSupportedException();
         public object? ExecuteScalar() => throw new NotSupportedException();
         public void Prepare() => throw new NotSupportedException();
-        public void Dispose() { }
+        public void Dispose() => onDispose?.Invoke();
     }
 
-    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction
+    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
     {
         private readonly ScriptedMutationScenario scenario;
+
+        public IAsyncReaderSource BindReader(CapturedSql sql) =>
+            (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).BindReader(sql);
+
+        public IAsyncScalarSource BindScalar(CapturedSql sql) =>
+            (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar(sql);
+        public AsyncScalarInvocation<T> BindScalar<T>(CapturedSql sql) =>
+            (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar<T>(sql);
 
         internal ScriptedDatabaseTransaction(
             IDatabaseProvider provider,
@@ -1658,18 +1772,19 @@ public sealed class TransactionMutationFailureTests
         public override IDataLinqDataReader ExecuteReader(IDbCommand command)
         {
             scenario.ReaderExecutions++;
-            return EmptyReader.Instance;
+            return scenario.ReaderFactory?.Invoke() ?? EmptyReader.Instance;
         }
 
         public override IDataLinqDataReader ExecuteReader(string query)
         {
             scenario.ReaderExecutions++;
-            return EmptyReader.Instance;
+            return scenario.ReaderFactory?.Invoke() ?? EmptyReader.Instance;
         }
 
         public override object? ExecuteScalar(IDbCommand command)
         {
             scenario.ScalarExecutions++;
+            scenario.ScalarExecuting?.Invoke();
             return scenario.ScalarResult;
         }
 
@@ -1679,6 +1794,7 @@ public sealed class TransactionMutationFailureTests
         public override object? ExecuteScalar(string query)
         {
             scenario.ScalarExecutions++;
+            scenario.ScalarExecuting?.Invoke();
             return scenario.ScalarResult;
         }
 
@@ -1690,6 +1806,17 @@ public sealed class TransactionMutationFailureTests
 
         public override int ExecuteNonQuery(string query) =>
             scenario.ExecuteNonQuery();
+
+        TransactionInitializationState IAsyncTransactionCompletion.InitializationState =>
+            scenario.AsyncCompletion?.InitializationState ?? TransactionInitializationState.Ready;
+        ExecutionRecoveryActions IAsyncTransactionCompletion.Recovery => CompletionProvider.Recovery;
+        private ControlledCompletionProvider CompletionProvider => scenario.AsyncCompletion ??
+            throw new NotSupportedException("Scripted async completion was not enabled.");
+        void IAsyncTransactionCompletion.ValidateCompletion(AsyncCompletionOperation operation) => CompletionProvider.ValidateCompletion(operation);
+        Task IAsyncTransactionCompletion.CommitAsync(TransactionOperationGate.Step owner, CancellationToken token) => CompletionProvider.CommitAsync(owner, token);
+        Task IAsyncTransactionCompletion.RollbackAsync(TransactionOperationGate.Step owner, CancellationToken token) => CompletionProvider.RollbackAsync(owner, token);
+        ValueTask IAsyncTransactionCompletion.DisposeTransactionAsync(TransactionOperationGate.Step owner) => CompletionProvider.DisposeTransactionAsync(owner);
+        ValueTask IAsyncTransactionCompletion.DisposeConnectionAsync(TransactionOperationGate.Step owner) => CompletionProvider.DisposeConnectionAsync(owner);
 
         public override void Commit()
         {

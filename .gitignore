@@ -42,3 +42,4 @@ launchSettings.json
 /crm-dumps
 /src/DataLinq.Benchmark/artifacts
 .dotnet-cli-home
+__pycache__/

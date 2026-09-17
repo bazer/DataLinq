@@ -5,9 +5,13 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for runtime/startup validation; MSBuild/build-time validation remains later work.
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-09-16.
 **Dependency:** Runtime validation composes with the 0.10 DI/hosting package rather than introducing a competing startup abstraction.
 **Goal:** Let applications and builds explicitly validate DataLinq model metadata against live database schemas so schema drift is caught during development, CI, deployment, and application startup.
+
+**0.10 async contract:** [AAPI-64 through AAPI-67](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-64-async-existence-checks-preserve-their-distinct-probe-semantics) settle existence probes, live metadata async/Option behavior, runtime validation signatures and failure policy, and effective-source ownership/freshness. Async validation belongs in the first implementation, not only as reserved signatures. Capture configuration before suspension, propagate cancellation through metadata reading, and never return canceled or incomplete metadata as a successful comparison.
+
+**Accepted supporting API:** [AAPI-106 through AAPI-109](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-106-runtime-validation-types-and-immutable-result-construction) settle core type placement, complete result snapshots, independent failure policy, comparison-scoped `Include`, empty-schema handling and bounded per-command timeouts. The declarations below describe that accepted target, not implemented runtime APIs. Provider plumbing and consumer evidence remain required.
 
 **Related work:**
 
@@ -41,7 +45,7 @@ The wrong fix is hidden database access from generated code or provider construc
 - **Explicit opt-in:** no hidden database connections during ordinary model generation, provider construction, or query startup.
 - **Shared comparison core:** reuse `SchemaComparer`, `SchemaValidationCapabilities`, and provider metadata readers instead of inventing a second drift model.
 - **Runtime metadata first:** runtime validation compares `provider.Metadata` to live provider metadata. It should not reparse model source files.
-- **Policy, not booleans:** callers choose whether warnings, errors, informational differences, provider read failures, or timeouts should fail the operation.
+- **Explicit result policy:** callers choose the difference threshold and whether typed validation issues make a completed result fail. Operational read failures, timeouts and cancellation cannot be suppressed into successful comparisons.
 - **Structured results:** APIs return machine-readable differences before throwing convenience exceptions.
 - **Provider-bound accuracy:** validation only reports metadata covered by the current provider support boundary. Unsupported metadata must be omitted or reported as an issue, not guessed.
 - **No source-generator I/O:** compile-time live validation must be implemented as MSBuild/CLI execution after compilation inputs are available, not as Roslyn analyzer/generator behavior.
@@ -72,14 +76,15 @@ database.EnsureSchemaValid(options =>
 });
 ```
 
-Suggested shape:
+Accepted public surface (implementation bodies and internal result construction omitted):
+
+The validator, options and result live in `DataLinq.Validation` in the core package; the exception lives in `DataLinq.Exceptions` in core. Hosting stays in the separate integration package. Reuse core comparison/diagnostic types and preserve the existing Tools `SchemaValidationRunResult` without adding a runtime dependency on Tools or source parsing.
 
 ```csharp
 public sealed class DataLinqSchemaValidationOptions
 {
     public SchemaDifferenceSeverity FailOnSeverity { get; set; } = SchemaDifferenceSeverity.Error;
     public bool TreatValidationIssuesAsFailures { get; set; } = true;
-    public bool IncludeInformationalDifferences { get; set; }
     public TimeSpan? CommandTimeout { get; set; }
     public IReadOnlyList<string>? Include { get; set; }
     public Action<string>? MetadataReaderLog { get; set; }
@@ -87,6 +92,7 @@ public sealed class DataLinqSchemaValidationOptions
 
 public sealed class DataLinqSchemaValidationResult
 {
+    // Constructed internally; no public constructor or arbitrary result builder.
     public string DatabaseName { get; }
     public DatabaseType DatabaseType { get; }
     public int ModelTableCount { get; }
@@ -99,11 +105,15 @@ public sealed class DataLinqSchemaValidationResult
 
 public sealed class DataLinqSchemaValidationException : Exception
 {
+    // Public constructor: DataLinqSchemaValidationException(DataLinqSchemaValidationResult result).
+    // Rejects null and preserves the supplied result.
     public DataLinqSchemaValidationResult Result { get; }
 }
 ```
 
-Database API options:
+Options have a public parameterless constructor and mutable setters; capture once before execution. Results have getter-only properties and defensive read-only collection snapshots, including diagnostic context messages. Difference references to finalized metadata remain references, not deep graph clones. Result flags reflect captured policy and cannot change later. Do not retain live provider/connection/options objects or add automatic serialization. T10 supplies controlled fixtures.
+
+Database API:
 
 ```csharp
 public abstract class Database<T>
@@ -113,6 +123,14 @@ public abstract class Database<T>
 
     public void EnsureSchemaValid(
         Action<DataLinqSchemaValidationOptions>? configure = null);
+
+    public Task<DataLinqSchemaValidationResult> ValidateSchemaAsync(
+        Action<DataLinqSchemaValidationOptions>? configure = null,
+        CancellationToken cancellationToken = default);
+
+    public Task EnsureSchemaValidAsync(
+        Action<DataLinqSchemaValidationOptions>? configure = null,
+        CancellationToken cancellationToken = default);
 }
 ```
 
@@ -124,10 +142,21 @@ public static class DataLinqSchemaValidator
     public static DataLinqSchemaValidationResult Validate(
         IDatabaseProvider provider,
         DataLinqSchemaValidationOptions? options = null);
+
+    public static Task<DataLinqSchemaValidationResult> ValidateAsync(
+        IDatabaseProvider provider,
+        DataLinqSchemaValidationOptions? options = null,
+        CancellationToken cancellationToken = default);
 }
 ```
 
 ### 3.2. Runtime Validation Flow
+
+Invoke database configuration synchronously once, then capture effective options, including a copy of the include list, before suspension. The static helper likewise captures supplied options. `CommandTimeout` applies per metadata command; callers can bound the overall operation with their token, and hosting propagates startup cancellation. `RecoveryRollbackTimeout` is unrelated. Preserve genuine synchronous counterparts rather than sync-over-async wrappers.
+
+Under AAPI-109, a null timeout preserves the provider-configured default, zero disables command timeout and positive durations round up to whole seconds. Reject negatives (including `Timeout.InfiniteTimeSpan`) and values greater than `TimeSpan.FromSeconds(2_147_483)` before I/O; use checked/integer normalization. This is neither a wall-clock validation deadline nor a connection-opening timeout. Honor an explicit setting in actual execution or report unsupported custom-reader capability rather than silently ignoring it.
+
+Under AAPI-108, `Include` scopes the comparison to exact model database table/view names (`Table.DbName`). Null/empty means all. Before I/O, reject blank/unknown model names and deduplicate using the provider-aware comparison name comparer. Scope both sides identically without mutating finalized metadata; counts describe the compared objects. Compare selected tables' foreign keys with their referenced identities without implicitly expanding the selected set. Scope does not promise reduced metadata I/O or suppression of other read failures.
 
 ```mermaid
 flowchart TD
@@ -147,38 +176,27 @@ The important choice is that runtime validation starts from the finalized genera
 
 The first implementation can reuse the provider metadata factories already registered through `PluginHook.MetadataFromSqlFactories`.
 
-The runtime validator needs a small adapter that can call:
+Use an explicit runtime-validation path through those readers. The former direct adapter sketch was insufficient: current import readers reject missing requested objects and empty schemas, and `MetadataFromDatabaseFactoryOptions` has no command-timeout member. AAPI-108/AAPI-109 require actual reader plumbing while preserving legacy import/CLI behavior; no general public extension protocol is added.
 
-```csharp
-var metadataOptions = new MetadataFromDatabaseFactoryOptions
-{
-    DeclareEnumsInClass = true,
-    Include = validationOptions.Include?.ToList(),
-    Log = validationOptions.MetadataReaderLog
-};
+Do not pass runtime `Include` directly through the import-reader option. Read complete live metadata, then apply comparison scope. A selected table absent from successfully read metadata produces `MissingTable`; a successfully read existing empty database is valid comparison input. A missing database or unreadable/incomplete metadata is an operational failure. Never turn arbitrary failed Options into empty schemas or create a missing SQLite database/file.
 
-PluginHook.MetadataFromSqlFactories[provider.DatabaseType]
-    .GetMetadataFromSqlFactory(metadataOptions)
-    .ParseDatabase(
-        provider.Metadata.Name,
-        provider.Metadata.CsType.Name,
-        provider.Metadata.CsType.Namespace,
-        provider.DatabaseName,
-        provider.ConnectionString);
-```
+Implementation must preserve effective SQLite identity and resource ownership, provider-specific naming, captured logging and per-command timeout propagation. Keep provider metadata readers as the live-schema source; do not add a second Tools-based reader.
 
-Implementation details will need to account for SQLite data-source normalization, provider-specific database name behavior, logging, and timeout plumbing. The point is not the exact call above; the point is that provider metadata readers should remain the only live schema readers.
+For async execution, AAPI-65 adds `ParseDatabaseAsync` with the same arguments, an optional final cancellation token, and `Task<Option<DatabaseDefinition, IDLOptionFailure>>`. Synchronous-only custom factories report unsupported async capability; built-in factories use actual async query/row execution where supported. Keep non-cancellation Option failures and their original exception objects, but cancellation must escape rather than being absorbed by `CatchAll`. Successful metadata is complete; local parsing/construction remains synchronous.
+
+AAPI-67 requires the provider's effective normalized database identity. Do not recreate a runtime provider or reconstruct an anonymous SQLite database from its original input string; preserve the existing named shared-memory identity and keep-alive ownership. Validation owns only its temporary resources, never implicitly joins an application's transaction, and must not create a missing database, alter journal settings, migrate, or repair. Each call reads fresh metadata, without claiming an atomic multi-query schema snapshot during concurrent DDL or adding retries/locks to suggest one. Existence probes are not substitutes for the actual metadata read.
 
 ### 3.4. Failure Policy
 
 Default policy should be strict enough to catch real breakage but not so strict that benign production metadata causes startup failure.
 
-Recommended defaults:
+Accepted defaults and result policy:
 
 - fail on `SchemaDifferenceSeverity.Error`
 - warn/report `SchemaDifferenceSeverity.Warning`
-- omit or include `Info` by option
-- treat metadata read failures as validation failures
+- retain every `Info` difference in structured results; presentation may filter displayed output
+- fail a completed result on typed issues by default; disabling that policy retains the issues
+- fail validation execution on operational metadata-read failures, preserving original provider exceptions where available; do not fabricate comparison differences from infrastructure errors
 - do not auto-create, auto-migrate, or auto-repair anything
 
 This means:
@@ -191,6 +209,10 @@ This means:
 - comments remain informational
 
 The exact classification should come from existing `SchemaDifferenceSeverity`; the runtime API should not maintain a separate severity table.
+
+Under AAPI-66, `ValidateSchemaAsync` returns a completed comparison with supported diagnostic issues; `EnsureSchemaValidAsync` throws `DataLinqSchemaValidationException` when that result fails the configured policy. Cancellation, connection failure, and command timeout remain operational failures. A failed metadata read is not evidence that a specific column differs.
+
+AAPI-107 defines `HasDifferences` as any difference and `HasFailures` as a difference meeting the captured threshold or any typed issue while issue-based failure is enabled. Reject undefined threshold values. Never compare `SchemaDifferenceSeverity` and `DataLinqDiagnosticSeverity` by numeric cast: their order differs. Do not parse human logs into typed issues or turn failed metadata Options into successful issue-only results. No structured issues from a successful reader means an empty list. Synchronous log-callback failures retain the accepted application-callback policy.
 
 ## 4. Startup Hook
 
@@ -369,7 +391,9 @@ The source generator should continue validating model self-consistency. Live sch
 - Add `Database<T>.ValidateSchema(...)`.
 - Add `Database<T>.EnsureSchemaValid(...)`.
 - Reuse provider metadata readers and `SchemaComparer`.
-- Add unit tests using SQLite metadata fixtures.
+- Add the async methods in the same slice, preserving real synchronous paths.
+- Test complete result snapshots, threshold/issue policy, selected/full scopes and timeout boundaries.
+- Verify empty-versus-missing/unreadable schemas, no implicit creation and unchanged import behavior with SQLite and server-backed fixtures.
 
 ### Slice 2: Startup / Hosting Integration
 
@@ -398,8 +422,7 @@ The source generator should continue validating model self-consistency. Live sch
 
 ## 8. Open Questions
 
-- Should `ValidateSchema()` be synchronous only for the first slice, matching the current provider access style, or should the public surface reserve async variants immediately?
-- Should the startup package live in the main runtime package or a separate hosting integration package?
+- Async validation and first-slice cancellation are resolved by AAPI-65/AAPI-66; exact implementation/provider evidence remains required.
+- Runtime types in core and startup adapters in the separate hosting package are resolved by AAPI-106; actual dependency/consumer evidence remains required.
 - Should MSBuild `FailOn=warning` map warnings to build errors, or should it emit warnings and rely on `TreatWarningsAsErrors`?
-- Should runtime validation support cancellation tokens in the first slice, or only command timeout?
 - Should startup validation run before or after application-specific migration tools, when both are registered?

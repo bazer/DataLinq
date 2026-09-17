@@ -30,7 +30,13 @@ internal static class EmployeesBogusSeeder
             .RuleFor(x => x.birth_date, x => DateOnly.FromDateTime(x.Person.DateOfBirth.Date))
             .RuleFor(x => x.hire_date, x => x.Date.PastDateOnly(20))
             .RuleFor(x => x.gender, x => (Employee.Employeegender)(((int)x.Person.Gender) + 1))
-            .RuleFor(x => x.last_login, x => TimeOnly.FromDateTime(x.Date.Past(1)))
+            .RuleFor(x => x.last_login, x =>
+            {
+                // The shared fixture uses TIME(0). Fractional values just before
+                // midnight can round to 24:00:00 on MySQL, outside TimeOnly's range.
+                var value = x.Date.Past(1);
+                return new TimeOnly(value.Hour, value.Minute, value.Second);
+            })
             .RuleFor(x => x.created_at, x => x.Date.Past(5));
         var employees = transaction.Insert(employeeFaker.Generate(employeeCount));
 

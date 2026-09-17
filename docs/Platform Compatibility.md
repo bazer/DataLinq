@@ -50,7 +50,7 @@ That means the tested and packaged boundary is:
 - generated metadata hooks
 - generated mutable and immutable instance factories
 - schema creation from generated metadata
-- ordinary SQLite insert/query/relation/projection smoke behavior
+- ordinary SQLite insert/update/delete/rollback and query/relation/projection smoke behavior
 - the documented LINQ subset used by the smoke path
 - runtime package dependency groups without `Microsoft.CodeAnalysis.*`
 - runtime package dependency groups without `Remotion.Linq`
@@ -75,7 +75,7 @@ The current caveats to a stronger claim are still concrete:
 - Native AOT verification requires the local Native AOT platform toolchain; missing MSVC linker prerequisites are environment failures, not query-pipeline evidence
 - browser runtime verification now runs through `size-report` for WebAssembly targets, and the generated metadata startup path that previously failed with `MONO_WASM: function signature mismatch` is fixed
 - the final clean-output report passes on this machine, but WebAssembly clean-output stability still depends on the installed .NET SDK and workload state
-- SQLitePCLRaw WebAssembly varargs warning disposition still needs a broader call-graph answer when fresh publishes emit `WASM0001`
+- SQLitePCLRaw WebAssembly varargs warnings remain visible: native extension loading and direct raw configuration calls are outside the verified browser path; see the [configuration call-path audit](contributing/SQLite%20WebAssembly%20Verification.md)
 - generated SQLite smoke coverage is not broad provider coverage
 - the LINQ translator is intentionally limited to the documented subset
 
@@ -83,9 +83,11 @@ The current caveats to a stronger claim are still concrete:
 
 Current `size-report` tooling can publish WebAssembly targets, serve the published output over HTTP, and run the smoke page in a headless Chromium-compatible browser through Playwright.
 
-The current generated SQLite AOT browser evidence is positive for the narrow smoke boundary. The smoke covers generated metadata draft/definition construction, raw SQLite open/version/PRAGMAs, the keep-alive plus second-connection pattern, generated database construction, schema creation, insert, relation/projection queries, documented subset coverage, unsupported diagnostics, and parser route evidence. Publish success alone is still not browser proof; this claim depends on the browser smoke log.
+The current generated SQLite AOT browser evidence is positive for the narrow smoke boundary. The smoke covers generated metadata draft/definition construction, raw SQLite open/version/PRAGMAs, the keep-alive plus second-connection pattern, generated database construction, schema creation, committed insert/update/delete, transaction-local update and rollback, relation/projection queries, documented subset coverage, unsupported diagnostics, and parser route evidence. Publish success alone is still not browser proof; this claim depends on the browser smoke log.
 
 The current no-AOT browser WebAssembly path also passes the same generated SQLite in-memory smoke boundary. Treat this as a narrow smoke result, not as a promise that every no-AOT browser configuration, storage mode, or query shape is supported.
+
+The [SQLite WebAssembly configuration audit](contributing/SQLite%20WebAssembly%20Verification.md) traces the exact dependency versions and records a clean-revision browser run for both variants. Normal generated CRUD/query execution avoids the warned native configuration entry points. Calling `SqliteConnection.LoadExtension` or SQLitePCLRaw configuration/log-hook APIs can reach unsupported signatures and is outside this boundary. The warnings are deliberately unsuppressed.
 
 The provider-free Memory browser paths execute their own generated-model smoke without SQLitePCLRaw or a native database payload. They cover explicit seed, typed and direct `Guid` values, primary-key lookup, the documented predicate/order/page/projection/result subset, and one deterministic unsupported-query diagnostic. They do not add browser persistence or general LINQ support.
 

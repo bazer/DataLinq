@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using DataLinq.Cache;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -90,53 +91,65 @@ public interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
 public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelInstance
 {
     private readonly IEnumerable<T> list;
+    private Lazy<Snapshot> snapshot;
 
     public ImmutableRelationMock(IEnumerable<T> list)
     {
-        this.list = list;
+        this.list = list ?? throw new ArgumentNullException(nameof(list));
+        snapshot = CreateSnapshot();
     }
 
-    public T? this[DataLinqKey key] => throw new System.NotImplementedException();
+    public T? this[DataLinqKey key] => Get(key);
 
-    public int Count => throw new System.NotImplementedException();
+    public int Count => Values.Length;
 
-    public ImmutableArray<DataLinqKey> Keys => throw new System.NotImplementedException();
+    public ImmutableArray<DataLinqKey> Keys => ToFrozenDictionary().Keys;
 
-    public ImmutableArray<T> Values => throw new System.NotImplementedException();
+    public ImmutableArray<T> Values => Volatile.Read(ref snapshot).Value.Values;
 
     public IEnumerable<KeyValuePair<DataLinqKey, T>> AsKeyValuePairs()
     {
-        throw new System.NotImplementedException();
+        return ToFrozenDictionary().AsEnumerable();
     }
 
     public void Clear()
     {
-        throw new System.NotImplementedException();
+        Interlocked.Exchange(ref snapshot, CreateSnapshot());
     }
 
     public bool ContainsKey(DataLinqKey key)
     {
-        throw new System.NotImplementedException();
+        return ToFrozenDictionary().ContainsKey(key);
     }
 
     public T? Get(DataLinqKey key)
     {
-        throw new System.NotImplementedException();
+        return ToFrozenDictionary().TryGetValue(key, out var value) ? value : default;
     }
 
     public IEnumerator<T> GetEnumerator()
     {
-        throw new System.NotImplementedException();
+        return ((IEnumerable<T>)Values).GetEnumerator();
     }
 
     public FrozenDictionary<DataLinqKey, T> ToFrozenDictionary()
     {
-        throw new System.NotImplementedException();
+        return Volatile.Read(ref snapshot).Value.Instances.Value;
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
+    }
+
+    private Lazy<Snapshot> CreateSnapshot() => new(() => new Snapshot(list.ToImmutableArray()));
+
+    private sealed class Snapshot(ImmutableArray<T> values)
+    {
+        internal ImmutableArray<T> Values { get; } = values;
+        // ToDictionary rejects ambiguous duplicate primary keys before freezing.
+        internal Lazy<FrozenDictionary<DataLinqKey, T>> Instances { get; } =
+            new(() => values.ToDictionary(value => value.PrimaryKeys()).ToFrozenDictionary());
     }
 }
 
@@ -150,9 +163,41 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
     where T : IImmutableInstance
     where TKey : notnull
 {
-    private volatile FrozenDictionary<DataLinqKey, T>? relationInstances;
-    private ImmutableArray<T> relationValues;
-    private volatile bool relationValuesLoaded;
+    private RelationSnapshot? snapshot;
+    private object clearGeneration = new();
+
+    // Each subscription belongs to exactly one load. Losing or superseded loads
+    // are weakly held by the notification queue and cannot clear a newer snapshot.
+    private sealed class RelationSnapshot(
+        ImmutableRelation<T, TKey> owner,
+        IDataSourceAccess source,
+        ImmutableArray<T> values) : ICacheNotification
+    {
+        private FrozenDictionary<DataLinqKey, T>? instances;
+        internal IDataSourceAccess Source { get; } = source;
+        internal ImmutableArray<T> Values { get; } = values;
+        internal bool Invalidated { get; set; } // Accessed under owner's loadLock.
+
+        internal FrozenDictionary<DataLinqKey, T> GetInstances()
+        {
+            var current = Volatile.Read(ref instances);
+            if (current is not null)
+                return current;
+
+            var created = Values.ToFrozenDictionary(row => row.PrimaryKeys());
+            return Interlocked.CompareExchange(ref instances, created, null) ?? created;
+        }
+
+        public void Clear()
+        {
+            lock (owner.loadLock)
+            {
+                Invalidated = true;
+                if (ReferenceEquals(owner.snapshot, this))
+                    Volatile.Write(ref owner.snapshot, null);
+            }
+        }
+    }
 
 #if NET9_0_OR_GREATER
     protected readonly Lock loadLock = new();
@@ -177,13 +222,16 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
     public int Count => GetValues().Length;
     public bool ContainsKey(DataLinqKey key) => GetInstances().ContainsKey(key);
     /// <inheritdoc />
-    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsKeyValuePairs() => GetInstances().AsEnumerable();
+    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsKeyValuePairs() => new KeyValueSequence(this);
     public FrozenDictionary<DataLinqKey, T> ToFrozenDictionary() => GetInstances();
 
     protected TableCache GetTableCache() => GetTableCache(GetDataSource());
     protected TableCache GetTableCache(IDataSourceAccess source) => source.Provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
 
     protected IDataSourceAccess GetDataSource()
+        => ResolveDataSource(validateRead: true);
+
+    private IDataSourceAccess ResolveDataSource(bool validateRead)
     {
         if (dataSource is Transaction transaction)
         {
@@ -194,7 +242,7 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
                     "switch a transaction-bound relation to committed reads");
                 dataSource = dataSource.Provider.ReadOnlyAccess;
             }
-            else
+            else if (validateRead)
             {
                 transaction.EnsureCanRead("access a transaction-bound relation");
             }
@@ -205,65 +253,79 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
 
     protected ImmutableArray<T> GetValues()
     {
-        if (relationValuesLoaded)
+        var source = GetDataSource();
+        using var read = DataSourceAccess.BeginRead(source, "materialize relation values");
+        try
         {
-            GetTableCache().MetricsHandle.RecordRelationCollectionCacheHit();
-            return relationValues;
+            return GetSnapshot(source, read?.Step).Values;
         }
-
-        lock (loadLock)
+        catch (Exception failure)
         {
-            // Check if another thread loaded relationInstances while we were waiting for the lock.
-            if (!relationValuesLoaded)
-                return LoadValues();
-
-            return relationValues;
+            read?.ReportFailure(failure);
+            throw;
         }
     }
 
     protected FrozenDictionary<DataLinqKey, T> GetInstances()
     {
-        var localInstance = relationInstances;
-        if (localInstance != null)
+        var source = GetDataSource();
+        using var read = DataSourceAccess.BeginRead(source, "materialize a relation dictionary");
+        try
         {
-            GetTableCache().MetricsHandle.RecordRelationCollectionCacheHit();
-            return localInstance;
+            return GetSnapshot(source, read?.Step).GetInstances();
         }
-
-        lock (loadLock)
+        catch (Exception failure)
         {
-            if (relationInstances == null)
-            {
-                var valuesWereLoaded = relationValuesLoaded;
-                var values = valuesWereLoaded ? relationValues : LoadValues();
-                if (valuesWereLoaded)
-                    GetTableCache().MetricsHandle.RecordRelationCollectionCacheHit();
-
-                relationInstances = values.ToFrozenDictionary(x => x.PrimaryKeys());
-            }
-
-            return relationInstances;
+            read?.ReportFailure(failure);
+            throw;
         }
     }
 
-    private ImmutableArray<T> LoadValues()
+    private RelationSnapshot GetSnapshot(IDataSourceAccess source, TransactionOperationGate.Step? owner)
     {
-        // Load the relation instances from the data source.
-        // This will only happen once, and subsequent calls will return the cached value.
-        var source = GetDataSource();
+        // Validate transaction state even on cache hits and never reuse a
+        // transaction-local snapshot after switching to committed reads.
+        DataSourceAccess.EnsureReadAllowed(source, "read a relation snapshot", owner);
         var tableCache = GetTableCache(source);
+        var current = Volatile.Read(ref snapshot);
+        if (current is not null && ReferenceEquals(current.Source, source))
+        {
+            tableCache.MetricsHandle.RecordRelationCollectionCacheHit();
+            return current;
+        }
 
-        relationValues = ToImmutableRelationValues(tableCache.GetRows(foreignKey, property, source));
+        object generation;
+        lock (loadLock)
+            generation = clearGeneration;
 
-        relationValuesLoaded = true;
+        // I/O and user model construction must not block Clear or notification
+        // callbacks. Concurrent misses may load twice; only one snapshot wins.
+        var readGeneration = tableCache.CaptureReadGeneration();
+        var values = ToImmutableRelationValues(tableCache.GetRows(foreignKey, property, source, owner));
+        var created = new RelationSnapshot(this, source, values);
         tableCache.MetricsHandle.RecordRelationCollectionLoad();
         tableCache.SubscribeToChanges(
-            this,
+            created,
             source as Transaction,
             GetRelationCacheKey(),
-            GetPrimaryKeys(relationValues));
+            GetPrimaryKeys(values));
 
-        return relationValues;
+        lock (loadLock)
+        {
+            current = snapshot;
+            if (current is not null && ReferenceEquals(current.Source, source))
+                return current;
+
+            // A notification before Subscribe is detected by the table generation;
+            // one after Subscribe invalidates this candidate, even before publication.
+            if (ReferenceEquals(generation, clearGeneration) && !created.Invalidated &&
+                ReferenceEquals(readGeneration, tableCache.CaptureReadGeneration()))
+            {
+                Volatile.Write(ref snapshot, created);
+            }
+        }
+
+        return created;
     }
 
     private static ImmutableArray<T> ToImmutableRelationValues(IEnumerable<IImmutableInstance> rows)
@@ -313,21 +375,31 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
 
     public void Clear()
     {
-        if (relationValuesLoaded || relationInstances != null)
+        lock (loadLock)
         {
-            lock (loadLock)
-            {
-                relationInstances = null;
-                relationValues = default;
-                relationValuesLoaded = false;
-            }
+            clearGeneration = new object();
+            Volatile.Write(ref snapshot, null);
         }
     }
 
     public IEnumerator<T> GetEnumerator()
     {
-        // Cast to IEnumerable<T> so that we get an IEnumerator<T>.
-        return ((IEnumerable<T>)GetValues()).GetEnumerator();
+        var source = ResolveDataSource(validateRead: false);
+        return DataSourceAccess.ReadSequence(source, "enumerate a relation",
+            owner => (IEnumerable<T>)GetSnapshot(source, owner).Values).GetEnumerator();
+    }
+
+    private sealed class KeyValueSequence(ImmutableRelation<T, TKey> relation)
+        : IEnumerable<KeyValuePair<DataLinqKey, T>>
+    {
+        public IEnumerator<KeyValuePair<DataLinqKey, T>> GetEnumerator()
+        {
+            var source = relation.ResolveDataSource(validateRead: false);
+            return DataSourceAccess.ReadSequence(source, "enumerate relation keys and values",
+                owner => relation.GetSnapshot(source, owner).GetInstances().AsEnumerable()).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()

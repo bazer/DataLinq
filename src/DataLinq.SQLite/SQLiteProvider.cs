@@ -24,7 +24,7 @@ public enum SQLiteJournalMode
 
 public class SQLiteProvider : IDatabaseProviderRegister
 {
-    public static bool HasBeenRegistered { get; private set; }
+    public static bool HasBeenRegistered => PluginHook.IsRegistered(DatabaseType.SQLite);
 
     //[ModuleInitializer]
     public static void RegisterProvider()
@@ -32,11 +32,8 @@ public class SQLiteProvider : IDatabaseProviderRegister
         if (HasBeenRegistered)
             return;
 
-        PluginHook.DatabaseProviders[DatabaseType.SQLite] = new SQLiteDatabaseCreator();
-        PluginHook.SqlFromMetadataFactories[DatabaseType.SQLite] = new SqlFromSQLiteFactory();
-        PluginHook.MetadataFromSqlFactories[DatabaseType.SQLite] = new MetadataFromSQLiteFactoryCreator();
-
-        HasBeenRegistered = true;
+        PluginHook.RegisterProvider(DatabaseType.SQLite,
+            new SQLiteDatabaseCreator(), new SqlFromSQLiteFactory(), new MetadataFromSQLiteFactoryCreator());
     }
 }
 
@@ -316,9 +313,12 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override Sql GetTableName(Sql sql, string tableName, string? alias = null)
     {
-        sql.AddText(string.IsNullOrEmpty(alias)
-        ? $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter}"
-        : $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter} {alias}");
+        SqlIdentifier.Append(sql, tableName, Constants.EscapeCharacter);
+        if (!string.IsNullOrEmpty(alias))
+        {
+            sql.AddText(" ");
+            SqlIdentifier.Append(sql, alias, Constants.EscapeCharacter);
+        }
 
         return sql;
     }
@@ -329,11 +329,17 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     {
         var sql = query.ToSql();
         var command = new SqliteCommand(sql.Text);
-
-        foreach (var parameter in sql.Parameters)
-            command.Parameters.Add(CreateParameter(parameter));
-
-        return command;
+        try
+        {
+            foreach (var parameter in sql.Parameters)
+                command.Parameters.Add(CreateParameter(parameter));
+            return command;
+        }
+        catch
+        {
+            command.Dispose();
+            throw;
+        }
     }
 
     private static IDataParameter CreateParameter(SqlParameterBinding parameter)
@@ -364,9 +370,10 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
             throw new InvalidOperationException("Database file or server does not exist.");
 
         var literal = new Literal(ReadOnlyAccess, "SELECT name FROM sqlite_master WHERE type='table' AND name = @tableName", new SqliteParameter("@tableName", tableName));
+        using var command = literal.ToDbCommand();
 
         return DatabaseAccess
-            .ReadReader(literal.ToDbCommand())
+            .ReadReader(command)
             .Any();
     }
 

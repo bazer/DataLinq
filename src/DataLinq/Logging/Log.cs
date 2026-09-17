@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.Globalization;
 using System.Text;
 using DataLinq.Metadata;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,12 @@ public static partial class Log
             Sql(logger, command.FormatCommand());
     }
 
+    public static void SqlCommand(DataLinqLoggingConfiguration configuration, IDbCommand command)
+    {
+        if (configuration.SqlCommandLogger.IsEnabled(LogLevel.Debug))
+            Sql(configuration.SqlCommandLogger, command.FormatCommand(configuration.SqlParameters));
+    }
+
     [LoggerMessage(EventIds.IndexCachePreload, LogLevel.Debug, "Preloaded {rowsLoaded} keys to index cache: {index}")]
     public static partial void IndexCachePreload(ILogger logger, ColumnIndex index, int rowsLoaded);
 
@@ -32,8 +39,13 @@ public static partial class Log
 
 public static class DbCommandExtensions
 {
-    public static string FormatCommand(this IDbCommand command)
+    public static string FormatCommand(this IDbCommand command) =>
+        FormatCommand(command, SqlParameterLoggingOptions.Default);
+
+    public static string FormatCommand(this IDbCommand command, SqlParameterLoggingOptions options)
     {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(options);
         var sb = new StringBuilder();
         sb.AppendLine(command.CommandText);
 
@@ -42,7 +54,18 @@ public static class DbCommandExtensions
             sb.AppendLine("Parameters:");
             foreach (IDbDataParameter param in command.Parameters)
             {
-                sb.AppendLine($"{param.ParameterName} = {ConvertParamValue(param)} (Type: {param.DbType})");
+                var value = param.Value;
+                var formatted = value is null or DBNull ? "NULL"
+                    : !options.IncludeSensitiveValues || options.RedactParameter?.Invoke(param) == true
+                        ? "<redacted>"
+                        : FormatValue(value, options.MaximumValueLength);
+                sb.Append(param.ParameterName).Append(" = ").Append(formatted)
+                    .Append(" (Type: ").Append(param.DbType);
+                if (value is string text)
+                    sb.Append(", Length: ").Append(text.Length);
+                else if (value is byte[] bytes)
+                    sb.Append(", Length: ").Append(bytes.Length);
+                sb.AppendLine(")");
             }
         }
 
@@ -53,31 +76,68 @@ public static class DbCommandExtensions
         }
 
         return sb.ToString();
+    }
 
-        string ConvertParamValue(IDbDataParameter param)
+    private static string FormatValue(object value, int maximumLength)
+    {
+        if (value is string text)
+            return QuoteBounded(text, maximumLength);
+        if (value is char character)
+            return QuoteBounded(character.ToString(), maximumLength);
+        if (value is byte[] bytes)
         {
-            return param.Value switch
+            var count = Math.Min(bytes.Length, maximumLength / 2);
+            return "0x" + Convert.ToHexString(bytes.AsSpan(0, count)) + (count < bytes.Length ? "…" : "");
+        }
+
+        // Never call an arbitrary object's ToString: it may expose data or allocate without a bound.
+        var formatted = value switch
+        {
+            DateTime dateTime => dateTime.ToString("o", CultureInfo.InvariantCulture),
+            DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("o", CultureInfo.InvariantCulture),
+            DateOnly date => date.ToString("o", CultureInfo.InvariantCulture),
+            TimeOnly time => time.ToString("o", CultureInfo.InvariantCulture),
+            TimeSpan duration => duration.ToString("c", CultureInfo.InvariantCulture),
+            Guid guid => guid.ToString(),
+            bool boolean => boolean ? "true" : "false",
+            byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal
+                => ((IFormattable)value).ToString(null, CultureInfo.InvariantCulture),
+            _ => "<unsupported>"
+        };
+        return formatted.Length <= maximumLength ? formatted : formatted[..maximumLength] + "…";
+    }
+
+    private static string QuoteBounded(string value, int maximumLength)
+    {
+        var sb = new StringBuilder();
+        sb.Append('"');
+        var remaining = maximumLength;
+        var position = 0;
+        for (; position < value.Length; position++)
+        {
+            var character = value[position];
+            var escaped = character switch
             {
-                null => "NULL",
-                DBNull _ => "NULL",
-                byte[] byteArray => TryParseGuid(byteArray, out var guid) ? guid.ToString() : BitConverter.ToString(byteArray).Replace("-", " "),
-                DateTime dateTime => dateTime.ToString("o"), // ISO 8601 format
-                string str => Guid.TryParse(str, out var guid) ? guid.ToString() : $"\"{str}\"",
-                _ => param.Value?.ToString() ?? "NULL",
+                '\\' => "\\\\",
+                '"' => "\\\"",
+                '\r' => "\\r",
+                '\n' => "\\n",
+                '\t' => "\\t",
+                _ when char.IsControl(character) || char.IsSurrogate(character) || character is '\u2028' or '\u2029'
+                    => "\\u" + ((int)character).ToString("X4", CultureInfo.InvariantCulture),
+                _ => null
             };
+            var length = escaped?.Length ?? 1;
+            if (length > remaining)
+                break;
+            if (escaped is not null)
+                sb.Append(escaped);
+            else
+                sb.Append(character);
+            remaining -= length;
         }
-
-        bool TryParseGuid(byte[] byteArray, out Guid guid)
-        {
-            // Assuming the byte array represents a GUID in a common format
-            if (byteArray.Length == 16)
-            {
-                guid = new Guid(byteArray);
-                return true;
-            }
-
-            guid = default;
-            return false;
-        }
+        if (position < value.Length)
+            sb.Append('…');
+        return sb.Append('"').ToString();
     }
 }

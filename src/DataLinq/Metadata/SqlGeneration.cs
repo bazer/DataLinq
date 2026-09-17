@@ -96,7 +96,7 @@ public class SqlGeneration
 
     public SqlGeneration ColumnName(string column) => Add(QuotedString(column));
     public string QuotedString(string s)
-        => $"{QuoteCharacter}{s}{QuoteCharacter}";
+        => SqlIdentifier.Quote(s, QuoteCharacter.ToString());
     public SqlGeneration Space()
         => Add(" ");
     public string QuotedParenthesis(string s)
@@ -124,7 +124,7 @@ public class SqlGeneration
 
     public virtual SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func, string? tableOptions)
     {
-        sql.AddText($"CREATE TABLE IF NOT EXISTS {QuoteCharacter}{tableName}{QuoteCharacter} (\n");
+        sql.AddText($"CREATE TABLE IF NOT EXISTS {QuotedString(tableName)} (\n");
         func(this);
         NewRow();
         sql.AddText(string.Join(",\n", CreateRows.ToArray()));
@@ -137,7 +137,7 @@ public class SqlGeneration
     }
     public virtual SqlGeneration CreateView(string viewName, string definition)
     {
-        sql.AddText($"CREATE VIEW IF NOT EXISTS {QuoteCharacter}{viewName}{QuoteCharacter}\n");
+        sql.AddText($"CREATE VIEW IF NOT EXISTS {QuotedString(viewName)}\n");
         sql.AddText($"AS {definition};");
         sql.AddText("\n\n");
         return this;
@@ -155,7 +155,8 @@ public class SqlGeneration
             ? Add($"({length},{decimals})")
             : Add($"({length})")
         : this;
-    public SqlGeneration EnumValues(IEnumerable<string> values) => Add($"({string.Join(",", values.Select(x => $"'{x}'"))})");
+    public SqlGeneration EnumValues(IEnumerable<string> values) => Add($"({string.Join(",", values.Select(FormatEnumLiteral))})");
+    protected virtual string FormatEnumLiteral(string value) => $"'{value.Replace("'", "''")}'";
     public SqlGeneration Unsigned(bool? signed) => signed.HasValue && !signed.Value ? Space().Add("UNSIGNED") : this;
     public string Align(int longest, string text) => new string(' ', longest - text.Length);
 

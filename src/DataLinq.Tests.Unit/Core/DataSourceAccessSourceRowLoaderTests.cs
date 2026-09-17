@@ -886,7 +886,7 @@ public sealed class DataSourceAccessSourceRowLoaderTests
             .MakeGenericMethod(typeof(TKey));
         var rows = (IImmutableInstance[])method.Invoke(
             tableCache,
-            [key, index, source])!;
+            [key, index, source, null])!;
 
         return (
             rows,

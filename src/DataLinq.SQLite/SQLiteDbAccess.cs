@@ -50,7 +50,7 @@ public class SQLiteDbAccess : DatabaseAccess
         using (var connection = OpenOwnedConnection())
         {
             command.Connection = connection;
-            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+            Log.SqlCommand(loggingConfiguration, command);
             int result = ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
             connection.Close();
 
@@ -58,14 +58,23 @@ public class SQLiteDbAccess : DatabaseAccess
         }
     }
 
-    public override int ExecuteNonQuery(string query) =>
-        ExecuteNonQuery(new SqliteCommand(query));
+    public override int ExecuteNonQuery(string query)
+    {
+        using var command = new SqliteCommand(query);
+        return ExecuteNonQuery(command);
+    }
 
-    public override object? ExecuteScalar(string query) =>
-        ExecuteScalar(new SqliteCommand(query));
+    public override object? ExecuteScalar(string query)
+    {
+        using var command = new SqliteCommand(query);
+        return ExecuteScalar(command);
+    }
 
-    public override T ExecuteScalar<T>(string query) =>
-        (T)ExecuteScalar(new SqliteCommand(query))!;
+    public override T ExecuteScalar<T>(string query)
+    {
+        using var command = new SqliteCommand(query);
+        return (T)ExecuteScalar(command)!;
+    }
 
     public override T ExecuteScalar<T>(IDbCommand command) =>
         (T)ExecuteScalar(command)!;
@@ -75,7 +84,7 @@ public class SQLiteDbAccess : DatabaseAccess
         using (var connection = OpenOwnedConnection())
         {
             command.Connection = connection;
-            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+            Log.SqlCommand(loggingConfiguration, command);
             var result = ExecuteCommandWithTelemetry(command, "scalar", transactional: false, transactionType: null, command.ExecuteScalar);
             connection.Close();
 
@@ -89,7 +98,7 @@ public class SQLiteDbAccess : DatabaseAccess
         try
         {
             command.Connection = connection;
-            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+            Log.SqlCommand(loggingConfiguration, command);
 
             var reader = ExecuteCommandWithTelemetry(
                 command,
@@ -108,5 +117,5 @@ public class SQLiteDbAccess : DatabaseAccess
     }
 
     public override IDataLinqDataReader ExecuteReader(string query) =>
-        ExecuteReader(new SqliteCommand(query));
+        ExecuteOwnedReader(new SqliteCommand(query));
 }

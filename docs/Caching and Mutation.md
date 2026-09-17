@@ -68,11 +68,23 @@ flowchart TD
     linkStyle default stroke:#000000
 ```
 
+## Reads overlapping invalidation
+
+Each SQL-backed cache load captures its table's current read generation before querying the source. Row and relation-index publication checks that generation under the same short gate used for invalidation. Clearing, evicting, or invalidating entries therefore prevents an older in-flight load from adding its results back afterwards, including empty relation key sets. A fresh cache entry published after invalidation is preserved.
+
+An individual read that overlaps a mutation can still return its earlier snapshot. Invalidation does not cancel that read or turn ordinary reads into a serializable transaction. It prevents the earlier result from poisoning subsequent cached reads. Database I/O, immutable model constructors, and notification callbacks run outside the publication gate.
+
+The generation is conservative at table scope: invalidating one key can prevent other concurrent misses on that table from being cached. Those reads still return their results and later reads can refill the cache. Writes made outside DataLinq still require explicit cache invalidation.
+
 ## Relation Cache Mechanics
 
 Relations are backed by index caches that map foreign-key values to related primary keys. Once that mapping exists, subsequent relation access can skip a lot of work.
 
 The useful consequence is simple: relation traversal gets cheaper after the first lookup, and relation-aware writes can update what the in-memory graph sees.
+
+Collection values and their optional key dictionary belong to one immutable snapshot. A concurrent `Clear()` removes the published snapshot without changing values already held by a reader. Both collection relations and single foreign-key references subscribe before publishing a load and check the table generation to detect changes that occurred before subscription. An invalidated initial load can finish, but is not retained. Notifications are attached to the particular loaded snapshot, so an old notification cannot clear a newer one. Concurrent misses may perform duplicate loads; subsequent reads reuse the accepted snapshot.
+
+Transaction-bound relations validate transaction state on cache hits too. When a terminal transaction permits fallback to committed reads, the relation loads a snapshot from that committed source instead of retaining transaction-local values.
 
 If you need to inspect what the cache subsystem is actually doing at runtime, see [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md). That page documents the shipped `DataLinqMetrics` API, including row-cache, relation, invalidation, and cache-notification metrics.
 

@@ -300,7 +300,7 @@ public class ValueProperty : PropertyDefinition
             "decimal" => $"{Convert.ToDecimal(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}M",
             "DateTime" => $"DateTime.Parse({CSharpLiteralFormatter.FormatString(((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture))})",
             "DateTimeOffset" => $"DateTimeOffset.Parse({CSharpLiteralFormatter.FormatString(((DateTimeOffset)value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture))})",
-            "TimeSpan" => $"TimeSpan.Parse({CSharpLiteralFormatter.FormatString(((TimeSpan)value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture))})",
+            "TimeSpan" => $"global::System.TimeSpan.FromTicks({((TimeSpan)value).Ticks.ToString(CultureInfo.InvariantCulture)}L)",
             "DateOnly" => $"DateOnly.Parse({CSharpLiteralFormatter.FormatString(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty)})",
             "TimeOnly" => $"TimeOnly.Parse({CSharpLiteralFormatter.FormatString(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty)})",
             "Guid" or "System.Guid" or "global::System.Guid" => $"global::System.Guid.Parse({CSharpLiteralFormatter.FormatString(((Guid)value).ToString("D"))})",

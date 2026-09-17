@@ -234,7 +234,7 @@ internal readonly struct ModelDeclarationSnapshot : IEquatable<ModelDeclarationS
         => new(
             GetNamespace(syntax),
             syntax.Identifier.ValueText,
-            syntax.WithoutTrivia().NormalizeWhitespace().ToFullString(),
+            GetStructuralText(syntax),
             SyntaxParser.NullableAnnotationsAreDisabledAt(syntax),
             GetPropertyNullableAnnotationContext(syntax));
 
@@ -274,6 +274,20 @@ internal readonly struct ModelDeclarationSnapshot : IEquatable<ModelDeclarationS
             .OfType<PropertyDeclarationSyntax>()
             .Select(static property => SyntaxParser.NullableAnnotationsAreDisabledAt(property) ? '1' : '0')
             .ToArray());
+    }
+
+    private static string GetStructuralText(BaseTypeDeclarationSyntax syntax)
+    {
+        // Source metadata copies imports into generated files. An alias/import edit
+        // therefore changes the declaration input even when its body is identical.
+        var imports = syntax.Ancestors().Reverse().SelectMany(static ancestor => ancestor switch
+        {
+            CompilationUnitSyntax unit => unit.Usings.AsEnumerable(),
+            BaseNamespaceDeclarationSyntax ns => ns.Usings.AsEnumerable(),
+            _ => Enumerable.Empty<UsingDirectiveSyntax>()
+        });
+        return string.Join("\n", imports.Select(static item => item.WithoutTrivia().NormalizeWhitespace().ToFullString()))
+            + "\n" + syntax.WithoutTrivia().NormalizeWhitespace().ToFullString();
     }
 
     private static string GetNamespace(SyntaxNode syntax)

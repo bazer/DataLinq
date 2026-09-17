@@ -194,7 +194,8 @@ public class QueryPlanSqlParityTests
                 .Take(3));
         var filteredNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(filteredSql.Text);
         await Assert.That(filteredNormalized).Contains("WHERE");
-        await Assert.That(filteredNormalized).Contains("ORDER BY t0.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(filteredNormalized).Contains($"ORDER BY {quote}t0{quote}.");
         await Assert.That(filteredNormalized).Contains("LIMIT");
         await Assert.That(filteredSql.Parameters.Select(x => x.Value).ToArray()).Contains(threshold);
 
@@ -212,7 +213,7 @@ public class QueryPlanSqlParityTests
                 .OrderBy(department => department.DeptNo));
         var relationNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(relationSql.Text);
         await Assert.That(relationNormalized).Contains("EXISTS (SELECT 1 FROM");
-        await Assert.That(relationNormalized).Contains("ORDER BY t0.");
+        await Assert.That(relationNormalized).Contains($"ORDER BY {quote}t0{quote}.");
         await Assert.That(relationSql.Parameters.Select(x => x.Value).ToArray()).Contains(managerNumber);
 
         var joinSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
@@ -230,8 +231,8 @@ public class QueryPlanSqlParityTests
                     }));
         var joinNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(joinSql.Text);
         await Assert.That(joinNormalized).Contains("JOIN");
-        await Assert.That(joinNormalized).Contains("t0.");
-        await Assert.That(joinNormalized).Contains("t1.");
+        await Assert.That(joinNormalized).Contains($"{quote}t0{quote}.");
+        await Assert.That(joinNormalized).Contains($"{quote}t1{quote}.");
     }
 
     [Test]
@@ -289,8 +290,9 @@ public class QueryPlanSqlParityTests
 
         await Assert.That(normalized).Contains("FROM (SELECT");
         await Assert.That(normalized).Contains("LIMIT 10");
-        await Assert.That(normalized).Contains(") t0 WHERE");
-        await Assert.That(normalized).Contains("ORDER BY t0.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(normalized).Contains($") {quote}t0{quote} WHERE");
+        await Assert.That(normalized).Contains($"ORDER BY {quote}t0{quote}.");
         await Assert.That(parameterValues).Contains(threshold);
         await Assert.That(parameterValues).Contains(excludedName);
         await Assert.That(sql.Text).DoesNotContain(threshold.ToString());
@@ -401,10 +403,11 @@ public class QueryPlanSqlParityTests
 
         await Assert.That(takeOrderNormalized).Contains("FROM (SELECT");
         await Assert.That(takeOrderNormalized).Contains("LIMIT 5");
-        await Assert.That(takeOrderNormalized).Contains("ORDER BY t0.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(takeOrderNormalized).Contains($"ORDER BY {quote}t0{quote}.");
         await Assert.That(skipOrderNormalized).Contains("FROM (SELECT");
         await Assert.That(skipOrderNormalized).Contains("OFFSET 5");
-        await Assert.That(skipOrderNormalized).Contains("ORDER BY t0.");
+        await Assert.That(skipOrderNormalized).Contains($"ORDER BY {quote}t0{quote}.");
     }
 
     [Test]
@@ -438,9 +441,10 @@ public class QueryPlanSqlParityTests
         await Assert.That(normalized).Contains("FROM (SELECT");
         await Assert.That(normalized).Contains("JOIN");
         await Assert.That(normalized).Contains("LIMIT 30");
-        await Assert.That(normalized).Contains(") t0 WHERE");
-        await Assert.That(normalized).Contains("t0.\"DepartmentName\"");
-        await Assert.That(normalized).Contains("ORDER BY t0.\"dept_no\" DESC");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(normalized).Contains($") {quote}t0{quote} WHERE");
+        await Assert.That(normalized).Contains($"{quote}t0{quote}.\"DepartmentName\"");
+        await Assert.That(normalized).Contains($"ORDER BY {quote}t0{quote}.\"dept_no\" DESC");
         await Assert.That(normalized).Contains("dl_0_pk_0");
         await Assert.That(normalized).Contains("dl_1_pk_0");
         await Assert.That(sql.Parameters.Select(x => x.Value).ToArray()).Contains("S%");
@@ -470,7 +474,8 @@ public class QueryPlanSqlParityTests
         var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(planSql.Text);
 
         await Assert.That(normalized).Contains("WHERE");
-        await Assert.That(normalized).Contains("ORDER BY t0.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(normalized).Contains($"ORDER BY {quote}t0{quote}.");
         await Assert.That(normalized).Contains("LIMIT");
         await Assert.That(planSql.Parameters.Select(x => x.Value!).ToArray()).Contains(threshold);
         await Assert.That(planSql.Parameters.Select(x => x.Value!).ToArray()).Contains(excludedName);
@@ -762,8 +767,9 @@ public class QueryPlanSqlParityTests
         var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(planSql.Text);
 
         await Assert.That(normalized).Contains("EXISTS (SELECT 1 FROM");
-        await Assert.That(normalized).Contains("r0.");
-        await Assert.That(normalized).Contains("t0.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(normalized).Contains($"{quote}r0{quote}.");
+        await Assert.That(normalized).Contains($"{quote}t0{quote}.");
         await Assert.That(planSql.Parameters.Select(x => x.Value).ToArray()).Contains(managerNumber);
     }
 

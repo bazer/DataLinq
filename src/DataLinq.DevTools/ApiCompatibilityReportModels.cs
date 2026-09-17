@@ -65,7 +65,10 @@ public sealed record ApiCompatibilityReportInvocation(
     string BaselineLockPath,
     ToolingProfile Profile,
     IReadOnlyList<string> BaselinePackageIds,
-    IReadOnlyList<string> CandidatePackageIds);
+    IReadOnlyList<string> CandidatePackageIds)
+{
+    public string ReleasePolicy { get; init; } = "v0.9";
+}
 
 public sealed record ApiCompatibilityBaselineLockReport(
     string SchemaVersion,

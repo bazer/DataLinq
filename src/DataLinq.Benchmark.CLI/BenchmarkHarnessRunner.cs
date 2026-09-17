@@ -446,7 +446,7 @@ internal sealed class BenchmarkHarnessRunner
             "-c",
             "Release",
             "-f",
-            "net8.0",
+            "net10.0",
             "-nologo",
             "-v",
             verbose ? "minimal" : "q",
@@ -553,6 +553,9 @@ internal sealed class BenchmarkHarnessRunner
                     : null,
                 BenchmarkTargetRepositoryRoot = settings.UsesExternalBenchmarkTarget
                     ? settings.BenchmarkTargetRepositoryRoot
+                    : null,
+                CustomAfterMicrosoftCommonCrossTargetingTargets = settings.UsesExternalBenchmarkTarget
+                    ? Path.Combine(settings.RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "BenchmarkTargetProvenance.targets")
                     : null,
                 BenchmarkCompatibilitySource = settings.UsesExternalBenchmarkTarget
                     ? Path.Combine(settings.RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "HistoricalBenchmarkConfig.cs.txt")
@@ -1501,6 +1504,9 @@ internal sealed class BenchmarkHarnessRunner
             "Cold relation traversal" => "relation-traversal",
             "Warm relation traversal" => "relation-traversal",
             "Scalar row-cache add/get/remove" => "cache-hotpath",
+            "RowLimit5000" or "RowLimit10000" or "RowLimit20000" or
+            "PayloadLimit5000" or "PayloadLimit10000" or "PayloadLimit20000" or
+            "SingleRowBatches5000" or "SingleRowBatches10000" or "SingleRowBatches20000" => "cache-eviction",
             "Warm PK with cache estimate" => "cache-memory",
             "Warm relation with cache estimate" => "cache-memory",
             "Large relation index preload" => "cache-memory",
@@ -1545,6 +1551,9 @@ internal sealed class BenchmarkHarnessRunner
             "Memory primary-key miss" => "memory-primary-key",
             "Memory scalar scan" => "memory-query",
             "Memory filter order page" => "memory-query",
+            "Take5From1000" or "Skip100Take5From1000" or
+            "Take5From10000" or "Skip100Take5From10000" or
+            "Take5From100000" or "Skip100Take5From100000" => "memory-query",
             "Memory repeated entity identity" => "memory-identity",
             "Memory direct-Guid equality count" => "memory-conversion",
             "Memory typed-ID equality count" => "memory-conversion",

@@ -122,12 +122,12 @@ internal sealed class QueryPlanSqlValueRenderer(
             derivedColumns.TryGetAlias(column, out var derivedAlias))
         {
             var derivedEscape = dataSource.Provider.Constants.EscapeCharacter;
-            return $"{derivedColumns.SourceAlias}.{derivedEscape}{derivedAlias}{derivedEscape}";
+            return $"{SqlIdentifier.Quote(derivedColumns.SourceAlias, derivedEscape)}.{SqlIdentifier.Quote(derivedAlias, derivedEscape)}";
         }
 
         var source = sourceMap.Get(column.Source);
         var escape = dataSource.Provider.Constants.EscapeCharacter;
-        return $"{source.Alias}.{escape}{column.Column.DbName}{escape}";
+        return $"{SqlIdentifier.Quote(source.Alias, escape)}.{SqlIdentifier.Quote(column.Column.DbName, escape)}";
     }
 
     public object? GetScalarValue(QueryPlanValue value)

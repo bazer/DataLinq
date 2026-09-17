@@ -404,6 +404,7 @@ internal static class BenchmarkEvidenceReporter
             input.RunnerEvidence.BenchmarkTargetEnd);
         var validForEvidence = complete && artifactsComplete && exactTargetSet &&
                                canonicalInvocation &&
+                               rows.All(static row => IsBenchmarkRuntime(row.Runtime)) &&
                                MetadataIsComplete(input.Metadata, input.Invocation, runnerRecomputed) &&
                                RunnerEvidenceMatches(input.RunnerEvidence, runnerRecomputed) &&
                                runnerRecomputed.ValidForEvidence &&
@@ -987,6 +988,7 @@ internal static class BenchmarkEvidenceReporter
                expectedTargetsRecorded &&
                observedTargetsRecorded &&
                rowsComplete &&
+               artifact.Rows.All(static row => IsBenchmarkRuntime(row.Runtime)) &&
                summaryMatches &&
                warningsComplete &&
                CommandsAreComplete(invocation, artifact.Commands, artifact.RunId) &&
@@ -1168,6 +1170,9 @@ internal static class BenchmarkEvidenceReporter
                    StringComparer.Ordinal);
     }
 
+    private static bool IsBenchmarkRuntime(string? runtime) =>
+        runtime?.StartsWith(".NET 10.", StringComparison.Ordinal) == true;
+
     private static bool MetadataIsComplete(
         BenchmarkRunMetadata metadata,
         BenchmarkInvocation invocation,
@@ -1181,6 +1186,7 @@ internal static class BenchmarkEvidenceReporter
                IsBoundedIdentity(metadata.RunnerOs) &&
                IsBoundedIdentity(metadata.RunnerArchitecture) &&
                IsBoundedIdentity(metadata.RuntimeDescription) &&
+               IsBenchmarkRuntime(metadata.RuntimeDescription) &&
                IsBoundedIdentity(metadata.ProcessorIdentifier) &&
                IsBoundedIdentity(metadata.BenchmarkDotNetVersion) &&
                metadata.ProcessorCount > 0;
@@ -1371,7 +1377,7 @@ internal static class BenchmarkEvidenceReporter
                 "DataLinq.Benchmark",
                 "bin",
                 "Release",
-                "net8.0",
+                "net10.0",
                 "DataLinq.Benchmark.dll");
             var expectedRunDirectory = Path.Combine(root, "artifacts", "benchmarks", "runs", runId);
             if (!Path.IsPathFullyQualified(invocation.RepositoryRoot) ||
@@ -1619,7 +1625,7 @@ internal static class BenchmarkEvidenceReporter
             "-c",
             "Release",
             "-f",
-            "net8.0",
+            "net10.0",
             "-nologo",
             "-v",
             verbosity,
@@ -1676,6 +1682,11 @@ internal static class BenchmarkEvidenceReporter
                PathsEqual(
                    environment.BenchmarkTargetRepositoryRoot,
                    invocation.BenchmarkTargetRepositoryRoot) &&
+               PathsEqual(
+                   environment.CustomAfterMicrosoftCommonCrossTargetingTargets,
+                   externalTarget
+                       ? Path.Combine(invocation.RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "BenchmarkTargetProvenance.targets")
+                       : null) &&
                PathsEqual(
                    environment.BenchmarkCompatibilitySource,
                    externalTarget

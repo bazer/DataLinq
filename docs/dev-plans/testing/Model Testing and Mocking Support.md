@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-09-16.
 **Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
@@ -264,7 +264,7 @@ It should not try to simulate every provider transaction rule. Provider-backed t
 
 The current `ImmutableRelationMock<T>` should be completed or replaced.
 
-Required collection relation behavior:
+Synchronous subset of the required collection relation behavior (shape sketch, not a complete class implementation):
 
 ```csharp
 public sealed class TestImmutableRelation<T> : IImmutableRelation<T>
@@ -276,13 +276,52 @@ public sealed class TestImmutableRelation<T> : IImmutableRelation<T>
     public T? this[DataLinqKey key] { get; }
     public T? Get(DataLinqKey key);
     public bool ContainsKey(DataLinqKey key);
-    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsEnumerable();
+    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsKeyValuePairs();
     public FrozenDictionary<DataLinqKey, T> ToFrozenDictionary();
     public void Clear();
 }
 ```
 
-Required reference relation behavior:
+The accepted 0.10 async contract is owned by [AAPI-14 through AAPI-16](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-14-relation-execution-members-with-overridable-async-defaults):
+
+- Support `IImmutableRelation<T>` async execution members, including the explicit async row view, scoped lookup, terminals, and collection accessors. Reuse overridable shared defaults where correct instead of requiring every double to implement all terminal algorithms independently.
+- In-memory rows may complete immediately. Defaults and custom adapters must never conceal synchronous database I/O behind an async signature; an unsupported execution capability must fail explicitly.
+- Verify both interface-typed and concrete helper calls. Default interface implementations do not automatically expose methods through a concrete class type.
+- Make generated single-reference async methods usable through the public model base and its overridable loading path without a database; do not require new generated model/test-shape interfaces.
+- Keep required-reference failure, optional-reference nullability, and duplicate-target cardinality behavior identical to sync and async production navigation. Graph validation should diagnose invalid required relations; focused failure fixtures must also prove navigation does not silently return `null`.
+- No relation query-composition capability is required in 0.10. Standalone relation fixtures do not need an `IQueryable` source; intentionally queryable application tests continue to use the existing real Memory read-store boundary.
+
+The collection primitive/default policy is accepted under AAPI-51 through AAPI-53; exact signature and compatibility evidence remains part of A10's review. [AAPI-17 through AAPI-20](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-17-async-sequences-do-not-promise-database-streaming) own the accepted enumeration contract: direct async sequences may buffer, support sequential re-enumeration, honor method and enumerator tokens together, and observe cancellation during buffered iteration. In-memory doubles must not ignore those tokens simply because they have no database I/O.
+
+Query-capable fixtures follow ordinary/prepared parameter-capture boundaries without substituting permanent result caching. Ownership/active-reader tests use controllable execution sources or provider-backed fixtures; a pure collection double does not prove reader disposal or transaction behavior. Do not make every graph fixture construct a query provider to test these separate execution contracts.
+
+[AAPI-21 through AAPI-26](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-21-validate-first-then-honor-pre-cancellation-even-on-cache-hits) own accepted cancellation/failure policies. Immediate/cache-hit doubles honor pre-cancellation after ordinary validation and never publish a partial relation as complete. Failure fixtures distinguish interrupted initialization, reusable versus untrustworthy canceled reads, poisoned mutations, known/unknown completion, and primary/secondary cleanup errors. Fake unit-of-work behavior must expose the same supported cause/outcome/recovery information as H10 without pretending to prove provider interruption, recovery-budget feasibility, or connection reuse. Use controllable providers and provider-backed tests for those guarantees.
+
+[AAPI-27 through AAPI-33](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-27-capture-mutation-inputs-before-the-first-suspension) own accepted mutation/callback policies: capture before suspension, exclusive pending mutable use, exactly-once synchronous local edits, finite all-model capture, task callback families with explicit token propagation, borrowed completion restrictions, and results delivered after helper cleanup. Focused fixtures follow these contracts without adding a testing-only mutation engine or claiming that escaped references/custom types can be universally intercepted.
+
+[AAPI-34 through AAPI-41](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-34-reject-overlapping-transaction-execution) own concurrency/cache policies. Use controllable execution fixtures for overlap/resource ownership, private helper/internal rights, rejected busy caller disposal, unfinished-callback admission/recovery, independent wait cancellation, invalidation/publication races, completeness, and source isolation. Preserve completed-task detection and drain-deadline limits. A pure collection double cannot establish safe provider interruption, connection cleanup, or shared-cache publication; those require runtime/provider evidence. AAPI-51 through AAPI-55 settle custom-interface policy, subject to consumer/ApiCompat evidence.
+
+[AAPI-42 through AAPI-48](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-42-deliberate-query-extension-namespace-and-static-entry-point) own accepted query-surface policy. Query-capable fixtures use actual DataLinq execution services and preserve supported expression/default/numeric semantics; do not make arbitrary LINQ-to-Objects `IQueryable<T>` values appear async-capable through fallback. Keep local relation/collection operations explicit through their async views. Packed consumer tests cover deliberate imports/static aliases, EF Core and standard async LINQ, projections, nullable results, and optional/named tokens. This does not require pure collection doubles to implement a query provider.
+
+[AAPI-49 through AAPI-55](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-49-mirror-existing-key-lookup-families) own accepted key/relation contracts. Verify typed model/provider-key conversion and null-key parity separately from absence and execution failures. A minimal custom collection implements one async row primitive; shared defaults are acyclic, unsupported async capability fails explicitly, and public concrete test helpers expose members without recursive interface forwarding. Cover relation membership, duplicate primary keys, and consistent keyed results when separate calls cross invalidation. Preserve synchronous reference covariance through the invariant async capability; test required/optional/duplicate/capability failures, async overrides independent of synchronous property overrides, shared loader state, and generated DLG collision errors. No Memory-specific generated key overload or general provider SPI is implied.
+
+[AAPI-56 through AAPI-63](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-56-mirror-lower-level-execution-with-verified-async-capability) own lower-level execution/ownership and failure-access/configuration policy. Use controllable adapters/readers for capability rejection, genuine dispatch, borrowed command and current-row semantics, cleanup failures, raw/managed gating, and consuming attachment; collection doubles alone do not prove these. Fake unit-of-work helpers expose typed immutable failure snapshots with valid post-disposal recovery actions and inherit validated provider configuration where applicable, without live/global settings or deadline promises. Provider/host tests separately prove owning-root disposal order and actual rollback interruption/resource safety.
+
+[AAPI-64 through AAPI-72](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-64-async-existence-checks-preserve-their-distinct-probe-semantics) settle metadata/existence and main mutation/callback inventory. Metadata fixtures distinguish probes, failed options, cancellation, comparison results, and original operational errors; provider tests establish normalized database identity, no creation/repair, and lifetime/freshness limits. Mutation doubles follow existing families and finite collection insertion, typed generated bridges, independently owned source-less helpers, narrow nullable Save behavior, and unchanged-update read semantics. Provider callback fakes use untyped Transaction families and shared helper policies. These fixtures do not grant Memory SQL persistence, schema inspection, or unsupported backend capabilities.
+
+[AAPI-73 through AAPI-81](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-73-explicit-navigation-guidance-without-a-strict-sync-io-mode) settle navigation guidance and backend boundaries. Memory fixtures use the existing query subset and narrow single-model-key FindAsync; they do not gain relation navigation, generated lookup or neutral-source prepared execution. Preserve standalone async graph doubles separately. Immediate completion is legitimate, with validation/cancellation checkpoints, no forced scheduling, and no successful partial materializers. Unsupported sources fail explicitly rather than falling back. Use returned relation results in async/DTO examples; provider-backed and controllable fixtures prove SQLite/MySQL/MariaDB interruption, trust, cleanup and suspended execution. Memory-only packed consumers must not accidentally depend on SQL providers.
+
+[AAPI-82 through AAPI-90](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-82-construction-and-sql-preparation-remain-synchronous) settle remaining helper policies. Controllable fixtures cover construction versus execution, provisioning registration/input capture and partial failure without destructive recovery, fluent read shapes and private builder snapshots, and canonical cache lookup with invalidation-safe publication. Preserve disabled fluent mutation diagnostics and synchronous maintenance/notification contracts. SQLite/provider-backed evidence proves setup/journal/provisioning behavior and in-memory lifetime; pure graph/Memory fixtures do not gain provisioning, SQL execution, or cache-loader capabilities.
+
+[AAPI-91 through AAPI-99](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-91-failure-context-is-an-immutable-diagnostic-snapshot) settle diagnostic/configuration details. DataLinq testing helpers share internal immutable snapshot construction without a public context-mutation API. Verify direct-only exception access, identity and overlap isolation, cause/operation/stage/outcome independence, exact recovery flags valid after helper disposal, defensive ordered original secondary exceptions, constructor/property/default binding, bounded pre-setup options capture, and DLG004 valid/conflicting overloads. Provider/host evidence separately proves MariaDB probe timing/fallback and actual interruption/recovery. Enumeration of accepted types is not packed-consumer or runtime proof.
+
+[AAPI-100 through AAPI-102](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-100-async-raw-model-readers-follow-the-existing-class-hierarchy) add raw model reader and provider-transaction completion coverage for base/concrete/legacy subclass receivers, unsupported defaults without synchronous I/O, and the managed ownership boundary. Freeze exact diagnostic enum numbers and the DataLinq execution-options namespace in consumer/API baselines; zero classification remains Unknown. These accepted contracts do not replace reader-lifetime, materialization, cancellation or real-provider evidence.
+
+[AAPI-103 through AAPI-105](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-103-exact-generic-query-min-and-max-declarations) pin query extrema nullability, the complete direct local relation predicate/reduction overload list, and inherited provider-interface async-disposal defaults with base/concrete overrides. Testing helpers expose the actual relation members and preserve local numeric/comparison/empty semantics. Verify unsupported legacy disposal without synchronous cleanup or disposed-state changes. The existing isolated .NET 10 declaration probe does not prove the DataLinq implementation or .NET 8/9 consumers.
+
+[AAPI-106 through AAPI-111](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-106-runtime-validation-types-and-immutable-result-construction) require controlled validation fixtures without arbitrary public result construction, complete difference/issue snapshots, threshold/scope/timeout edge coverage, and packed async-LINQ/compatibility consumers. Empty-versus-missing/unreadable schema and command-timeout behavior also require real providers; graph doubles do not prove metadata I/O. The locked 0.9.0 compatibility baseline includes Memory.
+
+Synchronous subset of the reference-holder shape:
 
 ```csharp
 public sealed class TestImmutableForeignKey<T> : IImmutableForeignKey<T>
@@ -292,6 +331,8 @@ public sealed class TestImmutableForeignKey<T> : IImmutableForeignKey<T>
     public void Clear();
 }
 ```
+
+A nullable lower-level `Value` can represent an absent target. It does not allow generated required navigation to return `null`: both the synchronous property and async method must enforce AAPI-16 before returning to application code. Ordinary nullable key-lookup misses retain their current meaning.
 
 Useful helpers:
 

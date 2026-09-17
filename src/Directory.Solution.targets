@@ -1,0 +1,8 @@
+<Project>
+  <Target Name="RequireCompleteDependencyAudit" AfterTargets="Restore" Condition="'$(DataLinqAuditRequired)' == 'true'">
+    <Error Code="DLAUDIT001"
+           Condition="'$(RestoreProjectCount)' == '' Or '$(RestoreProjectCount)' == '0' Or '$(RestoreProjectsAuditedCount)' != '$(RestoreProjectCount)'"
+           Text="Dependency audit did not cover every restored project. Expected $(RestoreProjectCount); audited $(RestoreProjectsAuditedCount); skipped $(RestoreSkippedCount)." />
+    <Message Importance="High" Text="DATALINQ_AUDIT_COVERAGE: $(RestoreProjectsAuditedCount)/$(RestoreProjectCount)" />
+  </Target>
+</Project>

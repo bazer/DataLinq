@@ -240,6 +240,8 @@ Server-backed isolated fixtures rent one of four databases per target and profil
 
 Shared server fixtures use connector pooling with connection reset enabled and a maximum pool size of eight, matching normal test-host concurrency without exhausting the server across multiple logical pools. Isolated and administrative connections remain unpooled. Do not enable pooling for isolated fixtures: it obscures ownership, delays cleanup, and was a major source of unnecessary server connections.
 
+SQLite file cleanup clears only the pool for that fixture's exact connection string before deleting its database file. It must not clear all SQLite pools in the process, because other fixtures can be opening or using connections concurrently.
+
 Each compliance result directory can include `fixture-metrics.json`. Its versioned report records per-target/profile create, reuse, reset, failure, wait, seed, and cleanup measurements; serialized administrative-command and lock counts; global server connection counters; and a final server-status sample taken by the CLI after the test host has exited. `ServerThreadsConnectedAfterTestHostExit` should therefore return to the telemetry probe itself rather than retain test-host sockets. The CLI treats telemetry as diagnostic evidence: inability to sample it is reported without turning otherwise valid tests into failures.
 
 ### Summary JSON evidence contract
@@ -323,6 +325,7 @@ Important environment-variable overrides include:
 
 - `DATALINQ_TEST_CONTAINER_PREFIX`
 - `DATALINQ_TEST_DB_HOST`
+- `DATALINQ_TEST_DB_BIND_ADDRESS` (container publication address; defaults to `127.0.0.1`)
 - `DATALINQ_TEST_DB_ADMIN_USER`
 - `DATALINQ_TEST_DB_ADMIN_PASSWORD`
 - `DATALINQ_TEST_DB_APP_USER`
@@ -335,3 +338,9 @@ Important environment-variable overrides include:
 - `DATALINQ_TEST_TARGET_ALIAS`
 
 Use overrides deliberately. The defaults are there so normal local runs stay simple.
+
+New test containers publish their database port on loopback only. Both the Podman CLI and socket transports preserve this address; local readiness checks use loopback as well. The standard development credentials are suitable only for isolated local test infrastructure.
+
+An intentional remote setup must select the IP address to bind through `DATALINQ_TEST_DB_BIND_ADDRESS` (for example a specific interface, or `0.0.0.0` for all IPv4 interfaces), set `DATALINQ_TEST_DB_HOST` to the host reachable by the test runner, and supply appropriate credentials and network access controls. IPv6 addresses are accepted; the CLI adds brackets when formatting the publication argument.
+
+Changing this setting does not modify existing containers. To replace an existing target's publication, use `reset --targets <target-id>` after its disposable test data is no longer needed. Reusing an older container retains its previous binding until it is recreated. Avoid `up --recreate` when intending to replace just one target: that option removes the whole configured matrix before starting the selection.

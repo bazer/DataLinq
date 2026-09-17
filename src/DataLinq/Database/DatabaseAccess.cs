@@ -31,6 +31,30 @@ public abstract class DatabaseAccess : IDatabaseAccess
     public abstract int ExecuteNonQuery(IDbCommand command);
     public abstract int ExecuteNonQuery(string query);
 
+    /// <summary>
+    /// Executes a newly created command and transfers its ownership to the returned
+    /// reader. The IDbCommand overload itself leaves ownership with its caller.
+    /// </summary>
+    protected IDataLinqDataReader ExecuteOwnedReader(IDbCommand command)
+    {
+        try
+        {
+            return OwnedCommandDataReader.Create(ExecuteReader(command), command);
+        }
+        catch (Exception executionFailure)
+        {
+            try
+            {
+                command.Dispose();
+            }
+            catch (Exception disposalFailure)
+            {
+                throw new AggregateException("Reader creation and owned command disposal both failed.", executionFailure, disposalFailure);
+            }
+            throw;
+        }
+    }
+
     protected TResult ExecuteCommandWithTelemetry<TResult>(
         IDbCommand command,
         string commandKind,

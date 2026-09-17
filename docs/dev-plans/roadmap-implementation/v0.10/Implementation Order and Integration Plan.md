@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-09-17.
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -32,26 +32,65 @@ It does not authorize implementation outside the 0.10 roadmap.
 
 ### D10-1: Async Contract Shape
 
-Decide and test:
+The accepted decisions and remaining OAPI questions live in [Async Public API Decisions](Async%20Public%20API%20Decisions.md). `Transaction()` stays synchronous and lazy, execution mode is chosen per operation, and public cancellation tokens are optional. Generated single-reference methods use `<PropertyName>Async()` without a `Load` prefix; collection handles remain synchronous and expose async execution terminals. These decisions do not replace W0 evidence or freeze unproven signatures.
+
+Complete the audit and decide/test:
 
 - which current public operations perform I/O
 - which receive `Async` counterparts in the initial release
-- where `CancellationToken` is mandatory, optional, or not meaningful
-- which internal operations return `Task` versus `ValueTask` based on measured completion behavior rather than style
-- how async enumeration interacts with current query materialization and resource disposal
+- which I/O operations accept an optional final `CancellationToken`; local construction/composition needs no token, and internal contracts may require explicit propagation
+- enforce revised AAPI-8: public key/single-reference lookups, query/relation terminals, collection accessors, and disposal use `ValueTask`; prepared scalar/row execution, mutations, transaction completion/callbacks, and other non-LINQ awaitable operations use `Task`, with generic result types as appropriate; measure implementation costs without claiming a signature alone proves a performance improvement
+- enforce AAPI-11's approved breaking rename to `AsKeyValuePairs()`, restoring standard row `AsEnumerable()`; A10 owns the narrow synchronous correction before async execution work, with T10 follow-through for custom/testing implementations and explicit source/binary migration evidence
+- enforce AAPI-12's explicit async row view, local predicate semantics, and collection accessor names/result shapes
+- enforce AAPI-13's normal transitive `System.Linq.AsyncEnumerable` dependency only for .NET 8/9 when implementing the async surface; pin its version centrally and verify packed dependency groups and consumers on .NET 8/9/10
+- enforce AAPI-14 and AAPI-51 through AAPI-53: one async collection row primitive, overridable acyclic defaults, explicit unsupported capability, concrete member exposure, and consistent relation-scoped keyed results without synchronous database fallback or recursive forwarding
+- enforce AAPI-15's public model-base visibility, overridable single-reference methods, and focused generated-name/inheritance diagnostics without automatically expanding mutable/shared model interfaces
+- enforce AAPI-16's required-reference validation in both synchronous and asynchronous navigation, nullable optional references, and duplicate-target failures; A10 owns runtime/generator work with T10 parity and explicit migration evidence
+- enforce AAPI-17/AAPI-18: direct `IAsyncEnumerable<T>` views and prepared-sequence `ExecuteAsync(...)`, no universal streaming guarantee, explicit completed materialization, deferred sequence I/O, ordinary/prepared/terminal parameter-capture boundaries, and sequential repeat enumeration without permanent result caching
+- enforce AAPI-19/AAPI-20: optional method/enumerator tokens honored together, cancellation during buffered iteration, ownership/disposal on every enumeration exit, rejection of another execution during a live transaction reader, and preservation of validated later relation source transitions
+- enforce AAPI-27 through AAPI-30: mutation identity/values captured before first suspension, exclusive use of pending mutable inputs, exactly-once synchronous local edits, and finite multi-model enumeration/capture before execution; retain documented reference-value/async-void limits
+- enforce AAPI-31 through AAPI-33: task-returning transaction-only/token-aware callback families, helper-owned completion with explicit token propagation, and results delivered after commit/finalization/cleanup; materialize transaction-bound deferred results inside callbacks without hidden transaction retention
+- enforce AAPI-34 through AAPI-38: one active execution operation per transaction across sync/async paths, resource-lifetime and private internal/mutable/helper ownership, rejected caller disposal during active work, and safe recovery without commit for unfinished callbacks
+- enforce AAPI-39 through AAPI-41: existing per-relation coordination with independent wait cancellation, invalidation-safe row/index/relation publication, complete-result versus individual-row caching, and transaction/database isolation without a general coalescing system
+- enforce AAPI-42 through AAPI-48: deliberate `DataLinq.Linq` query extensions/static entry, validated `IQueryable<T>` receivers, supported terminal/expression-predicate/default/numeric-selector overloads, and list/array versus standard local async collection materialization; no added LINQ translation or catch-all fallback
+- enforce AAPI-49/AAPI-50: existing database/transaction/generated key helper families and source overloads, typed model-to-provider normalization exactly once, capture before suspension, nullable missing-key results, and null-key sentinel parity; AAPI-75/AAPI-76 separately select narrow Memory FindAsync and retain generated/prepared source boundaries
+- enforce AAPI-54/AAPI-55: retained synchronous reference covariance plus the invariant async capability, shared loader state with separate execution paths, public overridable navigation, required/optional/cardinality/capability failure distinctions, and focused error-severity DLG collision diagnostics
+- enforce AAPI-56 through AAPI-58: mirrored lower-level string/command/helper execution with verified async capability, the async reader companion, ephemeral current-row versus materialized results, and explicit owned/borrowed command/reader/connection lifetimes without arbitrary command cloning
+- enforce AAPI-59 through AAPI-61: shared raw/managed adapter execution gates without raw mutation tracking or inferred read-only SQL, consuming synchronous attachment, and async disposal on owning roots with explicit dependency/DI ownership
+- enforce AAPI-62/AAPI-63: typed immutable failure snapshots through exception access and Transaction.FailureContext, plus validated provider-scoped DataLinqExecutionOptions.RecoveryRollbackTimeout with preserved constructors and no global/live/per-operation timeout proliferation
+- enforce AAPI-64 through AAPI-67: distinct async probe/metadata semantics, cancellation outside metadata Option failures, complete runtime validation and captured configuration, effective database identity and owned resources, fresh metadata without hidden mutation or atomic-DDL promises
+- enforce AAPI-68 through AAPI-72: existing mutation/finite collection-insert families, generated typed bridges and independently owned source-less helpers, narrow nullable Save behavior, genuine async reads for unchanged updates, and untyped provider callbacks without overload/batch expansion
+- enforce AAPI-73 through AAPI-78: explicit returned navigation/DTO results without strict sync-I/O enforcement, existing Memory query subset and narrow async lookup, retained navigation/prepared-source exclusions, separate graph doubles, immediate cooperative completion, and explicit missing capability without fallback or public flags
+- enforce AAPI-79 through AAPI-81: operation-level SQLite limits, MySQL/MariaDB operation/connection trust and timeout separation, backend/consumer evidence, and an explicit remaining constructor/setup/administrative I/O audit
+- enforce AAPI-82 through AAPI-85: synchronous construction/preparation and preserved SQLite setup timing, explicit journal-mode/provisioning counterparts, unsupported custom defaults, captured registration/inputs and partial-creation/error/resource behavior without migrations or destructive recovery
+- enforce AAPI-86 through AAPI-90: complete fluent read helper results, private per-invocation mutable-builder state, disabled fluent mutation exclusions, public canonical-key TableCache lookup, and synchronous local maintenance/callbacks
+- enforce AAPI-91 through AAPI-95: immutable diagnostic namespace/fields/direct accessor, identity and snapshot isolation, separate public classification/outcome enums, exact recovery flags and defensive ordered original secondary exceptions
+- enforce AAPI-96 through AAPI-99: preserved concrete/shared/protected constructors and options property/interface defaults, bounded immutable pre-setup capture, DLG004 conflict binding/locations/database isolation, and retained synchronous MariaDB constructor probing
+- enforce AAPI-100 through AAPI-102: class-based raw model readers and provider-transaction completion/disposal with unsupported legacy defaults, preserved managed ownership, exact diagnostic enum assignments, and the DataLinq execution-options namespace
+- enforce AAPI-103 through AAPI-105: exact unconstrained query Min/Max nullable declarations, complete local relation predicate/numeric/generic extrema overloads, and inherited provider-interface disposal defaults with concrete/base dispatch and no synchronous fallback
+- enforce AAPI-106 through AAPI-111: core validation types/snapshots, complete differences and independent failure policy, comparison-scoped Include/empty schemas, bounded per-command timeout, async LINQ 10.0.12 on .NET 8/9, and locked 0.9.2 compatibility including Memory with actual emitted evidence
+
+Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
 Do not add public async methods incrementally until one audit proves the surface is coherent.
 
 ### D10-2: Provider Cancellation And Failure Semantics
 
-Define:
+OAPI-3's enumeration contracts are accepted under AAPI-17 through AAPI-20, OAPI-4's failure policies under AAPI-21 through AAPI-26, OAPI-5's mutation/callback contracts under AAPI-27 through AAPI-33, and OAPI-6's concurrency/cache policies under AAPI-34 through AAPI-41. Resolve the exact signature/provider questions in the [API decision record](Async%20Public%20API%20Decisions.md#open-decisions-before-the-complete-api-is-frozen) without reopening those accepted boundaries.
 
-- cancellation before connection/command dispatch
-- cancellation during reader execution and materialization
-- cancellation during mutation and transaction operations
-- timeout versus caller cancellation
-- commit cancellation and uncertain outcome classification
-- cleanup/disposal after cancellation
+Implement and prove:
+
+- ordinary argument/lifecycle validation before pre-cancellation, including cached execution and unused commit; preserve prior transaction work and completed success
+- private first-use initialization publication and unusable wrappers after interrupted initialization, without automatic reset/replay; successful initialization followed by pre-command cancellation remains distinct
+- reusable canceled reads only after cleanup and provider trust are established; no partial materializer success or false complete relation publication
+- poisoning after interrupted writes/post-write hydration, cancelable required I/O, and uninterrupted short local consistency finalization; prevent committing a canceled multi-model call's completed prefix
+- independent confirmed/unknown database completion outcomes that survive subsequent finalization, notification, and cleanup failures, with terminal recovery restrictions
+- explicit rollback caller tokens versus independent recovery rollback tokens; AAPI-63's positive finite provider-scoped 30-second starting recovery budget begins at automatic rollback, with no budget-restarting retries, total-cleanup deadline, or unsafe abandoned work; verify provider feasibility before API freeze
+- throwing disposal, primary/secondary failure precedence where DataLinq owns execution/cleanup, documented scope-exit limitations, and no duplicate reporting of already-reported cleanup failures
+- structured cause/stage/outcome/recovery/secondary-failure information for explicit and implicit helpers, preserving ordinary exception identity and provider codes
+- deterministic overlap/admission/recovery and cache invalidation/publication races under AAPI-34 through AAPI-41, including mixed sync/async execution, independent waiter cancellation, and cleanup failures without unsafe abandoned work
+
+OAPI-7's discussed design policies are accepted through AAPI-111, including G01–G03 and E01–E06 in the [signature inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md). Implementation, emitted manifests and all listed consumer/ApiCompat checks remain open. OAPI-8/OAPI-9 policies are accepted under AAPI-73 through AAPI-81; actual provider interruption/classification and recovery-budget feasibility still require W1/W2 evidence. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
 
 Provider differences may be explicit, but they cannot become silent semantic drift.
 
@@ -77,7 +116,9 @@ Define one structured validation result and explicit policies for:
 - log warning and continue
 - disabled/no database access
 
-The host adapter consumes this result; it does not invent a second schema comparison model.
+The host adapter consumes this result; it does not invent a second schema comparison model. AAPI-64 through AAPI-67 settle async validation/probe contracts, configuration capture, operational failure versus schema differences, effective database identity, and fresh complete metadata without hidden creation/repair. Propagate startup cancellation, keep command timeout separate from a whole-operation token, and preserve provider/SQLite resource ownership.
+
+AAPI-106 through AAPI-109 fix runtime types in core and hosting separately, immutable result snapshots retaining Info, independent threshold/issue policy, comparison-scoped Include and empty-schema behavior, and null/default, zero/unlimited, rounded positive command timeouts capped at 2,147,483 seconds. The adapter must not discard structured differences to filter logs, fabricate empty schemas from reader failures or silently ignore timeout settings.
 
 ### D10-5: Testing Fidelity Boundary
 
@@ -92,6 +133,8 @@ Freeze the ladder of test guarantees:
 
 Every helper name and document must reveal which layer it belongs to.
 
+AAPI-74 through AAPI-78 preserve these boundaries for async execution: Memory queries/FindAsync use the admitted read-only subset; standalone relation graphs do not add Memory navigation; public prepared execution retains SQL-capable sources. AAPI-81 requires Memory-only package evidence without accidental SQL dependencies and controllable/provider-backed evidence for interruption, ownership, and connection trust.
+
 ### D10-6: Performance Evidence Policy
 
 Freeze a 0.9 baseline with the current benchmark harness before shared runtime changes. Issue #26 remains contextual debt; 0.10 blocks on new unexplained regressions, not automatic satisfaction of its literal final-0.8 parity target.
@@ -100,7 +143,7 @@ Freeze a 0.9 baseline with the current benchmark harness before shared runtime c
 
 ```mermaid
 flowchart TD
-    W0["W0 baseline and I/O inventory"] --> W1["W1 async/cancellation contracts"]
+    W0["W0 baseline and I/O inventory"] -->|limited W1 exception| W1["W1 async/cancellation contracts"]
     W1 --> W2["W2 provider-native async"]
     W2 --> W3["W3 public async surface"]
     W3 --> W4["W4 DI and unit of work"]
@@ -118,7 +161,11 @@ flowchart TD
 
 ## Implementation Waves
 
+**Accepted sequencing exception, 2026-09-17:** the [W0-F1 investigation](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception) authorizes internal W1 contracts and controllable-provider tests while the submitted SQLite correction awaits upstream integration. W0 is not fully closed. Native SQLite acceptance, final provider feasibility/public API freeze and release approval remain blocked on verified official-package adoption and affected evidence. This changes only the W0-to-W1 scheduling edge; other wave dependencies remain in force.
+
 ### W0: Baseline And I/O Inventory
+
+The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) records accepted W0-P1 through W0-P6, including .NET 10 for all new benchmark baseline/candidate runs. The evidence tooling, benchmark-target migration, [sealed baseline capture](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) are recorded. W0-F1 remains open pending adoption of the tested upstream SQLite correction and affected evidence; only the scoped W1 exception above permits progress before its closeout. AAPI-111, as explicitly amended by the user on 2026-09-16, fixes the published 0.9.2 compatibility baseline, distinct from current-development performance/test identity. The earlier PluginHook compatibility question is resolved by that amendment and no longer blocks W0.
 
 Required work:
 
@@ -136,6 +183,10 @@ Exit gate:
 - D10-1 through D10-6 have named owners and unresolved questions are explicit
 
 ### W1: Internal Async And Cancellation Contracts
+
+Execution record and PR-sized slices: [W1 internal execution contracts](W1%20Internal%20Execution%20Contracts.md). The command/reader acquisition foundation is internal and is not wired into production providers. The [transaction ownership and initialization foundation](W1%20Transaction%20Ownership%20and%20Initialization.md) shares leases with the existing synchronous mutation/completion guard, while native initialization, complete transaction/source orchestration and the full W1 exit gate remain open.
+
+The merged [owned reads](W1%20Owned%20Read%20Execution.md), [query/relation ownership](W1%20Query%20and%20Relation%20Ownership.md), [async reader enumeration](W1%20Async%20Reader%20Enumeration.md), [read failure/recovery](W1%20Read%20Failure%20and%20Recovery.md) and [automatic recovery rollback](W1%20Automatic%20Recovery%20Rollback.md) establish bounded ownership and recovery contracts. The subsequent [helper lifetime/draining slice](W1%20Helper%20Lifetime%20and%20Draining.md) adds internal callback completion and tracked-work handoff. The [eager read follow-through](W1%20Eager%20Read%20Failure%20Reporting.md) covers pending eager failure observation and independent owned command/reader cleanup. The [managed async completion slice](W1%20Managed%20Async%20Completion.md) connects confirmation, recovery and helper cleanup to existing cache/mutable finalization. The [W1 completion audit](W1%20Completion%20Audit.md) tracks every remaining contract, integration and evidence gate; native/public wiring and provider/host options remain in their later waves.
 
 Required work:
 
@@ -157,7 +208,7 @@ Required work:
 
 - implement SQLite provider async paths and document driver-level synchronous behavior or cancellation limits explicitly
 - implement MySQL/MariaDB native async paths through the shared provider
-- cover reader lifetime, command cancellation, mutations, transaction begin/commit/rollback, and disposal
+- cover reader lifetime, command cancellation, mutations, lazy transaction initialization through the first sync/async operation, commit/rollback, and disposal
 - preserve cache publication and invalidation boundaries
 - classify provider-specific cancellation/timeout/uncertain outcomes
 
@@ -173,7 +224,7 @@ Required work:
 
 - expose the audited async query, relation, mutation, transaction, and validation operations
 - add XML/API documentation and focused examples
-- validate overload consistency and `CancellationToken` placement
+- validate overload consistency, optional final `CancellationToken` parameters, generated `<PropertyName>Async` methods, and synchronous transaction construction against the API decision record
 - run ApiCompat and review every public addition or change
 - prove synchronous API behavior remains intact
 
@@ -181,7 +232,7 @@ Exit gate:
 
 - the surface is coherent across supported operation families
 - unsupported async shapes fail explicitly
-- no hidden property I/O or ambient transaction behavior entered the API
+- no new hidden property I/O or ambient transaction behavior entered the API; existing sync navigation behavior remains compatible
 
 ### W4: DI, Hosting, And Unit Of Work
 
@@ -301,6 +352,8 @@ Exit gate: all requirements in the [release evidence plan](Release%20Evidence%20
 
 ## Merge Rules
 
+The accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%20Workflow.md) defines `v0.10` integration, feature PRs, stable fixes, CI/protection, release promotion and the rolling website development benchmark series.
+
 1. Each change names its owning workstream and gate.
 2. Shared contract changes include focused tests in the same change.
 3. Provider changes preserve the other providers or land behind an internal unused seam until parity is ready.
@@ -338,5 +391,6 @@ Finishing early is not a scope-expansion event.
 ## Links
 
 - [DataLinq 0.10 Implementation Roadmap](README.md)
+- [0.10 Async Public API Decisions](Async%20Public%20API%20Decisions.md)
 - [0.10 Release Evidence and Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 - [Development Roadmap](../../Roadmap.md)

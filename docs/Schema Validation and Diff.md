@@ -112,6 +112,8 @@ The generated script starts with a warning header. It emits SQL for supported ad
 - missing simple indexes
 - missing unique indexes
 
+A missing view is always an explicit manual action. The script includes its model definition as commented reference text when available, or asks for a reviewed `CREATE VIEW` statement when the metadata has no definition. It never substitutes `CREATE TABLE` for a view. Review the dialect, dependencies, and permissions before writing the view DDL.
+
 Everything else is emitted as a comment:
 
 - destructive drift
@@ -119,6 +121,8 @@ Everything else is emitted as a comment:
 - informational drift
 - additive drift that the script generator does not yet know how to render, such as missing foreign keys and checks
 - provider-specific index shapes outside the supported script boundary
+
+For an entirely missing table, the script includes these manual actions alongside `CREATE TABLE`: each outbound foreign key with its columns, referenced table/columns, and update/delete actions; each effective check name and expression; and each unsupported physical index. Provider-specific checks take precedence over the default check set, matching schema comparison. Internal DataLinq virtual indexes are omitted because they are not database objects. These comments identify constraints that the table-creation SQL does **not** install. SQLite's existing check-comparison limitation still applies, so a clean SQLite follow-up validation does not prove those manual checks were installed.
 
 Adding a `NOT NULL` column without a default is emitted with a warning because it can fail on non-empty tables.
 

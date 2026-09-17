@@ -49,6 +49,10 @@ public sealed class SchemaDiffScriptGenerator
         {
             switch (difference.Kind)
             {
+                case SchemaDifferenceKind.MissingTable when difference.ModelDefinition is ViewDefinition view:
+                    AppendMissingView(builder, provider, difference, view);
+                    break;
+
                 case SchemaDifferenceKind.MissingTable when difference.ModelDefinition is TableDefinition table:
                     AppendCreateTable(builder, provider, difference, table);
                     break;
@@ -94,6 +98,25 @@ public sealed class SchemaDiffScriptGenerator
             _ => throw new NotSupportedException($"Schema diff script generation is not supported for {databaseType}.")
         };
 
+    private static void AppendMissingView(
+        StringBuilder builder,
+        SqlDiffProvider provider,
+        SchemaDifference difference,
+        ViewDefinition view)
+    {
+        AppendDifferenceHeader(builder, "review required", difference);
+        builder.AppendLine($"-- Manual action required: create view {EscapeSqlComment(provider.Quote(view.DbName))} after reviewing its provider-specific definition and dependencies.");
+        if (string.IsNullOrWhiteSpace(view.Definition))
+            builder.AppendLine("-- No view definition is available in the model metadata. Supply and review a CREATE VIEW statement.");
+        else
+        {
+            builder.AppendLine("-- Model view definition (reference only; no SQL is executed automatically):");
+            foreach (var line in view.Definition.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+                builder.AppendLine($"-- {line}");
+        }
+        builder.AppendLine();
+    }
+
     private static void AppendCreateTable(
         StringBuilder builder,
         SqlDiffProvider provider,
@@ -115,9 +138,44 @@ public sealed class SchemaDiffScriptGenerator
         builder.AppendLine(");");
         builder.AppendLine();
 
-        foreach (var index in GetCreatableIndexes(table))
+        foreach (var index in GetPhysicalIndexes(table))
             AppendCreateIndex(builder, provider, null, index);
+
+        AppendMissingTableConstraints(builder, provider, table);
     }
+
+    private static void AppendMissingTableConstraints(StringBuilder builder, SqlDiffProvider provider, TableDefinition table)
+    {
+        var relations = table.ColumnIndices
+            .SelectMany(index => index.RelationParts)
+            .Where(part => part.Type == RelationPartType.ForeignKey)
+            .Select(part => part.Relation)
+            .Distinct()
+            .OrderBy(relation => relation.ConstraintName, StringComparer.Ordinal);
+        foreach (var relation in relations)
+        {
+            var foreignKey = relation.ForeignKey.ColumnIndex;
+            var candidateKey = relation.CandidateKey.ColumnIndex;
+            builder.AppendLine("-- " + EscapeSqlComment(
+                $"Manual action required: foreign key '{relation.ConstraintName}' on {provider.Quote(foreignKey.Table.DbName)} ({provider.QuoteList(foreignKey.Columns.Select(column => column.DbName))}) " +
+                $"references {provider.Quote(candidateKey.Table.DbName)} ({provider.QuoteList(candidateKey.Columns.Select(column => column.DbName))}); " +
+                $"ON UPDATE {FormatReferentialAction(relation.OnUpdate)}, ON DELETE {FormatReferentialAction(relation.OnDelete)}. No constraint SQL was generated."));
+            builder.AppendLine();
+        }
+
+        var checks = table.Model?.Attributes.OfType<CheckAttribute>().ToArray() ?? [];
+        var providerChecks = checks.Where(check => check.DatabaseType == provider.DatabaseType).ToArray();
+        var effectiveChecks = providerChecks.Length > 0 ? providerChecks : checks.Where(check => check.DatabaseType == DatabaseType.Default);
+        foreach (var check in effectiveChecks.OrderBy(check => check.Name, StringComparer.Ordinal))
+        {
+            builder.AppendLine("-- " + EscapeSqlComment(
+                $"Manual action required: check '{check.Name}' on {provider.Quote(table.DbName)}: CHECK ({check.Expression}). No constraint SQL was generated."));
+            builder.AppendLine();
+        }
+    }
+
+    private static string FormatReferentialAction(ReferentialAction action) =>
+        action == ReferentialAction.Unspecified ? "not specified" : action.ToString();
 
     private static void AppendAddColumn(
         StringBuilder builder,
@@ -152,7 +210,7 @@ public sealed class SchemaDiffScriptGenerator
 
         if (!IsCreatableIndex(provider.DatabaseType, index))
         {
-            builder.AppendLine($"-- Manual action required: index '{index.Name}' uses unsupported diff-script shape {index.Characteristic}/{index.Type}.");
+            builder.AppendLine($"-- Manual action required: index '{EscapeSqlComment(index.Name)}' uses unsupported diff-script shape {index.Characteristic}/{index.Type}.");
             builder.AppendLine();
             return;
         }
@@ -233,9 +291,9 @@ public sealed class SchemaDiffScriptGenerator
         return $"{typeName}({dbType.Length.Value.ToString(CultureInfo.InvariantCulture)})";
     }
 
-    private static IEnumerable<ColumnIndex> GetCreatableIndexes(TableDefinition table) =>
+    private static IEnumerable<ColumnIndex> GetPhysicalIndexes(TableDefinition table) =>
         table.ColumnIndices
-            .Where(x => x.Characteristic is IndexCharacteristic.Simple or IndexCharacteristic.Unique)
+            .Where(x => x.Characteristic is not (IndexCharacteristic.PrimaryKey or IndexCharacteristic.VirtualDataLinq))
             .OrderBy(x => x.Name, StringComparer.Ordinal);
 
     private static bool IsCreatableIndex(DatabaseType databaseType, ColumnIndex index)
@@ -251,7 +309,7 @@ public sealed class SchemaDiffScriptGenerator
 
     private static void AppendDifferenceHeader(StringBuilder builder, string category, SchemaDifference difference)
     {
-        builder.AppendLine($"-- {category.ToUpperInvariant()} {difference.Kind} {difference.Path}");
+        builder.AppendLine($"-- {category.ToUpperInvariant()} {difference.Kind} {EscapeSqlComment(difference.Path)}");
         builder.AppendLine($"-- {EscapeSqlComment(difference.Message)}");
     }
 
@@ -259,7 +317,7 @@ public sealed class SchemaDiffScriptGenerator
     {
         if (difference.Safety == SchemaDifferenceSafety.Informational)
         {
-            builder.AppendLine($"-- INFO {difference.Kind} {difference.Path}");
+            builder.AppendLine($"-- INFO {difference.Kind} {EscapeSqlComment(difference.Path)}");
             builder.AppendLine($"-- {EscapeSqlComment(difference.Message)}");
             builder.AppendLine("-- No SQL generated for informational metadata drift.");
             builder.AppendLine();
@@ -274,7 +332,7 @@ public sealed class SchemaDiffScriptGenerator
             _ => "unsupported change"
         };
 
-        builder.AppendLine($"-- REVIEW REQUIRED {difference.Severity}/{difference.Safety} {difference.Kind} {difference.Path}");
+        builder.AppendLine($"-- REVIEW REQUIRED {difference.Severity}/{difference.Safety} {difference.Kind} {EscapeSqlComment(difference.Path)}");
         builder.AppendLine($"-- {EscapeSqlComment(difference.Message)}");
         builder.AppendLine($"-- No SQL generated: {reviewReason}.");
         builder.AppendLine();

@@ -14,7 +14,6 @@ namespace DataLinq.Tests.Compliance;
 public class MultipleForeignKeyRelationTests
 {
     [Test]
-    [NotInParallel]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_MultipleForeignKeysToSameTable_LazyLoadsDistinctRelations(TestProviderDescriptor provider)

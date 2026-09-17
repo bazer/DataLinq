@@ -69,11 +69,11 @@ public class EmployeesSqlQueryTests
 
         var expectedSql = string.Join(
             "\n",
-            $"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d",
-            $"JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} m ON d.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}",
+            $"SELECT {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}, {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} {escapeCharacter}d{escapeCharacter}",
+            $"JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} {escapeCharacter}m{escapeCharacter} ON {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}",
             "WHERE",
-            $"m.{escapeCharacter}dept_no{escapeCharacter} = {parameterSign}w0",
-            $"ORDER BY d.{escapeCharacter}dept_no{escapeCharacter} DESC",
+            $"{escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {parameterSign}w0",
+            $"ORDER BY {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} DESC",
             "LIMIT 1");
 
         await Assert.That(sql.Text).IsEqualTo(expectedSql);

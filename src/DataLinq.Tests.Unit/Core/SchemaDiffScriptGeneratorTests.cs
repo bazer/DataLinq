@@ -13,6 +13,138 @@ namespace DataLinq.Tests.Unit.Core;
 public class SchemaDiffScriptGeneratorTests
 {
     [Test]
+    [Arguments(DatabaseType.SQLite, false)]
+    [Arguments(DatabaseType.SQLite, true)]
+    [Arguments(DatabaseType.MySQL, false)]
+    [Arguments(DatabaseType.MySQL, true)]
+    [Arguments(DatabaseType.MariaDB, false)]
+    [Arguments(DatabaseType.MariaDB, true)]
+    public async Task MissingTableNamesEveryConstraintAndUnsupportedIndexItDoesNotInstall(DatabaseType provider, bool specificChecks)
+    {
+        MetadataTableModelDraft Parent() => CreateTable("account", [CreateColumn("id", typeof(int), false, primaryKey: true)]);
+        MetadataTableModelDraft Child(bool constrained) => CreateTable("invoice",
+            [
+                CreateColumn("id", typeof(int), false, primaryKey: true),
+                CreateColumn("account_id", typeof(int), false, attributes: constrained
+                    ? [new ForeignKeyAttribute("account", "id", "FK_invoice_account", ReferentialAction.Cascade, ReferentialAction.Restrict)] : []),
+                CreateColumn("amount", typeof(int), false),
+                CreateColumn("notes", typeof(string), false)
+            ], constrained
+                ? [new CheckAttribute("ck_default", "amount > 0"),
+                   .. (specificChecks ? new Attribute[] {
+                       new CheckAttribute(DatabaseType.SQLite, "ck_SQLite", "amount > 1"),
+                       new CheckAttribute(DatabaseType.MySQL, "ck_MySQL", "amount > 2"),
+                       new CheckAttribute(DatabaseType.MariaDB, "ck_MariaDB", "amount > 3") } : []),
+                   new IndexAttribute("ix_filtered_invoice", IndexCharacteristic.FILTERED, IndexType.BTREE, "amount"),
+                   new IndexAttribute("ix_fulltext_invoice", IndexCharacteristic.Simple, IndexType.FULLTEXT, "notes"),
+                   new IndexAttribute("cache_only_invoice", IndexCharacteristic.VirtualDataLinq, IndexType.BTREE, "notes")]
+                : []);
+
+        var model = CreateDatabase(Parent(), Child(true));
+        var before = SchemaComparer.Compare(model, CreateDatabase(Parent()), provider);
+        await Assert.That(before.Count).IsEqualTo(1);
+        var script = new SchemaDiffScriptGenerator().Generate(provider, before);
+        await Assert.That(script).Contains("CREATE TABLE IF NOT EXISTS");
+        await Assert.That(script).Contains("foreign key 'FK_invoice_account'");
+        await Assert.That(script).Contains("account_id");
+        await Assert.That(script).Contains("references");
+        await Assert.That(script).Contains("ON UPDATE Cascade, ON DELETE Restrict");
+        await Assert.That(script.Split("Manual action required: foreign key").Length - 1).IsEqualTo(1);
+        await Assert.That(script).Contains("index 'ix_filtered_invoice'");
+        await Assert.That(script).Contains("FILTERED/BTREE");
+        await Assert.That(script).Contains("index 'ix_fulltext_invoice'");
+        await Assert.That(script).Contains("Simple/FULLTEXT");
+        await Assert.That(script).DoesNotContain("cache_only_invoice");
+        await Assert.That(script).Contains(specificChecks ? $"check 'ck_{provider}'" : "check 'ck_default'");
+        if (specificChecks)
+            await Assert.That(script).DoesNotContain("ck_default");
+
+        // A schema containing just the suggested columns/PK still lacks these
+        // constraints. Every drift item supported by the comparer is named.
+        var followup = SchemaComparer.Compare(model, CreateDatabase(Parent(), Child(false)), provider);
+        await Assert.That(followup.Any(item => item.Kind == SchemaDifferenceKind.MissingForeignKey)).IsTrue();
+        await Assert.That(followup.Any(item => item.Kind == SchemaDifferenceKind.MissingCheck)).IsEqualTo(provider != DatabaseType.SQLite);
+        foreach (var difference in followup)
+        {
+            await Assert.That(difference.Kind is SchemaDifferenceKind.MissingForeignKey or SchemaDifferenceKind.MissingCheck or SchemaDifferenceKind.MissingIndex).IsTrue();
+            await Assert.That(script).Contains(difference.Path.Split('.').Last());
+        }
+    }
+
+    [Test]
+    [Arguments(DatabaseType.SQLite)]
+    [Arguments(DatabaseType.MySQL)]
+    [Arguments(DatabaseType.MariaDB)]
+    public async Task MissingTableConstraintReviewTextCannotCreateExtraSqlStatements(DatabaseType provider)
+    {
+        var model = CreateDatabase(CreateTable("account", [CreateColumn("id", typeof(int), false, primaryKey: true)],
+            [new CheckAttribute("ck_id\nDROP TABLE account;", "id > 0\r\nDELETE FROM account;"),
+             new IndexAttribute("ix_id\nDROP TABLE account;", IndexCharacteristic.FILTERED, "id")]));
+        var script = new SchemaDiffScriptGenerator().Generate(provider, SchemaComparer.Compare(model, CreateDatabase(), provider));
+        var actionLines = script.Split('\n').Where(line => line.Contains("DROP TABLE", StringComparison.Ordinal) || line.Contains("DELETE FROM", StringComparison.Ordinal)).ToArray();
+        await Assert.That(actionLines.Length).IsEqualTo(2);
+        await Assert.That(actionLines.All(line => line.StartsWith("-- ", StringComparison.Ordinal))).IsTrue();
+    }
+
+    [Test]
+    [Arguments(DatabaseType.SQLite, true)]
+    [Arguments(DatabaseType.SQLite, false)]
+    [Arguments(DatabaseType.MySQL, true)]
+    [Arguments(DatabaseType.MySQL, false)]
+    [Arguments(DatabaseType.MariaDB, true)]
+    [Arguments(DatabaseType.MariaDB, false)]
+    public async Task MissingViewIsAnExplicitManualActionAndNeverBecomesATable(DatabaseType provider, bool hasDefinition)
+    {
+        var definition = hasDefinition ? "SELECT id,\r\n name FROM account\n-- definition comment\rSELECT '*/';" : null;
+        // Validated model drafts require a definition. The public script API also
+        // accepts incomplete metadata built directly by callers.
+        var differences = hasDefinition
+            ? SchemaComparer.Compare(CreateDatabase(CreateTable("active_account", [CreateColumn("id", typeof(int), false)],
+                tableType: TableType.View, viewDefinition: definition)), CreateDatabase(), provider).ToArray()
+            : [new SchemaDifference(SchemaDifferenceKind.MissingTable, SchemaDifferenceSeverity.Error,
+                SchemaDifferenceSafety.Additive, "active_account", "Missing view", new ViewDefinition("active_account"))];
+        await Assert.That(differences.Single().ModelDefinition).IsTypeOf<ViewDefinition>();
+        var script = new SchemaDiffScriptGenerator().Generate(provider, differences);
+        await Assert.That(script).Contains("Manual action required: create view");
+        await Assert.That(script).DoesNotContain("CREATE TABLE");
+        if (hasDefinition)
+            await Assert.That(script).Contains("-- SELECT id,");
+        else
+            await Assert.That(script).Contains("No view definition is available");
+        // Everything following the fixed banner is a blank or line comment.
+        await Assert.That(script.Split('\n').Skip(3).All(line =>
+            string.IsNullOrWhiteSpace(line) || line.StartsWith("-- ", StringComparison.Ordinal))).IsTrue();
+    }
+
+    [Test]
+    [Arguments(DatabaseType.SQLite)]
+    [Arguments(DatabaseType.MySQL)]
+    [Arguments(DatabaseType.MariaDB)]
+    public async Task MissingViewDoesNotPreventOrdinaryTableCreation(DatabaseType provider)
+    {
+        var model = CreateDatabase(
+            CreateTable("account", [CreateColumn("id", typeof(int), false, primaryKey: true)]),
+            CreateTable("active_account", [CreateColumn("id", typeof(int), false)], tableType: TableType.View, viewDefinition: "SELECT id FROM account"));
+        var script = new SchemaDiffScriptGenerator().Generate(provider, SchemaComparer.Compare(model, CreateDatabase(), provider));
+        await Assert.That(script.Split("CREATE TABLE IF NOT EXISTS").Length - 1).IsEqualTo(1);
+        await Assert.That(script).Contains("Manual action required: create view");
+    }
+
+    [Test]
+    [Arguments(SchemaDifferenceSafety.Additive)]
+    [Arguments(SchemaDifferenceSafety.Informational)]
+    [Arguments(SchemaDifferenceSafety.Ambiguous)]
+    public async Task ReviewPathsCannotEscapeTheirLineComments(SchemaDifferenceSafety safety)
+    {
+        var difference = new SchemaDifference(SchemaDifferenceKind.MissingTable, SchemaDifferenceSeverity.Warning,
+            safety, "view\r\nDROP TABLE account;", "message\nDELETE FROM account;",
+            safety == SchemaDifferenceSafety.Additive ? new ViewDefinition("view") : null);
+        var script = new SchemaDiffScriptGenerator().Generate(DatabaseType.SQLite, [difference]);
+        await Assert.That(script.Split('\n').Skip(3).All(line =>
+            string.IsNullOrWhiteSpace(line) || line.StartsWith("-- ", StringComparison.Ordinal))).IsTrue();
+    }
+
+    [Test]
     public async Task Generate_SQLiteMissingTable_CreatesTableAndIndexes()
     {
         var model = CreateDatabase(
@@ -194,7 +326,9 @@ public class SchemaDiffScriptGeneratorTests
     private static MetadataTableModelDraft CreateTable(
         string tableName,
         MetadataValuePropertyDraft[] columns,
-        Attribute[]? attributes = null)
+        Attribute[]? attributes = null,
+        TableType tableType = TableType.Table,
+        string? viewDefinition = null)
     {
         return new MetadataTableModelDraft(
             ToCsName(tableName),
@@ -203,7 +337,7 @@ public class SchemaDiffScriptGeneratorTests
                 Attributes = attributes ?? [],
                 ValueProperties = columns
             },
-            new MetadataTableDraft(tableName));
+            new MetadataTableDraft(tableName) { Type = tableType, Definition = viewDefinition });
     }
 
     private static MetadataValuePropertyDraft CreateColumn(

@@ -130,7 +130,13 @@ internal sealed class MemoryRowExecutionPlan
         if (takeCount == 0)
             return Array.Empty<CanonicalProviderValueRow>();
 
-        var matches = new List<CanonicalProviderValueRow>(rows.Count);
+        // Small pages need only the best prefix, not a sorted copy of every match.
+        // Use long arithmetic because separately valid Skip/Take values can overflow Int32.
+        var prefixCount = (long)(skipCount ?? 0) + (takeCount ?? 0);
+        if (takeCount.HasValue && prefixCount <= rows.Count / 4)
+            return PrepareSmallOrderedPage(rows, source, currentOrdering, (int)prefixCount, cancellationToken);
+
+        var matches = new List<CanonicalProviderValueRow>();
         for (var index = 0; index < rows.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -161,6 +167,47 @@ internal sealed class MemoryRowExecutionPlan
         {
             cancellationToken.ThrowIfCancellationRequested();
             selected[index] = ordered[startIndex + index];
+        }
+
+        return selected;
+    }
+
+    private IReadOnlyList<CanonicalProviderValueRow> PrepareSmallOrderedPage(
+        IReadOnlyList<CanonicalProviderValueRow> rows,
+        MemoryReadSource source,
+        MemoryInt32PrimaryKeyOrdering currentOrdering,
+        int prefixCount,
+        CancellationToken cancellationToken)
+    {
+        // The root is the worst retained row. Source ordinal preserves stable ties.
+        var prefix = new PriorityQueue<CanonicalProviderValueRow, (long Key, int Ordinal)>(
+            Comparer<(long Key, int Ordinal)>.Create(static (left, right) => right.CompareTo(left)));
+        for (var index = 0; index < rows.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var row = rows[index];
+            source.RecordScanRowVisited();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!Matches(row, source, cancellationToken))
+                continue;
+
+            var priority = (currentOrdering.GetOrderedKey(row), index);
+            if (prefix.Count < prefixCount)
+                prefix.Enqueue(row, priority);
+            else
+                prefix.EnqueueDequeue(row, priority);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var resultCount = Math.Max(0, prefix.Count - (skipCount ?? 0));
+        if (resultCount == 0)
+            return Array.Empty<CanonicalProviderValueRow>();
+
+        var selected = new CanonicalProviderValueRow[resultCount];
+        for (var index = resultCount - 1; index >= 0; index--)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            selected[index] = prefix.Dequeue();
         }
 
         return selected;
@@ -754,6 +801,12 @@ internal sealed class MemoryInt32PrimaryKeyOrdering
 
         cancellationToken.ThrowIfCancellationRequested();
         return source;
+    }
+
+    internal long GetOrderedKey(CanonicalProviderValueRow row)
+    {
+        var key = GetKey(row);
+        return direction == QueryPlanOrderingDirection.Ascending ? key : -(long)key;
     }
 
     private int Compare(CanonicalProviderValueRow leftRow, CanonicalProviderValueRow rightRow)

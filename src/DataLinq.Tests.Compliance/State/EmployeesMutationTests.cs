@@ -57,6 +57,120 @@ public class EmployeesMutationTests
     [Test]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Mutation_MutateOrNewOnExistingRequiredKey_UpdatesWithoutTrackingPrimaryKey(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Mutation_MutateOrNewOnExistingRequiredKey_UpdatesWithoutTrackingPrimaryKey),
+            EmployeesFixtureProfile.TinySeeded);
+
+        var database = databaseScope.Database;
+        var department = database.Query().Departments.OrderBy(row => row.DeptNo).First();
+        var updatedName = $"Updated {department.DeptNo}";
+
+        var mutable = department.MutateOrNew(
+            deptNo: department.DeptNo,
+            name: updatedName);
+
+        await Assert.That(mutable.GetChanges().Any(change => change.Key.PrimaryKey)).IsFalse();
+
+        var saved = mutable.Save(database);
+
+        await Assert.That(saved.DeptNo).IsEqualTo(department.DeptNo);
+        await Assert.That(saved.Name).IsEqualTo(updatedName);
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Mutation_MutateOrNewOnExistingRequiredKey_RejectsDifferentPrimaryKeyImmediately(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Mutation_MutateOrNewOnExistingRequiredKey_RejectsDifferentPrimaryKeyImmediately),
+            EmployeesFixtureProfile.TinySeeded);
+
+        var department = databaseScope.Database.Query().Departments
+            .OrderBy(row => row.DeptNo)
+            .First();
+
+        var exception = Capture<ArgumentException>(() => department.MutateOrNew(
+            deptNo: "z112",
+            name: department.Name));
+
+        await Assert.That(exception.ParamName).IsEqualTo("deptNo");
+        await Assert.That(exception.Message).Contains("authoritative key");
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Mutation_MutateOrNewOnMissingRequiredKey_InsertsSuppliedPrimaryKey(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Mutation_MutateOrNewOnMissingRequiredKey_InsertsSuppliedPrimaryKey),
+            EmployeesFixtureProfile.TinySeeded);
+
+        const string departmentNumber = "z112";
+        const string departmentName = "Issue 112";
+        var database = databaseScope.Database;
+        var missing = database.Query().Departments
+            .FirstOrDefault(row => row.DeptNo == departmentNumber);
+
+        var mutable = missing.MutateOrNew(
+            deptNo: departmentNumber,
+            name: departmentName);
+        var saved = mutable.Save(database);
+
+        await Assert.That(saved.DeptNo).IsEqualTo(departmentNumber);
+        await Assert.That(saved.Name).IsEqualTo(departmentName);
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Mutation_MutateOrNewOnExistingCompositeKey_ValidatesAllKeyComponents(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Mutation_MutateOrNewOnExistingCompositeKey_ValidatesAllKeyComponents),
+            EmployeesFixtureProfile.TinySeeded);
+
+        var database = databaseScope.Database;
+        var assignment = database.Query().DepartmentEmployees
+            .OrderBy(row => row.dept_no)
+            .ThenBy(row => row.emp_no)
+            .First();
+        var updatedToDate = assignment.to_date.AddDays(-1);
+
+        var mutable = assignment.MutateOrNew(
+            deptNo: assignment.dept_no,
+            empNo: assignment.emp_no,
+            fromDate: assignment.from_date,
+            toDate: updatedToDate);
+
+        await Assert.That(mutable.GetChanges().Any(change => change.Key.PrimaryKey)).IsFalse();
+
+        var saved = mutable.Save(database);
+
+        await Assert.That(saved.dept_no).IsEqualTo(assignment.dept_no);
+        await Assert.That(saved.emp_no).IsEqualTo(assignment.emp_no);
+        await Assert.That(saved.to_date).IsEqualTo(updatedToDate);
+
+        var exception = Capture<ArgumentException>(() => assignment.MutateOrNew(
+            deptNo: assignment.dept_no,
+            empNo: assignment.emp_no + 1,
+            fromDate: assignment.from_date,
+            toDate: assignment.to_date));
+
+        await Assert.That(exception.ParamName).IsEqualTo("empNo");
+        await Assert.That(exception.Message).Contains("authoritative key");
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ResetWithoutModel_RevertsToOriginalState(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
@@ -157,5 +271,20 @@ public class EmployeesMutationTests
         }
 
         await Assert.That(threw).IsTrue();
+    }
+
+    private static TException Capture<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+
+        throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
     }
 }

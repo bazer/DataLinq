@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.ComponentModel;
 
 namespace DataLinq.Query;
 
@@ -27,9 +28,7 @@ public class Insert<T> : IQuery
             if (columnIndex > 0)
                 sql.AddText(",");
 
-            sql.AddText(query.EscapeCharacter);
-            sql.AddText(key);
-            sql.AddText(query.EscapeCharacter);
+            SqlIdentifier.Append(sql, key, query.EscapeCharacter);
             columnIndex++;
         }
         sql.AddText(") VALUES (");
@@ -71,8 +70,10 @@ public class Insert<T> : IQuery
         return query.DataSource.Provider.ToDbCommand(this);
     }
 
+    [Obsolete("Direct query mutation execution is unsupported. Use Transaction.Insert(model) for tracked mutations, or ToDbCommand() for caller-owned raw SQL execution.", error: true)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public QueryResult Execute()
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException("Use Transaction.Insert(model) for tracked mutations, or ToDbCommand() for caller-owned raw SQL execution.");
     }
 }

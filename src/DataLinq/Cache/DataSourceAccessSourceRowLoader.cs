@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -16,10 +17,13 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
 {
     private readonly IDataSourceAccess dataSource;
     private readonly string sourceName;
+    private readonly TransactionOperationGate.Step? owner;
 
-    internal DataSourceAccessSourceRowLoader(IDataSourceAccess dataSource)
+    internal DataSourceAccessSourceRowLoader(
+        IDataSourceAccess dataSource, TransactionOperationGate.Step? owner = null)
     {
         this.dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
+        this.owner = owner;
         sourceName = $"sql:{dataSource.Provider.DatabaseType}";
         ProviderRowMaterializer.ValidateSourceName(sourceName);
     }
@@ -36,52 +40,78 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
             keyIndex: 0,
             nameof(canonicalProviderKey));
         EnsureCanLoad(table, "load one source row");
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var query = CreateSingleQuery(
-            table,
-            in canonicalProviderKey,
-            cancellationToken);
-        var row = ReadSingleCanonicalRow(
-            query,
-            table,
-            in canonicalProviderKey,
-            cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        return row;
+        using var read = DataSourceAccess.BeginRead(
+            dataSource, "load one source row", owner, cancellationToken);
+        try
+        {
+            var query = CreateSingleQuery(
+                table,
+                in canonicalProviderKey,
+                cancellationToken);
+            var row = ReadSingleCanonicalRow(
+                query,
+                table,
+                in canonicalProviderKey,
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return row;
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     public SourceRowLoadResult Load(SourcePrimaryKeyRowRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         EnsureCanLoad(request.Table, "load source rows");
-
-        request.ThrowIfCancellationRequested();
-        var select = CreateSelect(request);
-        var result = ReadCanonicalRows(
-            select,
-            request);
-        request.ThrowIfCancellationRequested();
-        return result;
+        using var read = DataSourceAccess.BeginRead(
+            dataSource, "load source rows", owner, request.CancellationToken);
+        try
+        {
+            request.ThrowIfCancellationRequested();
+            var select = CreateSelect(request);
+            var result = ReadCanonicalRows(
+                select,
+                request);
+            request.ThrowIfCancellationRequested();
+            return result;
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     public SourceIndexRowLoadResult Load(SourceIndexRowRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         EnsureCanLoad(request.Table, "load indexed source rows");
-
-        request.ThrowIfCancellationRequested();
-        var select = CreateSelect(request);
-        var result = ReadCanonicalRows(
-            select,
-            request);
-        request.ThrowIfCancellationRequested();
-        return result;
+        using var read = DataSourceAccess.BeginRead(
+            dataSource, "load indexed source rows", owner, request.CancellationToken);
+        try
+        {
+            request.ThrowIfCancellationRequested();
+            var select = CreateSelect(request);
+            var result = ReadCanonicalRows(
+                select,
+                request);
+            request.ThrowIfCancellationRequested();
+            return result;
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     private void EnsureCanLoad(TableDefinition table, string operation)
     {
-        DataSourceAccess.EnsureReadAllowed(dataSource, operation);
+        DataSourceAccess.EnsureReadAllowed(dataSource, operation, owner);
 
         if (!ReferenceEquals(table.Database, dataSource.Metadata))
         {
@@ -94,58 +124,86 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
         Select<object> select,
         SourcePrimaryKeyRowRequest request)
     {
-        var cancellationToken = request.CancellationToken;
-        cancellationToken.ThrowIfCancellationRequested();
-        using var command = select.ToDbCommand();
-        cancellationToken.ThrowIfCancellationRequested();
-        using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
-        var builder = new SourceRowLoadResult.Builder(
-            request,
-            request.CanonicalProviderKeys.Length);
-
-        while (true)
+        using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
+        var stage = ExecutionFailureStage.Validation;
+        try
         {
+            var cancellationToken = request.CancellationToken;
             cancellationToken.ThrowIfCancellationRequested();
-            if (!reader.ReadNextRow())
-                break;
+            var command = resources.OwnCommand(select.ToDbCommand());
+            cancellationToken.ThrowIfCancellationRequested();
+            stage = ExecutionFailureStage.CommandExecution;
+            var reader = resources.OwnReader(dataSource.DatabaseAccess.ExecuteReader(command));
+            stage = ExecutionFailureStage.RowLoading;
+            var builder = new SourceRowLoadResult.Builder(
+                request,
+                request.CanonicalProviderKeys.Length);
+
+            while (true)
+            {
+                stage = ExecutionFailureStage.RowLoading;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!reader.ReadNextRow())
+                    break;
+
+                cancellationToken.ThrowIfCancellationRequested();
+                stage = ExecutionFailureStage.Materialization;
+                builder.Add(ProviderRowDecoder.DecodeFullRow(
+                    reader,
+                    request.Table,
+                    sourceName));
+            }
 
             cancellationToken.ThrowIfCancellationRequested();
-            builder.Add(ProviderRowDecoder.DecodeFullRow(
-                reader,
-                request.Table,
-                sourceName));
+            return builder.Build();
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        return builder.Build();
+        catch (Exception failure)
+        {
+            resources.RecordFailure(failure, stage);
+            throw;
+        }
     }
 
     private SourceIndexRowLoadResult ReadCanonicalRows(
         Select<object> select,
         SourceIndexRowRequest request)
     {
-        var cancellationToken = request.CancellationToken;
-        cancellationToken.ThrowIfCancellationRequested();
-        using var command = select.ToDbCommand();
-        cancellationToken.ThrowIfCancellationRequested();
-        using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
-        var builder = new SourceIndexRowLoadResult.Builder(request);
-
-        while (true)
+        using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
+        var stage = ExecutionFailureStage.Validation;
+        try
         {
+            var cancellationToken = request.CancellationToken;
             cancellationToken.ThrowIfCancellationRequested();
-            if (!reader.ReadNextRow())
-                break;
+            var command = resources.OwnCommand(select.ToDbCommand());
+            cancellationToken.ThrowIfCancellationRequested();
+            stage = ExecutionFailureStage.CommandExecution;
+            var reader = resources.OwnReader(dataSource.DatabaseAccess.ExecuteReader(command));
+            stage = ExecutionFailureStage.RowLoading;
+            var builder = new SourceIndexRowLoadResult.Builder(request);
+
+            while (true)
+            {
+                stage = ExecutionFailureStage.RowLoading;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!reader.ReadNextRow())
+                    break;
+
+                cancellationToken.ThrowIfCancellationRequested();
+                stage = ExecutionFailureStage.Materialization;
+                builder.Add(ProviderRowDecoder.DecodeFullRow(
+                    reader,
+                    request.Table,
+                    sourceName));
+            }
 
             cancellationToken.ThrowIfCancellationRequested();
-            builder.Add(ProviderRowDecoder.DecodeFullRow(
-                reader,
-                request.Table,
-                sourceName));
+            return builder.Build();
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        return builder.Build();
+        catch (Exception failure)
+        {
+            resources.RecordFailure(failure, stage);
+            throw;
+        }
     }
 
     private CanonicalProviderValueRow? ReadSingleCanonicalRow(
@@ -154,38 +212,53 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
         in DataLinqKey requestedKey,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        using var command = dataSource.Provider.ToDbCommand(query);
-        cancellationToken.ThrowIfCancellationRequested();
-        using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
-
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!reader.ReadNextRow())
+        using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
+        var stage = ExecutionFailureStage.Validation;
+        try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return null;
+            var command = resources.OwnCommand(dataSource.Provider.ToDbCommand(query));
+            cancellationToken.ThrowIfCancellationRequested();
+            stage = ExecutionFailureStage.CommandExecution;
+            var reader = resources.OwnReader(dataSource.DatabaseAccess.ExecuteReader(command));
+
+            stage = ExecutionFailureStage.RowLoading;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!reader.ReadNextRow())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return null;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            stage = ExecutionFailureStage.Materialization;
+            var row = ProviderRowDecoder.DecodeFullRow(reader, table, sourceName);
+
+            stage = ExecutionFailureStage.RowLoading;
+            cancellationToken.ThrowIfCancellationRequested();
+            var hasSecondRow = reader.ReadNextRow();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (hasSecondRow)
+            {
+                throw new InvalidOperationException(
+                    $"Singular source-row query for table '{table.DbName}' returned more than one row.");
+            }
+
+            stage = ExecutionFailureStage.Materialization;
+            SourceRowLoadingValidation.ValidateSingleResult(
+                table,
+                in requestedKey,
+                row,
+                "Singular source-row query");
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return row;
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        var row = ProviderRowDecoder.DecodeFullRow(reader, table, sourceName);
-
-        cancellationToken.ThrowIfCancellationRequested();
-        var hasSecondRow = reader.ReadNextRow();
-        cancellationToken.ThrowIfCancellationRequested();
-        if (hasSecondRow)
+        catch (Exception failure)
         {
-            throw new InvalidOperationException(
-                $"Singular source-row query for table '{table.DbName}' returned more than one row.");
+            resources.RecordFailure(failure, stage);
+            throw;
         }
-
-        SourceRowLoadingValidation.ValidateSingleResult(
-            table,
-            in requestedKey,
-            row,
-            "Singular source-row query");
-
-        cancellationToken.ThrowIfCancellationRequested();
-        return row;
     }
 
     private IQuery CreateSingleQuery(

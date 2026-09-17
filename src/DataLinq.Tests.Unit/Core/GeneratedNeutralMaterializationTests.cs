@@ -303,7 +303,8 @@ public sealed class GeneratedNeutralMaterializationTests
             TableDefinition table,
             DataLinqKey canonicalProviderKey,
             RowData rowData,
-            IImmutableInstance instance)
+            IImmutableInstance instance,
+            RowReadGeneration? readGeneration = null)
         {
             ValidateOwnedTable(table);
             if (!ReferenceEquals(rowData.Table, table))

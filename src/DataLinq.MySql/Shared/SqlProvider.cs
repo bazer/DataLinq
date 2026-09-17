@@ -81,9 +81,10 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         if (databaseName == null && DatabaseName == null)
             throw new ArgumentNullException("DatabaseName not defined");
 
-        return DatabaseAccess
-            .ReadReader($"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'")
-            .Any();
+        using var command = new MySqlCommand(
+            "SELECT 1 FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = @databaseName LIMIT 1");
+        command.Parameters.AddWithValue("@databaseName", NormalizeMetadataSchemaName(databaseName ?? DatabaseName));
+        return DatabaseAccess.ExecuteScalar(command) is not null;
     }
 
     public override bool TableExists(string tableName, string? databaseName = null)
@@ -94,10 +95,19 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         if (databaseName == null && DatabaseName == null)
             throw new ArgumentNullException(nameof(databaseName));
 
-        return DatabaseAccess
-            .ReadReader($"SHOW TABLES IN `{databaseName ?? DatabaseName}` LIKE '{tableName}'")
-            .Any();
+        using var command = new MySqlCommand(
+            "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = @databaseName AND TABLE_NAME = @tableName LIMIT 1");
+        var schemaName = NormalizeMetadataSchemaName(databaseName ?? DatabaseName);
+        command.Parameters.AddWithValue("@databaseName", schemaName);
+        command.Parameters.AddWithValue("@tableName", schemaName == "information_schema" ? tableName.ToUpperInvariant() : tableName);
+        return DatabaseAccess.ExecuteScalar(command) is not null;
     }
+
+    // INFORMATION_SCHEMA is a case-insensitive virtual identifier, but current MySQL
+    // metadata equality can require its stored lowercase spelling. Ordinary schema
+    // names must retain the server's filesystem/lower_case_table_names semantics.
+    private static string? NormalizeMetadataSchemaName(string? name) =>
+        string.Equals(name, "information_schema", StringComparison.OrdinalIgnoreCase) ? "information_schema" : name;
 
     public override bool FileOrServerExists()
     {
@@ -253,11 +263,14 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override Sql GetTableName(Sql sql, string tableName, string? alias = null)
     {
-        sql.AddText($"{Constants.EscapeCharacter}{DatabaseName}{Constants.EscapeCharacter}.");
-
-        sql.AddText(string.IsNullOrEmpty(alias)
-            ? $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter}"
-            : $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter} {alias}");
+        SqlIdentifier.Append(sql, DatabaseName, Constants.EscapeCharacter);
+        sql.AddText(".");
+        SqlIdentifier.Append(sql, tableName, Constants.EscapeCharacter);
+        if (!string.IsNullOrEmpty(alias))
+        {
+            sql.AddText(" ");
+            SqlIdentifier.Append(sql, alias, Constants.EscapeCharacter);
+        }
 
         return sql;
     }
@@ -267,10 +280,17 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         var sql = query.ToSql();
 
         var command = new MySqlCommand(sql.Text);
-        foreach (var parameter in sql.Parameters)
-            command.Parameters.Add(CreateParameter(parameter));
-
-        return command;
+        try
+        {
+            foreach (var parameter in sql.Parameters)
+                command.Parameters.Add(CreateParameter(parameter));
+            return command;
+        }
+        catch
+        {
+            command.Dispose();
+            throw;
+        }
     }
 
     private static IDataParameter CreateParameter(SqlParameterBinding parameter)

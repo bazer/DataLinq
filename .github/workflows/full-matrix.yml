@@ -25,10 +25,19 @@ jobs:
     outputs:
       should_run: ${{ steps.detect.outputs.should_run }}
       commit_count: ${{ steps.detect.outputs.commit_count }}
+      publish: ${{ steps.channel.outputs.publish }}
+      badge_directory: ${{ steps.channel.outputs.badge_directory }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Resolve release channel
+        id: channel
+        shell: bash
+        run: |
+          mkdir -p artifacts/ci
+          git show origin/master:public/release-channels.json > artifacts/ci/release-channels.json
+          python scripts/benchmark_channels.py resolve --config artifacts/ci/release-channels.json
       - name: Detect recent commits
         id: detect
         shell: bash
@@ -102,12 +111,15 @@ jobs:
       - name: Build aggregator
         run: dotnet build src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj --configuration Release --nologo --verbosity minimal -p:NuGetAudit=false
       - name: Load previous successful matrix baseline
+        env:
+          BASELINE_DIRECTORY: ${{ needs.detect-nightly-activity.outputs.badge_directory }}
         shell: bash
         run: |
           mkdir -p artifacts/ci
+          if [ -z "$BASELINE_DIRECTORY" ]; then exit 0; fi
           git fetch --no-tags origin badge-data
-          if git cat-file -e "FETCH_HEAD:.github/badges/full-matrix-baseline.json" 2>/dev/null; then
-            git show "FETCH_HEAD:.github/badges/full-matrix-baseline.json" > artifacts/ci/full-matrix-baseline.json
+          if git cat-file -e "FETCH_HEAD:$BASELINE_DIRECTORY/full-matrix-baseline.json" 2>/dev/null; then
+            git show "FETCH_HEAD:$BASELINE_DIRECTORY/full-matrix-baseline.json" > artifacts/ci/full-matrix-baseline.json
           else
             echo "No published per-shard baseline exists yet; using source-controlled floors."
           fi
@@ -153,8 +165,13 @@ jobs:
 
   publish-badge:
     name: Publish full-matrix badge
-    if: github.ref == 'refs/heads/master'
-    needs: [aggregate]
+    if: needs.detect-nightly-activity.outputs.publish == 'true'
+    needs: [aggregate, detect-nightly-activity]
+    concurrency:
+      group: full-matrix-badge-publication
+      cancel-in-progress: false
+    env:
+      BADGE_DIRECTORY: ${{ needs.detect-nightly-activity.outputs.badge_directory }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -179,11 +196,11 @@ jobs:
             git rm -rf . > /dev/null 2>&1 || true
             popd
           fi
-          mkdir -p badge-data-worktree/.github/badges
-          cp aggregate-artifact/full-matrix-tests.json badge-data-worktree/.github/badges/full-matrix-tests.json
-          cp aggregate-artifact/full-matrix-baseline.json badge-data-worktree/.github/badges/full-matrix-baseline.json
+          mkdir -p "badge-data-worktree/$BADGE_DIRECTORY"
+          cp aggregate-artifact/full-matrix-tests.json "badge-data-worktree/$BADGE_DIRECTORY/full-matrix-tests.json"
+          cp aggregate-artifact/full-matrix-baseline.json "badge-data-worktree/$BADGE_DIRECTORY/full-matrix-baseline.json"
           pushd badge-data-worktree
-          git add .github/badges/full-matrix-tests.json .github/badges/full-matrix-baseline.json
+          git add "$BADGE_DIRECTORY/full-matrix-tests.json" "$BADGE_DIRECTORY/full-matrix-baseline.json"
           if git diff --cached --quiet; then
             echo "No badge changes to push."
             exit 0

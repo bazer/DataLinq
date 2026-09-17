@@ -7,9 +7,11 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-09-17.
 
-**Prerequisite:** DataLinq 0.9.0 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
+**Prerequisite:** DataLinq 0.9.2 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
+
+**Execution checkpoint, 2026-09-17:** the detailed async design and W0-P1–P6 plan remain accepted. [W0 evidence](W0%20Baseline%20Evidence.md) is captured and sealed from clean `7e36614b`: 5,855 passing full-matrix tests, all 90 strict .NET 10 benchmark rows, package/API/generated-source baselines, and the [I/O map](W0%20IO%20Execution%20Map.md). **W0-F1 remains open:** the SQLite ownership race and exact transaction error have been reproduced, and a tested correction is submitted upstream, but DataLinq's official dependency is unchanged. The user's [limited W1 exception](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception) permits internal contracts and controllable-provider tests while SQLite integration and release approval remain blocked. The published compatibility baseline remains fixed at 0.9.2.
 
 ## Release Thesis
 
@@ -18,6 +20,12 @@
 The release is successful when an ordinary ASP.NET Core or Generic Host application can register DataLinq, perform supported reads and writes through honest async APIs, propagate cancellation to the provider, validate schema at startup under an explicit policy, and test application behavior without constructing invalid runtime mocks or pretending that Memory proves SQL-provider semantics.
 
 ## Scope Policy
+
+Development follows the accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%20Workflow.md): a protected `v0.10` integration branch, small feature PRs and a separately identified development performance line on the website.
+
+W0-F1 follow-up, 2026-09-17: the [SQLite pool ownership investigation](SQLite%20Pool%20Ownership%20Investigation.md) reproduces the driver race and records the tested correction submitted in [dotnet/efcore#39009](https://github.com/dotnet/efcore/pull/39009). DataLinq's dependency is unchanged. The user's accepted limited exception permits W1 internal contracts and controllable-provider tests while SQLite integration, W0-F1 closeout and release approval remain blocked pending verified package adoption.
+
+The W1 foundations through [automatic recovery rollback](W1%20Automatic%20Recovery%20Rollback.md) are merged. The subsequent [helper lifetime/draining slice](W1%20Helper%20Lifetime%20and%20Draining.md) adds internal callback orchestration, private completion ownership and closure/draining of tracked work. The [W1 completion audit](W1%20Completion%20Audit.md) preserves the full remaining scope, including completion/initialization handoff, mutation/capture, relation coordination, metadata/root contracts and performance evidence. The [eager read follow-through](W1%20Eager%20Read%20Failure%20Reporting.md) adds failure observation before ownership release and independent command/reader cleanup. The [managed async completion slice](W1%20Managed%20Async%20Completion.md) connects completion and helper recovery to existing cache/mutable finalization. Native/public wiring and the separate release gates remain open.
 
 Every workstream in this document is required. There is no stretch-goal section and no automatic rule that completed work creates room for another feature.
 
@@ -34,14 +42,39 @@ Adding scope requires all of the following before implementation:
 
 Durable design source: [Async and Lazy Loading](../../query-and-runtime/Async%20and%20Lazy%20Loading.md).
 
+Accepted public API decisions and open signature questions: [Async Public API Decisions](Async%20Public%20API%20Decisions.md).
+
+Consolidated receiver/signature inventory, concrete audit questions, and pending consumer/backend checks: [Async Signature Inventory and Compatibility Matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md). This is a planning artifact, not an implemented API baseline.
+
 Required contract:
 
 - provider async APIs for SQLite, MySQL, and MariaDB, with native asynchronous I/O only where the underlying provider genuinely supports it and explicit SQLite limitations where it does not
 - async execution for supported query terminals, sequence/scalar materialization, explicit relation loads, mutations, and transaction operations
-- `CancellationToken` accepted at meaningful public I/O boundaries and propagated to database commands
+- optional `CancellationToken` parameters at meaningful public async I/O boundaries, propagated to database commands and any required lazy initialization
+- synchronous, I/O-free `Transaction()` creation; sync or async execution chosen per operation, with separate sync/async disposal
+- generated `<PropertyName>Async()` single-reference methods with optional tokens; collection relation handles remain synchronous and use async execution terminals, without generated collection-loading methods
+- relation async execution on `IImmutableRelation<T>` with overridable shared async defaults, deliberate concrete/test-helper visibility, and no silent synchronous database fallback; retain its `IEnumerable<T>` surface
+- generated single-reference methods callable on public model bases, with overridable implementations and focused name/inheritance collision diagnostics rather than an automatic expansion of generated model interfaces
+- required single-reference navigation returns a row or fails in both sync and async paths; optional missing targets remain nullable and duplicate targets fail cardinality checks, with explicit migration evidence for the synchronous behavior correction
+- public `ValueTask`/`ValueTask<T>` for key lookup, direct single-reference loading, query/relation terminals, relation collection accessors, and disposal; `Task`/`Task<T>` for prepared scalar/row execution, mutations, transaction completion/callbacks, and other non-LINQ awaitable operations; direct `IAsyncEnumerable<T>` for prepared sequences
+- the approved 0.10 breaking rename from keyed `AsEnumerable()` to `AsKeyValuePairs()`, allowing standard LINQ `AsEnumerable()` to yield rows; migration notes must cover binary/source compatibility, inferred element types, and loading timing
+- explicit async row enumeration via `AsAsyncEnumerable()` without dual enumerable-interface inheritance; local predicate delegates and `ValueTask` collection accessors under AAPI-12
+- no database I/O at sequence/enumerator construction; ordinary parameters captured at enumerator construction, prepared arguments at `ExecuteAsync(...)`, and materializing-terminal parameters before first suspension; sequential repeat enumeration without a permanent result cache
+- async views may buffer; explicit materializers finish and close owned readers before success, and method/enumerator cancellation tokens are both honored, including during buffered iteration
+- deterministic disposal of enumeration-owned resources on all exits without completing a caller-owned transaction; reject another execution while a transaction reader is active and preserve validated later relation source transitions
+- standard async LINQ from a conditional transitive `System.Linq.AsyncEnumerable` dependency for .NET 8/9 and the framework for .NET 10, with packed-consumer verification across all targets
 - cancellation distinguished from timeout, provider failure, rollback failure, and uncertain commit outcome
+- ordinary argument/lifecycle validation before pre-cancellation; otherwise-valid execution honors pre-cancellation even on cache hits and unused commit, without changing prior transaction work or poisoning an otherwise usable transaction; completed success is not retroactively canceled
+- failed/interrupted first-use initialization makes the wrapper unusable without automatic reset/replay; canceled reads require successful cleanup and provider trust for reuse, while interrupted writes/post-write hydration poison the transaction and short local consistency finalization completes without cancellation checkpoints
+- confirmed database commit/rollback remains distinct from local finalization and resource cleanup; uncertain completion blocks unsafe reuse/retry, and structured cause/outcome/recovery/secondary-failure information preserves ordinary provider exception types
+- explicit rollback honors caller cancellation; internal recovery uses an independent configurable 30-second starting rollback budget subject to provider verification, with no total-disposal deadline or unsafe abandonment of active work; throwing disposal retains documented C# scope-exit limitations
+- mutation identity/values captured before first suspension, exclusive pending mutable input use, exactly-once synchronous local editing delegates, and finite multi-model enumeration/capture before writes; preserve supported snapshot semantics and document escaped-reference/async-void limits
+- task-returning `CommitAsync` callback families with transaction-only and token-aware forms, helper-owned completion, explicit token delivery, no callback replay, and results delivered after commit/finalization/cleanup; transaction-bound deferred results must be materialized inside the callback
+- one active transaction execution across sync/async paths, held through resource/finalization/cleanup lifetime, with private internal ownership, rejected caller disposal while active, and safe recovery without commit for unfinished callback work
+- existing relation-load coordination with independent waiter cancellation, invalidation-safe row/index/relation publication, complete-result versus individual-row cache rules, and transaction/database isolation; independent database-root operations remain eligible for concurrency
+- query extensions in `DataLinq.Linq` with explicit static invocation for ambiguous imports, validated `IQueryable<T>` execution, supported terminal/predicate/default/numeric-selector overloads, and standard async LINQ for additional local collection construction; preserve existing translation limits
 - sync/async parity for query results, conversion, cache behavior, invalidation, logging, metrics, and transaction terminal states
-- synchronous APIs retained as real synchronous implementations rather than sync-over-async wrappers
+- synchronous execution retained as real synchronous implementations rather than sync-over-async wrappers; the enumeration rename and required-reference correction above are the specifically approved compatibility exceptions
 
 Acceptance summary:
 
@@ -49,14 +82,35 @@ Acceptance summary:
 - cancellation before dispatch, during provider execution, and during multi-step DataLinq orchestration has deterministic behavior
 - no provider call that offers a native async equivalent is accidentally routed through `Task.Run`
 - no async API captures mutable query invocation values after the existing snapshot boundary
+- sequence return types, repeat-enumeration behavior, combined tokens, early disposal, and active-reader/source lifetimes follow AAPI-17 through AAPI-20
+- initialization, cancellation, completion, cleanup, and structured failure behavior follow AAPI-21 through AAPI-26; exact signatures, configuration, and provider feasibility still require W1/W2/W3 evidence
+- mutation input/delegate/collection and callback behavior follows AAPI-27 through AAPI-33, including ownership release, overload binding, and preserved entity relation transitions after completion
+- concurrency/cache behavior follows AAPI-34 through AAPI-41, proven with deterministic execution/admission/invalidation/publication races and measured against W0; accepted design does not substitute for provider or runtime evidence
+- query-surface behavior follows AAPI-42 through AAPI-48, with packed .NET 8/9/10 and EF Core/async-LINQ consumer evidence
+- key/generated/relation behavior follows AAPI-49 through AAPI-55: existing lookup families and typed normalization, one async collection primitive with acyclic defaults, concrete/custom compatibility, invariant async reference capability alongside synchronous covariance, and shared navigation state with explicit failures/diagnostics; consumer/runtime evidence remains required
+- lower-level execution/ownership follows AAPI-56 through AAPI-61: mirrored async families with verified provider capability, explicit reader/current-row and borrowed-resource lifetimes, raw/managed adapter safety without raw mutation tracking, consuming synchronous attachment, and owning-root async disposal
+- failure access/configuration follows AAPI-62/AAPI-63: typed immutable exception/transaction snapshots and positive finite provider-scoped RecoveryRollbackTimeout, with no automatic retry or total-disposal deadline
+- metadata/existence behavior follows AAPI-64 through AAPI-67: distinct probes, async metadata Option/cancellation semantics, complete runtime validation with captured configuration, and fresh reads of the effective existing database without creation/repair or atomic-DDL promises
+- mutation/callback inventory follows AAPI-68 through AAPI-72: existing families and finite collection insertion, generated helper ownership, narrow nullable Save behavior, unchanged-update async reads, and untyped provider callbacks
+- navigation guidance follows AAPI-73: retain explicit async-loaded results and materialized DTO boundaries without a strict sync-I/O mode or guarantees about later synchronous cache access
+- Memory/capability behavior follows AAPI-74 through AAPI-78: existing query subset, narrow FindAsync lookup, no navigation/prepared-source expansion, legitimate immediate completion and cooperative cancellation, and explicit missing capability without fallback or public SupportsAsync flags; standalone relation graph doubles remain separate
+- provider/evidence policy follows AAPI-79 through AAPI-81: SQLite operation-level blocking/locking/cancellation limits, MySQL/MariaDB connection and operation outcomes, separate timeout/recovery settings, and backend/packed-consumer evidence
+- helper boundaries follow AAPI-82 through AAPI-90: synchronous construction/preparation with documented SQLite setup, explicit journal-mode/provisioning execution without automatic creation/repair or atomicity/replay guarantees, complete fluent reads and private builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callbacks
+- diagnostic/configuration behavior follows AAPI-91 through AAPI-99: immutable typed failure snapshots and direct access, independent classification/outcome/recovery, ordered secondary exceptions, preserved constructors and provider settings defaults, bounded pre-setup capture, DLG004 and retained synchronous MariaDB constructor probing
+- AAPI-100 through AAPI-102 resolve inventory G01–G03: raw model readers on the existing class hierarchy, public provider-transaction async completion with legacy defaults and managed ownership boundaries, fixed diagnostic enum values with Unknown = 0, and DataLinq execution-options placement
+- AAPI-103 through AAPI-105 settle generic query Min/Max declarations, the direct local relation predicate/numeric overload list, and provider-interface inherited async-disposal defaults with public virtual base/concrete dispatch
+- AAPI-106 through AAPI-111 settle core runtime-validation supporting types, complete results/failure policy, comparison scope/empty schemas, bounded per-command timeout, async LINQ 10.0.12 and locked 0.9.2 compatibility coverage including Memory
+- OAPI-8/OAPI-9 and the discussed OAPI-7 design policies are resolved through E06. OAPI-7 remains an implementation/manifest/verification gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) is accepted, including .NET 10 benchmark baselines/candidates; the tooling and baseline capture are complete, but W0-F1 blocks handoff as recorded in the [evidence index](W0%20Baseline%20Evidence.md)
 
 Explicit non-goals:
 
 - awaitable entities
-- automatic lazy loading
-- synchronous property access that performs hidden I/O
-- async APIs that only wrap synchronous provider calls
+- new automatic lazy-loading mechanisms or new hidden property I/O; existing synchronous navigation behavior is retained
+- async APIs that wrap synchronous calls where native provider async exists; the documented SQLite driver limitation remains explicit
 - general backend plugin APIs
+- relation query composition, retained in the unscheduled [Relation-Scoped Queries](../../query-and-runtime/Relation-Scoped%20Queries.md) backlog proposal
+- asynchronous editing delegates, async-stream mutation inputs, bulk execution, and automatic mutation dependency ordering
+- a database-wide execution lock, general shared-task/load-coalescing system, automatic invalidation retry loop, or hard deadline for draining active provider work
 
 ### H10: Dependency Injection, Hosting, And Unit Of Work
 
@@ -124,6 +178,7 @@ Required contract:
 
 - metadata-aware immutable builders with valid row/table/key identity
 - collection and reference relation doubles that implement their full supported interfaces
+- async relation defaults/overrides and generated model-base navigation usable without a database, including the same optional/required/multiple-target outcomes as production; no relation-query capability is required
 - relation graph builders that use DataLinq relation metadata rather than hand-wired property substitution
 - fixture construction and registration over the real `DataLinq.Memory` capability set
 - fake unit-of-work behavior derived from H10, including writes, commit/rollback/disposal recording, and failure injection
@@ -223,6 +278,7 @@ DataLinq 0.10 is ready for maintainer release review only when:
 - migration authoring, execution, history, locking, recovery, and repair
 - Memory mutation, transactions, persistence, logs, replay, compaction, and browser storage
 - broad join/grouping expansion
+- relation-scoped query composition; its backlog proposal is not a prerequisite for async relation execution
 - automatic query-plan or result-set caching
 - generated typed keys, JSON query translation, general observability protocols, PostgreSQL, CDC, and DataLinq.Store execution
 
@@ -233,5 +289,10 @@ These are not stretch goals. They remain outside 0.10 until the roadmap is expli
 - [Public Roadmap](../../../Roadmap.md)
 - [Development Roadmap](../../Roadmap.md)
 - [0.10 Implementation Order and Integration Plan](Implementation%20Order%20and%20Integration%20Plan.md)
+- [0.10 Async Public API Decisions](Async%20Public%20API%20Decisions.md)
+- [0.10 Async Signature Inventory and Compatibility Matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md)
+- [0.10 W0 Baseline and Evidence Plan](W0%20Baseline%20and%20Evidence%20Plan.md)
+- [0.10 W0 Baseline Evidence](W0%20Baseline%20Evidence.md)
+- [0.10 W0 I/O Execution Map](W0%20IO%20Execution%20Map.md)
 - [0.10 Release Evidence and Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 - [DataLinq 0.9 Implementation Roadmap](../v0.9/README.md)

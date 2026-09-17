@@ -1,5 +1,6 @@
 using System;
 using DataLinq.Attributes;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -12,10 +13,11 @@ public partial class TableCache
     internal bool TryGetMaterializedRow(
         DataLinqKey canonicalProviderKey,
         IDataSourceAccess dataSource,
-        out IImmutableInstance? row)
+        out IImmutableInstance? row,
+        TransactionOperationGate.Step? owner = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
-        EnsureTransactionRowCache(dataSource);
+        EnsureTransactionRowCache(dataSource, owner);
         return GetRowFromCache(canonicalProviderKey, dataSource, out row);
     }
 
@@ -23,7 +25,9 @@ public partial class TableCache
         DataLinqKey canonicalProviderKey,
         RowData rowData,
         IImmutableInstance row,
-        IDataSourceAccess dataSource)
+        IDataSourceAccess dataSource,
+        RowReadGeneration? generation,
+        TransactionOperationGate.Step? owner = null)
     {
         ArgumentNullException.ThrowIfNull(rowData);
         ArgumentNullException.ThrowIfNull(row);
@@ -35,32 +39,38 @@ public partial class TableCache
                 $"Cannot publish model row for table '{rowData.Table.DbName}' into cache for '{Table.DbName}'.");
         }
 
-        EnsureTransactionRowCache(dataSource);
-        var targetCache = GetMaterializationRowCache(dataSource);
-        if (targetCache is null)
-            return ModelCachePublicationResult.NotCached();
-
-        if (TryAddCanonicalRowToCache(
-                targetCache,
-                canonicalProviderKey,
-                rowData,
-                row))
+        EnsureTransactionRowCache(dataSource, owner);
+        lock (publicationGate)
         {
-            return ModelCachePublicationResult.Inserted();
-        }
+            if (!ReferenceEquals(generation, readGeneration))
+                return ModelCachePublicationResult.NotCached();
 
-        if (TryGetRowFromCache(
-                targetCache,
-                canonicalProviderKey,
-                out var existing) &&
-            existing is not null)
-        {
-            return ModelCachePublicationResult.Existing(existing);
-        }
+            var targetCache = GetMaterializationRowCache(dataSource);
+            if (targetCache is null)
+                return ModelCachePublicationResult.NotCached();
 
-        throw new InvalidOperationException(
-            $"Provider-key row-store accessor could not publish the canonical key for table '{Table.DbName}'. " +
-            "Regenerate the model with the current DataLinq source generator.");
+            if (TryAddCanonicalRowToCache(
+                    targetCache,
+                    canonicalProviderKey,
+                    rowData,
+                    row))
+            {
+                return ModelCachePublicationResult.Inserted();
+            }
+
+            if (TryGetRowFromCache(
+                    targetCache,
+                    canonicalProviderKey,
+                    out var existing) &&
+                existing is not null)
+            {
+                return ModelCachePublicationResult.Existing(existing);
+            }
+
+            throw new InvalidOperationException(
+                $"Provider-key row-store accessor could not publish the canonical key for table '{Table.DbName}'. " +
+                "Regenerate the model with the current DataLinq source generator.");
+        }
     }
 
     internal void RecordMaterializationCacheLookup(bool hit) =>
@@ -100,20 +110,28 @@ public partial class TableCache
 
     private bool TryRemoveRowFromCache(RowCache cache, DataLinqKey key, out int numRowsRemoved)
     {
-        if (Table.Model.ProviderKeyRowStoreAccessor is IProviderKeyRowStoreAccessor providerKeyAccessor &&
-            providerKeyAccessor.TryRemoveRow(cache, key, out numRowsRemoved))
-            return true;
+        lock (publicationGate)
+        {
+            AdvanceReadGeneration();
+            if (Table.Model.ProviderKeyRowStoreAccessor is IProviderKeyRowStoreAccessor providerKeyAccessor &&
+                providerKeyAccessor.TryRemoveRow(cache, key, out numRowsRemoved))
+                return true;
 
-        return cache.TryRemoveRow(key, out numRowsRemoved);
+            return cache.TryRemoveRow(key, out numRowsRemoved);
+        }
     }
 
     private bool TryRemoveProviderKeyFromCache<TKey>(RowCache cache, TKey key, out int numRowsRemoved)
         where TKey : notnull
     {
-        if (key is DataLinqKey dataLinqKey)
-            return TryRemoveRowFromCache(cache, dataLinqKey, out numRowsRemoved);
+        lock (publicationGate)
+        {
+            AdvanceReadGeneration();
+            if (key is DataLinqKey dataLinqKey)
+                return TryRemoveRowFromCache(cache, dataLinqKey, out numRowsRemoved);
 
-        return cache.TryRemoveProviderKey(key, out numRowsRemoved);
+            return cache.TryRemoveProviderKey(key, out numRowsRemoved);
+        }
     }
 
     private bool GetRowFromCache<TKey>(TKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
@@ -140,31 +158,38 @@ public partial class TableCache
         return true;
     }
 
-    private IImmutableInstance AddRow(RowData rowData, IDataSourceAccess transaction)
+    private IImmutableInstance AddRow(RowData rowData, IDataSourceAccess transaction, RowReadGeneration generation)
     {
-        TryAddRow(rowData, transaction, out var row);
+        TryAddRow(rowData, transaction, generation, out var row);
         return row;
     }
 
     private IImmutableInstance AddRow<TKey>(
         RowData rowData,
         IDataSourceAccess transaction,
-        TKey primaryKey)
+        TKey primaryKey,
+        RowReadGeneration generation)
         where TKey : notnull
     {
-        TryAddRow(rowData, transaction, primaryKey, out var row);
+        TryAddRow(rowData, transaction, primaryKey, generation, out var row);
         return row;
     }
 
-    private bool TryAddRow(RowData rowData, IDataSourceAccess dataSource, out IImmutableInstance row)
+    private bool TryAddRow(RowData rowData, IDataSourceAccess dataSource, RowReadGeneration generation, out IImmutableInstance row)
     {
         row = InstanceFactory.NewImmutableRow(rowData, dataSource);
 
-        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || TryAddRowToCache(GetOrCreateRowCache(), rowData, row)))
-            || (dataSource is Transaction transaction &&
-                transactionRows is not null &&
-                transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
-                TryAddRowToCache(transactionRowCache, rowData, row));
+        bool added;
+        lock (publicationGate)
+        {
+            if (!ReferenceEquals(generation, readGeneration))
+                return false;
+            added = (dataSource is ReadOnlyAccess && Table.UseCache && TryAddRowToCache(GetOrCreateRowCache(), rowData, row))
+                || (dataSource is Transaction transaction &&
+                    transactionRows is not null &&
+                    transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
+                    TryAddRowToCache(transactionRowCache, rowData, row));
+        }
 
         if (added)
         {
@@ -179,16 +204,23 @@ public partial class TableCache
         RowData rowData,
         IDataSourceAccess dataSource,
         TKey primaryKey,
+        RowReadGeneration generation,
         out IImmutableInstance row)
         where TKey : notnull
     {
         row = InstanceFactory.NewImmutableRow(rowData, dataSource);
 
-        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || GetOrCreateRowCache().TryAddRow(primaryKey, rowData, row)))
-            || (dataSource is Transaction transaction &&
-                transactionRows is not null &&
-                transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
-                transactionRowCache.TryAddRow(primaryKey, rowData, row));
+        bool added;
+        lock (publicationGate)
+        {
+            if (!ReferenceEquals(generation, readGeneration))
+                return false;
+            added = (dataSource is ReadOnlyAccess && Table.UseCache && GetOrCreateRowCache().TryAddRow(primaryKey, rowData, row))
+                || (dataSource is Transaction transaction &&
+                    transactionRows is not null &&
+                    transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
+                    transactionRowCache.TryAddRow(primaryKey, rowData, row));
+        }
 
         if (added)
         {

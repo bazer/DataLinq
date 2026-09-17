@@ -10,7 +10,7 @@ using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
-public sealed class ProviderRowDecoderTests
+public sealed partial class ProviderRowDecoderTests
 {
     [Test]
     public async Task DecodeFullRow_ProducesCanonicalValuesBeforeScalarMaterialization()

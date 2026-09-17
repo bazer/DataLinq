@@ -70,7 +70,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction
                 BeginTransactionTelemetry();
 
                 if (databaseName != null)
-                    ExecuteNonQuery($"USE `{databaseName}`;");
+                    ExecuteNonQuery($"USE {DataLinq.Query.SqlIdentifier.Quote(databaseName, "`")};");
             }
 
             if (dbConnection == null)
@@ -84,18 +84,27 @@ public class SqlDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
         return ExecuteCommandWithTelemetry(command, "non_query", transactional: true, Type, command.ExecuteNonQuery);
     }
 
-    public override int ExecuteNonQuery(string query) =>
-        ExecuteNonQuery(new MySqlCommand(query));
+    public override int ExecuteNonQuery(string query)
+    {
+        using var command = new MySqlCommand(query);
+        return ExecuteNonQuery(command);
+    }
 
-    public override object? ExecuteScalar(string query) =>
-        ExecuteScalar(new MySqlCommand(query));
+    public override object? ExecuteScalar(string query)
+    {
+        using var command = new MySqlCommand(query);
+        return ExecuteScalar(command);
+    }
 
-    public override T ExecuteScalar<T>(string query) =>
-        ExecuteScalar<T>(new MySqlCommand(query));
+    public override T ExecuteScalar<T>(string query)
+    {
+        using var command = new MySqlCommand(query);
+        return ExecuteScalar<T>(command);
+    }
 
     public override T ExecuteScalar<T>(IDbCommand command) =>
         (T)(ExecuteScalar(command) ?? default(T)!);
@@ -104,21 +113,21 @@ public class SqlDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
         var result = ExecuteCommandWithTelemetry(command, "scalar", transactional: true, Type, command.ExecuteScalar);
         return result == DBNull.Value ? null : result;
     }
 
     public override IDataLinqDataReader ExecuteReader(string query)
     {
-        return ExecuteReader(new MySqlCommand(query));
+        return ExecuteOwnedReader(new MySqlCommand(query));
     }
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
 
         var reader = ExecuteCommandWithTelemetry(
             command,

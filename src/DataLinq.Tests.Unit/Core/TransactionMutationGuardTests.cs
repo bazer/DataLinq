@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Exceptions;
@@ -11,12 +12,69 @@ using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using DataLinq.Tests.Unit.Fixtures;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
 public sealed class TransactionMutationGuardTests
 {
+    [Test]
+    public async Task SuspendedInternalOwnership_RejectsSyncExecutionAndDisposal_ThenReleasesCleanly()
+    {
+        using var fixture = new ProbeFixture();
+        using var transaction = fixture.Database.Transaction();
+        var checkpoint = new AsyncCheckpoint(paused: true);
+        var before = fixture.Provider.Counts;
+        var pending = Execute();
+        await checkpoint.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+        try
+        {
+            foreach (var attempt in new Action[]
+            {
+                transaction.Commit, transaction.Rollback, transaction.Dispose,
+                () => transaction.Query()
+            })
+            {
+                var failure = Capture<InvalidOperationException>(attempt);
+                await Assert.That(failure.Message).Contains(transaction.TransactionID.ToString());
+                await Assert.That(failure.Message).Contains("suspended read");
+            }
+            await Assert.That(transaction.IsDisposed).IsFalse();
+            await Assert.That(transaction.IsPoisoned).IsFalse();
+            await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Closed);
+            await Assert.That(fixture.Provider.Counts).IsEqualTo(before);
+        }
+        finally { checkpoint.Release(); await pending.WaitAsync(TimeSpan.FromSeconds(10)); }
+        transaction.Commit();
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
+
+        async Task Execute()
+        {
+            using var owner = transaction.ExecutionGate.Enter("suspended read");
+            using var step = transaction.ExecutionGate.EnterStep(owner);
+            await checkpoint.ReachAsync(CancellationToken.None);
+        }
+    }
+
+    [Test]
+    public async Task SyncCommit_RetainsSharedOwnershipThroughCallbacks_AndReleasesAfterCallbackFailure()
+    {
+        using var fixture = new ProbeFixture();
+        using var transaction = fixture.Database.Transaction();
+        Exception? overlap = null;
+        var expected = new Exception("observer failed");
+        transaction.OnStatusChanged += (_, _) =>
+        {
+            overlap = Capture<InvalidOperationException>(() => transaction.ExecutionGate.Enter("nested async read"));
+            throw expected;
+        };
+        await Assert.That(Capture<Exception>(transaction.Commit)).IsSameReferenceAs(expected);
+        await Assert.That(overlap).IsNotNull();
+        await Assert.That(overlap!.Message).Contains("'commit' is active");
+        using var next = transaction.ExecutionGate.Enter("ownership probe after finalization");
+    }
+
     [Test]
     public async Task ReadOnlyTransaction_AllDirectWriteApisRejectBeforeCommandCreation()
     {

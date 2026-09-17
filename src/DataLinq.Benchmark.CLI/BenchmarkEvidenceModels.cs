@@ -73,6 +73,7 @@ internal sealed record BenchmarkCommandEnvironment(
     IReadOnlyList<string> ProviderIds)
 {
     public string? CustomAfterMicrosoftCommonTargets { get; init; }
+    public string? CustomAfterMicrosoftCommonCrossTargetingTargets { get; init; }
     public string? BenchmarkTargetRepositoryRoot { get; init; }
     public string? BenchmarkCompatibilitySource { get; init; }
     public string? BenchmarkCalibrationSource { get; init; }

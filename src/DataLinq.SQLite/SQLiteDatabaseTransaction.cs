@@ -80,18 +80,27 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
         return ExecuteCommandWithTelemetry(command, "non_query", transactional: true, Type, command.ExecuteNonQuery);
     }
 
-    public override int ExecuteNonQuery(string query) =>
-        ExecuteNonQuery(new SqliteCommand(query));
+    public override int ExecuteNonQuery(string query)
+    {
+        using var command = new SqliteCommand(query);
+        return ExecuteNonQuery(command);
+    }
 
-    public override object ExecuteScalar(string query) =>
-        ExecuteScalar(new SqliteCommand(query))!;
+    public override object ExecuteScalar(string query)
+    {
+        using var command = new SqliteCommand(query);
+        return ExecuteScalar(command)!;
+    }
 
-    public override T ExecuteScalar<T>(string query) =>
-        (T)ExecuteScalar(new SqliteCommand(query))!;
+    public override T ExecuteScalar<T>(string query)
+    {
+        using var command = new SqliteCommand(query);
+        return (T)ExecuteScalar(command)!;
+    }
 
     public override T ExecuteScalar<T>(IDbCommand command) =>
         (T)ExecuteScalar(command)!;
@@ -100,20 +109,20 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
         return ExecuteCommandWithTelemetry(command, "scalar", transactional: true, Type, command.ExecuteScalar)!;
     }
 
     public override IDataLinqDataReader ExecuteReader(string query)
     {
-        return ExecuteReader(new SqliteCommand(query));
+        return ExecuteOwnedReader(new SqliteCommand(query));
     }
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
 
         var reader = ExecuteCommandWithTelemetry(
             command,

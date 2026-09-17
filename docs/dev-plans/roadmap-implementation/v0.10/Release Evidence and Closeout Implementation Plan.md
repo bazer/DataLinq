@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-09-17.
 
 **Depends on:** The required workstreams and gates in the [0.10 implementation roadmap](README.md) and [implementation order](Implementation%20Order%20and%20Integration%20Plan.md).
 
@@ -59,12 +59,16 @@ The manifest records:
 
 ## RE10-0: Freeze The Before-State
 
+AAPI-111, amended by the user on 2026-09-16, requires a locked published 0.9.2 API baseline including Memory; do not confuse it with the locally packed development baseline below. This replaces the earlier 0.9.0-plus-patch requirement and accepts the existing provider registration changes. Retained 0.9.0 diagnostics are historical, not a release gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) accepts the capture sequence and .NET 10 benchmark baseline/candidate target. The [sealed W0 capture](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) now record those baselines. W0-F1 remains unresolved; the passing full matrix and all six strict benchmark lanes do not waive the initial SQLite failure or the separately reproduced driver ownership defect.
+
+The user's [limited W1 exception](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception), accepted on 2026-09-17, changes implementation scheduling only. Controllable-provider tests cannot close W0-F1 or substitute for corrected official-package adoption, native SQLite acceptance or final release evidence. Preserve the original before-state and identify every later dependency change and recaptured evidence target explicitly.
+
 Before changing shared execution paths:
 
 - run repository doctor, restore, and forced build
 - record the current test catalog and supported provider targets
 - run quick and complete provider matrices
-- pack and inspect a current-development 0.9 baseline if package shape evidence is needed
+- pack and inspect the pre-async development baseline if package shape evidence is needed; keep its local evidence version distinct from published 0.9.2
 - capture public API and generated-source baselines
 - run the benchmark lanes affected by query, relation, mutation, transaction, and provider initialization
 - record current logging, metrics, cache, invalidation, and terminal-state telemetry
@@ -95,6 +99,95 @@ Acceptance:
 
 Required focused evidence:
 
+- the accepted [public API decisions](Async%20Public%20API%20Decisions.md), with unresolved signature/failure questions settled before W3
+- the [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md), with accepted G01–G03/E01–E06 policies through AAPI-111 implemented and verified, full emitted/generated manifests, B01–B16 supplied with actual consumer/compatibility evidence, and applicable S9 backend cells verified; the source/document audit is not completion of W0 or any runtime gate
+- no database I/O during transaction construction or unused disposal; first-use initialization follows the selected sync/async operation and its token
+- token-free and token-supplied consumer calls, sequential sync/async mixing, and both synchronous and asynchronous disposal
+- generated `<PropertyName>Async` single-reference methods bypass synchronous getters and preserve cache/nullability/source behavior
+- collection relation handles perform no database I/O; async terminals preserve relation membership, cardinality, source ownership, and cache correctness without promising full loading for every terminal
+- revised AAPI-8 signature checks for `ValueTask` key/single-reference/query-terminal/relation-terminal/collection-accessor/disposal APIs and `Task` prepared-scalar/row-execution/mutation/transaction-completion/callback APIs, with cache-hit/miss benchmarks and correct single-consumption coverage
+- AAPI-11 migration evidence for the intentional keyed `AsEnumerable()` removal and `AsKeyValuePairs()` addition: interface/concrete row-view binding, I/O-free row-view construction, retained keyed identity/membership for empty and composite-key relations, and review of inferred callers and custom implementations; retain the exact approved break in ApiCompat review without changing the 0.9 baseline or suppressing unrelated diagnostics
+- AAPI-12/AAPI-13 local async predicate and collection result-type checks; packed .NET 8/9 consumers receive `System.Linq.AsyncEnumerable` transitively, DataLinq's .NET 10 dependency group omits it, and all three target consumers compile/run standard async LINQ with optional tokens
+- AAPI-14 interface/concrete consumer coverage, shared defaults and per-operation overrides, and custom/test implementation compatibility without cold-cache synchronous database I/O; retain local LINQ and existing translated navigation predicate binding
+- AAPI-15 generated methods callable on public model bases, with focused collisions/inheritance/optional-token diagnostics and no unintended additions to mutable/shared model interfaces
+- AAPI-16 required missing-reference failures in both sync and async, nullable optional references, duplicate-target failures, scalar/composite/converted keys, cold/warm/invalidation parity, and matching test-helper behavior; document the intentional sync correction while preserving nullable `Get`/`GetAsync` misses
+- AAPI-17/AAPI-18 direct `IAsyncEnumerable<T>` query/relation views and prepared-sequence results; no I/O at sequence/enumerator construction or unused disposal; parameter mutation between call/enumerator/first-move stages proves ordinary capture at enumerator construction, prepared capture at the invocation call, and terminal capture before first suspension
+- sequential re-enumeration recaptures ordinary parameters, retains prepared invocation values, and permits relation cache reuse/reload; no permanent result cache or database-snapshot guarantee is inferred from the async view; explicit materializers close owned readers before success
+- AAPI-19 token-free, method-token, enumerator-token, equal/different-token, buffered-iteration, repeat-enumeration, and linked-token cleanup coverage
+- AAPI-20 normal/early/error/canceled/manual disposal releases owned execution resources without completing or disposing a caller transaction; another execution is rejected while a transaction reader is active, including between moves; valid/invalid later relation source transitions remain aligned with sync behavior and cannot migrate an active reader
+- AAPI-21 pre-canceled warm/cold execution and validation-precedence checks; no pre-canceled I/O/mutation or partial materializer success; prior transaction work/usability is unchanged, unused commit leaves the transaction unused, and completed success is not retroactively canceled; sequence execution boundaries remain those of AAPI-18
+- AAPI-22 initialization fault injection at opening, required configuration, begin, publication, and cleanup: no half-initialized usable state or automatic reset/replay; distinguish interrupted initialization from successful initialization followed by pre-command cancellation
+- AAPI-23 canceled-read reuse requires successful cleanup and verified provider transaction trust; cover broken connections/transactions, partial buffers/streams/relations, preservation of already-valid cache entries, and no silent reconnect; raw row-returning commands must not be assumed side-effect-free
+- AAPI-23 mutation/hydration cancellation poisons affected state, required post-write I/O remains cancelable, short local consistency finalization completes without cancellation checkpoints, and multi-model cancellation after writes cannot permit committing its completed prefix; caller-owned versus implicit transaction recovery remains distinct
+- AAPI-24 dispatch/confirmation/finalization/notification/cleanup faults preserve known commit/rollback independently of method success, classify lost confirmation as unknown, forbid automatic replay, and enforce the allowed terminal recovery paths
+- AAPI-25 explicit rollback tokens versus independent recovery tokens, configurable 30-second starting budget and provider feasibility, no hard total-cleanup promise, no unsafe abandoned operation/connection reuse, and continued safe independent cleanup after a failure
+- AAPI-25 primary exception type/stack and structured secondary failures when DataLinq owns execution/cleanup; cleanup-only failure after successful execution; documented throwing `await using`/`await foreach` disposal limitations; no duplicate masking by already-reported cleanup failures
+- AAPI-26 cause/stage/outcome/recovery/secondary-failure information for explicit transactions and disposed implicit helpers; cancellation and unknown commit can coexist, provider timeout codes remain intact, and unrelated errors are not relabeled solely because a token was canceled
+- AAPI-27 mutation identity/mapped-value/lifecycle capture before first suspension, delayed-await independence, supported array snapshot isolation, consistent provider/cache/finalization inputs, and measured capture costs without claiming arbitrary deep cloning
+- AAPI-28 supported assignment/reset guards and same-object mutation rejection across transactions, transaction-level versus implicit-helper ownership duration, release on every exit, custom/generated compatibility, and no restoration of invalid mutable baselines merely because a task finished
+- AAPI-29 exactly-once local edits after validation/pre-cancellation and before final capture, failures/cancellation retaining local assignments without pre-write poisoning, and consumer guidance for the retained `Action` async-void limitation
+- AAPI-30 finite input single enumeration/order and all-model capture before suspension/writes, pre-write enumeration/validation/duplicate-object rejection, original-list independence, ownership release on capture failure, no committed prefix after cancellation, and explicit sequencing for generated-value dependencies
+- AAPI-31 transaction-only/token-aware and result/no-result task callback consumers, optional/named cancellation and transaction-type parameters, async lambda/method group overload resolution, and guidance avoiding async work through synchronous generic `Commit`
+- AAPI-32 exactly-once awaited callbacks, helper-owned completion and rejected borrowed commit/rollback/disposal before provider execution, explicit inner-token propagation, pre-callback/pre-commit cancellation, poisoned-state rejection, nested-service participation, and unfinished-work coordination under AAPI-36/AAPI-38
+- AAPI-33 no result delivery before successful commit/finalization/cleanup, failure outcome preservation, materialization of deferred transaction-bound work, no automatic arbitrary result enumeration or hidden transaction retention, and valid later entity relation transitions
+- AAPI-34 deterministic sync/async transaction overlap rejection on warm/cold paths, initialization and completion; attempted/active-operation diagnostics, unchanged first-operation behavior, and independent database-root concurrency
+- AAPI-35 execution ownership through hydration/finalization/cleanup and between reader moves, rejected concurrent moves/move-disposal, unused/deferred sequence behavior, and release based on actual completion rather than when a caller awaits
+- AAPI-36 private internal ownership across resumed threads, hydration within its enclosing mutation, rejected public reentrancy and inherited child-work privileges, separate mutable reservations/local-edit allowance, and helper lifetime ownership without blocking callback operations
+- AAPI-37 caller disposal rejected during active operations/readers without marking disposed or disturbing work, no in-use provider disposal, and safe eventual cleanup after operation completion
+- AAPI-38 atomic callback admission closure, unfinished-operation/reader detection, no commit/result, observation before safe reader/recovery cleanup, original versus secondary failures, late escaped-use rejection, and explicit completed-task detection and drain-deadline limits
+- AAPI-39 eligible mixed sync/async relation coordination, independent loader/waiter cancellation, release after failures without cached failed tasks, fresh caller attempts, same-transaction overlap precedence, and no database-wide serialization
+- AAPI-40 cold/warm load invalidation, subscription/version/publication races, row/index/relation coverage, no stale repopulation or newer-entry overwrite, successful uncached original results, and no automatic retry loop/latest-at-return promise
+- AAPI-41 valid individual-row retention after later failure, no partial relation/index completeness, empty/optional/required reference semantics, consistent collection/keyed generations, and transaction/database/source isolation through normal completion/invalidation
+- AAPI-42 deliberate `DataLinq.Linq` imports, `DataLinqAsyncQueryableExtensions` static/alias invocation, and EF Core coexistence without relying on return types to resolve competing signatures
+- AAPI-43 interface-typed/entity/scalar/anonymous/DTO query receivers and actual provider/source validation, including arbitrary providers wrapped by public `Queryable<T>`; reject incompatibility without sync enumeration, `Task.Run`, foreign-provider forwarding, or decorator unwrapping
+- AAPI-44 exact supported terminal families and retained expression/backend restrictions; predicate-contained operators do not silently become standalone terminals, and omitted terminal families are not added through async execution
+- AAPI-45 predicate-free/expression-predicate element/count/existence overloads, optional final/named tokens, no query delegate/async-predicate or token-first alternatives, and `Where` composition for list/array materializers
+- AAPI-46 empty reference/value/nullable results and multiple-match failures, accurate unconstrained nullable annotations, no caller-default overloads, and preserved required-reference navigation distinction
+- AAPI-47 selector-only aggregate entry points, numeric/nullable return families including integer-to-double averages, empty/null/conversion/overflow behavior, generic Min/Max capability validation, and converter-backed rejection
+- AAPI-48 direct query list/array materialization, standard async local collection construction, retained relation-specific frozen dictionaries, and prepared sequence composition without extra ExecuteToList/ExecuteToArray families
+- AAPI-49 existing database/transaction/generated key families and source overloads, metadata key order, shared support helper, nullable lookup results, and no implied Memory/neutral-source overload expansion
+- AAPI-50 model/provider-key distinction, conversion exactly once, supported pre-suspension key capture, null-key sentinel parity, and validation/conversion/provider/cancellation versus absent-row outcomes
+- AAPI-51 one genuine async collection row primitive, minimal custom implementations, buffered/incremental parity, and efficient built-in snapshot overrides without synchronous database fallback
+- AAPI-52 default unsupported capability, interface/concrete/custom member visibility and override dispatch, no recursive interface forwarding, and explicit source/binary migration review
+- AAPI-53 acyclic defaults, relation-scoped membership, duplicate-key rejection, direct awaited-result use, internally consistent values/keyed results, and no cross-call generation or positional-correspondence promise
+- AAPI-54 preserved synchronous reference covariance and exact constraints, invariant async capability, built-in/custom dispatch, and explicit unsupported capability without synchronous Value fallback
+- AAPI-55 shared navigation loader state with distinct sync/async execution, public async overrides, optional/required/duplicate/capability/provider failure distinctions, and focused error-severity DLG inheritance/name collisions
+- AAPI-56 lower-level string/IDbCommand/helper families and result types, interface/concrete/custom compatibility, pre-I/O command capability validation, scalar parity, and native dispatch rather than framework sync fallback
+- AAPI-57 async reader advancement/disposal, synchronous getters over asynchronously available row data, ephemeral reader positions versus independently materialized rows, and no incidental LOB/multiple-result API expansion
+- AAPI-58 borrowed versus owned command/reader/connection lifetime, no caller-command mutation/reuse while active or arbitrary command cloning, deferred sequence I/O, pre-reader failure cleanup, and primary/secondary failure precedence
+- AAPI-59 raw/managed adapter overlap gates and private internal dispatch, conservative raw failure after dispatch including row-returning mutations, pre-dispatch preservation, explicit cache invalidation duties, and escaped-provider-handle limitations
+- AAPI-60 I/O-free consuming synchronous attachment, supported/unsupported native async capability, wrapper-only completion, connection ownership, and externally completed handle recovery without leaveOpen or borrowed-completion expansion
+- AAPI-61 owning-root sync/async disposal dispatch and shared state, safe independent cleanup and secondary failures, dependency lifetime order, and container-created versus externally supplied resource ownership
+- AAPI-62 typed exception/transaction failure access, absent context, immutable old/new snapshots, valid recovery after implicit disposal, original exception identity/stack, secondary ordering, and no added live-resource/sensitive-payload retention
+- AAPI-63 provider construction/host options with preserved constructors, positive finite timer validation, immutable per-provider/helper inheritance, budget start at automatic rollback, no restarting retries, caller/recovery token distinction, and safe behavior after expiry
+- AAPI-64 database/provider probe signatures, validation/pre-cancellation, expected probe failures versus metadata-query exceptions, SQLite file/in-memory semantics, and no accidental database creation or subsequent-access guarantee
+- AAPI-65 metadata factory/default compatibility, native query/row dispatch, Option non-cancellation failures with original exception objects, cancellation escaping CatchAll, and complete live metadata without partial success
+- AAPI-66 database/static async validation signatures, completed comparisons and severity-policy exceptions versus operational failure, once-only configuration/include capture, per-command timeout, and overall/startup token propagation
+- AAPI-67 effective normalized server/SQLite identity and keep-alive ownership, no source-file parsing/provider recreation/implicit application transaction, no create/journal/migration side effects, fresh reads, and concurrent-DDL limitations
+- AAPI-68 exact database/transaction/extension mutation families and constraints/results, typed edits, transaction-type/token ordering, finite collection-insert preflight/order and empty input, without new batch families or async streams
+- AAPI-69 generated namespace/receiver binding, typed mutable bridges, pre-suspension source validation/capture, explicit versus independently owned source-less transactions, invalid origins, and no implicit Memory persistence or sync fallback
+- AAPI-70 narrow generic immutable/base-mutable Save null-means-new cases and nullable annotations, non-null direct/typed primitives, generated immutable update semantics, and typed-null/bare-null overload coverage
+- AAPI-71 unchanged update warm/cold result lookup, no unnecessary write, missing-result failure, native async reads, pre-cancellation, initialization/read recovery distinctions, and no stale immutable substitution
+- AAPI-72 four untyped provider callback families and typed database families, defaults and interface/base binding, shared helper recovery/result timing, generated source-less forwarding, and no Action/synchronous-result/ValueTask callback additions
+- AAPI-73 explicit navigation results and DTO examples, no later synchronous getter/cache guarantee, and no strict sync-I/O mode, analyzer, eager loading, or batching scope
+- AAPI-74 through AAPI-78 supported/rejected Memory async query parity, narrow single-model-key FindAsync normalization/errors/cancellation/cache behavior, retained generated/prepared/navigation source exclusions, standalone async graph doubles, immediate completion and cooperative scan/sort/iteration cancellation, and explicit unsupported capability without fallback or public flags
+- AAPI-79 SQLite file/in-memory per-operation opening/initialization/command/row/completion/cleanup behavior, busy/locked command and implicit-command timeout distinctions, no native-interruption or hard cleanup deadline promise, and preservation of known completion
+- AAPI-80 MySQL/MariaDB native async dispatch, soft/hard interruption, reader cleanup and connection/transaction trust, mutation poisoning despite socket survival, unchanged connector settings, and distinct caller/command/cancellation/recovery budgets
+- AAPI-81 per-operation backend matrix with both immediate and suspended controllable execution, supported .NET packed consumers, Memory-only package evidence without SQL dependencies, and explicit remaining OAPI-7 constructor/setup/administrative I/O counterparts or exclusions; policy acceptance does not complete implementation/provider evidence
+- AAPI-82 local construction/preparation and unopened command/connection creation versus existing SQLite constructor I/O, unchanged setup failure/lifetime timing, lazy transactions, and no new async initialization factory
+- AAPI-83/AAPI-84 exact journal-mode/factory/provisioning forwarding signatures, custom unsupported defaults, explicit script support and provider dispatch, no verified-effective-mode promise, and no implicit startup creation/validation repair or migration scope
+- AAPI-85 pre-cancellation/partial provisioning, original operational exceptions versus Option failures, registration/SQL input capture, owned command/connection and in-memory lifetime, and no automatic replay or destructive rollback of created objects
+- AAPI-86/AAPI-87 complete fluent reader/row/key/group/model/scalar results and receiver binding, buffering/early disposal, private selected-column/parameter/materialization state, capture timing and fresh enumeration, and no caller-builder mutation or post-await live input reads
+- AAPI-88 through AAPI-90 retained disabled fluent mutation diagnostics, raw-command ownership without tracking, public TableCache.GetRowAsync key/null/source fallback and warm/cold/cancellation/invalidation behavior, and synchronous maintenance/notification contracts
+- AAPI-91/AAPI-92 DataLinq.Diagnostics sealed immutable context fields, direct accessor/null behavior, existing identity correlation, overlap snapshot isolation, independent public classifications and stable numeric assignments without exposing internal mutation enums
+- AAPI-93 through AAPI-95 completion certainty versus lifecycle/effects, exact recovery flag combinations and stale-snapshot checks, known-commit exception compatibility, ordered defensive secondary entries/original exceptions, and no automatic context serialization or sensitive payload additions
+- AAPI-96/AAPI-97 old/new concrete/shared/protected constructor and named/null/binary consumer binding, read-only provider options and direct-interface defaults, min/max/sub-millisecond/invalid durations, pre-setup immutable capture, external-provider preservation and actual timer/provider behavior
+- AAPI-98/AAPI-99 DLG004 identity/severity/message/locations, harmless versus conflicting overloads and overrides, affected-database emission isolation/release tracking, and MariaDB synchronous constructor probe/property/failure timing with accurate startup-cancellation documentation
+- AAPI-100 through AAPI-102 raw model reader signatures/legacy virtual defaults and built-in dispatch; public provider-transaction async completion/disposal, source/binary compatibility and managed-finalization boundaries; exact diagnostic enum numeric assignments, conservative zero values and DataLinq execution-options namespace
+- AAPI-103 through AAPI-105 exact generic query Min/Max nullable metadata and binding, complete local relation terminal/reduction overloads and semantics, inherited provider-interface disposal-slot/default and base/concrete/legacy dispatch; isolated .NET 10 prototype checks do not replace packed consumers, old binaries or real-provider verification
+- AAPI-106 through AAPI-111 runtime validation core placement/immutable results, complete Info and issue policy, scoped comparison/empty-schema/import compatibility, timeout normalization and actual command propagation, pinned async LINQ dependency/consumer binding, and locked 0.9.2 API comparison including Memory with truthful compiled/generated/old-binary evidence
+- packed .NET 8/9/10 consumers cover accepted query signatures, projections, nullability, optional/named tokens, EF Core coexistence, and standard async-LINQ resolution; keep signature approval separate from implementation/provider evidence
+- use controllable pauses at initialization, hydration, reader moves, callback completion, and cache publication rather than timing-dependent delays; exercise cleanup failures and measure coordination/versioning costs against W0
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
 - explicit relation-load parity for cache hit, cache miss, missing row, and provider failure
 - mutation success/failure and transaction commit/rollback parity
@@ -103,6 +196,8 @@ Required focused evidence:
 - uncertain commit and cleanup/disposal behavior
 - no `Task.Run`/sync-over-async fallback on supported native provider paths
 - logging, metrics, cache, invalidation, and terminal-state parity
+
+Relation query composition and its provider/parser/test-helper evidence are deferred outside 0.10 under revised AAPI-10. They are not required to close A10 or T10.
 
 ### DI, Hosting, And Unit Of Work
 
@@ -113,6 +208,9 @@ Required focused evidence:
 - ASP.NET Core and Generic Host consumer fixtures
 - concurrent scope isolation
 - explicit unit-of-work begin/commit/rollback/failure/cancellation/disposal
+- unit-of-work failure reporting/recovery consumes AAPI-21 through AAPI-26 rather than inventing host-specific outcomes or cleanup-token rules
+- host callback helpers consume AAPI-27 through AAPI-33 input/lifetime/completion/result policies without inventing ambient token propagation or independent completion rights for borrowed transactions
+- host lifetime/recovery follows AAPI-34 through AAPI-38: no hidden transaction queuing, busy caller-disposal rejection, private helper ownership, and safe unfinished-callback recovery without commit or a hard drain deadline
 - nested application-service participation without hidden ambient ownership
 - logging through the host pipeline
 
@@ -136,7 +234,16 @@ Required focused evidence:
 - relation direction and key mismatch diagnostics
 - Memory fixture seeding/reset and capability rejection
 - fake unit-of-work recording, commit/rollback/disposal, and failure injection
+- failure fixtures represent AAPI-21 through AAPI-26 cause/outcome/cleanup distinctions without claiming that an in-memory fake proves provider interruption or safe connection reuse
+- mutation/callback fixtures follow AAPI-27 through AAPI-33 capture, exclusive mutable use, delegate invocation, collection preflight, token propagation, borrowed completion, and post-cleanup result timing contracts; provider evidence remains separate
+- concurrency fixtures follow AAPI-34 through AAPI-41 ownership, independent wait cancellation, invalidation-safe completeness, and isolation; collection doubles alone do not prove provider concurrency, recovery, or connection lifetime
+- query-capable fixtures follow AAPI-42 through AAPI-48 provider rejection, supported expression/default/numeric semantics, and explicit local async composition; a LINQ-to-Objects IQueryable is not automatically a DataLinq async execution source
+- key/relation fixtures follow AAPI-49 through AAPI-55 normalization, primitive/default dispatch, membership/key consistency, covariance/capability, generated failure, and collision contracts; packed consumers and runtime/provider tests establish different parts of the evidence
+- lower-level/failure fixtures follow AAPI-56 through AAPI-63 capability, cursor/resource ownership, raw/managed gates, attachment/disposal, immutable context, and recovery-configuration contracts; use controllable providers and host tests for guarantees that collection doubles cannot establish
+- metadata/mutation fixtures follow AAPI-64 through AAPI-72 probe/Option/validation distinctions, effective-source ownership, finite insertion, generated helper lifetimes, nullable Save and unchanged-update behavior, and provider callbacks; actual provider/host evidence remains separate from in-memory fixture fidelity
+- navigation/backend fixtures follow AAPI-73 through AAPI-81 explicit returned-result guidance, Memory query/lookup limits and separate graph doubles, retained prepared-source exclusions, cooperative immediate completion, and explicit missing capability; actual SQLite/server interruption, connection reuse, recovery and suspended execution require provider-backed/controllable evidence
 - DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
+- helper fixtures follow AAPI-82 through AAPI-90 construction/provisioning boundaries, captured fluent execution, disabled mutation exclusions, canonical cache lookup and synchronous invalidation/callback semantics; actual SQLite setup/journal/provisioning and resource-lifetime evidence remains provider-backed
 
 ### Source Type Aliases
 
@@ -234,6 +341,7 @@ Acceptance:
 
 Required comparison:
 
+- .NET 10 for both baseline and candidate in all new runs; historical .NET 8 evidence retains its identity and is not a comparable .NET 10 before-state
 - same runner, runtime family, provider, profile, operation counts, harness schema, and target selection
 - baseline captured before shared runtime work
 - query, relation, mutation, transaction, provider-init, startup, and any new async-specific stages affected by 0.10

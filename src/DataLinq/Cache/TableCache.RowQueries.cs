@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -17,7 +18,7 @@ public partial class TableCache
         int offset,
         int count,
         IDataSourceAccess dataSource,
-        List<OrderBy>? orderings = null)
+        List<OrderBy>? orderings = null, TransactionOperationGate.Step? owner = null)
         where TKey : notnull
     {
         ArgumentNullException.ThrowIfNull(keys);
@@ -79,14 +80,14 @@ public partial class TableCache
 
         return q
             .SelectQuery()
-            .ReadRows();
+            .ReadRows(owner);
     }
 
-    private static List<TKey> ReadScalarPrimaryKeys<TSelect, TKey>(Select<TSelect> select, ColumnDefinition column)
+    private static List<TKey> ReadScalarPrimaryKeys<TSelect, TKey>(Select<TSelect> select, ColumnDefinition column, TransactionOperationGate.Step? owner)
         where TKey : notnull
     {
         var keys = new List<TKey>();
-        foreach (var reader in select.ReadReader())
+        foreach (var reader in select.ReadReader(default, owner))
         {
             if (ReadScalarProviderKey<TKey>(reader, column, 0) is TKey key)
                 keys.Add(key);
@@ -147,17 +148,18 @@ public partial class TableCache
         return primaryKey is not null;
     }
 
-    private RowData? GetRowDataFromPrimaryKeyValue<TKey>(TKey key, IDataSourceAccess dataSource)
+    private RowData? GetRowDataFromPrimaryKeyValue<TKey>(
+        TKey key, IDataSourceAccess dataSource, TransactionOperationGate.Step? owner = null)
         where TKey : notnull
     {
         if (TryConvertScalarProviderColumnValue(key, Table.PrimaryKeyColumns, dataSource, out var primaryKeyColumn, out var scalarKey))
             return new ScalarColumnRowsQuery(Table, dataSource, primaryKeyColumn, scalarKey)
-                .ReadFirstRow();
+                .ReadFirstRow(owner);
 
         return new SqlQuery(Table, dataSource)
             .Where(Table.PrimaryKeyColumns, key)
             .SelectQuery()
-            .ReadFirstRow();
+            .ReadFirstRow(owner);
     }
 
     private static bool TryConvertScalarProviderColumnValue<TKey>(
