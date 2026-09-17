@@ -38,4 +38,4 @@
 
 Before declaring setup complete: verify workflow/configuration behavior, meaningful series separation and rollover cases, the generated DocFX page in a browser, remote branch protection, required CI, and actual published benchmark runs for both branches. Record any unavailable evidence or permission limit explicitly.
 
-The next implementation activity is still W0 baseline capture and I/O mapping, followed by W1 internal async/cancellation contracts. This workflow adds no runtime scope.
+The [W0 capture and I/O map](W0%20Baseline%20Evidence.md) are recorded. The next activity is the focused W0-F1 provider-lifetime follow-up; W1 internal async/cancellation contracts remain gated on W0 exit. Any correction affecting current consumers follows the master-first policy above. This workflow adds no runtime scope.
