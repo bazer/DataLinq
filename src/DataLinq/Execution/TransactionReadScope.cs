@@ -29,8 +29,9 @@ internal sealed class TransactionReadScope : IDisposable
                 throw;
             }
         }
-        catch
+        catch (Exception failure)
         {
+            lease.ReportFailure(failure);
             lease.Dispose();
             throw;
         }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -250,14 +250,30 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
     {
         var source = GetDataSource();
         using var read = DataSourceAccess.BeginRead(source, "materialize relation values");
-        return GetSnapshot(source, read?.Step).Values;
+        try
+        {
+            return GetSnapshot(source, read?.Step).Values;
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     protected FrozenDictionary<DataLinqKey, T> GetInstances()
     {
         var source = GetDataSource();
         using var read = DataSourceAccess.BeginRead(source, "materialize a relation dictionary");
-        return GetSnapshot(source, read?.Step).GetInstances();
+        try
+        {
+            return GetSnapshot(source, read?.Step).GetInstances();
+        }
+        catch (Exception failure)
+        {
+            read?.ReportFailure(failure);
+            throw;
+        }
     }
 
     private RelationSnapshot GetSnapshot(IDataSourceAccess source, TransactionOperationGate.Step? owner)

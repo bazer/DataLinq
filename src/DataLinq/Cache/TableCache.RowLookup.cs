@@ -89,38 +89,46 @@ public partial class TableCache
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
         using var read = DataSourceAccess.BeginRead(dataSource, "read a cache row", owner);
-        owner ??= read?.Step;
-        EnsureTransactionRowCache(dataSource, owner);
-
-        if (GetRowFromCache(primaryKey, dataSource, out var row))
+        try
         {
-            RecordSingleRowCacheLookup(hit: true);
-            return row;
+            owner ??= read?.Step;
+            EnsureTransactionRowCache(dataSource, owner);
+
+            if (GetRowFromCache(primaryKey, dataSource, out var row))
+            {
+                RecordSingleRowCacheLookup(hit: true);
+                return row;
+            }
+
+            RecordSingleRowCacheLookup(hit: false);
+
+            if (GetCanonicalPrimaryKeySourceServices(dataSource, owner) is { } sourceServices)
+            {
+                var canonicalKey = ProviderKeyComponents.ToDataLinqKey(primaryKey);
+                var loaded = LoadCanonicalRowAfterKnownMiss(
+                    canonicalKey,
+                    sourceServices);
+                Log.LoadRowsFromDatabase(
+                    loggingConfiguration.CacheLogger,
+                    Table,
+                    1);
+
+                return loaded;
+            }
+
+            var generation = CaptureReadGeneration();
+            var rowData = GetRowDataFromPrimaryKeyValue(primaryKey, dataSource, owner);
+            if (rowData is not null)
+                return RecordDatabaseRowLoaded(addRow(this, rowData, dataSource, primaryKey, generation));
+
+            Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
+            return null;
         }
-
-        RecordSingleRowCacheLookup(hit: false);
-
-        if (GetCanonicalPrimaryKeySourceServices(dataSource, owner) is { } sourceServices)
+        catch (Exception failure)
         {
-            var canonicalKey = ProviderKeyComponents.ToDataLinqKey(primaryKey);
-            var loaded = LoadCanonicalRowAfterKnownMiss(
-                canonicalKey,
-                sourceServices);
-            Log.LoadRowsFromDatabase(
-                loggingConfiguration.CacheLogger,
-                Table,
-                1);
-
-            return loaded;
+            read?.ReportFailure(failure);
+            throw;
         }
-
-        var generation = CaptureReadGeneration();
-        var rowData = GetRowDataFromPrimaryKeyValue(primaryKey, dataSource, owner);
-        if (rowData is not null)
-            return RecordDatabaseRowLoaded(addRow(this, rowData, dataSource, primaryKey, generation));
-
-        Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
-        return null;
     }
 
     private void RecordSingleRowCacheLookup(bool hit)

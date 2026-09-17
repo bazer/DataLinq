@@ -108,10 +108,11 @@ internal sealed class ExecutionFailures
             secondary.Add(new(failureCause, failureStage, exception));
     }
 
-    internal void AddReported(Exception exception, ExecutionFailureStage fallbackStage)
+    internal void AddReported(Exception exception, ExecutionFailureStage fallbackStage,
+        ExecutionFailureCause fallbackCause = ExecutionFailureCause.Unknown)
     {
         var context = ExecutionFailureContexts.Get(exception);
-        Add(exception, context?.Cause ?? ExecutionFailureCause.Unknown, context?.Stage ?? fallbackStage);
+        Add(exception, context?.Cause ?? fallbackCause, context?.Stage ?? fallbackStage);
         if (context is not null)
             foreach (var failure in context.SecondaryFailures)
                 Add(failure.Exception, failure.Cause, failure.Stage);
