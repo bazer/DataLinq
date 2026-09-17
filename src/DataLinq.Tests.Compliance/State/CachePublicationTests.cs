@@ -17,6 +17,47 @@ public sealed class CachePublicationTests
     [Test]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ScheduledCleanupDuringConstructionLeavesAnUncachedResult(TestProviderDescriptor provider)
+    {
+        using var scope = TemporaryModelTestDatabase<CachePublicationDb>.Create(provider,
+            nameof(ScheduledCleanupDuringConstructionLeavesAnUncachedResult));
+        var database = scope.Database;
+        var cache = database.Provider.State.Cache;
+        var scheduler = cache.CleanupScheduler!;
+        scheduler.Stop();
+        database.Insert(new MutableCachePublicationRow { Id = 1, Name = "unchanged" });
+        database.Cache.Clear();
+
+        using var gate = CachePublicationGate.Install(database.Provider.TelemetryInstanceId);
+        var read = Task.Factory.StartNew(
+            () => database.Query().Rows.Single(row => row.Id == 1),
+            CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        try
+        {
+            gate.WaitUntilBlocked();
+            // Force the same maintenance path used on scheduler startup while the
+            // first row is being constructed, without relying on thread timing.
+            var cleanup = scheduler.RunScheduledCleanup();
+            await Assert.That(cleanup.RowsRemoved).IsEqualTo(0);
+            gate.Release();
+
+            var first = await read.WaitAsync(TimeSpan.FromSeconds(20));
+            var second = database.Query().Rows.Single(row => row.Id == 1);
+            await Assert.That(first.Equals(second)).IsTrue();
+            await Assert.That(first.GetHashCode()).IsEqualTo(second.GetHashCode());
+            await Assert.That(ReferenceEquals(first, second)).IsFalse();
+            await Assert.That(database.Query().Rows.Single(row => row.Id == 1)).IsSameReferenceAs(second);
+        }
+        finally
+        {
+            gate.Release();
+            await read.WaitAsync(TimeSpan.FromSeconds(20));
+        }
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task InvalidationDuringConstructionCannotRepublishOldRows(TestProviderDescriptor provider)
     {
         foreach (var route in new[] { "scalar", "batch", "text-key" })
