@@ -40,7 +40,7 @@ internal sealed class AsyncCheckpoint
 /// Implements only the internal execution capability. It does not construct a DataLinq
 /// database, connect to SQLite, or claim native-provider/caching/transaction fidelity.
 /// </summary>
-internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = null) : AsyncDatabaseAccess
+internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = null) : AsyncDatabaseAccess, IAsyncReadFailureEvidence
 {
     internal AsyncCheckpoint Dispatch { get; } = dispatch ?? new AsyncCheckpoint();
     internal ConcurrentQueue<string> Calls { get; } = new();
@@ -50,6 +50,18 @@ internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = 
     internal IDbCommand? ObservedCommand { get; private set; }
     internal object? ScalarResult { get; set; }
     internal int NonQueryResult { get; set; }
+    internal ReadFailureEvidence FailureEvidence { get; set; } = new();
+    internal Exception? EvidenceFailure { get; set; }
+    internal Action? AssessingFailure { get; set; }
+
+    public ReadFailureEvidence GetReadFailureEvidence(Exception failure)
+    {
+        Calls.Enqueue("assess-failure");
+        AssessingFailure?.Invoke();
+        if (EvidenceFailure is not null)
+            throw EvidenceFailure;
+        return FailureEvidence;
+    }
 
     protected override void ValidateCommand(IDbCommand command, AsyncCommandKind kind)
     {

@@ -24,7 +24,7 @@ internal interface IAsyncReaderSource
 /// The command must remain stable through each operation and reader lifetime. No connection,
 /// transaction or command ownership is transferred to this source.
 /// </summary>
-internal sealed class BorrowedCommandReaderSource : IAsyncReaderSource
+internal sealed class BorrowedCommandReaderSource : IAsyncReaderSource, IAsyncReadFailureEvidence
 {
     private readonly IAsyncDatabaseAccess access;
     private readonly IDbCommand command;
@@ -38,6 +38,9 @@ internal sealed class BorrowedCommandReaderSource : IAsyncReaderSource
     }
 
     public void Validate() => access.ValidateReader(command);
+
+    public ReadFailureEvidence GetReadFailureEvidence(Exception failure) =>
+        access is IAsyncReadFailureEvidence evidence ? evidence.GetReadFailureEvidence(failure) : new();
 
     public Task<IAsyncDataReader> OpenReaderAsync(CancellationToken cancellationToken)
         => access.ExecuteReaderAsync(command, cancellationToken);
