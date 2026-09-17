@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
@@ -61,14 +62,22 @@ public partial class TableCache
             cache.AddRow(rowData, source, key, generation));
     }
 
+    internal IImmutableInstance? GetOwnedRow(
+        DataLinqKey primaryKey, Transaction transaction, TransactionOperationGate.Step owner) =>
+        GetRowCore(primaryKey, transaction, static (cache, rowData, source, _, generation) =>
+            cache.AddRow(rowData, source, generation), owner);
+
     private IImmutableInstance? GetRowCore<TKey>(
         TKey primaryKey,
         IDataSourceAccess dataSource,
-        Func<TableCache, RowData, IDataSourceAccess, TKey, RowReadGeneration, IImmutableInstance> addRow)
+        Func<TableCache, RowData, IDataSourceAccess, TKey, RowReadGeneration, IImmutableInstance> addRow,
+        TransactionOperationGate.Step? owner = null)
         where TKey : notnull
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
-        EnsureTransactionRowCache(dataSource);
+        using var read = DataSourceAccess.BeginRead(dataSource, "read a cache row", owner);
+        owner ??= read?.Step;
+        EnsureTransactionRowCache(dataSource, owner);
 
         if (GetRowFromCache(primaryKey, dataSource, out var row))
         {
@@ -80,6 +89,8 @@ public partial class TableCache
 
         if (GetCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
         {
+            if (owner is not null)
+                sourceServices = ((DataSourceAccess)dataSource).GetOwnedRowServices(owner);
             var canonicalKey = ProviderKeyComponents.ToDataLinqKey(primaryKey);
             var loaded = LoadCanonicalRowAfterKnownMiss(
                 canonicalKey,
@@ -93,7 +104,7 @@ public partial class TableCache
         }
 
         var generation = CaptureReadGeneration();
-        var rowData = GetRowDataFromPrimaryKeyValue(primaryKey, dataSource);
+        var rowData = GetRowDataFromPrimaryKeyValue(primaryKey, dataSource, owner);
         if (rowData is not null)
             return RecordDatabaseRowLoaded(addRow(this, rowData, dataSource, primaryKey, generation));
 
@@ -230,11 +241,12 @@ public partial class TableCache
         return GetRow(ReadPrimaryKey(reader, primaryKeyOrdinals), dataSource);
     }
 
-    private void EnsureTransactionRowCache(IDataSourceAccess dataSource)
+    private void EnsureTransactionRowCache(
+        IDataSourceAccess dataSource, TransactionOperationGate.Step? owner = null)
     {
         DataSourceAccess.EnsureReadAllowed(
             dataSource,
-            "read through the transaction cache");
+            "read through the transaction cache", owner);
 
         if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly)
         {

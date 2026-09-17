@@ -67,13 +67,13 @@ For W1.1, no package was published, no driver dependency changed, and no native-
 
 ## W1.2 Foundation: Transaction Ownership And Initialization
 
-The [ownership and initialization record](W1%20Transaction%20Ownership%20and%20Initialization.md) describes explicit leases shared with the existing synchronous mutation/completion guard, protected internal steps and reader handoff, and a lazy resource state machine verified with controllable initializers. Native initialization remains unwired. Private hydration/source admission, reader orchestration and helper recovery still require integration; this foundation does not claim full W1.2 or W1 completion.
+The [ownership and initialization record](W1%20Transaction%20Ownership%20and%20Initialization.md) describes explicit leases shared with the existing synchronous mutation/completion guard, protected internal steps and reader handoff, and a lazy resource state machine verified with controllable initializers. The subsequent [owned read integration](W1%20Owned%20Read%20Execution.md) adds private hydration and bounded synchronous source/reader admission. Native initialization, complete outer invocation ownership, async reader orchestration and helper recovery remain pending; these slices do not claim full W1.2 or W1 completion.
 
 ## Remaining W1 Slices
 
 | Next slice | Required work and evidence |
 | --- | --- |
-| W1.2 ownership follow-through | Integrate the tested lease/initialization foundation into private hydration and source execution; replace the old synchronous thread-ID allowance, complete reader lifetime/admission composition and measure coordination cost; no lock held across arbitrary awaits |
+| W1.2 ownership follow-through | [Owned read integration](W1%20Owned%20Read%20Execution.md) replaces the thread-ID allowance and covers bounded synchronous source/reader execution; complete outer query/relation lifetime admission, async handoff and coordination cost measurement remain open; no lock held across arbitrary awaits |
 | W1.3 cancellation, completion and recovery | Validation/cancellation ordering throughout orchestration, interrupted reads versus writes, completion certainty, independent recovery budget, and preservation of original failures with ordered cleanup failures; no implicit retries or abandoned operations |
 | W1.4 invocation/source capture and handoff | Owned command/reader lifetimes and async enumeration exits, combined tokens, ordinary/prepared/mutation snapshots at their accepted boundaries, relation/cache publication races and mapping of every I/O family to the internal contracts |
 

@@ -15,8 +15,37 @@ using DataLinq.Query;
 
 namespace DataLinq.Tests.Unit.Core;
 
-public sealed class TransactionMutationFailureTests
+public sealed partial class TransactionMutationFailureTests
 {
+    [Test]
+    public async Task AuthoritativeHydration_DoesNotGrantPublicReadPermissionToProviderCallbacks()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var mutable = fixture.CreateExistingMutable(401, "before");
+        mutable["Value"] = "after";
+        var callbackRan = false;
+        var publicReadAccepted = false;
+        fixture.Scenario.CommandCreated = () =>
+        {
+            if (fixture.Scenario.CommandCreations != 2)
+                return;
+            callbackRan = true;
+            try
+            {
+                _ = transaction.Query();
+                publicReadAccepted = true;
+            }
+            catch (InvalidOperationException) { }
+        };
+
+        // The statement-only fixture returns no authoritative row. The callback runs
+        // during hydration command construction, while the mutation still owns execution.
+        _ = Capture<ModelLoadFailureException>(() => transaction.Update(mutable));
+        await Assert.That(callbackRan).IsTrue();
+        await Assert.That(publicReadAccepted).IsFalse();
+    }
+
     [Test]
     public async Task LongTransactionDisposesEachOwnedMutationCommandImmediately()
     {
@@ -1549,6 +1578,8 @@ public sealed class TransactionMutationFailureTests
 
         internal Exception? CommandFailure { get; set; }
         internal Action? CommandCreated { get; set; }
+        internal Action? CommandDisposed { get; set; }
+        internal Func<IDataLinqDataReader>? ReaderFactory { get; set; }
         internal object? ScalarResult { get; set; } = 1L;
         internal int CommandCreations { get; set; }
         internal int CommandDisposals { get; set; }
@@ -1620,6 +1651,7 @@ public sealed class TransactionMutationFailureTests
             var command = new ScriptedDbCommand(() =>
             {
                 scenario.CommandDisposals++;
+                scenario.CommandDisposed?.Invoke();
                 if (scenario.CommandDisposeFailure is not null)
                     throw scenario.CommandDisposeFailure;
             });
@@ -1715,13 +1747,13 @@ public sealed class TransactionMutationFailureTests
         public override IDataLinqDataReader ExecuteReader(IDbCommand command)
         {
             scenario.ReaderExecutions++;
-            return EmptyReader.Instance;
+            return scenario.ReaderFactory?.Invoke() ?? EmptyReader.Instance;
         }
 
         public override IDataLinqDataReader ExecuteReader(string query)
         {
             scenario.ReaderExecutions++;
-            return EmptyReader.Instance;
+            return scenario.ReaderFactory?.Invoke() ?? EmptyReader.Instance;
         }
 
         public override object? ExecuteScalar(IDbCommand command)

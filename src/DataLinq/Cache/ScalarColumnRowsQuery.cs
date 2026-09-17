@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Data;
 using System.Threading;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -35,9 +36,9 @@ internal sealed class ScalarColumnRowsQuery(
 
     public IDbCommand ToDbCommand() => dataSource.Provider.ToDbCommand(this);
 
-    internal RowData? ReadFirstRow()
+    internal RowData? ReadFirstRow(TransactionOperationGate.Step? owner = null)
     {
-        DataSourceAccess.EnsureReadAllowed(dataSource, "read a cache row");
+        using var read = DataSourceAccess.BeginRead(dataSource, "read a cache row", owner);
         using var command = ToDbCommand();
         using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
 
