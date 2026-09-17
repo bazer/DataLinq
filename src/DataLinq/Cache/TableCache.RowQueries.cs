@@ -18,7 +18,7 @@ public partial class TableCache
         int offset,
         int count,
         IDataSourceAccess dataSource,
-        List<OrderBy>? orderings = null)
+        List<OrderBy>? orderings = null, TransactionOperationGate.Step? owner = null)
         where TKey : notnull
     {
         ArgumentNullException.ThrowIfNull(keys);
@@ -80,14 +80,14 @@ public partial class TableCache
 
         return q
             .SelectQuery()
-            .ReadRows();
+            .ReadRows(owner);
     }
 
-    private static List<TKey> ReadScalarPrimaryKeys<TSelect, TKey>(Select<TSelect> select, ColumnDefinition column)
+    private static List<TKey> ReadScalarPrimaryKeys<TSelect, TKey>(Select<TSelect> select, ColumnDefinition column, TransactionOperationGate.Step? owner)
         where TKey : notnull
     {
         var keys = new List<TKey>();
-        foreach (var reader in select.ReadReader())
+        foreach (var reader in select.ReadReader(default, owner))
         {
             if (ReadScalarProviderKey<TKey>(reader, column, 0) is TKey key)
                 keys.Add(key);

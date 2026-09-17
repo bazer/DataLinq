@@ -429,8 +429,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="query">The query to execute.</param>
     /// <returns>The models returned by the query.</returns>
     public override IEnumerable<T> GetFromQuery<T>(string query)
+        => ReadSequence(this, "execute a query", owner => GetFromQueryCore<T>(query, owner));
+
+    private IEnumerable<T> GetFromQueryCore<T>(string query, TransactionOperationGate.Step? owner)
+        where T : IModel
     {
-        using var read = BeginRead(this, "execute a query");
+        using var read = BeginRead(this, "execute a query", owner);
         var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
         foreach (var reader in DatabaseAccess.ReadReader(query))
@@ -452,8 +456,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="dbCommand">The command to execute.</param>
     /// <returns>The models returned by the command.</returns>
     public override IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand)
+        => ReadSequence(this, "execute a command query", owner => GetFromCommandCore<T>(dbCommand, owner));
+
+    private IEnumerable<T> GetFromCommandCore<T>(IDbCommand dbCommand, TransactionOperationGate.Step? owner)
+        where T : IModel
     {
-        using var read = BeginRead(this, "execute a command query");
+        using var read = BeginRead(this, "execute a command query", owner);
         var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
         foreach (var reader in DatabaseAccess.ReadReader(dbCommand))

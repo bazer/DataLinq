@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using DataLinq.Execution;
 using DataLinq.Metadata;
 using DataLinq.Query;
 
@@ -167,8 +168,12 @@ public static class KeyFactory
     }
 
     public static IEnumerable<DataLinqKey> GetKeys<T>(Select<T> select, IReadOnlyList<ColumnDefinition> columns)
+        => GetKeys(select, columns, owner: null);
+
+    internal static IEnumerable<DataLinqKey> GetKeys<T>(
+        Select<T> select, IReadOnlyList<ColumnDefinition> columns, TransactionOperationGate.Step? owner)
     {
-        foreach (var reader in select.ReadReader())
+        foreach (var reader in select.ReadReader(default, owner))
             yield return GetKey(reader, columns);
     }
 }
