@@ -25,14 +25,14 @@ internal sealed class ControlledHelperTransaction : ControlledTransactionRecover
         if (CommitValidationFailure is not null) throw CommitValidationFailure;
     }
 
-    public async Task CommitAsync(CancellationToken cancellationToken)
+    public async Task CommitAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken)
     {
         Calls.Enqueue("commit");
         await Commit.ReachAsync(cancellationToken);
         Committed?.Invoke();
     }
 
-    public void FinalizeCommit()
+    public void FinalizeCommit(TransactionOperationGate.Step owner)
     {
         Finalizations++;
         if (FinalizationFailure is not null) throw FinalizationFailure;

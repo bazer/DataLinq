@@ -11,7 +11,7 @@ namespace DataLinq.Execution;
 /// </summary>
 internal interface IAsyncTransactionRecovery
 {
-    Task RollbackAsync(CancellationToken cancellationToken);
-    ValueTask DisposeTransactionAsync();
-    ValueTask DisposeConnectionAsync();
+    Task RollbackAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken);
+    ValueTask DisposeTransactionAsync(TransactionOperationGate.Step owner);
+    ValueTask DisposeConnectionAsync(TransactionOperationGate.Step owner);
 }

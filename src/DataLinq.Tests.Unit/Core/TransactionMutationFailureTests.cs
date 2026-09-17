@@ -3,15 +3,18 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Cache;
 using DataLinq.Exceptions;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using DataLinq.Tests.Unit.Fixtures;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -1582,6 +1585,7 @@ public sealed partial class TransactionMutationFailureTests
         internal Func<IDataLinqDataReader>? ReaderFactory { get; set; }
         internal object? ScalarResult { get; set; } = 1L;
         internal Action? ScalarExecuting { get; set; }
+        internal ControlledCompletionProvider? AsyncCompletion { get; set; }
         internal int CommandCreations { get; set; }
         internal int CommandDisposals { get; set; }
         internal Exception? CommandDisposeFailure { get; set; }
@@ -1735,7 +1739,7 @@ public sealed partial class TransactionMutationFailureTests
         public void Dispose() => onDispose?.Invoke();
     }
 
-    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction
+    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion
     {
         private readonly ScriptedMutationScenario scenario;
 
@@ -1786,6 +1790,17 @@ public sealed partial class TransactionMutationFailureTests
 
         public override int ExecuteNonQuery(string query) =>
             scenario.ExecuteNonQuery();
+
+        TransactionInitializationState IAsyncTransactionCompletion.InitializationState =>
+            scenario.AsyncCompletion?.InitializationState ?? TransactionInitializationState.Ready;
+        ExecutionRecoveryActions IAsyncTransactionCompletion.Recovery => CompletionProvider.Recovery;
+        private ControlledCompletionProvider CompletionProvider => scenario.AsyncCompletion ??
+            throw new NotSupportedException("Scripted async completion was not enabled.");
+        void IAsyncTransactionCompletion.ValidateCompletion(AsyncCompletionOperation operation) => CompletionProvider.ValidateCompletion(operation);
+        Task IAsyncTransactionCompletion.CommitAsync(CancellationToken token) => CompletionProvider.CommitAsync(token);
+        Task IAsyncTransactionCompletion.RollbackAsync(CancellationToken token) => CompletionProvider.RollbackAsync(token);
+        ValueTask IAsyncTransactionCompletion.DisposeTransactionAsync() => CompletionProvider.DisposeTransactionAsync();
+        ValueTask IAsyncTransactionCompletion.DisposeConnectionAsync() => CompletionProvider.DisposeConnectionAsync();
 
         public override void Commit()
         {

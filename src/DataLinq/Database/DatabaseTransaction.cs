@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using System.Diagnostics;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 
@@ -69,6 +70,20 @@ public abstract class DatabaseTransaction : DatabaseAccess, IDisposable
     {
         this.Status = status;
         OnStatusChanged?.Invoke(this, new DatabaseTransactionStatusChangeEventArgs { Status = status });
+    }
+
+    // The async managed path records confirmed completion before any fallible observer.
+    // Existing synchronous providers retain their original combined boundary.
+    internal void RecordConfirmedAsyncCompletion(ExecutionCompletion completion) =>
+        Status = completion == ExecutionCompletion.Committed
+            ? DatabaseTransactionStatus.Committed : DatabaseTransactionStatus.RolledBack;
+
+    internal void NotifyConfirmedAsyncCompletion(ExecutionFailures failures)
+    {
+        try { OnStatusChanged?.Invoke(this, new DatabaseTransactionStatusChangeEventArgs { Status = Status }); }
+        catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Finalization); }
+        try { CompleteTransactionTelemetry(Status); }
+        catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Finalization); }
     }
 
     protected void BeginTransactionTelemetry()

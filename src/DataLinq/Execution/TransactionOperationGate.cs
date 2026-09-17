@@ -35,6 +35,15 @@ internal sealed class TransactionOperationGate(uint transactionId)
             ThrowIfBusyCore(operation);
     }
 
+    // Repeated disposal after completion is harmless, but disposal still in progress
+    // owns its slot even after the wrapper has already become terminal.
+    internal void ThrowIfActive(string operation)
+    {
+        lock (sync)
+            if (active is not null)
+                throw new InvalidOperationException($"Cannot {operation} through transaction {transactionId} while '{active.Operation}' is active.");
+    }
+
     private void ThrowIfBusyCore(string operation)
     {
         if (helper?.Closed == true)

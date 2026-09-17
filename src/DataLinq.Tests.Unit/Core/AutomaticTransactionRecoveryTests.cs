@@ -335,6 +335,21 @@ public sealed class AutomaticTransactionRecoveryTests
         await Assert.That(second.FailureContext).IsNull();
     }
 
+    [Test]
+    public async Task ReusedExceptionFromAnotherTransaction_CannotConfirmRecoveryRollback()
+    {
+        var gate = new TransactionOperationGate(8);
+        using var owner = gate.Enter("recovery");
+        var error = new Exception("reused exception");
+        ExecutionFailureContexts.Attach(error, new(ExecutionFailureCause.Unknown, ExecutionFailureStage.Finalization,
+            ExecutionCompletion.RolledBack, ExecutionRecoveryActions.Dispose, 999, []));
+        var resource = new ControlledTransactionRecovery { Rollback = Failed(error) };
+        var recovery = Create(gate, owner, resource, new());
+        await Assert.That(await CaptureAsync(() => recovery.DisposeAsync().AsTask())).IsSameReferenceAs(error);
+        await Assert.That(recovery.FailureContext!.Completion).IsEqualTo(ExecutionCompletion.Unknown);
+        await Assert.That(recovery.FailureContext.TransactionId).IsEqualTo((uint?)8);
+    }
+
     private static AutomaticTransactionRecovery Create(TransactionOperationGate gate, TransactionOperationGate.Lease owner,
         ControlledTransactionRecovery resource, ControlledRecoveryTimeProvider clock, ExecutionFailures? failures = null,
         ExecutionCompletion completion = ExecutionCompletion.NotAttempted, ExecutionRecoveryActions actions = ExecutionRecoveryActions.Rollback) =>

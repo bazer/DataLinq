@@ -74,16 +74,19 @@ internal sealed class AutomaticTransactionRecovery : IAsyncDisposable
                         using var budget = new CancellationTokenSource(settings.RecoveryRollbackTimeout, timeProvider);
                         try
                         {
-                            await owned.RollbackAsync(budget.Token).ConfigureAwait(false);
+                            await owned.RollbackAsync(step, budget.Token).ConfigureAwait(false);
                             completion = ExecutionRecoveryPolicy.PreserveCompletion(completion, ExecutionCompletion.RolledBack);
                         }
                         catch (Exception rollback)
                         {
-                            completion = ExecutionRecoveryPolicy.PreserveCompletion(completion, ExecutionCompletion.Unknown);
+                            var reported = ExecutionFailureContexts.Get(rollback);
+                            completion = ExecutionRecoveryPolicy.PreserveCompletion(completion,
+                                reported?.TransactionId == transactionId && reported.Completion == ExecutionCompletion.RolledBack
+                                    ? ExecutionCompletion.RolledBack : ExecutionCompletion.Unknown);
                             var cause = rollback is OperationCanceledException canceled &&
                                 canceled.CancellationToken == budget.Token && budget.IsCancellationRequested
                                     ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown;
-                            failures.Add(rollback, cause, ExecutionFailureStage.Recovery);
+                            failures.AddReported(rollback, ExecutionFailureStage.Recovery, cause);
                         }
                     }
                     catch (Exception setup)
@@ -94,10 +97,10 @@ internal sealed class AutomaticTransactionRecovery : IAsyncDisposable
                     }
                 }
 
-                try { await owned.DisposeTransactionAsync().ConfigureAwait(false); }
-                catch (Exception cleanup) { failures.Add(cleanup, ExecutionFailureCause.Unknown, ExecutionFailureStage.Cleanup); }
-                try { await owned.DisposeConnectionAsync().ConfigureAwait(false); }
-                catch (Exception cleanup) { failures.Add(cleanup, ExecutionFailureCause.Unknown, ExecutionFailureStage.Cleanup); }
+                try { await owned.DisposeTransactionAsync(step).ConfigureAwait(false); }
+                catch (Exception cleanup) { failures.AddReported(cleanup, ExecutionFailureStage.Cleanup); }
+                try { await owned.DisposeConnectionAsync(step).ConfigureAwait(false); }
+                catch (Exception cleanup) { failures.AddReported(cleanup, ExecutionFailureStage.Cleanup); }
 
                 if (failures.Primary is { } primary)
                 {
