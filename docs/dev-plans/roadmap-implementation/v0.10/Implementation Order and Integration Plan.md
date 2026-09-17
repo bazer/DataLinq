@@ -184,6 +184,8 @@ Exit gate:
 
 ### W1: Internal Async And Cancellation Contracts
 
+Execution record and PR-sized slices: [W1 internal execution contracts](W1%20Internal%20Execution%20Contracts.md). The first command/reader acquisition foundation is internal and is not wired into production providers; transaction/source orchestration and the full W1 exit gate remain open.
+
 Required work:
 
 - introduce internal async provider/access/source interfaces without changing public support claims
