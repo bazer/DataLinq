@@ -35,7 +35,9 @@ public partial class Transaction
         EnsureMutationPreflight(model, selected);
         token.ThrowIfCancellationRequested();
         edits(model);
-        return ExecuteSingleMutationAsync<T>(model, selected, token);
+        // Save follows the resulting lifecycle, just like the synchronous overload.
+        return ExecuteSingleMutationAsync<T>(model,
+            type ?? (model.IsNew() ? TransactionChangeType.Insert : TransactionChangeType.Update), token);
     }
 
     internal async Task DeleteAsyncCore(IModelInstance model, CancellationToken token = default)
@@ -77,12 +79,23 @@ public partial class Transaction
         finally { foreach (var input in inputs) input.Dispose(); }
     }
 
-    private sealed class CapturedMutation(StateChange change, MutationInputReservation reservation) : IDisposable
+    internal async Task<IImmutableInstance?> ExecuteStateChangeAsyncCore(StateChange change, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        MutationPreflight.EnsureExecution(this, change);
+        using var input = new CapturedMutation(change, new MutationInputReservation(change.Model), allowUnchangedLookup: false);
+        var results = await ExecuteCapturedMutationsAsync([input], token).ConfigureAwait(false);
+        return results[0];
+    }
+
+    private sealed class CapturedMutation(StateChange change, MutationInputReservation reservation,
+        bool allowUnchangedLookup = true) : IDisposable
     {
         internal StateChange Change { get; } = change;
         internal MutationInputReservation Reservation { get; } = reservation;
         internal AsyncEagerCommand? Command { get; set; }
-        internal bool Unchanged => Change.Type == TransactionChangeType.Update && Change.Snapshot.IsEmpty;
+        internal bool Unchanged => allowUnchangedLookup && Change.Type == TransactionChangeType.Update && Change.Snapshot.IsEmpty;
+        internal bool NeedsHydration => Change.Type != TransactionChangeType.Delete && Change.Model is IMutableLifecycle;
         public void Dispose() => Reservation.Dispose();
     }
 
@@ -115,7 +128,7 @@ public partial class Transaction
                     ?? throw new InvalidOperationException("Mutation binding returned no command.");
                 input.Command.Validate(input.Change.NeedsGeneratedValue ? AsyncCommandKind.Scalar : AsyncCommandKind.NonQuery, hasOwner: true);
             }
-            if (input.Change.Type != TransactionChangeType.Delete)
+            if (input.NeedsHydration)
                 readers ??= IAsyncSqlReaderFactory.Require(DatabaseAccess).CaptureInvocation();
         }
         return readers;
@@ -180,7 +193,7 @@ public partial class Transaction
                 }
 
                 IImmutableInstance? immutable = null;
-                if (change.Type != TransactionChangeType.Delete)
+                if (input.NeedsHydration)
                 {
                     mutationStage = TransactionFailureStage.Hydration;
                     stage = ExecutionFailureStage.RowLoading;
