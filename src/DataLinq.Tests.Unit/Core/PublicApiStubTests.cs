@@ -34,7 +34,11 @@ public sealed class PublicApiStubTests
         await Assert.That(relation.ContainsKey(first.PrimaryKeys())).IsTrue();
         await Assert.That(relation.Keys.OrderBy(key => key.ToString()).ToArray()).IsEquivalentTo(
             new[] { first.PrimaryKeys(), second.PrimaryKeys() }.OrderBy(key => key.ToString()).ToArray());
-        await Assert.That(relation.AsEnumerable().Count()).IsEqualTo(2);
+        IEnumerable<MutableDepartment> rowView = relation.AsEnumerable();
+        IEnumerable<KeyValuePair<DataLinqKey, MutableDepartment>> keyedView = relation.AsKeyValuePairs();
+        await Assert.That(rowView).IsSameReferenceAs(relation);
+        await Assert.That(rowView.Count()).IsEqualTo(2);
+        await Assert.That(keyedView.Single(pair => pair.Key.Equals(first.PrimaryKeys())).Value).IsSameReferenceAs(first);
         await Assert.That(relation.ToFrozenDictionary()[first.PrimaryKeys()]).IsSameReferenceAs(first);
         await Assert.That(((IEnumerable)relation).Cast<MutableDepartment>().ToArray()).IsEquivalentTo(new[] { second, first });
         var missing = new MutableDepartment { DeptNo = "d999", Name = "Missing" }.PrimaryKeys();
@@ -54,6 +58,39 @@ public sealed class PublicApiStubTests
         list.Add(first);
         relation.Clear();
         await Assert.That(relation.Single()).IsSameReferenceAs(first);
+    }
+
+    [Test]
+    public async Task RelationEnumerationRename_HasNoInstanceAlias_AndCustomExplicitImplementationBinds()
+    {
+        var row = new MutableDepartment { DeptNo = "d001", Name = "First" };
+        var concrete = new ExplicitKeyedRelation(row);
+        IImmutableRelation<MutableDepartment> relation = concrete;
+        IEnumerable<MutableDepartment> interfaceRows = relation.AsEnumerable();
+        IEnumerable<MutableDepartment> concreteRows = concrete.AsEnumerable();
+        await Assert.That(interfaceRows).IsSameReferenceAs(relation);
+        await Assert.That(concreteRows).IsSameReferenceAs(concrete);
+        await Assert.That(concrete.KeyedCalls).IsEqualTo(0);
+        await Assert.That(interfaceRows.Single()).IsSameReferenceAs(row);
+        IEnumerable<KeyValuePair<DataLinqKey, MutableDepartment>> pairs = relation.AsKeyValuePairs();
+        await Assert.That(pairs.Single().Key).IsEqualTo(row.PrimaryKeys());
+        await Assert.That(concrete.KeyedCalls).IsEqualTo(1);
+        foreach (var type in new[] { typeof(IImmutableRelation<MutableDepartment>), typeof(ImmutableRelationMock<MutableDepartment>),
+            typeof(ImmutableRelation<Department>), typeof(ImmutableRelation<Department, string>) })
+        {
+            await Assert.That(type.GetMethod("AsEnumerable", BindingFlags.Public | BindingFlags.Instance)).IsNull();
+            await Assert.That(type.GetMethod("AsKeyValuePairs", BindingFlags.Public | BindingFlags.Instance)).IsNotNull();
+        }
+    }
+
+    private sealed class ExplicitKeyedRelation(MutableDepartment row) : ImmutableRelationMock<MutableDepartment>([row]), IImmutableRelation<MutableDepartment>
+    {
+        internal int KeyedCalls { get; private set; }
+        IEnumerable<KeyValuePair<DataLinqKey, MutableDepartment>> IImmutableRelation<MutableDepartment>.AsKeyValuePairs()
+        {
+            KeyedCalls++;
+            return base.AsKeyValuePairs();
+        }
     }
 
     [Test]

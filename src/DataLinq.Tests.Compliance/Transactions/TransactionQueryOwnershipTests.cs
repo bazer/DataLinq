@@ -55,6 +55,7 @@ public sealed class TransactionQueryOwnershipTests
             // The second pass exercises the already published relation snapshot.
             await CheckSequence(relation, transaction);
             await CheckSequence(relation.AsEnumerable(), transaction);
+            await CheckSequence(relation.AsKeyValuePairs(), transaction);
             await Assert.That(relation.Values.Length).IsEqualTo(2);
             await Assert.That(relation.ToFrozenDictionary().Count).IsEqualTo(2);
         }

@@ -210,7 +210,7 @@ public sealed class RelationSnapshotPublicationTests
                 var values = relation.Values;
                 if (values.IsDefault || values.Length != 3 || relation.Count != 3 ||
                     relation.Keys.Length != 3 || relation.ToFrozenDictionary().Count != 3 ||
-                    relation.AsEnumerable().Count() != 3 || relation.ToArray().Length != 3 ||
+                    relation.AsKeyValuePairs().Count() != 3 || relation.AsEnumerable().Count() != 3 || relation.ToArray().Length != 3 ||
                     !relation.ContainsKey(DataLinqKey.FromValue(1)) || relation.Get(DataLinqKey.FromValue(1))?.Id != 1)
                     throw new InvalidOperationException("A relation exposed an incomplete snapshot.");
             }

@@ -30,7 +30,7 @@ var rows = department.Managers.AsEnumerable();         // IEnumerable<Manager>
 var keyedRows = department.Managers.AsKeyValuePairs(); // KeyValuePair<DataLinqKey, Manager> elements
 ```
 
-Standard `AsEnumerable()` only exposes the relation as a row sequence; the call does not load it. Enumeration can still perform synchronous I/O. `AsKeyValuePairs()` preserves the previous keyed operation and may load immediately and build a dictionary. Its keys identify the related rows, including composite primary keys; they are not the parent relation's foreign key.
+Standard `AsEnumerable()` only exposes the relation as a row sequence; the call does not load it. Enumeration can still perform synchronous I/O. `AsKeyValuePairs()` preserves keyed enumeration, which can load rows and build a dictionary synchronously. The built-in runtime does this during enumeration and retains transaction ownership until enumeration ends or is disposed. Custom implementations and mocks need not defer keyed loading. Its keys identify the related rows, including composite primary keys; they are not the parent relation's foreign key.
 
 When upgrading, change pair-consuming calls to `AsKeyValuePairs()`, update custom `IImmutableRelation<T>` implementations and mocks, and recompile consumers. Audit existing calls even when they still compile: inferred types can silently change from pairs to rows, and obtaining the row view no longer triggers loading. There is no obsolete `AsEnumerable()` alias because it would continue hiding the standard extension. This rename does not add async execution APIs.
 
