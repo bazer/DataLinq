@@ -31,6 +31,7 @@ internal static class MutationPreflight
     {
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(model);
+        MutationInputReservation.EnsureAvailable(model);
         EnsureTransactionAllowsWrite(
             transaction,
             operation,

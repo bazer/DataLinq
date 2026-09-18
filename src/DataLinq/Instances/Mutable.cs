@@ -7,7 +7,7 @@ using DataLinq.Metadata;
 namespace DataLinq.Instances;
 
 // Add IEquatable interfaces
-public class Mutable<T> : IMutableInstance,
+public partial class Mutable<T> : IMutableInstance,
     IEquatable<Mutable<T>>, IEquatable<T>, IMutableLifecycle, IMutableChangeTracking // T is the Immutable type
     where T : class, IImmutableInstance
 {
@@ -100,13 +100,12 @@ public class Mutable<T> : IMutableInstance,
         }
         set
         {
-            ValidateMappedColumn(column);
-            if (metadata.Table.PrimaryKeyColumns.Contains(column))
+            lock (rowDataMutationOwner)
             {
-                _isPkCached = false;
-                _cachedPrimaryKey = null;
+                EnsureNoPendingMutation();
+                ValidateMappedColumn(column);
+                SetColumnValue(column, value);
             }
-            mutableRowData.SetValue(column, value, rowDataMutationOwner);
         }
     }
 
@@ -129,13 +128,11 @@ public class Mutable<T> : IMutableInstance,
         get => mutableRowData.GetValue(metadata.ValueProperties[propertyName].Column);
         set
         {
-            var column = metadata.ValueProperties[propertyName].Column;
-            if (metadata.Table.PrimaryKeyColumns.Contains(column))
+            lock (rowDataMutationOwner)
             {
-                _isPkCached = false;
-                _cachedPrimaryKey = null;
+                EnsureNoPendingMutation();
+                SetColumnValue(metadata.ValueProperties[propertyName].Column, value);
             }
-            mutableRowData.SetValue(column, value, rowDataMutationOwner);
         }
     }
 
@@ -172,28 +169,36 @@ public class Mutable<T> : IMutableInstance,
     // Reset: Clears changes, reverts to original state if available
     public void Reset()
     {
-        lifecycle.ValidateAssignmentReset();
-        var resetPrimaryKey = immutableInstance is not null
-            ? immutableInstance.PrimaryKeys()
-            : IsNew()
-                ? (DataLinqKey?)null
-                : throw new InvalidOperationException(
-                    $"Existing mutable model '{typeof(T).FullName}' has no immutable baseline to reset.");
+        lock (rowDataMutationOwner)
+        {
+            EnsureNoPendingMutation();
+            lifecycle.ValidateAssignmentReset();
+            var resetPrimaryKey = immutableInstance is not null
+                ? immutableInstance.PrimaryKeys()
+                : IsNew()
+                    ? (DataLinqKey?)null
+                    : throw new InvalidOperationException(
+                        $"Existing mutable model '{typeof(T).FullName}' has no immutable baseline to reset.");
 
-        mutableRowData.Reset(rowDataMutationOwner); // Clears MutatedData
-        _cachedPrimaryKey = resetPrimaryKey;
-        _isPkCached = resetPrimaryKey is not null;
+            mutableRowData.Reset(rowDataMutationOwner); // Clears MutatedData
+            _cachedPrimaryKey = resetPrimaryKey;
+            _isPkCached = resetPrimaryKey is not null;
+        }
     }
 
     // Reset based on a specific immutable instance
     public void Reset(T model)
     {
-        ArgumentNullException.ThrowIfNull(model);
+        lock (rowDataMutationOwner)
+        {
+            EnsureNoPendingMutation();
+            ArgumentNullException.ThrowIfNull(model);
 
-        var replacement = MutableBaselineOrigin.FromImmutable(model);
-        lifecycle.ValidatePublicBaselineReset(replacement);
-        ReplaceBaseline(model);
-        lifecycle.ApplyPublicBaselineReset(replacement);
+            var replacement = MutableBaselineOrigin.FromImmutable(model);
+            lifecycle.ValidatePublicBaselineReset(replacement);
+            ReplaceBaseline(model);
+            lifecycle.ApplyPublicBaselineReset(replacement);
+        }
     }
 
     internal void AdvanceBaseline(
@@ -257,7 +262,14 @@ public class Mutable<T> : IMutableInstance,
         _isPkCached = true;
     }
 
-    public void SetDeleted() => lifecycle.MarkDeletedWithoutTransaction();
+    public void SetDeleted()
+    {
+        lock (rowDataMutationOwner)
+        {
+            EnsureNoPendingMutation();
+            lifecycle.MarkDeletedWithoutTransaction();
+        }
+    }
 
     public object? GetValue(string propertyName) => mutableRowData.GetValue(metadata.ValueProperties[propertyName].Column);
     public void SetValue<V>(string propertyName, V value) => this[propertyName] = value; // Use indexer to handle PK invalidation

@@ -321,6 +321,7 @@ public sealed partial class TransactionMutationFailureTests
     private class CapturedReadProvider<TModel>(ScriptedMutationScenario scenario) : ScriptedMutationProvider<TModel>(scenario)
         where TModel : class, IDatabaseModel<TModel>
     {
+        public override string GetLastIdQuery() => "SELECT last_insert_rowid()";
         public override string GetOperatorSql(Operator operation) => operation switch
         {
             Operator.Equal => "=", Operator.NotEqual => "<>", Operator.In => "IN", Operator.NotIn => "NOT IN",
