@@ -1,0 +1,135 @@
+using System;
+using System.Data;
+using System.Threading;
+
+namespace DataLinq.Execution;
+
+internal enum SyncCommandKind { Reader, Scalar, NonQuery }
+
+/// <summary>Direct provider dispatch, distinct from public raw admission.</summary>
+internal interface ISyncCommandAccess
+{
+    void ValidateCommand(IDbCommand command, SyncCommandKind kind);
+    IDataLinqDataReader ExecuteReader(IDbCommand command);
+    object? ExecuteScalar(IDbCommand command);
+    int ExecuteNonQuery(IDbCommand command);
+}
+
+/// <summary>I/O-free capture. Created commands belong to the invocation; supplied commands never do.</summary>
+internal interface ISyncRawCommandFactory
+{
+    SyncRawCommand BindCommand(string sql);
+    SyncRawCommand BindCommand(IDbCommand command);
+    SyncRawScalarInvocation<T> BindScalar<T>(string sql);
+    SyncRawScalarInvocation<T> BindScalar<T>(IDbCommand command);
+
+    internal static ISyncRawCommandFactory Require(object access) => access as ISyncRawCommandFactory
+        ?? throw new NotSupportedException("This adapter does not implement managed synchronous raw command binding.");
+}
+
+internal sealed record SyncRawScalarInvocation<T>(SyncRawCommand Command, Func<object?, T> Convert);
+
+internal interface ISyncCommandInitialization
+{
+    TransactionInitializationState State { get; }
+    void Validate();
+    void Initialize(TransactionOperationGate.Step owner);
+}
+
+/// <summary>Single invocation; owns only resources it creates. No public reentry or async fallback.</summary>
+internal sealed class SyncRawCommand
+{
+    private readonly ISyncCommandAccess access;
+    private readonly Func<IDbCommand>? create;
+    private readonly IDbCommand? borrowed;
+    private readonly Action<SyncCommandKind>? validateFactory;
+    private readonly ISyncCommandInitialization? initialization;
+    private IDbCommand? command;
+    private int started;
+    internal bool Dispatched { get; private set; }
+    internal ExecutionFailureStage Stage { get; private set; } = ExecutionFailureStage.Validation;
+
+    internal SyncRawCommand(ISyncCommandAccess access, Func<IDbCommand> create,
+        Action<SyncCommandKind>? validateFactory = null, ISyncCommandInitialization? initialization = null)
+    {
+        this.access = access ?? throw new ArgumentNullException(nameof(access));
+        this.create = create ?? throw new ArgumentNullException(nameof(create));
+        this.validateFactory = validateFactory;
+        this.initialization = initialization;
+    }
+
+    internal SyncRawCommand(ISyncCommandAccess access, IDbCommand borrowed, ISyncCommandInitialization? initialization = null)
+    {
+        this.access = access ?? throw new ArgumentNullException(nameof(access));
+        this.borrowed = borrowed ?? throw new ArgumentNullException(nameof(borrowed));
+        this.initialization = initialization;
+    }
+
+    internal void Validate(SyncCommandKind kind, bool hasOwner)
+    {
+        if (!Enum.IsDefined(kind)) throw new ArgumentOutOfRangeException(nameof(kind));
+        if (initialization is not null && !hasOwner)
+            throw new InvalidOperationException("Transaction initialization requires a private execution owner.");
+        initialization?.Validate();
+        validateFactory?.Invoke(kind);
+        if (borrowed is not null) access.ValidateCommand(borrowed, kind);
+        if (Volatile.Read(ref started) != 0)
+            throw new InvalidOperationException("This captured command invocation has already started.");
+    }
+
+    // Claim before entering a cleanup-owning try/finally. A rejected second caller
+    // must not clean up resources belonging to the first invocation.
+    internal void Reserve(SyncCommandKind kind, bool hasOwner)
+    {
+        Validate(kind, hasOwner);
+        if (Interlocked.CompareExchange(ref started, 1, 0) != 0)
+            throw new InvalidOperationException("This captured command invocation has already started.");
+    }
+
+    private IDbCommand Prepare(SyncCommandKind kind, TransactionOperationGate.Step? owner)
+    {
+        if (Interlocked.CompareExchange(ref started, 2, 1) != 1)
+            throw new InvalidOperationException("Command dispatch requires its reserved invocation.");
+        Stage = ExecutionFailureStage.Initialization;
+        initialization?.Initialize(owner!);
+        Stage = ExecutionFailureStage.Validation;
+        command = borrowed ?? create!() ?? throw new InvalidOperationException("The command factory returned no command.");
+        access.ValidateCommand(command, kind);
+        Stage = ExecutionFailureStage.CommandExecution;
+        Dispatched = true;
+        return command;
+    }
+
+    internal IDataLinqDataReader ExecuteReader(TransactionOperationGate.Step? owner)
+        => access.ExecuteReader(Prepare(SyncCommandKind.Reader, owner))
+            ?? throw new InvalidOperationException("Reader acquisition returned no reader.");
+
+    internal object? ExecuteScalar(TransactionOperationGate.Step? owner)
+        => access.ExecuteScalar(Prepare(SyncCommandKind.Scalar, owner));
+
+    internal int ExecuteNonQuery(TransactionOperationGate.Step? owner)
+        => access.ExecuteNonQuery(Prepare(SyncCommandKind.NonQuery, owner));
+
+    internal ExecutionFailures? DisposeOwnedCommand(ExecutionFailures? failures)
+    {
+        var owned = borrowed is null ? command : null;
+        command = null;
+        try { owned?.Dispose(); }
+        catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
+        return failures;
+    }
+
+    internal ReadFailureEvidence GetFailureEvidence(Exception failure)
+    {
+        if (initialization?.State == TransactionInitializationState.Failed)
+            return new(Effects: ExecutionEffects.Initialization);
+        if (!Dispatched)
+            return new(Effects: ExecutionEffects.NoStatement, Integrity: TransactionIntegrity.Confirmed);
+        var evidence = access is IAsyncReadFailureEvidence classifier
+            ? classifier.GetReadFailureEvidence(failure) ?? throw new InvalidOperationException("The provider returned no failure evidence.")
+            : new();
+        // Raw results cannot establish read-only effects. Preserve stronger initialization
+        // evidence, but never permit the ordinary-read exception after raw dispatch.
+        return evidence.Effects == ExecutionEffects.Initialization ? evidence : evidence with { Effects = ExecutionEffects.Unknown };
+    }
+}

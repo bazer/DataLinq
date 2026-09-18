@@ -13,7 +13,7 @@ internal sealed record TransactionInitializationFailure(Exception Cause, Excepti
 /// until the entire initialization succeeds. A started failure is terminal, not retryable.
 /// W2 will bind this contract to native resources; public diagnostics remain W3.
 /// </summary>
-internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization where T : class, ITransactionResource
+internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, ISyncCommandInitialization where T : class, ITransactionResource
 {
     private readonly TransactionOperationGate gate;
     private readonly Func<T> create;
@@ -39,6 +39,10 @@ internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization w
     void IAsyncCommandInitialization.Validate() => Validate();
     async Task IAsyncCommandInitialization.InitializeAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken)
         => _ = await GetOrInitializeAsync(owner, cancellationToken).ConfigureAwait(false);
+
+    TransactionInitializationState ISyncCommandInitialization.State => State;
+    void ISyncCommandInitialization.Validate() => Validate();
+    void ISyncCommandInitialization.Initialize(TransactionOperationGate.Step owner) => GetOrInitialize(owner);
 
     internal T GetOrInitialize(TransactionOperationGate.Lease operation)
     {

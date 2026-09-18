@@ -42,6 +42,6 @@ All **3,764** broad cases are complete, passing, with no skips and complete arti
 
 ## Remaining work
 
-Synchronous public raw adapter entry points still need shared admission, returned-reader lifetime ownership, conservative post-dispatch recovery and compatibility evidence. Native string overloads call public virtual command overrides, and MySQL lazy initialization executes an additional command; adoption must preserve the former and prevent recursive admission in the latter. This private dispatch prerequisite does not change their current public behavior.
+The [synchronous raw coordinator](W1%20Synchronous%20Raw%20Execution%20Coordinator.md) now supplies internal eager/reader admission, cleanup, recovery and helper integration with public controllable-adapter evidence. Built-in public raw adapter entry points still need binding and compatibility evidence. Native string overloads call public virtual command overrides, and MySQL lazy initialization executes an additional command; adoption must preserve the former and prevent recursive admission in the latter. These internal slices do not change those adapters' current public behavior. Synchronous raw-model failure reporting also remains open.
 
 Complete telemetry/correlation, async tracked mutations and batches, relation coordination/publication, metadata/provisioning, owning-root disposal and final I/O-map/performance evidence remain W1 work. Native async adoption and public/packed signatures remain W2/W3. The .NET 10 performance target, 0.9.2 baseline and SQLite W0-F1 limitation are unchanged.

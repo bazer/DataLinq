@@ -127,7 +127,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         var context = AsyncFailureContext;
         if (context is not null && (context.Recovery & required) == 0)
             throw new InvalidOperationException(
-                $"Cannot {operation} through transaction {TransactionID} after asynchronous execution failed. " +
+                $"Cannot {operation} through transaction {TransactionID} after execution failed. " +
                 $"Permitted recovery: {context.Recovery}. A released execution slot does not establish transaction integrity.");
     }
 
