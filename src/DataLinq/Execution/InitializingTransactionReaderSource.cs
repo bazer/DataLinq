@@ -9,13 +9,15 @@ namespace DataLinq.Execution;
 /// Initialization and command acquisition share the enclosing reader's private execution owner.
 /// The inner source must validate without accessing unpublished native resources.
 /// </summary>
-internal sealed class InitializingTransactionReaderSource<T> : IAsyncTransactionReaderSource, IAsyncReadFailureEvidence
+internal sealed class InitializingTransactionReaderSource<T> : IAsyncTransactionReaderSource, IAsyncReadFailureEvidence, IAsyncCommandDispatchEvidence
     where T : class, ITransactionResource
 {
     private readonly LazyTransactionResource<T> resource;
     private readonly IAsyncReaderSource source;
     private bool commandStarted;
     private Exception? beforeCommandCancellation;
+    public bool CommandDispatched => commandStarted &&
+        (source is not IAsyncCommandDispatchEvidence evidence || evidence.CommandDispatched);
 
     internal InitializingTransactionReaderSource(LazyTransactionResource<T> resource, IAsyncReaderSource source)
     {

@@ -30,10 +30,11 @@ internal interface IAsyncTransactionReaderSource : IAsyncReaderSource
 /// The command must remain stable through each operation and reader lifetime. No connection,
 /// transaction or command ownership is transferred to this source.
 /// </summary>
-internal sealed class BorrowedCommandReaderSource : IAsyncReaderSource, IAsyncReadFailureEvidence
+internal sealed class BorrowedCommandReaderSource : IAsyncReaderSource, IAsyncReadFailureEvidence, IAsyncCommandDispatchEvidence
 {
     private readonly IAsyncDatabaseAccess access;
     private readonly IDbCommand command;
+    public bool CommandDispatched { get; private set; }
 
     internal BorrowedCommandReaderSource(IAsyncDatabaseAccess access, IDbCommand command)
     {
@@ -45,9 +46,18 @@ internal sealed class BorrowedCommandReaderSource : IAsyncReaderSource, IAsyncRe
 
     public void Validate() => access.ValidateReader(command);
 
-    public ReadFailureEvidence GetReadFailureEvidence(Exception failure) =>
-        access is IAsyncReadFailureEvidence evidence ? evidence.GetReadFailureEvidence(failure) : new();
+    public ReadFailureEvidence GetReadFailureEvidence(Exception failure)
+    {
+        var evidence = access is IAsyncReadFailureEvidence classifier ? classifier.GetReadFailureEvidence(failure) : new();
+        return CommandDispatched ? evidence : evidence with { Effects = ExecutionEffects.NoStatement, Integrity = TransactionIntegrity.Confirmed };
+    }
 
     public Task<IAsyncDataReader> OpenReaderAsync(CancellationToken cancellationToken)
-        => access.ExecuteReaderAsync(command, cancellationToken);
+    {
+        CommandDispatched = false;
+        Validate();
+        cancellationToken.ThrowIfCancellationRequested();
+        CommandDispatched = true;
+        return access.ExecuteReaderAsync(command, cancellationToken);
+    }
 }

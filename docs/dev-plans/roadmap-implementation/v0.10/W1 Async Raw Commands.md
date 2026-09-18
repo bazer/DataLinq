@@ -40,6 +40,6 @@ The **3,671** broad cases are complete successful bounded local runs. The strict
 
 ## Remaining work
 
-This slice does not close AAPI-59. Caller-owned returned raw readers, ephemeral `ReadReader` sequences and reader-lifetime ownership transfer remain open. Existing raw-model streams also need the same unconditional conservative post-dispatch rule; their earlier unknown-effects tests do not prove rejection of an ordinary-read provider claim. Synchronous raw adapter entry points still require shared-gate integration and compatibility evidence; escaped native handles remain outside observable execution.
+This slice does not close AAPI-59. The [raw reader follow-up](W1%20Async%20Raw%20Reader%20Lifetimes.md) now covers caller-owned returned readers, ephemeral `ReadReader` sequences, reader-lifetime ownership and unconditional conservative post-dispatch handling in raw-model streams. Synchronous raw adapter entry points still require shared-gate integration and compatibility evidence; escaped native handles remain outside observable execution.
 
 Native providers have not adopted these internal eager bindings, and existing managed query factories still require native integration with explicit private dispatch. Public signatures and packed consumers remain W3. Tracked async mutation/hydration, full telemetry/correlation, relation coordination/publication, metadata/provisioning, owning-root disposal and the final I/O-map/performance audit remain W1 work. The .NET 10 performance target, 0.9.2 compatibility baseline and SQLite W0-F1 limitation are unchanged.
