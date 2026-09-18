@@ -220,6 +220,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         TransactionID = Interlocked.Increment(ref transactionCount);
         ExecutionGate = new TransactionOperationGate(TransactionID);
         MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
+        DatabaseAccess.BindManagedTransaction(this);
     }
 
     /// <summary>
@@ -245,6 +246,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         TransactionID = Interlocked.Increment(ref transactionCount);
         ExecutionGate = new TransactionOperationGate(TransactionID);
         MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
+        DatabaseAccess.BindManagedTransaction(this);
     }
 
     /// <summary>

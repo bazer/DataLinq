@@ -1588,6 +1588,7 @@ public sealed partial class TransactionMutationFailureTests
         internal ControlledCompletionProvider? AsyncCompletion { get; set; }
         internal IAsyncSqlReaderFactory? AsyncSqlReaders { get; set; }
         internal IAsyncSqlScalarFactory? AsyncSqlScalars { get; set; }
+        internal IAsyncEagerCommandFactory? AsyncCommands { get; set; }
         internal int CommandCreations { get; set; }
         internal int CommandDisposals { get; set; }
         internal Exception? CommandDisposeFailure { get; set; }
@@ -1696,8 +1697,13 @@ public sealed partial class TransactionMutationFailureTests
         public override IDbConnection GetDbConnection() => throw new NotSupportedException();
     }
 
-    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory
+    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory, IAsyncEagerCommandFactory
     {
+        private IAsyncEagerCommandFactory Eager => scenario.AsyncCommands ?? throw new NotSupportedException("Scripted async commands were not enabled.");
+        public AsyncEagerCommand BindCommand(string sql) => Eager.BindCommand(sql);
+        public AsyncEagerCommand BindCommand(IDbCommand command) => Eager.BindCommand(command);
+        public AsyncEagerScalarInvocation<T> BindScalar<T>(string sql) => Eager.BindScalar<T>(sql);
+        public AsyncEagerScalarInvocation<T> BindScalar<T>(IDbCommand command) => Eager.BindScalar<T>(command);
         public IAsyncReaderSource BindBorrowedReader(IDbCommand command) =>
             IAsyncBorrowedReaderFactory.Require(scenario.AsyncSqlReaders!).BindBorrowedReader(command);
         public IAsyncSqlReaderFactory CaptureInvocation() =>
@@ -1751,8 +1757,13 @@ public sealed partial class TransactionMutationFailureTests
         public void Dispose() => onDispose?.Invoke();
     }
 
-    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory
+    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory, IAsyncEagerCommandFactory
     {
+        private IAsyncEagerCommandFactory Eager => scenario.AsyncCommands ?? throw new NotSupportedException("Scripted async commands were not enabled.");
+        public AsyncEagerCommand BindCommand(string sql) => Eager.BindCommand(sql);
+        public AsyncEagerCommand BindCommand(IDbCommand command) => Eager.BindCommand(command);
+        public AsyncEagerScalarInvocation<T> BindScalar<T>(string sql) => Eager.BindScalar<T>(sql);
+        public AsyncEagerScalarInvocation<T> BindScalar<T>(IDbCommand command) => Eager.BindScalar<T>(command);
         public IAsyncReaderSource BindBorrowedReader(IDbCommand command) =>
             IAsyncBorrowedReaderFactory.Require(scenario.AsyncSqlReaders!).BindBorrowedReader(command);
         public IAsyncSqlReaderFactory CaptureInvocation() =>

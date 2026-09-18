@@ -8,7 +8,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq;
 
-public abstract class DatabaseAccess : IDatabaseAccess
+public abstract partial class DatabaseAccess : IDatabaseAccess
 {
     protected DatabaseAccess()
         : this(null)
