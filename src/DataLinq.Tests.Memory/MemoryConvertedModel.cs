@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -17,6 +18,19 @@ public sealed class MemoryGuidIdConverter
     private static readonly List<string> FromProviderColumnNames = [];
     private static Action<string>? toProviderProbe;
     private static Action<string>? fromProviderProbe;
+    private static readonly AsyncLocal<Observation?> currentObservation = new();
+
+    // New async cases observe their own conversions without global scheduling locks.
+    internal sealed class Observation : IDisposable
+    {
+        private readonly Observation? previous = currentObservation.Value;
+        internal List<string> ToProviderColumns { get; } = [];
+        internal List<string> FromProviderColumns { get; } = [];
+        internal Action<string>? ToProvider { get; set; }
+        internal Action<string>? FromProvider { get; set; }
+        internal Observation() => currentObservation.Value = this;
+        public void Dispose() => currentObservation.Value = previous;
+    }
 
     public static IReadOnlyList<string> ToProviderColumns
     {
@@ -63,6 +77,12 @@ public sealed class MemoryGuidIdConverter
         MemoryGuidId modelValue,
         in ScalarConversionContext context)
     {
+        if (currentObservation.Value is { } observation)
+        {
+            observation.ToProviderColumns.Add(context.Column.DbName);
+            observation.ToProvider?.Invoke(context.Column.DbName);
+            return modelValue.Value;
+        }
         Action<string>? probe;
         lock (Gate)
         {
@@ -79,6 +99,12 @@ public sealed class MemoryGuidIdConverter
         Guid providerValue,
         in ScalarConversionContext context)
     {
+        if (currentObservation.Value is { } observation)
+        {
+            observation.FromProviderColumns.Add(context.Column.DbName);
+            observation.FromProvider?.Invoke(context.Column.DbName);
+            return new MemoryGuidId(providerValue);
+        }
         Action<string>? probe;
         lock (Gate)
         {

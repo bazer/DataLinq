@@ -1,9 +1,9 @@
 > [!WARNING]
-> Internal W1 evidence for SQL query-plan orchestration, not public async APIs or native-provider acceptance. Memory async execution remains open.
+> Internal W1 evidence for SQL query-plan orchestration, not public async APIs or native-provider acceptance. Memory internal execution is covered by the subsequent [Memory slice](W1%20Async%20Memory%20Execution.md).
 
 # W1 Async Query Plan Execution
 
-**Date:** 2026-09-18. This extends [async model queries](W1%20Async%20Model%20Query%20Batches.md) and [lookups/raw models](W1%20Async%20Lookups%20and%20Raw%20Models.md) into expression and prepared-query execution. It covers internal SQL execution under AAPI-17–21 and the accepted query semantics in AAPI-42–48. The [full W1 audit](W1%20Completion%20Audit.md) remains open; AAPI-74–78 still require separate Memory backend integration.
+**Date:** 2026-09-18. This extends [async model queries](W1%20Async%20Model%20Query%20Batches.md) and [lookups/raw models](W1%20Async%20Lookups%20and%20Raw%20Models.md) into expression and prepared-query execution. It covers internal SQL execution under AAPI-17–21 and the accepted query semantics in AAPI-42–48. The [full W1 audit](W1%20Completion%20Audit.md) remains open; the subsequent [Memory slice](W1%20Async%20Memory%20Execution.md) covers AAPI-74–78 internal backend integration.
 
 ## Capture and backend boundary
 
@@ -41,4 +41,4 @@ Changed planning-document links and whitespace are checked before integration. N
 
 ## Remaining work
 
-Memory async ordinary-query and narrow lookup orchestration remains a separate W1 slice, preserving its existing capability subset and immediate cooperative execution rules. Query telemetry/correlation also remains open. The wider W1 requirements for non-query/mutation/hydration, relation coordination and complete index/reference/collection publication, metadata/provisioning, owning-root disposal, full I/O-map audit and .NET 10 allocation/coordination comparison are unchanged. Native providers remain W2, public declarations and consumers W3; the 0.9.2 compatibility baseline and SQLite W0-F1 limitation are unchanged.
+[Memory async ordinary-query and narrow lookup orchestration](W1%20Async%20Memory%20Execution.md) now covers its existing capability subset and immediate cooperative execution rules. Query telemetry/correlation also remains open. The wider W1 requirements for non-query/mutation/hydration, relation coordination and complete index/reference/collection publication, metadata/provisioning, owning-root disposal, full I/O-map audit and .NET 10 allocation/coordination comparison are unchanged. Native providers remain W2, public declarations and consumers W3; the 0.9.2 compatibility baseline and SQLite W0-F1 limitation are unchanged.
