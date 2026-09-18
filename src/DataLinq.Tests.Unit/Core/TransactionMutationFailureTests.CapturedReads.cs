@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Execution;
 using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Query;
 using DataLinq.Tests.Unit.Fixtures;
 
@@ -315,7 +316,10 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(factory.Commands[0].Resource.AsyncDisposals).IsEqualTo(1);
     }
 
-    private sealed class CapturedReadProvider(ScriptedMutationScenario scenario) : ScriptedMutationProvider(scenario)
+    private sealed class CapturedReadProvider(ScriptedMutationScenario scenario) : CapturedReadProvider<TransactionMutationGuardDb>(scenario);
+
+    private class CapturedReadProvider<TModel>(ScriptedMutationScenario scenario) : ScriptedMutationProvider<TModel>(scenario)
+        where TModel : class, IDatabaseModel<TModel>
     {
         public override string GetOperatorSql(Operator operation) => operation switch
         {

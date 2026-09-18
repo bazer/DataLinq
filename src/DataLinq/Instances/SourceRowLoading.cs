@@ -468,13 +468,17 @@ internal sealed class SourceRowLoadResult
             rows.Add(new LoadedCanonicalRow(row, rowKey));
         }
 
-        internal SourceRowLoadResult Build()
+        internal SourceRowLoadResult Build(SourcePrimaryKeyRowRequest? originalRequest = null)
         {
             if (built)
                 throw new InvalidOperationException("A source-row result builder can build only once.");
 
             built = true;
-            return new SourceRowLoadResult(request, rows);
+            // Async loaders validate against an owned key snapshot but keep the caller's
+            // request identity in the result, just as synchronous loaders do.
+            if (originalRequest is not null && !ReferenceEquals(originalRequest.Table, request.Table))
+                throw new ArgumentException("The original request must use the captured table.", nameof(originalRequest));
+            return new SourceRowLoadResult(originalRequest ?? request, rows);
         }
 
         private bool ContainsRequestedKey(DataLinqKey key)

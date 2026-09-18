@@ -1493,7 +1493,7 @@ public sealed partial class TransactionMutationFailureTests
         }
 
         internal ScriptedMutationScenario Scenario { get; }
-        internal ScriptedMutationProvider Provider { get; }
+        internal ScriptedMutationProvider<TransactionMutationGuardDb> Provider { get; }
         internal ScriptedDatabase Database { get; }
         internal TableDefinition RowTable { get; }
         internal TableDefinition BinaryTable { get; }
@@ -1563,7 +1563,7 @@ public sealed partial class TransactionMutationFailureTests
         public void Dispose() => Database.Dispose();
     }
 
-    private sealed class ScriptedDatabase(ScriptedMutationProvider provider)
+    private sealed class ScriptedDatabase(ScriptedMutationProvider<TransactionMutationGuardDb> provider)
         : Database<TransactionMutationGuardDb>(provider);
 
     private readonly record struct ScriptedCounts(

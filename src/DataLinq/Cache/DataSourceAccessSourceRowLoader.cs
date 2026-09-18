@@ -13,7 +13,7 @@ namespace DataLinq.Cache;
 /// SQL-era source adapter for the neutral primary-key and index row-loader contracts. It owns command
 /// and reader lifetimes completely and returns only buffered canonical provider rows.
 /// </summary>
-internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourceIndexRowLoader
+internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourceIndexRowLoader
 {
     private readonly IDataSourceAccess dataSource;
     private readonly string sourceName;
