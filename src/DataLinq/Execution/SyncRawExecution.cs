@@ -32,10 +32,17 @@ internal static class SyncRawExecution
     internal static void PublishFailure(SyncRawCommand command, ExecutionFailures? failures,
         Transaction? transaction, TransactionReadScope? ownership)
     {
+        if (failures?.Primary is not null)
+            PublishFailure(failures, transaction, ownership, command.GetFailureEvidence);
+    }
+
+    internal static void PublishFailure(ExecutionFailures? failures, Transaction? transaction,
+        TransactionReadScope? ownership, Func<Exception, ReadFailureEvidence> classify)
+    {
         if (failures?.Primary is not { } failure) return;
         var evidence = new ReadFailureEvidence();
         var assessed = true;
-        try { evidence = command.GetFailureEvidence(failure); }
+        try { evidence = classify(failure); }
         catch (Exception assessment)
         {
             assessed = false;

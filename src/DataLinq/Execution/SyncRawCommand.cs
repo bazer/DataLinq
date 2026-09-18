@@ -37,7 +37,7 @@ internal interface ISyncCommandInitialization
 }
 
 /// <summary>Single invocation; owns only resources it creates. No public reentry or async fallback.</summary>
-internal sealed class SyncRawCommand
+internal sealed class SyncRawCommand : ISyncRawModelReaderSource
 {
     private readonly ISyncCommandAccess access;
     private readonly Func<IDbCommand>? create;
@@ -132,4 +132,11 @@ internal sealed class SyncRawCommand
         // evidence, but never permit the ordinary-read exception after raw dispatch.
         return evidence.Effects == ExecutionEffects.Initialization ? evidence : evidence with { Effects = ExecutionEffects.Unknown };
     }
+
+    ExecutionFailureStage ISyncRawModelReaderSource.Stage => Stage;
+    void ISyncRawModelReaderSource.Reserve() => Reserve(SyncCommandKind.Reader, hasOwner: true);
+    IDataLinqDataReader ISyncRawModelReaderSource.OpenReader(TransactionOperationGate.Step owner) => ExecuteReader(owner);
+    ExecutionFailures? ISyncRawModelReaderSource.Dispose(IDataLinqDataReader? reader, ExecutionFailures? failures)
+        => DisposeOwnedCommand(SyncReaderCleanup.Dispose(reader, failures));
+    ReadFailureEvidence ISyncRawModelReaderSource.GetFailureEvidence(Exception failure) => GetFailureEvidence(failure);
 }

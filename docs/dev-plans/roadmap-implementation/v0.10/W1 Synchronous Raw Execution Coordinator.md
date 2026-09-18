@@ -1,5 +1,5 @@
 > [!WARNING]
-> Internal W1 orchestration evidence. Built-in public synchronous adapter binding, override compatibility and synchronous raw-model failure reporting remain open. This is not a claim that native public raw entry points now share managed admission.
+> Internal W1 orchestration evidence. Built-in public synchronous adapter binding and override compatibility remain open. Raw-model failure reporting is covered by the subsequent recovery slice linked below. This is not a claim that native public raw entry points now share managed admission.
 
 # W1 Synchronous Raw Execution Coordinator
 
@@ -42,6 +42,6 @@ All **3,808** broad cases are complete, passing, with no skips and complete arti
 
 These cores are wired to public methods on controllable adapters, not yet to the built-in SQLite/MySQL public methods. Those methods currently call existing virtual command overrides, including string-to-command forwarding; MySQL initialization also issues a `USE` command. Binding must preserve supported overrides and command lifetimes without nested admission, ambient privilege or command-tagged bypass authority. Default custom-provider behavior remains unchanged. Green legacy compliance tests prove regression compatibility of this slice, not adoption of raw admission by those adapters.
 
-Synchronous raw-model streams prove successful private dispatch here, not conservative failure publication through materialization and cleanup. That integration remains open alongside complete telemetry/correlation. Native async feasibility and public/packed declarations remain W2/W3 gates; this coordinator does not supply that evidence or close AAPI-59.
+Synchronous raw-model streams prove successful private dispatch here. The subsequent [raw-model recovery slice](W1%20Synchronous%20Raw%20Model%20Recovery.md) integrates conservative failure publication through materialization and cleanup. Complete telemetry/correlation and built-in public adapter adoption remain open. Native async feasibility and public/packed declarations remain W2/W3 gates; this coordinator does not supply that evidence or close AAPI-59.
 
 Async tracked mutations/batches, relation coordination/publication, metadata/provisioning, owning-root disposal and final I/O-map/performance evidence remain W1 work. The .NET 10 performance target, 0.9.2 baseline and SQLite W0-F1 limitation are unchanged.
