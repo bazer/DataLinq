@@ -100,7 +100,7 @@ public partial class Transaction
         catch { reservation.Dispose(); throw; }
     }
 
-    private async Task<List<IImmutableInstance?>> ExecuteCapturedMutationsAsync(IReadOnlyList<CapturedMutation> inputs, CancellationToken token)
+    private IAsyncSqlReaderFactory? BindCapturedMutations(IReadOnlyList<CapturedMutation> inputs)
     {
         // Capture both policies before awaiting. Later generated keys can change the
         // hydration SQL, but cannot rediscover a different reader policy.
@@ -118,6 +118,15 @@ public partial class Transaction
             if (input.Change.Type != TransactionChangeType.Delete)
                 readers ??= IAsyncSqlReaderFactory.Require(DatabaseAccess).CaptureInvocation();
         }
+        return readers;
+    }
+
+    private Task<List<IImmutableInstance?>> ExecuteCapturedMutationsAsync(IReadOnlyList<CapturedMutation> inputs, CancellationToken token)
+        => ExecuteCapturedMutationsAsync(inputs, BindCapturedMutations(inputs), token);
+
+    private async Task<List<IImmutableInstance?>> ExecuteCapturedMutationsAsync(IReadOnlyList<CapturedMutation> inputs,
+        IAsyncSqlReaderFactory? readers, CancellationToken token)
+    {
         token.ThrowIfCancellationRequested();
         var results = new List<IImmutableInstance?>(inputs.Count);
         using var operation = BeginExclusiveOperation("execute asynchronous mutations");

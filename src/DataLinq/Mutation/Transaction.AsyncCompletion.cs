@@ -168,7 +168,7 @@ public partial class Transaction
                     failures.AddReported(failure, ExecutionFailureStage.Finalization);
                     if (failure is TransactionCommitFinalizationException committed)
                         foreach (var cleanup in committed.CleanupFailures)
-                            failures.AddReported(cleanup, ExecutionFailureStage.Cleanup);
+                            failures.AddCleanup(cleanup);
                 }
                 if (failures.Primary is null)
                 {
@@ -236,7 +236,7 @@ public partial class Transaction
             var completion = Completion;
             var failures = new ExecutionFailures();
             try { await provider.DisposeTransactionAsync(owner).ConfigureAwait(false); }
-            catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Cleanup); }
+            catch (Exception failure) { failures.AddCleanup(failure); }
 
             try
             {
@@ -244,9 +244,9 @@ public partial class Transaction
                 var cleanup = outcome == MutableTransactionOutcome.Unresolved
                     ? transaction.FinalizeUncommittedState(MutableTransactionOutcome.OpenTransactionDisposed, MutableInvalidationReason.OpenTransactionDisposed)
                     : transaction.Provider.State.Cache.RemoveTransactionBestEffort(transaction);
-                foreach (var failure in cleanup) failures.AddReported(failure, ExecutionFailureStage.Cleanup);
+                foreach (var failure in cleanup) failures.AddCleanup(failure);
             }
-            catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Cleanup); }
+            catch (Exception failure) { failures.AddCleanup(failure); }
             Report(failures, completion, ExecutionRecoveryActions.None);
         }
 
