@@ -477,24 +477,23 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// <param name="query">The query to execute.</param>
     /// <returns>The models returned by the query.</returns>
     public override IEnumerable<T> GetFromQuery<T>(string query)
-        => ReadSequence(this, "execute a query", owner => GetFromQueryCore<T>(query, owner));
+        => SyncRawModelEnumerable.Create(this, owner => CaptureRawModelPlan<T>(
+            () => DatabaseAccess.CaptureRawModelReader(query, owner), "transaction-query"));
 
-    private IEnumerable<T> GetFromQueryCore<T>(string query, TransactionOperationGate.Step? owner)
+    private SyncRawModelPlan<T> CaptureRawModelPlan<T>(Func<ISyncRawModelReaderSource> bindReader, string sourceName)
         where T : IModel
     {
-        using var read = BeginRead(this, "execute a query", owner);
         var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
-
-        foreach (var reader in SyncCommandDispatch.ReadReader(DatabaseAccess, query, owner ?? read?.Step))
+        return new(bindReader(), reader =>
         {
             var rowData = new RowData(
                 reader,
                 table,
                 table.Columns,
                 false,
-                $"sql:{Provider.DatabaseType}:transaction-query");
-            yield return InstanceFactory.NewImmutableRow<T>(rowData, this);
-        }
+                $"sql:{Provider.DatabaseType}:{sourceName}");
+            return InstanceFactory.NewImmutableRow<T>(rowData, this);
+        });
     }
 
     /// <summary>
@@ -504,25 +503,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// <param name="dbCommand">The command to execute.</param>
     /// <returns>The models returned by the command.</returns>
     public override IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand)
-        => ReadSequence(this, "execute a command query", owner => GetFromCommandCore<T>(dbCommand, owner));
-
-    private IEnumerable<T> GetFromCommandCore<T>(IDbCommand dbCommand, TransactionOperationGate.Step? owner)
-        where T : IModel
-    {
-        using var read = BeginRead(this, "execute a command query", owner);
-        var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
-
-        foreach (var reader in SyncCommandDispatch.ReadReader(DatabaseAccess, dbCommand, owner ?? read?.Step))
-        {
-            var rowData = new RowData(
-                reader,
-                table,
-                table.Columns,
-                false,
-                $"sql:{Provider.DatabaseType}:transaction-command");
-            yield return InstanceFactory.NewImmutableRow<T>(rowData, this);
-        }
-    }
+        => SyncRawModelEnumerable.Create(this, owner => CaptureRawModelPlan<T>(
+            () => DatabaseAccess.CaptureRawModelReader(dbCommand, owner), "transaction-command"));
 
     internal IImmutableInstance? ExecuteStateChange(StateChange change)
     {

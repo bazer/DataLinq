@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using DataLinq.Execution;
 using DataLinq.Metadata;
 
 namespace DataLinq;
@@ -59,6 +60,15 @@ internal class OwnedCommandDataReader(IDataLinqDataReader reader, IDbCommand com
 
         if (readerFailure is not null)
             ExceptionDispatchInfo.Capture(readerFailure).Throw();
+    }
+
+    internal ExecutionFailures? DisposeWithFailures(ExecutionFailures? failures)
+    {
+        if (Interlocked.Exchange(ref disposed, 1) != 0) return failures;
+        failures = SyncReaderCleanup.Dispose(reader, failures);
+        try { command.Dispose(); }
+        catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
+        return failures;
     }
 
     // Preserve the optional ownership SPI only when the underlying reader offers it.

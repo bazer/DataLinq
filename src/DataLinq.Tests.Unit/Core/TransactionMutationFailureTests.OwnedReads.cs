@@ -166,10 +166,16 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(reader.Disposals).IsEqualTo(1);
         await Assert.That(callerCommandDisposals).IsEqualTo(0);
         await Assert.That(transaction.IsDisposed).IsFalse();
-        // Gate release is independent of provider trust. Recovery classification after
-        // failed cleanup belongs to W1.3; this test must not certify connection reuse.
+        // Gate release is independent of provider trust. Opaque raw failures do not
+        // establish integrity, even when reader cleanup succeeds.
         using (transaction.ExecutionGate.Enter("verify released slot")) { }
-        if (exit != "cleanup-failure")
+        if (exit is "read-failure" or "cleanup-failure")
+        {
+            await Assert.That(transaction.AsyncFailureContext!.Recovery).IsEqualTo(ExecutionRecoveryActions.Dispose);
+            _ = Capture<InvalidOperationException>(() => transaction.Query());
+            _ = Capture<InvalidOperationException>(transaction.Commit);
+        }
+        else
         {
             await Assert.That(row.GetReadSource()).IsSameReferenceAs(transaction);
             await Assert.That(transaction.IsPoisoned).IsFalse();

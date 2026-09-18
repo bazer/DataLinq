@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 
@@ -49,7 +50,15 @@ public abstract partial class DatabaseAccess : IDatabaseAccess
             }
             catch (Exception disposalFailure)
             {
-                throw new AggregateException("Reader creation and owned command disposal both failed.", executionFailure, disposalFailure);
+                var aggregate = new AggregateException("Reader creation and owned command disposal both failed.", executionFailure, disposalFailure);
+                var failures = new ExecutionFailures();
+                failures.AddReported(executionFailure, ExecutionFailureStage.CommandExecution);
+                failures.AddCleanup(disposalFailure);
+                ExecutionFailureContexts.Attach(aggregate, failures.Snapshot(new(),
+                    managedTransaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
+                    managedTransaction is null ? ExecutionRecoveryActions.None : ExecutionRecoveryActions.Dispose,
+                    managedTransaction?.TransactionID));
+                throw aggregate;
             }
             throw;
         }
