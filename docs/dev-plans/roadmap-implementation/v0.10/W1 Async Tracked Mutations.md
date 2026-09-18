@@ -1,5 +1,5 @@
 > [!WARNING]
-> Internal W1 transaction orchestration, not public/native async mutation support or W1 closeout. Database-level helper reservation lifetimes, remaining custom/generated mutation evidence, complete telemetry/correlation and allocation comparisons remain open.
+> Internal W1 transaction orchestration, not public/native async mutation support or W1 closeout. The subsequent [database helper slice](W1%20Database%20Mutation%20Helpers.md) extends reservations through commit/cleanup; remaining custom/generated mutation evidence, complete telemetry/correlation and allocation comparisons remain open.
 
 # W1 Async Tracked Mutations
 
@@ -42,6 +42,6 @@ All **3,872** broad cases pass without skips, with invocation and artifacts comp
 
 ## Remaining integration
 
-This does not complete all mutation requirements: database-level helper reservations must extend through commit/cleanup, remaining local-overload/custom/generated/key/converter and finalization cases need evidence, and complete command/query/transaction diagnostic correlation remains open. Public overload placement and packed consumers belong to W3; native command/resource bindings remain W2. The synchronous adapter compatibility item remains open and was not removed from the audit when moving to this core W1 work.
+This does not complete all mutation requirements. The subsequent [database helper slice](W1%20Database%20Mutation%20Helpers.md) extends reservations through commit/cleanup; remaining local-overload/custom/generated/key/converter and finalization cases need evidence, and complete command/query/transaction diagnostic correlation remains open. Public overload placement and packed consumers belong to W3; native command/resource bindings remain W2. The synchronous adapter compatibility item remains open and was not removed from the audit when moving to this core W1 work.
 
 The rest of W1 still includes relation coordination/publication, metadata/provisioning, shared owning-root disposal, the final I/O map and comparable .NET 10 performance evidence against 0.9.2. SQLite W0-F1 remains subject to the recorded limited exception.

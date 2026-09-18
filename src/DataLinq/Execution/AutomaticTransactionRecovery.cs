@@ -98,9 +98,9 @@ internal sealed class AutomaticTransactionRecovery : IAsyncDisposable
                 }
 
                 try { await owned.DisposeTransactionAsync(step).ConfigureAwait(false); }
-                catch (Exception cleanup) { failures.AddReported(cleanup, ExecutionFailureStage.Cleanup); }
+                catch (Exception cleanup) { failures.AddCleanup(cleanup); }
                 try { await owned.DisposeConnectionAsync(step).ConfigureAwait(false); }
-                catch (Exception cleanup) { failures.AddReported(cleanup, ExecutionFailureStage.Cleanup); }
+                catch (Exception cleanup) { failures.AddCleanup(cleanup); }
 
                 if (failures.Primary is { } primary)
                 {

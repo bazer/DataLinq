@@ -1593,6 +1593,7 @@ public sealed partial class TransactionMutationFailureTests
         internal IAsyncSqlScalarFactory? AsyncSqlScalars { get; set; }
         internal IAsyncEagerCommandFactory? AsyncCommands { get; set; }
         internal IAsyncMutationCommandFactory? AsyncMutations { get; set; }
+        internal List<TransactionType> CreatedTransactionTypes { get; } = [];
         internal int CommandCreations { get; set; }
         internal int CommandDisposals { get; set; }
         internal Exception? CommandDisposeFailure { get; set; }
@@ -1677,8 +1678,11 @@ public sealed partial class TransactionMutationFailureTests
 
         public override IDataLinqDataWriter GetWriter() => writer;
 
-        public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) =>
-            new ScriptedDatabaseTransaction(this, type, scenario);
+        public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
+        {
+            scenario.CreatedTransactionTypes.Add(type);
+            return new ScriptedDatabaseTransaction(this, type, scenario);
+        }
 
         public override DatabaseTransaction AttachDatabaseTransaction(
             IDbTransaction dbTransaction,

@@ -18,7 +18,7 @@ namespace DataLinq;
 /// The main interface for working with the database.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public abstract class Database<T> : IDisposable, IDataSourceAccess<T>
+public abstract partial class Database<T> : IDisposable, IDataSourceAccess<T>
     where T : class, IDatabaseModel<T>
 {
     /// <summary>
