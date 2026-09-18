@@ -12,7 +12,7 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Mutation;
 
-public abstract class DataSourceAccess :
+public abstract partial class DataSourceAccess :
     IDataSourceAccess,
     IDataLinqSourceRowServices,
     IDataLinqIndexRowServices,

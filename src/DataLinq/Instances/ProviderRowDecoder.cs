@@ -11,6 +11,25 @@ namespace DataLinq.Instances;
 internal static class ProviderRowDecoder
 {
     internal static CanonicalProviderValueRow DecodeFullRow(
+        IDataLinqDataReader reader, TableDefinition table, ReadOnlySpan<int> readerOrdinals, string sourceName)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(table);
+        ProviderRowMaterializer.ValidateSourceName(sourceName);
+        if (readerOrdinals.Length != table.ColumnCount)
+            throw new ArgumentException("A full-row layout must map every table column.", nameof(readerOrdinals));
+        var values = new object?[table.ColumnCount];
+        for (var i = 0; i < values.Length; i++)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(readerOrdinals[i]);
+            var value = DecodeCanonicalValueCore(reader, table.Columns[i], readerOrdinals[i], sourceName,
+                useColumnAwareGuid: true, out var ownsMutableValue);
+            values[i] = ownsMutableValue ? value : CanonicalProviderValueRow.CopyMutableValue(value);
+        }
+        return CanonicalProviderValueRow.CreateOwned(table, values);
+    }
+
+    internal static CanonicalProviderValueRow DecodeFullRow(
         IDataLinqDataReader reader,
         TableDefinition table,
         string sourceName)

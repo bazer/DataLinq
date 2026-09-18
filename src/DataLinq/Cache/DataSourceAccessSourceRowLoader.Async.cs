@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Metadata;
+using DataLinq.Query;
 
 namespace DataLinq.Cache;
 
@@ -84,5 +85,20 @@ internal sealed partial class DataSourceAccessSourceRowLoader
             // matches. Do not apply neutral requested-key or duplicate validation here.
             rows.Add(new LoadedCanonicalRow(row, key));
         }, () => rows, owner);
+    }
+
+    internal AsyncBufferedRead<CanonicalProviderValueRow?> CaptureProviderMatchedSingleAsyncRead(TableDefinition table, DataLinqKey key)
+    {
+        SourceRowLoadingValidation.ValidatePrimaryKeyTable(table);
+        ProviderKeyComponents.ThrowIfComponentCountMismatch(key, table.PrimaryKeyColumns.Count, $"Provider key for table '{table.DbName}'");
+        EnsureCanLoad(table, "load an asynchronous provider-matched row");
+        var factory = asyncFactory ?? IAsyncSqlReaderFactory.Require(dataSource.DatabaseAccess);
+        // In particular, NULL retains the existing SQL predicate semantics. Do not
+        // turn provider-sensitive keys into neutral CLR-equality validation.
+        var query = new SqlQuery(table, dataSource).Where(table.PrimaryKeyColumns, key).SelectQuery();
+        var sql = CapturedSql.Capture(query.ToSql());
+        CanonicalProviderValueRow? row = null;
+        return new(dataSource, factory.BindReader(sql), reader => row = ProviderRowDecoder.DecodeFullRow(reader, table, sourceName),
+            () => row, owner, firstRowOnly: true);
     }
 }

@@ -5,6 +5,8 @@
 
 **Date:** 2026-09-18. This follows [canonical async row loading](W1%20Canonical%20Async%20Row%20Loading.md) and extends the actual fluent `Select` model path. The [full W1 audit](W1%20Completion%20Audit.md) remains open.
 
+**Follow-up:** [Async lookups and raw models](W1%20Async%20Lookups%20and%20Raw%20Models.md) extends the simple-key shortcut to provider-sensitive keys and adds shared lookup/raw-model execution. The implementation and results below describe this earlier batch-loading slice.
+
 ## Implementation
 
 Internal `Select.ExecuteAsyncCore` captures SQL, parameters, projection and provider policy per enumerator without I/O. `ExecuteBufferedAsyncCore` captures at the terminal invocation. Neither edits the caller's `WhatList`. Keyed queries project provider keys, retain the database's ordering/paging and duplicates, then load cache misses in bounded batches of 500 distinct keys. Missing rows are skipped when replaying the original key sequence. Exact neutral simple-key predicates retain the cache shortcut; limits, offsets, joins and derived sources retain the existing shortcut eligibility rules. Provider-sensitive predicates currently use the initial key query rather than a direct-key shortcut.

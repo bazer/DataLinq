@@ -46,8 +46,7 @@ public partial class Select<T>
             : ToSql());
         var readerSource = factory.BindReader(sql);
         DataLinqKey? directKey = null;
-        if (hasKey && ProviderKeyComponents.SupportsNeutralSourceRowLoading(table, source.Provider.DatabaseType) &&
-            query.TryGetSimplePrimaryKey() is { } simple &&
+        if (hasKey && query.TryGetSimplePrimaryKey() is { } simple &&
             ProviderKeyComponents.TryCreateExactCanonicalKey(simple, table.PrimaryKeyColumns, out var canonical))
             directKey = canonical;
         IAsyncReaderContinuation<IImmutableInstance> continuation = hasKey
@@ -74,8 +73,15 @@ public partial class Select<T>
             keys.Add(DataLinqKey.FromOwnedValues(values));
         }
 
-        public Task<IReadOnlyList<IImmutableInstance>> CompleteAsync(TransactionOperationGate.Step? owner, CancellationToken token) =>
-            cache.LoadQueryRowsAsync(keys, source, factory, owner, current => evidence = current, token);
+        public async Task<IReadOnlyList<IImmutableInstance>> CompleteAsync(TransactionOperationGate.Step? owner, CancellationToken token)
+        {
+            if (directKey.HasValue)
+            {
+                var row = await cache.GetProviderRowAsyncCore(directKey.Value, source, token, owner, factory, current => evidence = current).ConfigureAwait(false);
+                return row is null ? [] : [row];
+            }
+            return await cache.LoadQueryRowsAsync(keys, source, factory, owner, current => evidence = current, token).ConfigureAwait(false);
+        }
 
         public ReadFailureEvidence GetReadFailureEvidence(Exception failure) => evidence?.GetReadFailureEvidence(failure) ?? new();
     }
