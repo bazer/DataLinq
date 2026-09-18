@@ -112,6 +112,7 @@ internal sealed class ControlledAsyncDataReader(int[]? values = null) : IAsyncDa
     internal int AsyncReadCalls { get; private set; }
     internal int SyncCalls { get; private set; }
     internal bool IsDisposed { get; private set; }
+    internal bool AllowSynchronousCalls { get; set; }
 
     public async Task<bool> ReadNextRowAsync(CancellationToken cancellationToken)
     {
@@ -134,13 +135,16 @@ internal sealed class ControlledAsyncDataReader(int[]? values = null) : IAsyncDa
     public void Dispose()
     {
         SyncCalls++;
-        throw new InvalidOperationException("Unexpected synchronous reader disposal.");
+        if (!AllowSynchronousCalls) throw new InvalidOperationException("Unexpected synchronous reader disposal.");
+        IsDisposed = true;
     }
 
     public bool ReadNextRow()
     {
         SyncCalls++;
-        throw new InvalidOperationException("Unexpected synchronous reader advancement.");
+        if (!AllowSynchronousCalls) throw new InvalidOperationException("Unexpected synchronous reader advancement.");
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        return ++position < rows.Length;
     }
 
     public int GetInt32(int ordinal)

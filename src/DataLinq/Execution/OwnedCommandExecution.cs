@@ -10,7 +10,7 @@ namespace DataLinq.Execution;
 /// scalar/non-query calls release it before returning. The enclosing operation owns transaction
 /// admission/initialization; standalone connection ownership stays with the provider access.
 /// </summary>
-internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSource, IAsyncReadFailureEvidence
+internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSource, IAsyncReadFailureEvidence, IAsyncCommandDispatchEvidence
 {
     private readonly IAsyncDatabaseAccess access;
     private readonly IAsyncOwnedCommandFactory factory;
@@ -31,6 +31,7 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSo
     void IAsyncScalarSource.Validate() => Validate(AsyncCommandKind.Scalar);
 
     internal bool Dispatched => dispatched;
+    bool IAsyncCommandDispatchEvidence.CommandDispatched => dispatched;
 
     internal void Validate(AsyncCommandKind kind)
     {

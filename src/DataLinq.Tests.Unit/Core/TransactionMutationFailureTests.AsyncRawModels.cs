@@ -134,9 +134,15 @@ public sealed partial class TransactionMutationFailureTests
             else await Assert.That(await rows.MoveNextAsync()).IsTrue();
             await rows.DisposeAsync();
             await Assert.That(constructed).IsEqualTo(1);
-            await Assert.That(cache.TryGetMaterializedRow(DataLinqKey.FromValue(1), transaction, out _)).IsFalse();
+            // Inspect structure without attempting a new read through a failed transaction.
+            await Assert.That(cache.TransactionRowsCount).IsEqualTo(0);
             await Assert.That(cache.RowCount).IsEqualTo(0);
-            DataSourceAccess.EnsureReadAllowed(transaction, "next read");
+            if (fail)
+            {
+                await Assert.That(transaction.AsyncFailureContext!.Recovery).IsEqualTo(ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose);
+                _ = Capture<InvalidOperationException>(() => DataSourceAccess.EnsureReadAllowed(transaction, "next read"));
+            }
+            else DataSourceAccess.EnsureReadAllowed(transaction, "next read");
         }
         finally { AsyncCanonicalCachedRow.Creating.Value = null; }
     }
@@ -176,7 +182,8 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(reader.Moves).IsEqualTo(1);
         await Assert.That(command.DisposeCalls).IsEqualTo(0);
         await Assert.That(factory.Commands.All(x => x.Resource.AsyncDisposals == 1)).IsTrue();
-        _ = transaction.Query();
+        await Assert.That(transaction.AsyncFailureContext!.Recovery).IsEqualTo(ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose);
+        _ = Capture<InvalidOperationException>(() => transaction.Query());
     }
 
     [Test]

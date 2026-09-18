@@ -36,7 +36,7 @@ public abstract partial class DataSourceAccess
     {
         int[]? layout = null;
         var sourceName = $"sql:{Provider.DatabaseType}:{kind}";
-        return new(source, reader =>
+        return new(RawAsyncReaderSource.Wrap(source), reader =>
         {
             // Raw SQL may reorder columns. Resolve its layout on the actual reader;
             // canonical decoding owns values before provider-to-model conversion.
