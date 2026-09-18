@@ -55,7 +55,8 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
                 query,
                 table,
                 in canonicalProviderKey,
-                cancellationToken);
+                cancellationToken,
+                owner ?? read?.Step);
             cancellationToken.ThrowIfCancellationRequested();
             return row;
         }
@@ -78,7 +79,8 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
             var select = CreateSelect(request);
             var result = ReadCanonicalRows(
                 select,
-                request);
+                request,
+                owner ?? read?.Step);
             request.ThrowIfCancellationRequested();
             return result;
         }
@@ -101,7 +103,8 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
             var select = CreateSelect(request);
             var result = ReadCanonicalRows(
                 select,
-                request);
+                request,
+                owner ?? read?.Step);
             request.ThrowIfCancellationRequested();
             return result;
         }
@@ -125,7 +128,8 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
 
     private SourceRowLoadResult ReadCanonicalRows(
         Select<object> select,
-        SourcePrimaryKeyRowRequest request)
+        SourcePrimaryKeyRowRequest request,
+        TransactionOperationGate.Step? step)
     {
         using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
         var stage = ExecutionFailureStage.Validation;
@@ -136,7 +140,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
             var command = resources.OwnCommand(select.ToDbCommand());
             cancellationToken.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.CommandExecution;
-            var reader = resources.OwnReader(dataSource.DatabaseAccess.ExecuteReader(command));
+            var reader = resources.OwnReader(SyncCommandDispatch.ExecuteReader(dataSource.DatabaseAccess, command, step));
             stage = ExecutionFailureStage.RowLoading;
             var builder = new SourceRowLoadResult.Builder(
                 request,
@@ -169,7 +173,8 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
 
     private SourceIndexRowLoadResult ReadCanonicalRows(
         Select<object> select,
-        SourceIndexRowRequest request)
+        SourceIndexRowRequest request,
+        TransactionOperationGate.Step? step)
     {
         using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
         var stage = ExecutionFailureStage.Validation;
@@ -180,7 +185,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
             var command = resources.OwnCommand(select.ToDbCommand());
             cancellationToken.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.CommandExecution;
-            var reader = resources.OwnReader(dataSource.DatabaseAccess.ExecuteReader(command));
+            var reader = resources.OwnReader(SyncCommandDispatch.ExecuteReader(dataSource.DatabaseAccess, command, step));
             stage = ExecutionFailureStage.RowLoading;
             var builder = new SourceIndexRowLoadResult.Builder(request);
 
@@ -213,7 +218,8 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
         IQuery query,
         TableDefinition table,
         in DataLinqKey requestedKey,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TransactionOperationGate.Step? step)
     {
         using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
         var stage = ExecutionFailureStage.Validation;
@@ -223,7 +229,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
             var command = resources.OwnCommand(dataSource.Provider.ToDbCommand(query));
             cancellationToken.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.CommandExecution;
-            var reader = resources.OwnReader(dataSource.DatabaseAccess.ExecuteReader(command));
+            var reader = resources.OwnReader(SyncCommandDispatch.ExecuteReader(dataSource.DatabaseAccess, command, step));
 
             stage = ExecutionFailureStage.RowLoading;
             cancellationToken.ThrowIfCancellationRequested();

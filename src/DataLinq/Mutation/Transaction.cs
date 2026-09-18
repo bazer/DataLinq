@@ -485,7 +485,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         using var read = BeginRead(this, "execute a query", owner);
         var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
-        foreach (var reader in DatabaseAccess.ReadReader(query))
+        foreach (var reader in SyncCommandDispatch.ReadReader(DatabaseAccess, query, owner ?? read?.Step))
         {
             var rowData = new RowData(
                 reader,
@@ -512,7 +512,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         using var read = BeginRead(this, "execute a command query", owner);
         var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
-        foreach (var reader in DatabaseAccess.ReadReader(dbCommand))
+        foreach (var reader in SyncCommandDispatch.ReadReader(DatabaseAccess, dbCommand, owner ?? read?.Step))
         {
             var rowData = new RowData(
                 reader,
@@ -549,7 +549,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
             var failureStage = TransactionFailureStage.ProviderStatement;
             try
             {
-                change.ExecuteReservedQuery(this);
+                using (var step = ExecutionGate.EnterStep(operation))
+                    change.ExecuteReservedQuery(this, step);
 
                 failureStage = TransactionFailureStage.PendingCacheApplication;
                 Provider.State.ApplyChanges([change], this);
