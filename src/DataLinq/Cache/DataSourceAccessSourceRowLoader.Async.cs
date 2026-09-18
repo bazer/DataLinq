@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Execution;
@@ -20,7 +21,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader
         SourceRowLoadingValidation.ValidatePrimaryKeyTable(table);
         SourceRowLoadingValidation.ValidateCanonicalKey(table, key, 0, nameof(key));
         EnsureCanLoad(table, "load one asynchronous source row");
-        var factory = IAsyncSqlReaderFactory.Require(dataSource.DatabaseAccess);
+        var factory = asyncFactory ?? IAsyncSqlReaderFactory.Require(dataSource.DatabaseAccess);
         var sql = CapturedSql.Capture(CreateSingleQuery(table, in key, default).ToSql());
         CanonicalProviderValueRow? row = null;
         return new(dataSource, factory.BindReader(sql), reader =>
@@ -32,27 +33,29 @@ internal sealed partial class DataSourceAccessSourceRowLoader
         }, () => row, owner);
     }
 
-    internal Task<SourceRowLoadResult> LoadAsync(SourcePrimaryKeyRowRequest request)
+    internal Task<SourceRowLoadResult> LoadAsync(SourcePrimaryKeyRowRequest request) =>
+        CaptureAsyncRead(request).ExecuteAsync(request.CancellationToken);
+
+    internal AsyncBufferedRead<SourceRowLoadResult> CaptureAsyncRead(SourcePrimaryKeyRowRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         EnsureCanLoad(request.Table, "load asynchronous source rows");
-        var factory = IAsyncSqlReaderFactory.Require(dataSource.DatabaseAccess);
+        var factory = asyncFactory ?? IAsyncSqlReaderFactory.Require(dataSource.DatabaseAccess);
         // Borrowed slices are synchronous-only storage. Detach even that storage before
         // suspension; both SQL binding and returned-key validation use the same snapshot.
         var captured = new SourcePrimaryKeyRowRequest(request.Table, request.CanonicalProviderKeys);
         var sql = CapturedSql.Capture(CreateSelect(captured).ToSql());
         var builder = new SourceRowLoadResult.Builder(captured, captured.CanonicalProviderKeys.Length);
-        var read = new AsyncBufferedRead<SourceRowLoadResult>(dataSource, factory.BindReader(sql),
+        return new AsyncBufferedRead<SourceRowLoadResult>(dataSource, factory.BindReader(sql),
             reader => builder.Add(ProviderRowDecoder.DecodeFullRow(reader, captured.Table, sourceName)),
             () => builder.Build(request), owner);
-        return read.ExecuteAsync(request.CancellationToken);
     }
 
     internal Task<SourceIndexRowLoadResult> LoadAsync(SourceIndexRowRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         EnsureCanLoad(request.Table, "load indexed asynchronous source rows");
-        var factory = IAsyncSqlReaderFactory.Require(dataSource.DatabaseAccess);
+        var factory = asyncFactory ?? IAsyncSqlReaderFactory.Require(dataSource.DatabaseAccess);
         // SourceIndexRowRequest already owns its canonical key. Suppress cancellation
         // only during I/O-free binding so capability validation precedes cancellation.
         var captured = new SourceIndexRowRequest(request.Table, request.Index, request.CanonicalProviderIndexKey);
@@ -62,5 +65,24 @@ internal sealed partial class DataSourceAccessSourceRowLoader
             reader => builder.Add(ProviderRowDecoder.DecodeFullRow(reader, request.Table, sourceName)),
             () => builder.Build(), owner);
         return read.ExecuteAsync(request.CancellationToken);
+    }
+
+    internal AsyncBufferedRead<IReadOnlyList<LoadedCanonicalRow>> CaptureProviderMatchedAsyncRead(SourcePrimaryKeyRowRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        EnsureCanLoad(request.Table, "load asynchronous provider-matched rows");
+        var factory = asyncFactory ?? IAsyncSqlReaderFactory.Require(dataSource.DatabaseAccess);
+        var captured = new SourcePrimaryKeyRowRequest(request.Table, request.CanonicalProviderKeys);
+        var sql = CapturedSql.Capture(CreateSelect(captured).ToSql());
+        var rows = new List<LoadedCanonicalRow>();
+        return new(dataSource, factory.BindReader(sql), reader =>
+        {
+            var row = ProviderRowDecoder.DecodeFullRow(reader, captured.Table, sourceName);
+            if (!row.TryCreateCanonicalPrimaryKey(out var key))
+                throw new InvalidOperationException("A primary-key query returned a row without a canonical key.");
+            // Preserve the existing SQL batch path: provider collation/storage decides
+            // matches. Do not apply neutral requested-key or duplicate validation here.
+            rows.Add(new LoadedCanonicalRow(row, key));
+        }, () => rows, owner);
     }
 }
