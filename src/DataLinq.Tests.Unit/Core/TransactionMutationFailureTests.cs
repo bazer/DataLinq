@@ -1587,6 +1587,7 @@ public sealed partial class TransactionMutationFailureTests
         internal Action? ScalarExecuting { get; set; }
         internal Action<object>? SyncPublicDispatch { get; set; }
         internal Action<object, TransactionOperationGate.Step>? SyncOwnedDispatch { get; set; }
+        internal ISyncRawCommandFactory? SyncCommands { get; set; }
         internal ControlledCompletionProvider? AsyncCompletion { get; set; }
         internal IAsyncSqlReaderFactory? AsyncSqlReaders { get; set; }
         internal IAsyncSqlScalarFactory? AsyncSqlScalars { get; set; }
@@ -1792,42 +1793,48 @@ public sealed partial class TransactionMutationFailureTests
 
         public override IDataLinqDataReader ExecuteReader(IDbCommand command)
         {
+            if (scenario.SyncCommands is not null) return ExecuteReaderSyncCore(command);
             scenario.SyncPublicDispatch?.Invoke(command);
             return ExecuteReaderNative();
         }
 
         public override IDataLinqDataReader ExecuteReader(string query)
         {
+            if (scenario.SyncCommands is not null) return ExecuteReaderSyncCore(query);
             scenario.SyncPublicDispatch?.Invoke(query);
             return ExecuteReaderNative();
         }
 
         public override object? ExecuteScalar(IDbCommand command)
         {
+            if (scenario.SyncCommands is not null) return ExecuteScalarSyncCore(command);
             scenario.SyncPublicDispatch?.Invoke(command);
             return ExecuteScalarNative();
         }
 
-        public override T ExecuteScalar<T>(IDbCommand command) =>
-            (T)Convert.ChangeType(ExecuteScalar(command)!, typeof(T));
+        public override T ExecuteScalar<T>(IDbCommand command) => scenario.SyncCommands is not null
+            ? ExecuteScalarSyncCore<T>(command) : (T)Convert.ChangeType(ExecuteScalar(command)!, typeof(T));
 
         public override object? ExecuteScalar(string query)
         {
+            if (scenario.SyncCommands is not null) return ExecuteScalarSyncCore(query);
             scenario.SyncPublicDispatch?.Invoke(query);
             return ExecuteScalarNative();
         }
 
-        public override T ExecuteScalar<T>(string query) =>
-            (T)Convert.ChangeType(ExecuteScalar(query)!, typeof(T));
+        public override T ExecuteScalar<T>(string query) => scenario.SyncCommands is not null
+            ? ExecuteScalarSyncCore<T>(query) : (T)Convert.ChangeType(ExecuteScalar(query)!, typeof(T));
 
         public override int ExecuteNonQuery(IDbCommand command)
         {
+            if (scenario.SyncCommands is not null) return ExecuteNonQuerySyncCore(command);
             scenario.SyncPublicDispatch?.Invoke(command);
             return scenario.ExecuteNonQuery();
         }
 
         public override int ExecuteNonQuery(string query)
         {
+            if (scenario.SyncCommands is not null) return ExecuteNonQuerySyncCore(query);
             scenario.SyncPublicDispatch?.Invoke(query);
             return scenario.ExecuteNonQuery();
         }

@@ -353,6 +353,7 @@ public sealed partial class TransactionMutationFailureTests
         // dispatch directly, never through a flag granting ambient reentry.
         internal override IDataLinqDataReader ExecuteReaderOwnedCore(IDbCommand command, TransactionOperationGate.Step owner)
         {
+            if (scenario.SyncCommands is not null) return BindOwnedSyncTestCommand(command, SyncCommandKind.Reader).ExecuteReader(owner);
             if (scenario.SyncOwnedDispatch is null) return base.ExecuteReaderOwnedCore(command, owner);
             scenario.SyncOwnedDispatch(command, owner);
             return ExecuteReaderNative();
@@ -360,6 +361,7 @@ public sealed partial class TransactionMutationFailureTests
 
         internal override IDataLinqDataReader ExecuteReaderOwnedCore(string query, TransactionOperationGate.Step owner)
         {
+            if (scenario.SyncCommands is not null) return ExecuteOwnedSyncTestReader(query, owner);
             if (scenario.SyncOwnedDispatch is null) return base.ExecuteReaderOwnedCore(query, owner);
             scenario.SyncOwnedDispatch(query, owner);
             return ExecuteReaderNative();
@@ -367,6 +369,7 @@ public sealed partial class TransactionMutationFailureTests
 
         internal override object? ExecuteScalarOwnedCore(IDbCommand command, TransactionOperationGate.Step owner)
         {
+            if (scenario.SyncCommands is not null) return BindOwnedSyncTestCommand(command, SyncCommandKind.Scalar).ExecuteScalar(owner);
             if (scenario.SyncOwnedDispatch is null) return base.ExecuteScalarOwnedCore(command, owner);
             scenario.SyncOwnedDispatch(command, owner);
             return ExecuteScalarNative();
@@ -374,6 +377,12 @@ public sealed partial class TransactionMutationFailureTests
 
         internal override T ExecuteScalarOwnedCore<T>(IDbCommand command, TransactionOperationGate.Step owner)
         {
+            if (scenario.SyncCommands is not null)
+            {
+                var bound = scenario.SyncCommands.BindScalar<T>(command);
+                bound.Command.Reserve(SyncCommandKind.Scalar, hasOwner: true);
+                return bound.Convert(bound.Command.ExecuteScalar(owner));
+            }
             if (scenario.SyncOwnedDispatch is null) return base.ExecuteScalarOwnedCore<T>(command, owner);
             scenario.SyncOwnedDispatch(command, owner);
             return (T)Convert.ChangeType(ExecuteScalarNative()!, typeof(T));
@@ -381,6 +390,7 @@ public sealed partial class TransactionMutationFailureTests
 
         internal override int ExecuteNonQueryOwnedCore(IDbCommand command, TransactionOperationGate.Step owner)
         {
+            if (scenario.SyncCommands is not null) return BindOwnedSyncTestCommand(command, SyncCommandKind.NonQuery).ExecuteNonQuery(owner);
             if (scenario.SyncOwnedDispatch is null) return base.ExecuteNonQueryOwnedCore(command, owner);
             scenario.SyncOwnedDispatch(command, owner);
             return scenario.ExecuteNonQuery();
