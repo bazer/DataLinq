@@ -10,7 +10,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Linq.Planning.Sql;
 
-internal sealed class SqlDirectProjectionExecutor
+internal sealed partial class SqlDirectProjectionExecutor
 {
     private readonly DataSourceAccess dataSource;
     private readonly CancellationToken cancellationToken;

@@ -62,12 +62,22 @@ internal readonly struct ValidatedQueryExecutionRequest
     public IQueryPlanBackend Backend { get; }
 
     public static ValidatedQueryExecutionRequest Prepare(in QueryExecutionRequest request)
+        => PrepareCore(request, asynchronous: false);
+
+    internal static ValidatedQueryExecutionRequest PrepareForAsync(in QueryExecutionRequest request)
+        => PrepareCore(request, asynchronous: true);
+
+    private static ValidatedQueryExecutionRequest PrepareCore(in QueryExecutionRequest request, bool asynchronous)
     {
         ArgumentNullException.ThrowIfNull(request.Invocation);
 
         var context = request.Context;
         ArgumentNullException.ThrowIfNull(context.Source);
-        context.CancellationToken.ThrowIfCancellationRequested();
+        // Preserve synchronous entry ordering. Async sequences validate without
+        // starting execution; cancellation follows capability validation on MoveNext.
+        if (!asynchronous) context.CancellationToken.ThrowIfCancellationRequested();
+        if (asynchronous && context.Source is IDataSourceAccess sqlSource)
+            Mutation.DataSourceAccess.EnsureReadAllowed(sqlSource, "capture an asynchronous query plan");
         ValidateSourceOwnership(request.Invocation, context.Source);
 
         if (context.Source is not IDataLinqQueryPlanServices services)
@@ -87,6 +97,9 @@ internal readonly struct ValidatedQueryExecutionRequest
         QueryPlanCapabilityValidator.ValidateForExecution(
             request.Invocation,
             backend.Capabilities);
+
+        if (asynchronous && backend is not IAsyncQueryPlanBackend)
+            throw new NotSupportedException("This query-plan backend does not provide asynchronous execution.");
 
         return new ValidatedQueryExecutionRequest(request, backend);
     }

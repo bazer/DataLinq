@@ -11,7 +11,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Linq.Planning.Sql;
 
-internal sealed class SqlLocalProjectionExecutor
+internal sealed partial class SqlLocalProjectionExecutor
 {
     private readonly DataSourceAccess dataSource;
     private readonly CancellationToken cancellationToken;

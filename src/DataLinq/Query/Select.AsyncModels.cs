@@ -29,7 +29,7 @@ public partial class Select<T>
         return rows;
     }
 
-    private AsyncReaderInvocation<IImmutableInstance> CaptureModels()
+    internal AsyncReaderInvocation<IImmutableInstance> CaptureModels()
     {
         var source = query.DataSource;
         DataSourceAccess.EnsureReadAllowed(source, "capture an asynchronous model query");
