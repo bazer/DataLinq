@@ -23,7 +23,7 @@ public class ImmutableForeignKey<T>(DataLinqKey foreignKey, IDataSourceAccess da
     public static implicit operator T?(ImmutableForeignKey<T> foreignKey) => foreignKey.Value;
 }
 
-public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableForeignKey<T>
+public partial class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableForeignKey<T>
     where T : IImmutableInstance
     where TKey : notnull
 {
@@ -46,6 +46,7 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
 
     private ValueHolder? valueHolder;
     private object clearGeneration = new();
+    private readonly SemaphoreSlim loadSlot = new(1, 1);
 
 #if NET9_0_OR_GREATER
     protected readonly Lock loadLock = new();
@@ -93,43 +94,66 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
             if (ProviderKeyComponents.HasNullReferenceComponent(foreignKey))
                 return default;
 
-            object generation;
-            lock (loadLock)
-                generation = clearGeneration;
-
-            // Use the same load/subscribe/publication protocol as collection relations.
-            // Neither the query nor model constructors run under the relation gate.
-            var tableCache = GetTableCache(source);
-            var readGeneration = tableCache.CaptureReadGeneration();
-            var instance = LoadInstance(tableCache, source, read?.Step);
-            var created = new ValueHolder(this, source, instance);
-            tableCache.SubscribeToChanges(
-                created,
-                source as Transaction,
-                GetRelationCacheKey(tableCache),
-                instance is null ? [] : [instance.PrimaryKeys()]);
-            tableCache.MetricsHandle.RecordRelationReferenceLoad();
-
-            lock (loadLock)
+            loadSlot.Wait();
+            try
             {
-                localHolder = valueHolder;
+                localHolder = Volatile.Read(ref valueHolder);
                 if (localHolder is not null && ReferenceEquals(localHolder.Source, source))
-                    return localHolder.Value;
-
-                if (ReferenceEquals(generation, clearGeneration) && !created.Invalidated &&
-                    ReferenceEquals(readGeneration, tableCache.CaptureReadGeneration()))
                 {
-                    Volatile.Write(ref valueHolder, created);
+                    GetTableCache(source).MetricsHandle.RecordRelationReferenceCacheHit();
+                    return localHolder.Value;
                 }
+                return LoadAndPublish(source, read?.Step);
             }
-
-            return instance;
+            finally { loadSlot.Release(); }
         }
         catch (Exception failure)
         {
             read?.ReportFailure(failure);
             throw;
         }
+    }
+
+    private T? LoadAndPublish(IDataSourceAccess source, TransactionOperationGate.Step? owner)
+    {
+        object generation;
+        lock (loadLock)
+            generation = clearGeneration;
+
+        // Use the same load/subscribe/publication protocol as collection relations.
+        // Neither the query nor model constructors run under the relation gate.
+        var tableCache = GetTableCache(source);
+        var readGeneration = tableCache.CaptureReadGeneration();
+        var relationKey = GetRelationCacheKey(tableCache);
+        var instance = LoadInstance(tableCache, source, owner);
+        return PublishInstance(source, tableCache, instance, generation, readGeneration, relationKey);
+    }
+
+    private T? PublishInstance(IDataSourceAccess source, TableCache tableCache,
+        T? instance, object generation, RowReadGeneration readGeneration, RelationCacheKey? relationKey)
+    {
+        var created = new ValueHolder(this, source, instance);
+        tableCache.SubscribeToChanges(
+            created,
+            source as Transaction,
+            relationKey,
+            instance is null ? [] : [instance.PrimaryKeys()]);
+        tableCache.MetricsHandle.RecordRelationReferenceLoad();
+
+        lock (loadLock)
+        {
+            var localHolder = valueHolder;
+            if (localHolder is not null && ReferenceEquals(localHolder.Source, source))
+                return localHolder.Value;
+
+            if (ReferenceEquals(generation, clearGeneration) && !created.Invalidated &&
+                ReferenceEquals(readGeneration, tableCache.CaptureReadGeneration()))
+            {
+                Volatile.Write(ref valueHolder, created);
+            }
+        }
+
+        return instance;
     }
 
     private T? LoadInstance(TableCache tableCache, IDataSourceAccess source, TransactionOperationGate.Step? owner)

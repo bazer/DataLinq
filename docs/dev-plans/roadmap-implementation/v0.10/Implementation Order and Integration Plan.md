@@ -196,6 +196,8 @@ Required work:
 - add focused cancellation/failure tests with deterministic controllable providers
 - keep synchronous implementations direct
 
+The [async relation loading slice](W1%20Async%20Relation%20Loading.md) adds shared synchronous/asynchronous cold-load coordination, independent waiting cancellation and generation-safe buffered publication with controllable evidence. Remaining relation-map reconciliation, diagnostics and measured coordination costs are tracked in the completion audit.
+
 Exit gate:
 
 - the contracts can express every inventoried I/O path

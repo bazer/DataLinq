@@ -159,12 +159,13 @@ public class ImmutableRelation<T>(DataLinqKey foreignKey, IDataSourceAccess data
 {
 }
 
-public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
+public partial class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
     where T : IImmutableInstance
     where TKey : notnull
 {
     private RelationSnapshot? snapshot;
     private object clearGeneration = new();
+    private readonly SemaphoreSlim loadSlot = new(1, 1);
 
     // Each subscription belongs to exactly one load. Losing or superseded loads
     // are weakly held by the notification queue and cannot clear a newer snapshot.
@@ -294,25 +295,50 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
             return current;
         }
 
+        loadSlot.Wait();
+        try
+        {
+            current = Volatile.Read(ref snapshot);
+            if (current is not null && ReferenceEquals(current.Source, source))
+            {
+                tableCache.MetricsHandle.RecordRelationCollectionCacheHit();
+                return current;
+            }
+            return LoadSnapshot(source, owner, tableCache);
+        }
+        finally { loadSlot.Release(); }
+    }
+
+    private RelationSnapshot LoadSnapshot(IDataSourceAccess source, TransactionOperationGate.Step? owner, TableCache tableCache)
+    {
         object generation;
         lock (loadLock)
             generation = clearGeneration;
 
-        // I/O and user model construction must not block Clear or notification
-        // callbacks. Concurrent misses may load twice; only one snapshot wins.
+        // The load slot coordinates callers, while Clear and notifications use
+        // only the short state lock and remain independent of I/O.
         var readGeneration = tableCache.CaptureReadGeneration();
+        var relationKey = GetRelationCacheKey();
         var values = ToImmutableRelationValues(tableCache.GetRows(foreignKey, property, source, owner));
+        return PublishSnapshot(source, tableCache, values, generation, readGeneration, relationKey);
+    }
+
+    private RelationSnapshot PublishSnapshot(IDataSourceAccess source, TableCache tableCache,
+        ImmutableArray<T> values, object generation, RowReadGeneration readGeneration,
+        RelationCacheKey? relationKey, bool buildDictionary = false)
+    {
         var created = new RelationSnapshot(this, source, values);
+        if (buildDictionary) _ = created.GetInstances();
         tableCache.MetricsHandle.RecordRelationCollectionLoad();
         tableCache.SubscribeToChanges(
             created,
             source as Transaction,
-            GetRelationCacheKey(),
+            relationKey,
             GetPrimaryKeys(values));
 
         lock (loadLock)
         {
-            current = snapshot;
+            var current = snapshot;
             if (current is not null && ReferenceEquals(current.Source, source))
                 return current;
 
