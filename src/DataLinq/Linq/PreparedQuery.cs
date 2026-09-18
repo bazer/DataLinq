@@ -18,7 +18,7 @@ namespace DataLinq.Linq;
 /// A prepared query is thread-safe. Each execution snapshots mutable scalar arrays and local
 /// sequences before validating the plan against the selected execution source and backend.
 /// </remarks>
-public sealed class PreparedQuery<TDatabase, TArgument, TResult>
+public sealed partial class PreparedQuery<TDatabase, TArgument, TResult>
     where TDatabase : class, IDatabaseModel<TDatabase>
 {
     private readonly QueryPlanTemplate template;
@@ -66,7 +66,7 @@ public sealed class PreparedQuery<TDatabase, TArgument, TResult>
 /// <typeparam name="TDatabase">The database model type.</typeparam>
 /// <typeparam name="TArgument">The invocation argument type.</typeparam>
 /// <typeparam name="TElement">The sequence element type.</typeparam>
-public sealed class PreparedSequenceQuery<TDatabase, TArgument, TElement>
+public sealed partial class PreparedSequenceQuery<TDatabase, TArgument, TElement>
     where TDatabase : class, IDatabaseModel<TDatabase>
 {
     private readonly QueryPlanTemplate template;
@@ -127,10 +127,13 @@ internal static class PreparedQueryExecution
         IReadOnlyList<PreparedQueryBindingExpression> bindings,
         IDataSourceAccess<TDatabase> source,
         TArgument argument,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool asynchronous = false)
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
         ArgumentNullException.ThrowIfNull(source);
+        if (asynchronous && source is Mutation.DataSourceAccess managedSource)
+            Mutation.DataSourceAccess.EnsureReadAllowed(managedSource, "capture an asynchronous prepared query");
 
         var values = new QueryPlanInvocationValue[bindings.Count];
         for (var index = 0; index < bindings.Count; index++)
@@ -140,9 +143,7 @@ internal static class PreparedQueryExecution
         var readSource = source is Database<TDatabase> database
             ? database.Provider.ReadOnlyAccess
             : source;
-        return ValidatedQueryExecutionRequest.Prepare(
-            new QueryExecutionRequest(
-                invocation,
-                new QueryExecutionContext(readSource, cancellationToken)));
+        var request = new QueryExecutionRequest(invocation, new QueryExecutionContext(readSource, cancellationToken));
+        return asynchronous ? ValidatedQueryExecutionRequest.PrepareForAsync(request) : ValidatedQueryExecutionRequest.Prepare(request);
     }
 }

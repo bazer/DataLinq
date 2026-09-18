@@ -22,6 +22,31 @@ namespace DataLinq.Tests.Unit.Linq;
 public class QueryExecutionContractTests
 {
     [Test]
+    [Arguments("backend")]
+    [Arguments("plan")]
+    [Arguments("metadata")]
+    [Arguments("binding")]
+    public async Task AsyncQueryPlan_ValidationPrecedesCancellationWithoutSynchronousFallback(string failure)
+    {
+        var (metadata, invocation) = CreateEntityInvocation();
+        var backend = new TrackingBackend(CreateCapabilities(failure == "plan" ? QueryPlanFeature.Projection(QueryPlanProjectionKind.Entity) : null));
+        _ = new TrackingReadSource(metadata, backend);
+        var source = new TrackingReadSource(failure == "metadata" ? GetEmployeesMetadata() : metadata, backend, bindBackend: failure != "binding");
+        var request = new QueryExecutionRequest(invocation, new QueryExecutionContext(source, new(true)));
+        Exception? caught = null;
+        try { _ = ValidatedQueryExecutionRequest.PrepareForAsync(request); }
+        catch (Exception exception) { caught = exception; }
+        await Assert.That(failure switch
+        {
+            "backend" => caught is NotSupportedException,
+            "plan" => caught is QueryBackendCapabilityException,
+            "metadata" => caught is ArgumentException,
+            _ => caught is InvalidOperationException
+        }).IsTrue();
+        await Assert.That(backend.OpenEntityCursorCalls + backend.OpenProjectionCursorCalls + backend.ExecuteScalarCalls + backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task Prepare_RejectsUnsupportedPlanBeforeOpeningBackendEntityPaths()
     {
         var (metadata, invocation) = CreateEntityInvocation(QueryPlanResultKind.Single);

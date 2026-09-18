@@ -12,7 +12,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Linq.Planning.Sql;
 
-internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
+internal sealed partial class SqlQueryPlanBackend : IQueryPlanBackend, IAsyncQueryPlanBackend
 {
     private readonly DataSourceAccess dataSource;
 

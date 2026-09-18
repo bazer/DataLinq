@@ -324,6 +324,7 @@ public sealed partial class TransactionMutationFailureTests
         public override string GetOperatorSql(Operator operation) => operation switch
         {
             Operator.Equal => "=", Operator.NotEqual => "<>", Operator.In => "IN", Operator.NotIn => "NOT IN",
+            Operator.GreaterThan => ">", Operator.GreaterThanOrEqual => ">=", Operator.LessThan => "<", Operator.LessThanOrEqual => "<=",
             Operator.EqualNull => "IS", Operator.NotEqualNull => "IS NOT", _ => throw new NotSupportedException()
         };
         public override Sql GetParameter(Sql sql, string key, object? value) => sql.AddParameter("@" + key, value);

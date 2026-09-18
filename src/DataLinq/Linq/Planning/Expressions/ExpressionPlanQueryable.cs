@@ -12,7 +12,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Linq.Planning.Expressions;
 
-internal sealed class ExpressionQueryPlanProvider : IQueryProvider
+internal sealed partial class ExpressionQueryPlanProvider : IQueryProvider
 {
     private readonly DatabaseDefinition metadata;
     private readonly IDataLinqReadSource? readSource;
@@ -137,7 +137,7 @@ internal sealed class ExpressionPlanQueryable<T> : IOrderedQueryable<T>
         => GetEnumerator();
 }
 
-internal static class ExpressionQueryPlanExecutor
+internal static partial class ExpressionQueryPlanExecutor
 {
     public static IEnumerable<TElement> ExecuteEnumerable<TElement>(
         IDataLinqReadSource source,
