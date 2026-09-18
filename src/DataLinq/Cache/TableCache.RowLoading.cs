@@ -118,10 +118,10 @@ public partial class TableCache
         }
         else if (TryConvertScalarProviderColumnValue(foreignKey, index.Columns, dataSource, out var predicateColumn, out var predicateValue))
         {
-            DataSourceAccess.EnsureReadAllowed(dataSource, "load relation rows", owner);
+            using var read = DataSourceAccess.BeginRead(dataSource, "load relation rows", owner);
             var scalarQuery = new ScalarColumnRowsQuery(Table, dataSource, predicateColumn, predicateValue);
             using var command = scalarQuery.ToDbCommand();
-            using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
+            using var reader = SyncCommandDispatch.ExecuteReader(dataSource.DatabaseAccess, command, owner ?? read?.Step);
 
             while (reader.ReadNextRow())
             {

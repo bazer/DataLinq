@@ -44,6 +44,6 @@ The **3,728** broad cases are complete successful bounded local runs. Their stri
 
 ## Remaining work
 
-These are internal execution paths, not public/native support claims. Synchronous raw adapter entry points still need shared ownership integration and compatibility evidence. Escaped native handles remain outside observable execution. Native command/reader/connection adoption, caller getter I/O feasibility, provider conversion fidelity and public/packed signatures remain W2/W3 gates.
+These are internal execution paths, not public/native support claims. The [synchronous owned-dispatch follow-up](W1%20Synchronous%20Owned%20Command%20Dispatch.md) carries private admission through managed synchronous query, loader and mutation paths while preserving default public override dispatch. Synchronous raw adapter entry points still need shared ownership integration and compatibility evidence. Escaped native handles remain outside observable execution. Native command/reader/connection adoption, caller getter I/O feasibility, provider conversion fidelity and public/packed signatures remain W2/W3 gates.
 
 Tracked async mutation/hydration, complete telemetry/correlation, relation coordination and index/reference/collection publication, metadata/provisioning, owning-root disposal and final I/O-map/performance evidence remain W1 work. No full W1 closeout is inferred from this reader slice. The .NET 10 performance target, 0.9.2 baseline and SQLite W0-F1 limitation are unchanged.

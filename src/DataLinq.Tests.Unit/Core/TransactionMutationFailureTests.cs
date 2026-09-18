@@ -1585,6 +1585,8 @@ public sealed partial class TransactionMutationFailureTests
         internal Func<IDataLinqDataReader>? ReaderFactory { get; set; }
         internal object? ScalarResult { get; set; } = 1L;
         internal Action? ScalarExecuting { get; set; }
+        internal Action<object>? SyncPublicDispatch { get; set; }
+        internal Action<object, TransactionOperationGate.Step>? SyncOwnedDispatch { get; set; }
         internal ControlledCompletionProvider? AsyncCompletion { get; set; }
         internal IAsyncSqlReaderFactory? AsyncSqlReaders { get; set; }
         internal IAsyncSqlScalarFactory? AsyncSqlScalars { get; set; }
@@ -1757,7 +1759,7 @@ public sealed partial class TransactionMutationFailureTests
         public void Dispose() => onDispose?.Invoke();
     }
 
-    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory, IAsyncEagerCommandFactory
+    private sealed partial class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory, IAsyncEagerCommandFactory
     {
         private IAsyncEagerCommandFactory Eager => scenario.AsyncCommands ?? throw new NotSupportedException("Scripted async commands were not enabled.");
         public AsyncEagerCommand BindCommand(string sql) => Eager.BindCommand(sql);
@@ -1790,21 +1792,20 @@ public sealed partial class TransactionMutationFailureTests
 
         public override IDataLinqDataReader ExecuteReader(IDbCommand command)
         {
-            scenario.ReaderExecutions++;
-            return scenario.ReaderFactory?.Invoke() ?? EmptyReader.Instance;
+            scenario.SyncPublicDispatch?.Invoke(command);
+            return ExecuteReaderNative();
         }
 
         public override IDataLinqDataReader ExecuteReader(string query)
         {
-            scenario.ReaderExecutions++;
-            return scenario.ReaderFactory?.Invoke() ?? EmptyReader.Instance;
+            scenario.SyncPublicDispatch?.Invoke(query);
+            return ExecuteReaderNative();
         }
 
         public override object? ExecuteScalar(IDbCommand command)
         {
-            scenario.ScalarExecutions++;
-            scenario.ScalarExecuting?.Invoke();
-            return scenario.ScalarResult;
+            scenario.SyncPublicDispatch?.Invoke(command);
+            return ExecuteScalarNative();
         }
 
         public override T ExecuteScalar<T>(IDbCommand command) =>
@@ -1812,19 +1813,24 @@ public sealed partial class TransactionMutationFailureTests
 
         public override object? ExecuteScalar(string query)
         {
-            scenario.ScalarExecutions++;
-            scenario.ScalarExecuting?.Invoke();
-            return scenario.ScalarResult;
+            scenario.SyncPublicDispatch?.Invoke(query);
+            return ExecuteScalarNative();
         }
 
         public override T ExecuteScalar<T>(string query) =>
             (T)Convert.ChangeType(ExecuteScalar(query)!, typeof(T));
 
-        public override int ExecuteNonQuery(IDbCommand command) =>
-            scenario.ExecuteNonQuery();
+        public override int ExecuteNonQuery(IDbCommand command)
+        {
+            scenario.SyncPublicDispatch?.Invoke(command);
+            return scenario.ExecuteNonQuery();
+        }
 
-        public override int ExecuteNonQuery(string query) =>
-            scenario.ExecuteNonQuery();
+        public override int ExecuteNonQuery(string query)
+        {
+            scenario.SyncPublicDispatch?.Invoke(query);
+            return scenario.ExecuteNonQuery();
+        }
 
         TransactionInitializationState IAsyncTransactionCompletion.InitializationState =>
             scenario.AsyncCompletion?.InitializationState ?? TransactionInitializationState.Ready;

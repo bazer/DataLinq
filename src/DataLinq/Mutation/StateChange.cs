@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using DataLinq.Attributes;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Query;
@@ -316,25 +317,26 @@ public class StateChange
     internal void ExecutePreflightedQuery(Transaction transaction)
     {
         ArgumentNullException.ThrowIfNull(transaction);
+        using var execution = DataSourceAccess.BeginRead(transaction, "execute a preflighted mutation");
         if (!TryBeginExecution())
         {
             throw new InvalidOperationException(
                 "This state change has already started provider execution and cannot be executed again.");
         }
 
-        ExecuteReservedQuery(transaction);
+        ExecuteReservedQuery(transaction, execution!.Step);
     }
 
     internal bool TryBeginExecution() =>
         Interlocked.CompareExchange(ref executionState, 1, 0) == 0;
 
-    internal void ExecuteReservedQuery(Transaction transaction)
+    internal void ExecuteReservedQuery(Transaction transaction, TransactionOperationGate.Step owner)
     {
         ArgumentNullException.ThrowIfNull(transaction);
-        ExecuteQueryCore(transaction);
+        ExecuteQueryCore(transaction, owner);
     }
 
-    private void ExecuteQueryCore(Transaction transaction)
+    private void ExecuteQueryCore(Transaction transaction, TransactionOperationGate.Step owner)
     {
         executionPhase = StateChangeExecutionPhase.ProviderStatement;
         var telemetryContext = DataLinqTelemetryContext.FromProvider(transaction.Provider);
@@ -351,7 +353,7 @@ public class StateChange
 
                 if (Type == TransactionChangeType.Insert && HasAutoIncrement && PrimaryKeys.IsNull)
                 {
-                    var newId = transaction.DatabaseAccess.ExecuteScalar(command);
+                    var newId = SyncCommandDispatch.ExecuteScalar(transaction.DatabaseAccess, command, owner);
                     affectedRows = 1;
                     EnsureCapturedMutationUnchanged("provider statement execution");
                     executionPhase = StateChangeExecutionPhase.Hydration;
@@ -376,7 +378,7 @@ public class StateChange
                 }
                 else
                 {
-                    affectedRows = transaction.DatabaseAccess.ExecuteNonQuery(command);
+                    affectedRows = SyncCommandDispatch.ExecuteNonQuery(transaction.DatabaseAccess, command, owner);
                     EnsureCapturedMutationUnchanged("provider statement execution");
                 }
 

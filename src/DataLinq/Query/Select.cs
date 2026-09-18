@@ -167,7 +167,7 @@ public partial class Select<T> : IQuery
             var command = resources.OwnCommand(ToDbCommand());
             cancellationToken.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.CommandExecution;
-            reader = resources.OwnReader(query.DataSource.DatabaseAccess.ExecuteReader(command));
+            reader = resources.OwnReader(SyncCommandDispatch.ExecuteReader(query.DataSource.DatabaseAccess, command, owner ?? read?.Step));
         }
         catch (Exception failure)
         {
@@ -234,7 +234,7 @@ public partial class Select<T> : IQuery
 
                 var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
                 stage = ExecutionFailureStage.CommandExecution;
-                var reader = resources.OwnReader(query.DataSource.DatabaseAccess.ExecuteReader(command));
+                var reader = resources.OwnReader(SyncCommandDispatch.ExecuteReader(query.DataSource.DatabaseAccess, command, owner ?? read?.Step));
                 stage = ExecutionFailureStage.RowLoading;
 
                 if (!reader.ReadNextRow())
@@ -488,7 +488,7 @@ public partial class Select<T> : IQuery
                     var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
                     stage = ExecutionFailureStage.CommandExecution;
                     cancellationToken.ThrowIfCancellationRequested();
-                    var result = query.DataSource.DatabaseAccess.ExecuteScalar<V>(command);
+                    var result = SyncCommandDispatch.ExecuteScalar<V>(query.DataSource.DatabaseAccess, command, owner ?? read?.Step);
                     resources.Dispose();
                     succeeded = true;
                     return result;
@@ -558,7 +558,7 @@ public partial class Select<T> : IQuery
                     var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
                     stage = ExecutionFailureStage.CommandExecution;
                     cancellationToken.ThrowIfCancellationRequested();
-                    var result = query.DataSource.DatabaseAccess.ExecuteScalar(command);
+                    var result = SyncCommandDispatch.ExecuteScalar(query.DataSource.DatabaseAccess, command, owner ?? read?.Step);
                     resources.Dispose();
                     succeeded = true;
                     return result;

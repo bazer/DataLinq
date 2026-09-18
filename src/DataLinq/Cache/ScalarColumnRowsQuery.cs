@@ -47,7 +47,7 @@ internal sealed class ScalarColumnRowsQuery(
             {
                 var command = resources.OwnCommand(ToDbCommand());
                 stage = ExecutionFailureStage.CommandExecution;
-                var reader = resources.OwnReader(dataSource.DatabaseAccess.ExecuteReader(command));
+                var reader = resources.OwnReader(SyncCommandDispatch.ExecuteReader(dataSource.DatabaseAccess, command, owner ?? read?.Step));
                 stage = ExecutionFailureStage.RowLoading;
 
                 if (!reader.ReadNextRow())
