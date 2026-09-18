@@ -1696,8 +1696,10 @@ public sealed partial class TransactionMutationFailureTests
         public override IDbConnection GetDbConnection() => throw new NotSupportedException();
     }
 
-    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
+    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory
     {
+        public IAsyncReaderSource BindBorrowedReader(IDbCommand command) =>
+            IAsyncBorrowedReaderFactory.Require(scenario.AsyncSqlReaders!).BindBorrowedReader(command);
         public IAsyncSqlReaderFactory CaptureInvocation() =>
             (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).CaptureInvocation();
         public IAsyncReaderSource BindReader(CapturedSql sql) =>
@@ -1749,8 +1751,10 @@ public sealed partial class TransactionMutationFailureTests
         public void Dispose() => onDispose?.Invoke();
     }
 
-    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
+    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory
     {
+        public IAsyncReaderSource BindBorrowedReader(IDbCommand command) =>
+            IAsyncBorrowedReaderFactory.Require(scenario.AsyncSqlReaders!).BindBorrowedReader(command);
         public IAsyncSqlReaderFactory CaptureInvocation() =>
             (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).CaptureInvocation();
         private readonly ScriptedMutationScenario scenario;

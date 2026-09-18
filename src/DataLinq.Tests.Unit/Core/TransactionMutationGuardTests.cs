@@ -1504,19 +1504,40 @@ public sealed class TransactionMutationGuardReferenceIdConverter
     : DataLinqScalarConverter<TransactionMutationGuardReferenceId, int>
 {
     public List<int> ToProviderValues { get; } = [];
+    private static readonly AsyncLocal<Observation?> currentObservation = new();
+
+    // Metadata can share converter instances. Async probes must not share counters
+    // or fault callbacks, or require a process-global test scheduling lock.
+    internal sealed class Observation : IDisposable
+    {
+        private readonly Observation? previous = currentObservation.Value;
+        internal Observation() => currentObservation.Value = this;
+        internal Action? Converting { get; set; }
+        internal List<int> ToProviderValues { get; } = [];
+        internal int FromProviderCalls { get; set; }
+        public void Dispose() => currentObservation.Value = previous;
+    }
 
     public override int ToProvider(
         TransactionMutationGuardReferenceId modelValue,
         in ScalarConversionContext context)
     {
-        ToProviderValues.Add(modelValue.Value);
+        if (currentObservation.Value is { } observation)
+        {
+            observation.Converting?.Invoke();
+            observation.ToProviderValues.Add(modelValue.Value);
+        }
+        else ToProviderValues.Add(modelValue.Value);
         return modelValue.Value;
     }
 
     public override TransactionMutationGuardReferenceId FromProvider(
         int providerValue,
-        in ScalarConversionContext context) =>
-        new(providerValue);
+        in ScalarConversionContext context)
+    {
+        if (currentObservation.Value is { } observation) observation.FromProviderCalls++;
+        return new(providerValue);
+    }
 
     public void Reset() => ToProviderValues.Clear();
 }

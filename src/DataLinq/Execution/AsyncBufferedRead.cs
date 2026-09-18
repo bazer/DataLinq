@@ -13,7 +13,7 @@ namespace DataLinq.Execution;
 internal sealed class AsyncBufferedRead<TResult>(
     IDataSourceAccess dataSource, IAsyncReaderSource source,
     Action<IAsyncDataReader> addRow, Func<TResult> complete,
-    TransactionOperationGate.Step? owner = null) : IAsyncReadFailureEvidence
+    TransactionOperationGate.Step? owner = null, bool firstRowOnly = false) : IAsyncReadFailureEvidence
 {
     private const string Operation = "load asynchronous source rows";
     private int executed;
@@ -76,6 +76,7 @@ internal sealed class AsyncBufferedRead<TResult>(
                 stage = ExecutionFailureStage.Materialization;
                 cause = ExecutionFailureCause.MaterializationError;
                 addRow(reader);
+                if (firstRowOnly) break;
             }
         }
         catch (Exception failure) { Record(failure); }

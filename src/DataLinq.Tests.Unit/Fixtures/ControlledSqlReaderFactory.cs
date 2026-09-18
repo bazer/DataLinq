@@ -7,11 +7,13 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Tests.Unit.Fixtures;
 
-internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
+internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory
 {
     internal List<CapturedSql> Inputs { get; } = [];
     internal List<ControlledOwnedCommandFactory> Commands { get; } = [];
     internal List<ControlledAsyncDatabaseAccess> Accesses { get; } = [];
+    internal List<System.Data.IDbCommand> BorrowedCommands { get; } = [];
+    internal Func<System.Data.IDbCommand, ControlledAsyncDatabaseAccess> CreateBorrowedAccess { get; set; } = _ => new();
     internal Func<CapturedSql, ControlledAsyncDatabaseAccess> CreateAccess { get; set; } = _ => new();
     internal Action<ControlledOwnedCommandFactory>? ConfigureCommand { get; set; }
     internal Func<IAsyncReaderSource, IAsyncReaderSource>? WrapSource { get; set; }
@@ -19,6 +21,15 @@ internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory, IAsyn
     internal Func<object?, object?>? ScalarConverting { get; set; }
 
     public IAsyncSqlReaderFactory CaptureInvocation() => new CapturedReaderFactory(this, CreateAccess, ConfigureCommand, WrapSource);
+
+    public IAsyncReaderSource BindBorrowedReader(System.Data.IDbCommand command)
+    {
+        BorrowedCommands.Add(command);
+        var access = CreateBorrowedAccess(command);
+        Accesses.Add(access);
+        IAsyncReaderSource source = new BorrowedCommandReaderSource(access, command);
+        return WrapSource is null ? source : WrapSource(source);
+    }
 
     private sealed class CapturedReaderFactory(ControlledSqlReaderFactory owner,
         Func<CapturedSql, ControlledAsyncDatabaseAccess> createAccess,
@@ -79,6 +90,7 @@ internal class ControlledRowDataReader(params object?[][] rows) : IAsyncDataRead
     internal AsyncCheckpoint Advance { get; set; } = new();
     internal AsyncCheckpoint Cleanup { get; set; } = new();
     internal Action<int>? Advancing { get; set; }
+    internal string[]? ColumnNames { get; set; }
     internal int Moves { get; private set; }
     internal int Disposals { get; private set; }
 
@@ -94,7 +106,12 @@ internal class ControlledRowDataReader(params object?[][] rows) : IAsyncDataRead
     public bool IsDbNull(int ordinal) => GetValue(ordinal) is null or DBNull;
     public T? GetValue<T>(ColumnDefinition column, int ordinal) => (T?)GetValue(ordinal);
     public T? GetValue<T>(ColumnDefinition column) => (T?)GetValue(column.Index);
-    public int GetOrdinal(string name) => throw new NotSupportedException();
+    public int GetOrdinal(string name)
+    {
+        if (ColumnNames is null) throw new NotSupportedException();
+        var ordinal = Array.IndexOf(ColumnNames, name);
+        return ordinal >= 0 ? ordinal : throw new IndexOutOfRangeException(name);
+    }
     public string GetString(int ordinal) => (string)GetValue(ordinal);
     public int GetInt32(int ordinal) => (int)GetValue(ordinal);
     public bool GetBoolean(int ordinal) => (bool)GetValue(ordinal);
