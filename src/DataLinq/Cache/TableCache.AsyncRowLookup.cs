@@ -26,16 +26,17 @@ public partial class TableCache
     internal Task<IImmutableInstance?> GetProviderRowAsyncCore(
         DataLinqKey key, IDataSourceAccess dataSource, CancellationToken token = default,
         TransactionOperationGate.Step? owner = null, IAsyncSqlReaderFactory? factory = null,
-        Action<IAsyncReadFailureEvidence>? observingRead = null)
+        Action<IAsyncReadFailureEvidence>? observingRead = null,
+        AsyncBufferedRead<CanonicalProviderValueRow?>? preparedRead = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         DataSourceAccess.EnsureReadAllowed(dataSource, "read an asynchronous cache row", owner);
         if (dataSource is not IDataLinqSourceRowServices)
             throw new NotSupportedException("This read source does not support canonical model materialization.");
         var loader = new DataSourceAccessSourceRowLoader(dataSource, owner, factory);
-        var read = ProviderKeyComponents.SupportsNeutralSourceRowLoading(Table, dataSource.Provider.DatabaseType)
+        var read = preparedRead ?? (ProviderKeyComponents.SupportsNeutralSourceRowLoading(Table, dataSource.Provider.DatabaseType)
             ? loader.CaptureSingleAsyncRead(Table, key)
-            : loader.CaptureProviderMatchedSingleAsyncRead(Table, key);
+            : loader.CaptureProviderMatchedSingleAsyncRead(Table, key));
         observingRead?.Invoke(read);
         RowReadGeneration? generation = null;
         return read.ExecuteAsync<IImmutableInstance?>((providerRow, step, cancellation) =>

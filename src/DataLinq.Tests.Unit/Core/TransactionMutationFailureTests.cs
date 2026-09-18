@@ -1722,7 +1722,12 @@ public sealed partial class TransactionMutationFailureTests
             (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar(sql);
         public AsyncScalarInvocation<T> BindScalar<T>(CapturedSql sql) =>
             (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar<T>(sql);
-        public override IDataLinqDataReader ExecuteReader(IDbCommand command) => throw new NotSupportedException();
+        public override IDataLinqDataReader ExecuteReader(IDbCommand command)
+        {
+            if (scenario.ReaderFactory is null) throw new NotSupportedException();
+            scenario.ReaderExecutions++;
+            return scenario.ReaderFactory();
+        }
         public override IDataLinqDataReader ExecuteReader(string query) => throw new NotSupportedException();
         public override object? ExecuteScalar(IDbCommand command) => throw new NotSupportedException();
         public override T ExecuteScalar<T>(IDbCommand command) => throw new NotSupportedException();

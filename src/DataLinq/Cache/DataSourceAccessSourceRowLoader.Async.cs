@@ -53,6 +53,9 @@ internal sealed partial class DataSourceAccessSourceRowLoader
     }
 
     internal Task<SourceIndexRowLoadResult> LoadAsync(SourceIndexRowRequest request)
+        => CaptureAsyncRead(request).ExecuteAsync(request.CancellationToken);
+
+    internal AsyncBufferedRead<SourceIndexRowLoadResult> CaptureAsyncRead(SourceIndexRowRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         EnsureCanLoad(request.Table, "load indexed asynchronous source rows");
@@ -62,10 +65,9 @@ internal sealed partial class DataSourceAccessSourceRowLoader
         var captured = new SourceIndexRowRequest(request.Table, request.Index, request.CanonicalProviderIndexKey);
         var sql = CapturedSql.Capture(CreateSelect(captured).ToSql());
         var builder = new SourceIndexRowLoadResult.Builder(request);
-        var read = new AsyncBufferedRead<SourceIndexRowLoadResult>(dataSource, factory.BindReader(sql),
+        return new AsyncBufferedRead<SourceIndexRowLoadResult>(dataSource, factory.BindReader(sql),
             reader => builder.Add(ProviderRowDecoder.DecodeFullRow(reader, request.Table, sourceName)),
             () => builder.Build(), owner);
-        return read.ExecuteAsync(request.CancellationToken);
     }
 
     internal AsyncBufferedRead<IReadOnlyList<LoadedCanonicalRow>> CaptureProviderMatchedAsyncRead(SourcePrimaryKeyRowRequest request)

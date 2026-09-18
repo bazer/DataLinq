@@ -18,7 +18,7 @@ internal sealed class AsyncBufferedRead<TResult>(
     private const string Operation = "load asynchronous source rows";
     private int executed;
 
-    private void Validate()
+    internal void Validate()
     {
         DataSourceAccess.EnsureReadAllowed(dataSource, Operation, owner);
         source.Validate();

@@ -115,9 +115,13 @@ public sealed class RelationSnapshotPublicationTests
                             cache.ClearCache();
                         }
 
-                        var fresh = warmBeforeRelease ? relation.ToFrozenDictionary() : null;
+                        // A second caller now waits for this holder's cold-load owner.
+                        // It must recheck the invalidated snapshot after acquiring the slot.
+                        var waiting = warmBeforeRelease ? Task.Factory.StartNew(relation.ToFrozenDictionary,
+                            CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default) : null;
                         gate.Release();
                         _ = await read.WaitAsync(TimeSpan.FromSeconds(20));
+                        var fresh = waiting is null ? null : await waiting.WaitAsync(TimeSpan.FromSeconds(20));
                         var loadsBefore = DataLinqMetrics.Snapshot().Providers.Single(item => item.ProviderInstanceId == provider.TelemetryInstanceId)
                             .Tables.Single(item => item.TableName == "publication_children").Relations.CollectionLoads;
                         var subsequent = relation.ToFrozenDictionary();
@@ -173,9 +177,11 @@ public sealed class RelationSnapshotPublicationTests
                         ? "INSERT INTO publication_parents (id) VALUES (1)"
                         : "DELETE FROM publication_parents WHERE id = 1");
                     cache.ClearCache();
-                    var fresh = warmBeforeRelease ? reference.Value : null;
+                    var waiting = warmBeforeRelease ? Task.Factory.StartNew(() => reference.Value,
+                        CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default) : null;
                     gate.Release();
                     _ = await read.WaitAsync(TimeSpan.FromSeconds(20));
+                    var fresh = waiting is null ? null : await waiting.WaitAsync(TimeSpan.FromSeconds(20));
                     var subsequent = reference.Value;
                     await Assert.That(subsequent?.Id).IsEqualTo(initiallyMissing ? 1 : (int?)null);
                     if (warmBeforeRelease)
