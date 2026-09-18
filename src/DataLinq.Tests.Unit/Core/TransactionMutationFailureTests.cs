@@ -1592,6 +1592,7 @@ public sealed partial class TransactionMutationFailureTests
         internal IAsyncSqlReaderFactory? AsyncSqlReaders { get; set; }
         internal IAsyncSqlScalarFactory? AsyncSqlScalars { get; set; }
         internal IAsyncEagerCommandFactory? AsyncCommands { get; set; }
+        internal IAsyncMutationCommandFactory? AsyncMutations { get; set; }
         internal int CommandCreations { get; set; }
         internal int CommandDisposals { get; set; }
         internal Exception? CommandDisposeFailure { get; set; }

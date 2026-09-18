@@ -23,7 +23,7 @@ internal enum StateChangeExecutionPhase
 /// <summary>
 /// Represents a change of state to be applied to a model within a transaction.
 /// </summary>
-public class StateChange
+public partial class StateChange
 {
     private readonly MutationSnapshot snapshot;
     private readonly IReadOnlyList<ColumnIndex> affectedIndices;
