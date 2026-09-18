@@ -52,7 +52,7 @@ public partial class ImmutableForeignKey<T, TKey>
                 {
                     token.ThrowIfCancellationRequested();
                     var instance = RequireValue(rows.Length == 0 ? default : (T?)rows.Single());
-                    return PublishInstance(source, table, instance, generation, readGeneration);
+                    return PublishInstance(source, table, instance, generation, readGeneration, prepared.RelationKey);
                 }, token).ConfigureAwait(false);
             }
             finally { loadSlot.Release(); }

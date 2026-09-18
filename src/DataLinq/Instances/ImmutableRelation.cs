@@ -318,12 +318,14 @@ public partial class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAcce
         // The load slot coordinates callers, while Clear and notifications use
         // only the short state lock and remain independent of I/O.
         var readGeneration = tableCache.CaptureReadGeneration();
+        var relationKey = GetRelationCacheKey();
         var values = ToImmutableRelationValues(tableCache.GetRows(foreignKey, property, source, owner));
-        return PublishSnapshot(source, tableCache, values, generation, readGeneration);
+        return PublishSnapshot(source, tableCache, values, generation, readGeneration, relationKey);
     }
 
     private RelationSnapshot PublishSnapshot(IDataSourceAccess source, TableCache tableCache,
-        ImmutableArray<T> values, object generation, RowReadGeneration readGeneration, bool buildDictionary = false)
+        ImmutableArray<T> values, object generation, RowReadGeneration readGeneration,
+        RelationCacheKey? relationKey, bool buildDictionary = false)
     {
         var created = new RelationSnapshot(this, source, values);
         if (buildDictionary) _ = created.GetInstances();
@@ -331,7 +333,7 @@ public partial class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAcce
         tableCache.SubscribeToChanges(
             created,
             source as Transaction,
-            GetRelationCacheKey(),
+            relationKey,
             GetPrimaryKeys(values));
 
         lock (loadLock)

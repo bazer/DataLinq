@@ -510,6 +510,50 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(factory.Accesses.Sum(access => access.Calls.Count(call => call == "dispatch:Reader"))).IsEqualTo(duplicate ? 2 : 1);
     }
 
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task AsyncRelation_SubscriptionUsesCapturedKeyAfterBorrowedKeyChanges(bool reference)
+    {
+        using var fixture = new AsyncRelationFixture(reference);
+        var key = new MutableRelationProviderKey { Value = 1 };
+        Func<Task<int[]>> read;
+        if (reference)
+        {
+            var property = fixture.Provider.Metadata.GetTableModel(typeof(AsyncRelationChild)).Model.RelationProperties[nameof(AsyncRelationChild.Parent)];
+            var holder = new ImmutableForeignKey<AsyncRelationParent, MutableRelationProviderKey>(key, fixture.Provider.ReadOnlyAccess, property);
+            read = async () => await holder.GetValueAsyncCore() is { } row ? [row.Id] : [];
+        }
+        else
+        {
+            var property = fixture.Provider.Metadata.GetTableModel(typeof(AsyncRelationParent)).Model.RelationProperties[nameof(AsyncRelationParent.Children)];
+            var holder = new ImmutableRelation<AsyncRelationChild, MutableRelationProviderKey>(key, fixture.Provider.ReadOnlyAccess, property);
+            read = async () => (await holder.GetValuesAsyncCore()).Select(row => row.Id).ToArray();
+        }
+        var blocked = fixture.SetRows(paused: true, empty: true);
+        var pending = read();
+        await blocked.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+        key.Value = 2;
+        blocked.Dispatch.Release();
+        await Assert.That(await pending).IsEmpty();
+        key.Value = 1;
+        IMutableInstance inserted = reference ? new MutableAsyncRelationParent { Id = 1 }
+            : new MutableAsyncRelationChild { Id = 2, ParentId = 1 };
+        fixture.Cache.ApplyChanges([new StateChange(inserted, fixture.Cache.Table, TransactionChangeType.Insert)]);
+        fixture.SetRows();
+        await Assert.That(await read()).IsEquivalentTo(new[] { 1 });
+        await Assert.That(fixture.Dispatches).IsEqualTo(2);
+        await Assert.That(fixture.Factory.Inputs[0].ToSql().Parameters.Select(parameter => parameter.Value).ToArray())
+            .IsEquivalentTo(new object?[] { 1 });
+    }
+
+    private sealed class MutableRelationProviderKey : IProviderKey
+    {
+        internal int Value { get; set; }
+        public int ValueCount => 1;
+        public object GetValue(int index) => index == 0 ? Value : throw new IndexOutOfRangeException();
+    }
+
     private sealed class AsyncRelationFixture : IDisposable
     {
         internal readonly ScriptedMutationScenario Scenario = new();

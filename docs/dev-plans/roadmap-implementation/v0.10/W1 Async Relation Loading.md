@@ -13,6 +13,8 @@ A canceled waiter stops only its own wait. Failure or cancellation of the owner 
 
 Relation metadata, provider-key inputs, SQL, reader factory policy and capability validation are captured before suspension. Warm holders do not bypass source/capability validation or pre-cancellation. No native resource is acquired by preparing a waiting invocation. A null reference component preserves the existing no-query absence rule; it requires no unused reader capability.
 
+Subscription identity uses that same captured provider key. Final review found that recomputing it from a custom mutable `IProviderKey` after the await could subscribe an empty collection or absent reference to the wrong key and miss a later insert. Two controlled cases mutate the borrowed key while dispatch is paused, then apply a committed insert for the original key and prove the holder is invalidated. Synchronous loads also capture subscription identity before I/O.
+
 ## Complete results and publication
 
 Internal collection values/keyed views and optional/required references consume the async result directly. They do not warm a cache and then call a synchronous getter. Required missing references use the existing model/property error. Non-primary-key references preserve cardinality failure, while primary-key lookup keeps the existing neutral versus provider-sensitive distinction. Dictionary construction and reference validation remain inside the transaction read boundary; failures are observed before helper ownership is released.
@@ -25,7 +27,7 @@ Failed/canceled reading or cleanup cannot publish partial membership or cache fa
 
 ## Verification
 
-The initial focused run passed **30/30 cases**. Expanded verification passed **49/49 `AsyncRelation_*` cases**, Release / .NET 10, maximum parallelism 8 (`artifacts/w1-relation-loading-focused-final.json`). Coverage includes:
+The initial focused run passed **30/30 cases**, followed by **49/49** expanded cases. Final capture-boundary verification passed **51/51 `AsyncRelation_*` cases**, Release / .NET 10, maximum parallelism 8 (`artifacts/w1-relation-loading-capture-focused.json`). Coverage includes:
 
 - independent waiter cancellation, failed/canceled owner release, captured waiter factory/token, and mixed synchronous/asynchronous ownership;
 - transaction overlap before waiting/cancellation, independent holders/databases, transaction-local membership, commit/rollback source fallback, and warm capability validation;
@@ -37,7 +39,7 @@ The existing synchronous compliance publication races now start a waiting same-h
 
 Development failures are retained in artifacts. One assertion incorrectly expected an `IN` predicate for the optimized single-key refill; it now checks the actual primary-key predicate. A malformed-index fixture was corrected to test invalid provider data rather than invent foreign-key equality validation absent from the source-index contract. Background cache eviction was stopped in the controlled fixture so it cannot interfere with deliberate cache-identity/invalidation assertions. These changes do not disable production maintenance.
 
-Broad Release / .NET 10 verification passed **2,724/2,724 unit**, **210/210 Memory**, and **527/527 compliance cases on each SQLite anchor**: **3,988 cases**, no failures or skips (`artifacts/w1-relation-loading-unit.json`, `w1-relation-loading-memory.json`, `w1-relation-loading-sqlite-file.json`, `w1-relation-loading-sqlite-memory.json`). Unit/Memory used maximum parallelism 16; compliance used 8. Invocation and artifacts are complete. Local `ValidForEvidence` remains false because these bounded development checks are not canonical full-provider/clean-runner release acceptance.
+Broad Release / .NET 10 verification initially passed **3,988 cases**. After the captured-subscription correction, the repeated runs passed **2,726/2,726 unit**, **210/210 Memory**, and **527/527 compliance cases on each SQLite anchor**: **3,990 cases**, no failures or skips (`artifacts/w1-relation-loading-capture-unit.json`, `w1-relation-loading-capture-memory.json`, `w1-relation-loading-capture-sqlite-file.json`, `w1-relation-loading-capture-sqlite-memory.json`). Unit/Memory used maximum parallelism 16; compliance used 8. Invocation and artifacts are complete. Local `ValidForEvidence` remains false because these bounded development checks are not canonical full-provider/clean-runner release acceptance.
 
 Core .NET 8/9/10 and unit/dependency/compliance/Memory Release builds passed with zero warnings/errors (`w1-relation-loading-*-build.log`). Exact-head CI and merge evidence are recorded with the integration PR. Normal documentation and site presentation are unchanged; planning links and whitespace are checked separately.
 

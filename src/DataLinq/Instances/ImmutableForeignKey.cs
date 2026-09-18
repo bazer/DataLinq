@@ -124,18 +124,19 @@ public partial class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAc
         // Neither the query nor model constructors run under the relation gate.
         var tableCache = GetTableCache(source);
         var readGeneration = tableCache.CaptureReadGeneration();
+        var relationKey = GetRelationCacheKey(tableCache);
         var instance = LoadInstance(tableCache, source, owner);
-        return PublishInstance(source, tableCache, instance, generation, readGeneration);
+        return PublishInstance(source, tableCache, instance, generation, readGeneration, relationKey);
     }
 
     private T? PublishInstance(IDataSourceAccess source, TableCache tableCache,
-        T? instance, object generation, RowReadGeneration readGeneration)
+        T? instance, object generation, RowReadGeneration readGeneration, RelationCacheKey? relationKey)
     {
         var created = new ValueHolder(this, source, instance);
         tableCache.SubscribeToChanges(
             created,
             source as Transaction,
-            GetRelationCacheKey(tableCache),
+            relationKey,
             instance is null ? [] : [instance.PrimaryKeys()]);
         tableCache.MetricsHandle.RecordRelationReferenceLoad();
 

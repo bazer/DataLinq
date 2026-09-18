@@ -28,6 +28,7 @@ public partial class TableCache
         internal IDataSourceAccess Source { get; } = source;
         internal ColumnIndex Index { get; } = index;
         internal DataLinqKey Key { get; } = key;
+        internal RelationCacheKey? RelationKey => Key.IsNull ? null : new(Index, Key);
         internal TransactionOperationGate.Step? Owner { get; } = owner;
         internal IAsyncSqlReaderFactory? Factory { get; } = factory;
         internal AsyncBufferedRead<CanonicalProviderValueRow?>? Single { get; } = single;

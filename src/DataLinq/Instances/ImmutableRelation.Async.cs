@@ -53,7 +53,7 @@ public partial class ImmutableRelation<T, TKey>
                     token.ThrowIfCancellationRequested();
                     var values = ToImmutableRelationValues(rows);
                     token.ThrowIfCancellationRequested();
-                    return PublishSnapshot(source, table, values, generation, readGeneration, buildDictionary);
+                    return PublishSnapshot(source, table, values, generation, readGeneration, prepared.RelationKey, buildDictionary);
                 }, token).ConfigureAwait(false);
             }
             finally { loadSlot.Release(); }
