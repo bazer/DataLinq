@@ -40,6 +40,6 @@ All **3,894** broad cases passed without skips, with invocation and artifacts co
 
 ## Remaining work
 
-This closes the bounded internal database-helper reservation lifetime, not every mutation requirement. Remaining local-edit overloads, custom/generated mutable behavior, key/converter and finalization cases, complete diagnostics/correlation and comparable coordination/allocation evidence remain open. Public helper declarations and generated/packed compatibility remain W3, and native async capability/resource implementations remain W2.
+This closes the bounded internal database-helper reservation lifetime, not every mutation requirement. The subsequent [mutation contracts](W1%20Mutation%20Contracts.md) cover internal local-edit overloads, custom/generated mutable behavior, key/converter and finalization cases. Complete diagnostics/correlation and comparable coordination/allocation evidence remain open. Public helper declarations and generated/packed compatibility remain W3, and native async capability/resource implementations remain W2.
 
 The wider W1 audit still includes synchronous adapter compatibility, relation owner/waiter coordination and publication, metadata/provisioning, owning-root disposal, complete telemetry, the final I/O map and .NET 10 performance comparisons against 0.9.2. The SQLite W0-F1 limitation is unchanged.

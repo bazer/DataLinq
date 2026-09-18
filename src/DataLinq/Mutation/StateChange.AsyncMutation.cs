@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using DataLinq.Execution;
 using DataLinq.Instances;
 
@@ -6,6 +8,12 @@ namespace DataLinq.Mutation;
 
 public partial class StateChange
 {
+    internal Task ExecuteQueryAsyncCore(Transaction transaction, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        return transaction.ExecuteStateChangeAsyncCore(this, token);
+    }
+
     internal bool NeedsGeneratedValue => Type == TransactionChangeType.Insert && HasAutoIncrement && PrimaryKeys.IsNull;
 
     internal CapturedSql CaptureAsyncStatement(Transaction transaction)

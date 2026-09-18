@@ -1513,6 +1513,7 @@ public sealed class TransactionMutationGuardReferenceIdConverter
         private readonly Observation? previous = currentObservation.Value;
         internal Observation() => currentObservation.Value = this;
         internal Action? Converting { get; set; }
+        internal Action? Materializing { get; set; }
         internal List<int> ToProviderValues { get; } = [];
         internal int FromProviderCalls { get; set; }
         public void Dispose() => currentObservation.Value = previous;
@@ -1535,7 +1536,11 @@ public sealed class TransactionMutationGuardReferenceIdConverter
         int providerValue,
         in ScalarConversionContext context)
     {
-        if (currentObservation.Value is { } observation) observation.FromProviderCalls++;
+        if (currentObservation.Value is { } observation)
+        {
+            observation.FromProviderCalls++;
+            observation.Materializing?.Invoke();
+        }
         return new(providerValue);
     }
 
