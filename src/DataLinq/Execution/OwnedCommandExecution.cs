@@ -30,7 +30,9 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSo
     public void Validate() => Validate(AsyncCommandKind.Reader);
     void IAsyncScalarSource.Validate() => Validate(AsyncCommandKind.Scalar);
 
-    private void Validate(AsyncCommandKind kind)
+    internal bool Dispatched => dispatched;
+
+    internal void Validate(AsyncCommandKind kind)
     {
         factory.Validate(kind);
         if (Volatile.Read(ref started) != 0)
