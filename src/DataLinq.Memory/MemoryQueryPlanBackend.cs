@@ -9,7 +9,7 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Memory;
 
-internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
+internal sealed partial class MemoryQueryPlanBackend : IAsyncQueryPlanBackend
 {
     private static readonly IReadOnlySet<QueryPlanFeature> supportedFeatures =
         new HashSet<QueryPlanFeature>

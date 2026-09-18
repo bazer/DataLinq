@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
+using System.Threading.Tasks;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Linq.Planning;
@@ -128,6 +129,18 @@ public sealed class MemoryDatabase<TDatabase>
     /// index is probed. Composite primary keys are not supported by this public preview method.
     /// </remarks>
     public TModel? Find<TModel>(object modelPrimaryKey)
+        where TModel : class, IImmutableInstance, ITableModel<TDatabase> =>
+        FindCore<TModel>(modelPrimaryKey, CancellationToken.None);
+
+    // Internal W1 orchestration; the public ValueTask counterpart is a W3 declaration.
+    internal ValueTask<TModel?> FindAsyncCore<TModel>(object modelPrimaryKey, CancellationToken cancellationToken = default)
+        where TModel : class, IImmutableInstance, ITableModel<TDatabase>
+    {
+        try { return new(FindCore<TModel>(modelPrimaryKey, cancellationToken)); }
+        catch (Exception failure) { return MemoryAsyncResult.FromFailure<TModel?>(failure); }
+    }
+
+    private TModel? FindCore<TModel>(object modelPrimaryKey, CancellationToken cancellationToken)
         where TModel : class, IImmutableInstance, ITableModel<TDatabase>
     {
         ArgumentNullException.ThrowIfNull(modelPrimaryKey);
@@ -166,7 +179,7 @@ public sealed class MemoryDatabase<TDatabase>
 
         try
         {
-            return FindCanonical<TModel>(DataLinqKey.FromValue(canonicalProviderValue));
+            return FindCanonical<TModel>(DataLinqKey.FromValue(canonicalProviderValue), cancellationToken);
         }
         catch (ModelValueConversionException exception)
         {
@@ -205,9 +218,12 @@ public sealed class MemoryDatabase<TDatabase>
             in canonicalProviderKey,
             cancellationToken);
 
-        return row is null
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = row is null
             ? null
             : (TModel)readSource.Materialize(row);
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
     }
 
     /// <summary>
