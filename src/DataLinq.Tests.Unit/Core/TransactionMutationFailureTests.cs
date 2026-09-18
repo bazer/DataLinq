@@ -1698,6 +1698,8 @@ public sealed partial class TransactionMutationFailureTests
 
     private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
     {
+        public IAsyncSqlReaderFactory CaptureInvocation() =>
+            (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).CaptureInvocation();
         public IAsyncReaderSource BindReader(CapturedSql sql) =>
             (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).BindReader(sql);
         public IAsyncScalarSource BindScalar(CapturedSql sql) =>
@@ -1749,6 +1751,8 @@ public sealed partial class TransactionMutationFailureTests
 
     private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
     {
+        public IAsyncSqlReaderFactory CaptureInvocation() =>
+            (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).CaptureInvocation();
         private readonly ScriptedMutationScenario scenario;
 
         public IAsyncReaderSource BindReader(CapturedSql sql) =>

@@ -13,7 +13,7 @@ namespace DataLinq.Execution;
 internal sealed class AsyncBufferedRead<TResult>(
     IDataSourceAccess dataSource, IAsyncReaderSource source,
     Action<IAsyncDataReader> addRow, Func<TResult> complete,
-    TransactionOperationGate.Step? owner = null)
+    TransactionOperationGate.Step? owner = null) : IAsyncReadFailureEvidence
 {
     private const string Operation = "load asynchronous source rows";
     private int executed;
@@ -30,6 +30,9 @@ internal sealed class AsyncBufferedRead<TResult>(
 
     internal Task<TResult> ExecuteAsync(CancellationToken token) =>
         ExecuteAsync(static (result, _, _) => result, token);
+
+    public ReadFailureEvidence GetReadFailureEvidence(Exception failure) =>
+        source is IAsyncReadFailureEvidence classifier ? classifier.GetReadFailureEvidence(failure) : new();
 
     internal async Task<T> ExecuteAsync<T>(
         Func<TResult, TransactionOperationGate.Step?, CancellationToken, T> materialize,

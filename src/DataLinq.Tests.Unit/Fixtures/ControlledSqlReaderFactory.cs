@@ -18,6 +18,21 @@ internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory, IAsyn
     internal Func<IAsyncScalarSource, IAsyncScalarSource>? WrapScalar { get; set; }
     internal Func<object?, object?>? ScalarConverting { get; set; }
 
+    public IAsyncSqlReaderFactory CaptureInvocation() => new CapturedReaderFactory(this, CreateAccess, ConfigureCommand, WrapSource);
+
+    private sealed class CapturedReaderFactory(ControlledSqlReaderFactory owner,
+        Func<CapturedSql, ControlledAsyncDatabaseAccess> createAccess,
+        Action<ControlledOwnedCommandFactory>? configureCommand,
+        Func<IAsyncReaderSource, IAsyncReaderSource>? wrapSource) : IAsyncSqlReaderFactory
+    {
+        public IAsyncSqlReaderFactory CaptureInvocation() => this;
+        public IAsyncReaderSource BindReader(CapturedSql sql)
+        {
+            var execution = owner.BindOwned(sql, createAccess, configureCommand);
+            return wrapSource is null ? execution : wrapSource(execution);
+        }
+    }
+
     public AsyncScalarInvocation<T> BindScalar<T>(CapturedSql sql)
     {
         var convert = ScalarConverting;
@@ -37,9 +52,14 @@ internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory, IAsyn
     }
 
     private OwnedCommandExecution BindOwned(CapturedSql sql)
+        => BindOwned(sql, CreateAccess, ConfigureCommand);
+
+    private OwnedCommandExecution BindOwned(CapturedSql sql,
+        Func<CapturedSql, ControlledAsyncDatabaseAccess> createAccess,
+        Action<ControlledOwnedCommandFactory>? configureCommand)
     {
         Inputs.Add(sql);
-        var access = CreateAccess(sql);
+        var access = createAccess(sql);
         Accesses.Add(access);
         var factory = new ControlledOwnedCommandFactory();
         factory.Creating = () =>
@@ -47,7 +67,7 @@ internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory, IAsyn
             factory.Resource.Borrowed.CommandText = sql.ToSql().Text;
             return factory.Resource;
         };
-        ConfigureCommand?.Invoke(factory);
+        configureCommand?.Invoke(factory);
         Commands.Add(factory);
         return new OwnedCommandExecution(access, factory);
     }

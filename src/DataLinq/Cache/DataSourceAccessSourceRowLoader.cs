@@ -18,12 +18,15 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
     private readonly IDataSourceAccess dataSource;
     private readonly string sourceName;
     private readonly TransactionOperationGate.Step? owner;
+    private readonly IAsyncSqlReaderFactory? asyncFactory;
 
     internal DataSourceAccessSourceRowLoader(
-        IDataSourceAccess dataSource, TransactionOperationGate.Step? owner = null)
+        IDataSourceAccess dataSource, TransactionOperationGate.Step? owner = null,
+        IAsyncSqlReaderFactory? asyncFactory = null)
     {
         this.dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
         this.owner = owner;
+        this.asyncFactory = asyncFactory;
         sourceName = $"sql:{dataSource.Provider.DatabaseType}";
         ProviderRowMaterializer.ValidateSourceName(sourceName);
     }

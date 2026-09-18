@@ -45,10 +45,19 @@ public partial class Select<T> : IQuery
         return sql;
     }
 
-    private Sql RenderSql(string? paramPrefix)
+    private Sql RenderSql(string? paramPrefix, IReadOnlyList<ColumnDefinition>? projection = null)
     {
         var sql = new Sql().AddText("SELECT ");
-        AddSelectedColumns(sql);
+        if (projection is null) AddSelectedColumns(sql);
+        else
+        {
+            for (var i = 0; i < projection.Count; i++)
+            {
+                AddColumnSeparator(sql, i);
+                AddColumnPrefix(sql, string.IsNullOrWhiteSpace(query.Alias) ? null : query.Alias);
+                SqlIdentifier.Append(sql, projection[i].DbName, query.EscapeCharacter);
+            }
+        }
         sql.AddText(" FROM ");
         AddSource(sql);
         query.GetJoins(sql, paramPrefix);
