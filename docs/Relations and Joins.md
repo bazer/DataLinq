@@ -48,6 +48,14 @@ var departmentName = assignment.departments.Name;
 
 That is ordinary relation traversal. It is not the same thing as a provider-side join unless the relation member appears inside one of the supported query shapes below.
 
+### 0.10 Required-Reference Correction (Unreleased)
+
+Generated required reference properties now throw `InvalidOperationException` when no target row exists, instead of silently returning `null`. The error names the model and relation, without including key values. Optional references still return `null`. A foreign key with any NULL component, including a partially NULL composite key, has no target; a complete key pointing to a missing row follows the same required/optional rule. Multiple matching targets remain a cardinality error, not an arbitrary first row.
+
+Validation uses the single resolved value and applies to cold loads, cached absence and reloads after invalidation. It does not add a second load or relabel provider, cancellation or unsupported-capability failures. Nullable `Get` misses and the lower-level reference holder's nullable `Value` contract are unchanged.
+
+Rebuild source-generated consumers with the 0.10 generator and regenerate checked-in generated implementations. Updating only the runtime does not replace an already compiled getter. Consumers relying on a required reference returning `null` must fix the data or declare the relation optional; disabling nullable annotations does not disable the runtime check. This synchronous correction does not add async navigation methods.
+
 ## Relation Predicates
 
 One-to-many relation existence predicates can translate to SQL `EXISTS`.

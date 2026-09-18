@@ -329,7 +329,7 @@ If the generated name conflicts with a user-defined member or inheritance/overlo
 | Optional (`T?` / `ValueTask<T?>`) | Return `null` | Return the row | Cardinality failure |
 | Required (`T` / `ValueTask<T>`) | Clear relation-resolution failure | Return the row | Cardinality failure |
 
-A required reference with no usable foreign key or a dangling target must not silently return `null`. The generated getter currently suppresses nullable analysis on the underlying nullable value; that suppression is not a runtime check. Preserve duplicate-target detection instead of choosing an arbitrary first row. See [generator output construction](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs) and [reference resolution](../../../../src/DataLinq/Instances/ImmutableForeignKey.cs).
+A required reference with no usable foreign key or a dangling target must not silently return `null`. The previous generated getter suppressed nullable analysis on the underlying nullable value; that suppression was not a runtime check. The [W1 synchronous correction](W1%20Required%20Reference%20Validation.md) now validates the resolved value and retains duplicate-target detection instead of choosing an arbitrary first row. Generated async navigation remains a later implementation gate. See [generator output construction](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs) and [reference resolution](../../../../src/DataLinq/Instances/ImmutableForeignKey.cs).
 
 This corrects navigation behavior, not general key-lookup semantics: a nullable `Get`/`GetAsync` miss remains nullable. The lower-level reference holder may likewise represent absence, provided required navigation enforces the contract before returning to its caller.
 
@@ -991,7 +991,7 @@ The lower-level async reference capability returns a nullable result. Generated 
 
 Custom/test models can override the async method. Overriding only the synchronous property does not authorize an async fallback through it. Generated member collisions produce a focused error-severity diagnostic in the existing `DLG` family. Audit inherited members, optional-token signatures, and incompatible preexisting methods; do not silently rename or assume a matching user method fulfills the generated contract. The exact numeric diagnostic code remains an implementation inventory choice.
 
-**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify scalar/composite/converted keys, nullable/required/missing/duplicate references, interface/concrete/custom dispatch, shared warm/cold/invalidation state, generated inheritance/collisions, and migration evidence for the synchronous required-reference correction. These are planned contracts, not claims that current generated getters already enforce them.
+**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify scalar/composite/converted keys, nullable/required/missing/duplicate references, interface/concrete/custom dispatch, shared warm/cold/invalidation state, generated inheritance/collisions, and migration evidence for the synchronous required-reference correction. [Synchronous enforcement evidence](W1%20Required%20Reference%20Validation.md) is separate from the still-planned async navigation and T10 public helper contracts.
 
 ### AAPI-56: Mirror Lower-Level Execution With Verified Async Capability
 
