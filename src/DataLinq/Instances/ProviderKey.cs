@@ -18,6 +18,29 @@ internal static class ProviderKeyComponents
         where TKey : notnull =>
         key is DataLinqKey { IsNull: true };
 
+    // A SQL reference with any NULL component has no target. This is deliberately
+    // separate from DataLinqKey.IsNull and general key-lookup validation.
+    internal static bool HasNullReferenceComponent<TKey>(TKey key) where TKey : notnull
+    {
+        if (key is DataLinqKey dataLinqKey)
+        {
+            for (var index = 0; index < dataLinqKey.ValueCount; index++)
+                if (dataLinqKey.GetValueUnsafe(index) is null or DBNull)
+                    return true;
+            return false;
+        }
+
+        if (key is IProviderKey providerKey)
+        {
+            for (var index = 0; index < providerKey.ValueCount; index++)
+                if (providerKey.GetValue(index) is null or DBNull)
+                    return true;
+            return false;
+        }
+
+        return key is null or DBNull;
+    }
+
     internal static DataLinqKey ToDataLinqKey<TKey>(TKey key)
         where TKey : notnull
     {

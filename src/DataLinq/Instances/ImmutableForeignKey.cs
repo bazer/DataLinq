@@ -90,7 +90,7 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
                 return localHolder.Value;
             }
 
-            if (ProviderKeyComponents.IsNull(foreignKey))
+            if (ProviderKeyComponents.HasNullReferenceComponent(foreignKey))
                 return default;
 
             object generation;
@@ -145,7 +145,7 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
 
     private RelationCacheKey? GetRelationCacheKey(TableCache tableCache)
     {
-        if (ProviderKeyComponents.IsNull(foreignKey))
+        if (ProviderKeyComponents.HasNullReferenceComponent(foreignKey))
             return null;
 
         var index = property.RelationPart.GetOtherSide().ColumnIndex;

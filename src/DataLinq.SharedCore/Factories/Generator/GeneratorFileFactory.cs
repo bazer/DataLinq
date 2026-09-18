@@ -1237,12 +1237,15 @@ public class GeneratorFileFactory
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
             {
                 var nullableChar = Options.UseNullableReferenceTypes && relationProperty.CsNullable ? "?" : "";
-                // Conditionally add parentheses and the null-forgiving operator.
-                var expressionPrefix = (Options.UseNullableReferenceTypes && !relationProperty.CsNullable) ? "(" : "";
-                var expressionSuffix = (Options.UseNullableReferenceTypes && !relationProperty.CsNullable) ? ")!" : "";
+                // Required navigation validates the one resolved value, independently of
+                // whether nullable annotations are enabled in the generated source.
+                var missingMessage = FormatStringLiteral($"Required relation '{model.CsType.Name}.{relationProperty.PropertyName}' did not resolve to a target row.");
+                var expressionSuffix = relationProperty.CsNullable
+                    ? ""
+                    : $" ?? throw new global::System.InvalidOperationException({missingMessage})";
 
                 yield return $"{namespaceTab}{tab}private IImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
-                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar} {relationProperty.PropertyName} => {expressionPrefix}(_{relationProperty.PropertyName} ??= {GetImmutableForeignKeyExpression(relationProperty, otherPart.ColumnIndex.Table.Model.CsType.Name)}).Value{expressionSuffix};";
+                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar} {relationProperty.PropertyName} => (_{relationProperty.PropertyName} ??= {GetImmutableForeignKeyExpression(relationProperty, otherPart.ColumnIndex.Table.Model.CsType.Name)}).Value{expressionSuffix};";
             }
             else
             {
