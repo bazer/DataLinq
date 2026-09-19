@@ -14,15 +14,16 @@ public partial class Transaction
 {
     // Internal execution entries until native-provider and public-surface evidence.
     internal Task<T> InsertAsyncCore<T>(Mutable<T> model, CancellationToken token = default) where T : class, IImmutableInstance
-        => ExecuteSingleMutationAsync(model, TransactionChangeType.Insert, token);
+        => ExecuteSingleMutationAsync(model, TransactionChangeType.Insert, ExecutionOperationKind.Insert, token);
 
     internal Task<T> UpdateAsyncCore<T>(Mutable<T> model, CancellationToken token = default) where T : class, IImmutableInstance
-        => ExecuteSingleMutationAsync(model, TransactionChangeType.Update, token);
+        => ExecuteSingleMutationAsync(model, TransactionChangeType.Update, ExecutionOperationKind.Update, token);
 
     internal Task<T> SaveAsyncCore<T>(Mutable<T> model, CancellationToken token = default) where T : class, IImmutableInstance
     {
         ArgumentNullException.ThrowIfNull(model);
-        return ExecuteSingleMutationAsync(model, model.IsNew() ? TransactionChangeType.Insert : TransactionChangeType.Update, token);
+        return ExecuteSingleMutationAsync(model, model.IsNew() ? TransactionChangeType.Insert : TransactionChangeType.Update,
+            ExecutionOperationKind.Save, token);
     }
 
     internal Task<T> MutateWithEditsAsyncCore<T, TMutable>(TMutable model, Action<TMutable> edits,
@@ -32,25 +33,27 @@ public partial class Transaction
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(edits);
         var selected = type ?? (model.IsNew() ? TransactionChangeType.Insert : TransactionChangeType.Update);
-        EnsureMutationPreflight(model, selected);
+        var operationKind = MutationOperationKind(type);
+        MutationPreflight.Ensure(this, model, selected, operationKind);
         token.ThrowIfCancellationRequested();
         edits(model);
         // Save follows the resulting lifecycle, just like the synchronous overload.
         return ExecuteSingleMutationAsync<T>(model,
-            type ?? (model.IsNew() ? TransactionChangeType.Insert : TransactionChangeType.Update), token);
+            type ?? (model.IsNew() ? TransactionChangeType.Insert : TransactionChangeType.Update), operationKind, token);
     }
 
     internal async Task DeleteAsyncCore(IModelInstance model, CancellationToken token = default)
     {
-        using var input = CaptureMutation(model, TransactionChangeType.Delete);
-        await ExecuteCapturedMutationsAsync([input], token).ConfigureAwait(false);
+        using var input = CaptureMutation(model, TransactionChangeType.Delete, ExecutionOperationKind.Delete);
+        await ExecuteCapturedMutationsAsync([input], ExecutionOperationKind.Delete, token).ConfigureAwait(false);
     }
 
-    private async Task<T> ExecuteSingleMutationAsync<T>(Mutable<T> model, TransactionChangeType type, CancellationToken token)
+    private async Task<T> ExecuteSingleMutationAsync<T>(Mutable<T> model, TransactionChangeType type,
+        ExecutionOperationKind operationKind, CancellationToken token)
         where T : class, IImmutableInstance
     {
-        using var input = CaptureMutation(model, type);
-        var results = await ExecuteCapturedMutationsAsync([input], token).ConfigureAwait(false);
+        using var input = CaptureMutation(model, type, operationKind);
+        var results = await ExecuteCapturedMutationsAsync([input], operationKind, token).ConfigureAwait(false);
         return results[0] as T ?? throw new ModelLoadFailureException(input.Change.PrimaryKeys);
     }
 
@@ -68,9 +71,9 @@ public partial class Transaction
             {
                 ArgumentNullException.ThrowIfNull(model);
                 if (!seen.Add(model)) throw new ArgumentException("A mutation batch cannot contain the same mutable object twice.", nameof(models));
-                inputs.Add(CaptureMutation(model, TransactionChangeType.Insert));
+                inputs.Add(CaptureMutation(model, TransactionChangeType.Insert, ExecutionOperationKind.Insert));
             }
-            var results = await ExecuteCapturedMutationsAsync(inputs, token).ConfigureAwait(false);
+            var results = await ExecuteCapturedMutationsAsync(inputs, ExecutionOperationKind.Insert, token).ConfigureAwait(false);
             var typed = new List<T>(results.Count);
             for (var i = 0; i < results.Count; i++)
                 typed.Add(results[i] as T ?? throw new ModelLoadFailureException(inputs[i].Change.PrimaryKeys));
@@ -84,7 +87,7 @@ public partial class Transaction
         ArgumentNullException.ThrowIfNull(change);
         MutationPreflight.EnsureExecution(this, change);
         using var input = new CapturedMutation(change, new MutationInputReservation(change.Model), allowUnchangedLookup: false);
-        var results = await ExecuteCapturedMutationsAsync([input], token).ConfigureAwait(false);
+        var results = await ExecuteCapturedMutationsAsync([input], MutationOperationKind(change.Type), token).ConfigureAwait(false);
         return results[0];
     }
 
@@ -99,10 +102,10 @@ public partial class Transaction
         public void Dispose() => Reservation.Dispose();
     }
 
-    private CapturedMutation CaptureMutation(IModelInstance model, TransactionChangeType type)
+    private CapturedMutation CaptureMutation(IModelInstance model, TransactionChangeType type, ExecutionOperationKind operationKind)
     {
         ArgumentNullException.ThrowIfNull(model);
-        var snapshot = MutationPreflight.CaptureAndEnsure(this, model, type);
+        var snapshot = MutationPreflight.CaptureAndEnsure(this, model, type, operationKind);
         var reservation = new MutationInputReservation(model);
         try
         {
@@ -134,17 +137,18 @@ public partial class Transaction
         return readers;
     }
 
-    private Task<List<IImmutableInstance?>> ExecuteCapturedMutationsAsync(IReadOnlyList<CapturedMutation> inputs, CancellationToken token)
-        => ExecuteCapturedMutationsAsync(inputs, BindCapturedMutations(inputs), token);
+    private Task<List<IImmutableInstance?>> ExecuteCapturedMutationsAsync(IReadOnlyList<CapturedMutation> inputs,
+        ExecutionOperationKind operationKind, CancellationToken token)
+        => ExecuteCapturedMutationsAsync(inputs, BindCapturedMutations(inputs), operationKind, token);
 
     private async Task<List<IImmutableInstance?>> ExecuteCapturedMutationsAsync(IReadOnlyList<CapturedMutation> inputs,
-        IAsyncSqlReaderFactory? readers, CancellationToken token)
+        IAsyncSqlReaderFactory? readers, ExecutionOperationKind operationKind, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         var results = new List<IImmutableInstance?>(inputs.Count);
-        using var operation = BeginExclusiveOperation("execute asynchronous mutations");
+        using var operation = BeginExclusiveOperation("execute asynchronous mutations", operationKind: operationKind);
         using var owner = ExecutionGate.EnterStep(operation);
-        EnsureCanRead("execute asynchronous mutations", owner);
+        EnsureCanRead("execute asynchronous mutations", owner, operationKind);
         successfulChanges.EnsureCapacity(successfulChanges.Count + inputs.Count);
         touchedMutables.EnsureCapacity(touchedMutables.Count + inputs.Count);
         var wrote = false;
@@ -220,8 +224,9 @@ public partial class Transaction
                 var failures = new ExecutionFailures();
                 failures.AddReported(failure, stage, failure is OperationCanceledException canceled &&
                     canceled.CancellationToken == token && token.IsCancellationRequested
-                        ? ExecutionFailureCause.Cancellation : stage is ExecutionFailureStage.Materialization or ExecutionFailureStage.Finalization
-                            ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown);
+                        ? ExecutionFailureCause.Cancellation : stage == ExecutionFailureStage.Finalization
+                            ? ExecutionFailureCause.LocalFinalizationError : stage == ExecutionFailureStage.Materialization
+                                ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown, operationKind);
                 var effects = wrote || input.Command?.Dispatched == true;
                 var evidence = new ReadFailureEvidence(Effects: ExecutionEffects.NoStatement, Integrity: TransactionIntegrity.Confirmed);
                 var assessed = true;
@@ -246,7 +251,8 @@ public partial class Transaction
                     if (evidence.Effects != ExecutionEffects.Initialization) evidence = evidence with { Effects = ExecutionEffects.Mutation };
                 }
                 var recovery = ExecutionRecoveryPolicy.ForReadFailure(evidence, assessed && !failures.HasCleanupFailure);
-                var context = failures.Snapshot(evidence, ExecutionCompletion.NotAttempted, recovery, TransactionID);
+                var context = failures.Snapshot(evidence, ExecutionCompletion.NotAttempted, recovery, TransactionID,
+                    operationKind, owner.ProviderInstanceId);
                 RecordAsyncReadFailure(owner, context);
                 ExecutionFailureContexts.Attach(failure, context);
                 operation.ReportFailure(failure);
@@ -268,4 +274,15 @@ public partial class Transaction
     {
         if (!change.HasSameFinalizedMutation()) throw new InvalidOperationException("The mutable assignments changed during asynchronous mutation finalization.");
     }
+
+    // Save is a requested operation, not a statement type. Never derive it from
+    // the selected insert/update after input capture or hydration has begun.
+    private static ExecutionOperationKind MutationOperationKind(TransactionChangeType? type) => type switch
+    {
+        null => ExecutionOperationKind.Save,
+        TransactionChangeType.Insert => ExecutionOperationKind.Insert,
+        TransactionChangeType.Update => ExecutionOperationKind.Update,
+        TransactionChangeType.Delete => ExecutionOperationKind.Delete,
+        _ => ExecutionOperationKind.Unknown
+    };
 }

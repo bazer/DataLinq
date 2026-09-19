@@ -61,7 +61,8 @@ public partial class Transaction
     }
 
     internal async Task<TResult> RunCallbackAsyncCore<TResult>(Func<CancellationToken, Task<TResult>> callback,
-        RecoveryRollbackSettings settings, CancellationToken cancellationToken = default, TimeProvider? timeProvider = null)
+        RecoveryRollbackSettings settings, CancellationToken cancellationToken = default, TimeProvider? timeProvider = null,
+        ExecutionOperationKind callbackOperation = ExecutionOperationKind.TransactionCallback)
     {
         ArgumentNullException.ThrowIfNull(callback);
         ArgumentNullException.ThrowIfNull(settings);
@@ -69,7 +70,7 @@ public partial class Transaction
         try
         {
             return await TransactionCallbackRunner.RunAsync(ExecutionGate, resource, settings, TransactionID,
-                callback, cancellationToken, timeProvider).ConfigureAwait(false);
+                callback, cancellationToken, timeProvider, callbackOperation).ConfigureAwait(false);
         }
         catch (Exception failure)
         {
