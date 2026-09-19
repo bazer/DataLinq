@@ -318,7 +318,8 @@ public sealed partial class TransactionMutationFailureTests
 
     private sealed class CapturedReadProvider(ScriptedMutationScenario scenario) : CapturedReadProvider<TransactionMutationGuardDb>(scenario);
 
-    private class CapturedReadProvider<TModel>(ScriptedMutationScenario scenario) : ScriptedMutationProvider<TModel>(scenario)
+    private class CapturedReadProvider<TModel>(ScriptedMutationScenario scenario, DatabaseType databaseType = DatabaseType.SQLite)
+        : ScriptedMutationProvider<TModel>(scenario, databaseType)
         where TModel : class, IDatabaseModel<TModel>
     {
         public override string GetLastIdQuery() => "SELECT last_insert_rowid()";

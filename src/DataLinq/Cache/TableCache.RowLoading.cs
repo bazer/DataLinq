@@ -85,7 +85,7 @@ public partial class TableCache
         // The index cache is shared committed state. A transaction can observe pending
         // inserts, updates, and deletes, so publishing its visible key set here would let
         // transaction-local state survive rollback and poison later read-only relation loads.
-        var cachePrimaryKeys = dataSource is ReadOnlyAccess &&
+        var cachePrimaryKeys = Table.PrimaryKeyColumns.Count != 0 && dataSource is ReadOnlyAccess &&
             indexCachePolicy.type != IndexCacheType.None;
         var primaryKeyCount = 0;
         var singlePrimaryKey = default(DataLinqKey);
@@ -183,6 +183,15 @@ public partial class TableCache
 
         void AddRowData(RowData rowData)
         {
+            if (Table.PrimaryKeyColumns.Count == 0)
+            {
+                // Keyless candidate-key views are valid relation targets. A null
+                // primary key must not merge different rows or seed index membership.
+                rowCacheMisses++;
+                MetricsHandle.RecordDatabaseRowsLoaded(1);
+                AddLoadedRow(InstanceFactory.NewImmutableRow(rowData, dataSource));
+                return;
+            }
             var primaryKey = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
             AddPrimaryKey(primaryKey);
 
