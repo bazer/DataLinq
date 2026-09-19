@@ -1580,7 +1580,7 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
     /// <returns>The schema.</returns>
     public T Query()
     {
-        EnsureCanRead("access the transaction query root");
+        EnsureCanRead("access the transaction query root", operationKind: ExecutionOperationKind.Query);
         return Database;
     }
 
@@ -1592,7 +1592,7 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
     /// <returns>The model if found; otherwise, <c>null</c>.</returns>
     public M? Get<M>(DataLinqKey key) where M : IImmutableInstance
     {
-        EnsureCanRead("read a model by primary key");
+        EnsureCanRead("read a model by primary key", operationKind: ExecutionOperationKind.KeyLookup);
         if (!Provider.Metadata.TryGetTableModel(typeof(M), out var tableModel))
             throw new Exception($"Found no TableDefinition for model '{typeof(M)}'");
 
@@ -1610,7 +1610,7 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
         where M : IImmutableInstance
         where TKey : notnull
     {
-        EnsureCanRead("read a model by provider key");
+        EnsureCanRead("read a model by provider key", operationKind: ExecutionOperationKind.KeyLookup);
         return IImmutable<M>.GetByProviderKey(key, this);
     }
 
@@ -1621,7 +1621,7 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
     /// <returns>The SQL query.</returns>
     public SqlQuery From(string tableName)
     {
-        EnsureCanRead("create a transaction query");
+        EnsureCanRead("create a transaction query", operationKind: ExecutionOperationKind.Query);
         var table = Provider.Metadata.GetTableModel(tableName).Table;
 
         return new SqlQuery(table, this);
@@ -1634,7 +1634,7 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
     /// <returns>The SQL query.</returns>
     public SqlQuery From(TableDefinition table)
     {
-        EnsureCanRead("create a transaction query");
+        EnsureCanRead("create a transaction query", operationKind: ExecutionOperationKind.Query);
         return new SqlQuery(table, this);
     }
 
@@ -1645,7 +1645,7 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
     /// <returns>The SQL query.</returns>
     public SqlQuery<V> From<V>() where V : IModel
     {
-        EnsureCanRead("create a transaction query");
+        EnsureCanRead("create a transaction query", operationKind: ExecutionOperationKind.Query);
         return new SqlQuery<V>(this);
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Execution;
 using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
@@ -21,11 +22,14 @@ public partial class ImmutableRelation<T, TKey>
         // Admission precedes waiting, so same-transaction overlap never becomes
         // implicit queuing behind this relation's owner.
         var source = GetDataSource();
-        using var read = DataSourceAccess.BeginRead(source, "load asynchronous relation values");
+        var identity = ReadExecutionIdentity.Capture(source, ExecutionOperationKind.RelationLoad);
+        using var read = DataSourceAccess.BeginRead(source, "load asynchronous relation values", operationKind: identity.Operation);
+        var stage = ExecutionFailureStage.Validation;
         try
         {
             var table = GetTableCache(source);
             var prepared = table.PrepareRelationRowsAsyncCore(foreignKey, property, source, read?.Step);
+            stage = ExecutionFailureStage.Materialization;
             token.ThrowIfCancellationRequested();
             var current = Volatile.Read(ref snapshot);
             if (current is not null && ReferenceEquals(current.Source, source))
@@ -58,6 +62,6 @@ public partial class ImmutableRelation<T, TKey>
             }
             finally { loadSlot.Release(); }
         }
-        catch (Exception failure) { read?.ReportFailure(failure); throw; }
+        catch (Exception failure) { identity.ReportLocalFailure(failure, source, read?.Step, token, stage); read?.ReportFailure(failure); throw; }
     }
 }

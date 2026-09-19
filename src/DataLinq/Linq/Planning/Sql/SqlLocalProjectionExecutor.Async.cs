@@ -41,7 +41,8 @@ internal sealed partial class SqlLocalProjectionExecutor
             ?? throw new InvalidOperationException("The async reader factory returned no invocation snapshot.");
         var source = factory.BindReader(CapturedSql.Capture(select.ToSql()));
         return new(source, null, dataSource as Transaction,
-            Continuation: new JoinedProjection<T>(this, invocation, recipe, options, joined, factory, source));
+            Continuation: new JoinedProjection<T>(this, invocation, recipe, options, joined, factory, source),
+            Identity: ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.Query));
     }
 
     private static T EvaluateAsyncProjection<T>(QueryPlanProjectionRecipe recipe, Dictionary<QueryPlanSourceSlot, object?> sources,
@@ -87,7 +88,8 @@ internal sealed partial class SqlLocalProjectionExecutor
                     if (!hydrated.TryGetValue((i, keys[i]), out var row))
                     {
                         row = await executor.dataSource.Provider.GetTableCache(sources[i].Table)
-                            .GetProviderRowAsyncCore(keys[i], executor.dataSource, token, owner, factory, current => evidence = current).ConfigureAwait(false)
+                            .GetProviderRowAsyncCore(keys[i], executor.dataSource, token, owner, factory, current => evidence = current,
+                                operationKind: ExecutionOperationKind.Query).ConfigureAwait(false)
                             ?? throw new InvalidOperationException($"Joined row for table '{sources[i].Table.DbName}' could not be materialized from its provider primary key.");
                         hydrated.Add((i, keys[i]), row);
                     }

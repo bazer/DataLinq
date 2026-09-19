@@ -11,13 +11,15 @@ public partial class Select<T>
     {
         var factory = IAsyncSqlScalarFactory.Require(query.DataSource.DatabaseAccess);
         var source = factory.BindScalar(CapturedSql.Capture(ToSql()));
-        return AsyncScalarRead.ExecuteAsync(source, query.DataSource as Transaction, static value => value, cancellationToken);
+        return AsyncScalarRead.ExecuteAsync(source, query.DataSource as Transaction, static value => value, cancellationToken,
+            ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query));
     }
 
     internal Task<V> ExecuteScalarAsyncCore<V>(CancellationToken cancellationToken = default)
     {
         var factory = IAsyncSqlScalarFactory.Require(query.DataSource.DatabaseAccess);
         var invocation = factory.BindScalar<V>(CapturedSql.Capture(ToSql()));
-        return AsyncScalarRead.ExecuteAsync(invocation.Source, query.DataSource as Transaction, invocation.Convert, cancellationToken);
+        return AsyncScalarRead.ExecuteAsync(invocation.Source, query.DataSource as Transaction, invocation.Convert, cancellationToken,
+            ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query));
     }
 }

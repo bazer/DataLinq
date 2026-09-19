@@ -13,14 +13,16 @@ namespace DataLinq.Execution;
 internal sealed class AsyncBufferedRead<TResult>(
     IDataSourceAccess dataSource, IAsyncReaderSource source,
     Action<IAsyncDataReader> addRow, Func<TResult> complete,
-    TransactionOperationGate.Step? owner = null, bool firstRowOnly = false) : IAsyncReadFailureEvidence
+    TransactionOperationGate.Step? owner = null, bool firstRowOnly = false,
+    ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown) : IAsyncReadFailureEvidence
 {
     private const string Operation = "load asynchronous source rows";
+    private readonly ReadExecutionIdentity identity = ReadExecutionIdentity.Capture(dataSource, operationKind, owner);
     private int executed;
 
     internal void Validate()
     {
-        DataSourceAccess.EnsureReadAllowed(dataSource, Operation, owner);
+        DataSourceAccess.EnsureReadAllowed(dataSource, Operation, owner, identity.Operation);
         source.Validate();
         if (source is IAsyncTransactionReaderSource && dataSource is not Transaction)
             throw new InvalidOperationException("This reader source requires a managed transaction owner.");
@@ -44,7 +46,7 @@ internal sealed class AsyncBufferedRead<TResult>(
         token.ThrowIfCancellationRequested();
         if (Interlocked.Exchange(ref executed, 1) != 0)
             throw new InvalidOperationException("A captured buffered read can execute only once.");
-        using var ownership = DataSourceAccess.BeginRead(dataSource, Operation, owner, token);
+        using var ownership = DataSourceAccess.BeginRead(dataSource, Operation, owner, token, identity.Operation);
         var step = owner ?? ownership?.Step;
         var transaction = dataSource as Transaction;
         var failures = new ExecutionFailures();
@@ -115,7 +117,7 @@ internal sealed class AsyncBufferedRead<TResult>(
             var recovery = step is null ? ExecutionRecoveryActions.None
                 : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessmentSucceeded);
             var context = failures.Snapshot(evidence, transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
-                recovery, transaction?.TransactionID);
+                recovery, transaction?.TransactionID, identity.Operation, identity.ProviderInstanceId);
             if (step is not null) transaction!.RecordAsyncReadFailure(step, context);
             ExecutionFailureContexts.Attach(primary, context);
             ownership?.ReportFailure(primary);

@@ -31,7 +31,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader
                 throw new InvalidOperationException($"Singular source-row query for table '{table.DbName}' returned more than one row.");
             row = ProviderRowDecoder.DecodeFullRow(reader, table, sourceName);
             SourceRowLoadingValidation.ValidateSingleResult(table, in key, row, "Source row loader");
-        }, () => row, owner);
+        }, () => row, owner, operationKind: asyncOperationKind);
     }
 
     internal Task<SourceRowLoadResult> LoadAsync(SourcePrimaryKeyRowRequest request) =>
@@ -49,7 +49,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader
         var builder = new SourceRowLoadResult.Builder(captured, captured.CanonicalProviderKeys.Length);
         return new AsyncBufferedRead<SourceRowLoadResult>(dataSource, factory.BindReader(sql),
             reader => builder.Add(ProviderRowDecoder.DecodeFullRow(reader, captured.Table, sourceName)),
-            () => builder.Build(request), owner);
+            () => builder.Build(request), owner, operationKind: asyncOperationKind);
     }
 
     internal Task<SourceIndexRowLoadResult> LoadAsync(SourceIndexRowRequest request)
@@ -67,7 +67,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader
         var builder = new SourceIndexRowLoadResult.Builder(request);
         return new AsyncBufferedRead<SourceIndexRowLoadResult>(dataSource, factory.BindReader(sql),
             reader => builder.Add(ProviderRowDecoder.DecodeFullRow(reader, request.Table, sourceName)),
-            () => builder.Build(), owner);
+            () => builder.Build(), owner, operationKind: asyncOperationKind);
     }
 
     internal AsyncBufferedRead<IReadOnlyList<LoadedCanonicalRow>> CaptureProviderMatchedAsyncRead(SourcePrimaryKeyRowRequest request)
@@ -86,7 +86,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader
             // Preserve the existing SQL batch path: provider collation/storage decides
             // matches. Do not apply neutral requested-key or duplicate validation here.
             rows.Add(new LoadedCanonicalRow(row, key));
-        }, () => rows, owner);
+        }, () => rows, owner, operationKind: asyncOperationKind);
     }
 
     internal AsyncBufferedRead<CanonicalProviderValueRow?> CaptureProviderMatchedSingleAsyncRead(TableDefinition table, DataLinqKey key)
@@ -101,6 +101,6 @@ internal sealed partial class DataSourceAccessSourceRowLoader
         var sql = CapturedSql.Capture(query.ToSql());
         CanonicalProviderValueRow? row = null;
         return new(dataSource, factory.BindReader(sql), reader => row = ProviderRowDecoder.DecodeFullRow(reader, table, sourceName),
-            () => row, owner, firstRowOnly: true);
+            () => row, owner, firstRowOnly: true, operationKind: asyncOperationKind);
     }
 }

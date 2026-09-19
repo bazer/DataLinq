@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Execution;
 using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
@@ -18,7 +19,9 @@ public partial class ImmutableForeignKey<T, TKey>
     private async Task<T?> LoadValueAsyncCore(bool required, CancellationToken token)
     {
         var source = GetDataSource();
-        using var read = DataSourceAccess.BeginRead(source, "load an asynchronous relation reference");
+        var identity = ReadExecutionIdentity.Capture(source, ExecutionOperationKind.RelationLoad);
+        using var read = DataSourceAccess.BeginRead(source, "load an asynchronous relation reference", operationKind: identity.Operation);
+        var stage = ExecutionFailureStage.Materialization;
         try
         {
             if (ProviderKeyComponents.HasNullReferenceComponent(foreignKey))
@@ -27,7 +30,9 @@ public partial class ImmutableForeignKey<T, TKey>
                 return RequireValue(default);
             }
             var table = GetTableCache(source);
+            stage = ExecutionFailureStage.Validation;
             var prepared = table.PrepareRelationRowsAsyncCore(foreignKey, property, source, read?.Step);
+            stage = ExecutionFailureStage.Materialization;
             token.ThrowIfCancellationRequested();
             var current = Volatile.Read(ref valueHolder);
             if (current is not null && ReferenceEquals(current.Source, source))
@@ -57,7 +62,7 @@ public partial class ImmutableForeignKey<T, TKey>
             }
             finally { loadSlot.Release(); }
         }
-        catch (Exception failure) { read?.ReportFailure(failure); throw; }
+        catch (Exception failure) { identity.ReportLocalFailure(failure, source, read?.Step, token, stage); read?.ReportFailure(failure); throw; }
 
         T? RequireValue(T? value) => required && value is null
             ? throw new InvalidOperationException($"Required relation '{property.Model.CsType.Name}.{property.PropertyName}' did not resolve to a target row.")

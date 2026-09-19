@@ -18,11 +18,13 @@ internal sealed class AsyncReaderEnumerable<T> : IAsyncEnumerable<T>
 
     internal AsyncReaderEnumerable(
         Func<IAsyncReaderSource> capture, Func<IAsyncDataReader, T> materialize,
-        Transaction? transaction = null, CancellationToken cancellationToken = default)
+        Transaction? transaction = null, CancellationToken cancellationToken = default,
+        ReadExecutionIdentity identity = default)
     {
         ArgumentNullException.ThrowIfNull(capture);
         ArgumentNullException.ThrowIfNull(materialize);
-        this.capture = () => new(capture() ?? throw new InvalidOperationException("Reader capture returned no source."), materialize, transaction);
+        this.capture = () => new(capture() ?? throw new InvalidOperationException("Reader capture returned no source."), materialize, transaction,
+            Identity: identity.Bind(transaction));
         methodToken = cancellationToken;
     }
 
@@ -39,12 +41,14 @@ internal sealed class AsyncReaderEnumerable<T> : IAsyncEnumerable<T>
         ArgumentNullException.ThrowIfNull(invocation.Source);
         if ((invocation.Materialize is null ? 0 : 1) + (invocation.Buffer is null ? 0 : 1) + (invocation.Continuation is null ? 0 : 1) != 1)
             throw new InvalidOperationException("A reader invocation requires exactly one row materializer, buffer or continuation.");
-        return new AsyncReaderEnumerator<T>(invocation.Source, invocation.Materialize, invocation.Transaction, methodToken, cancellationToken, invocation.Buffer, invocation.Continuation);
+        return new AsyncReaderEnumerator<T>(invocation.Source, invocation.Materialize, invocation.Transaction, methodToken, cancellationToken,
+            invocation.Buffer, invocation.Continuation, invocation.Identity);
     }
 }
 
 internal sealed record AsyncReaderInvocation<T>(IAsyncReaderSource Source, Func<IAsyncDataReader, T>? Materialize,
-    Transaction? Transaction = null, IAsyncReaderBuffer<T>? Buffer = null, IAsyncReaderContinuation<T>? Continuation = null);
+    Transaction? Transaction = null, IAsyncReaderBuffer<T>? Buffer = null, IAsyncReaderContinuation<T>? Continuation = null,
+    ReadExecutionIdentity Identity = default);
 
 /// <summary>Invocation-local aggregation. No result is visible until all rows and cleanup succeed.</summary>
 internal interface IAsyncReaderBuffer<T>
@@ -76,6 +80,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
     private IReadOnlyList<T>? bufferedResults;
     private int bufferedPosition;
     private readonly Transaction? transaction;
+    private readonly ReadExecutionIdentity identity;
     private readonly EnumeratorCallGate calls = new();
     private readonly CancellationToken token;
     private CancellationTokenSource? linkedTokens;
@@ -92,7 +97,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
     internal AsyncReaderEnumerator(
         IAsyncReaderSource source, Func<IAsyncDataReader, T>? materialize, Transaction? transaction,
         CancellationToken methodToken, CancellationToken enumeratorToken, IAsyncReaderBuffer<T>? buffer = null,
-        IAsyncReaderContinuation<T>? continuation = null)
+        IAsyncReaderContinuation<T>? continuation = null, ReadExecutionIdentity identity = default)
     {
         this.source = source;
         this.materialize = materialize;
@@ -100,6 +105,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
         this.continuation = continuation;
         failureEvidence = source as IAsyncReadFailureEvidence;
         this.transaction = transaction;
+        this.identity = identity.Bind(transaction);
         if (!methodToken.CanBeCanceled)
             token = enumeratorToken;
         else if (!enumeratorToken.CanBeCanceled || methodToken == enumeratorToken)
@@ -138,7 +144,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
             var cause = ExecutionFailureCause.Unknown;
             try
             {
-                transaction?.EnsureCanRead(Operation, ownership?.Step);
+                transaction?.EnsureCanRead(Operation, ownership?.Step, identity.Operation);
                 if (!started)
                 {
                     source.Validate();
@@ -146,7 +152,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                         throw new InvalidOperationException("This reader source requires a managed transaction owner.");
                     CheckCancellation();
                     if (transaction is not null)
-                        ownership = DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token);
+                        ownership = DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token, operationKind: identity.Operation);
                     ownership?.RegisterReader(this);
                     started = true;
                     stage = ExecutionFailureStage.CommandExecution;
@@ -296,7 +302,10 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                 // A child operation already classified its own settled resources. The
                 // initial reader is closed before continuation, so do not replace that
                 // assessment with evidence from the earlier, successful key read.
-                var reported = continuationStarted ? ExecutionFailureContexts.Get(primary) : null;
+                // Before admission, a gate rejection already describes the active
+                // operation. This enumerator owns no work and must not replace its
+                // FinishActiveOperation policy with a read-cleanup assessment.
+                var reported = continuationStarted || !started ? ExecutionFailureContexts.Get(primary) : null;
                 if (reported is null && started && failureEvidence is { } classifier)
                 {
                     try
@@ -312,9 +321,9 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                 }
                 var recovery = ownership is null ? ExecutionRecoveryActions.None
                     : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessmentSucceeded);
-                var context = reported ?? failures.Snapshot(evidence,
-                    transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
-                    recovery, transaction?.TransactionID);
+                var context = failures.Snapshot(evidence,
+                    reported?.Completion ?? (transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted),
+                    reported?.Recovery ?? recovery, transaction?.TransactionID, identity.Operation, identity.ProviderInstanceId);
                 // Publish restrictions before releasing admission: another operation must
                 // never observe a free gate with the old, apparently reusable state.
                 if (ownership is not null)

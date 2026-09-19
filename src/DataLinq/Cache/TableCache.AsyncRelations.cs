@@ -44,7 +44,7 @@ public partial class TableCache
     {
         ArgumentNullException.ThrowIfNull(property);
         ArgumentNullException.ThrowIfNull(source);
-        DataSourceAccess.EnsureReadAllowed(source, "capture asynchronous relation rows", owner);
+        DataSourceAccess.EnsureReadAllowed(source, "capture asynchronous relation rows", owner, ExecutionOperationKind.RelationLoad);
         var index = property.RelationPart.GetOtherSide().ColumnIndex;
         if (!ReferenceEquals(index.Table, Table)) throw new ArgumentException("The relation index belongs to a different table.", nameof(property));
         var key = ProviderKeyComponents.ToDataLinqKey(foreignKey);
@@ -53,7 +53,7 @@ public partial class TableCache
             throw new NotSupportedException("This read source does not support canonical model materialization.");
         var factory = IAsyncSqlReaderFactory.Require(source.DatabaseAccess).CaptureInvocation()
             ?? throw new InvalidOperationException("The async reader factory returned no invocation snapshot.");
-        var loader = new DataSourceAccessSourceRowLoader(source, owner, factory);
+        var loader = new DataSourceAccessSourceRowLoader(source, owner, factory, ExecutionOperationKind.RelationLoad);
         if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
         {
             var single = ProviderKeyComponents.SupportsNeutralSourceRowLoading(Table, source.Provider.DatabaseType)
@@ -80,7 +80,7 @@ public partial class TableCache
             var keyless = new AsyncBufferedRead<IReadOnlyList<CanonicalProviderValueRow>>(source,
                 factory.BindReader(CapturedSql.Capture(sql)),
                 reader => keylessRows.Add(ProviderRowDecoder.DecodeFullRow(reader, Table, $"sql:{source.Provider.DatabaseType}:relation")),
-                () => keylessRows, owner);
+                () => keylessRows, owner, operationKind: ExecutionOperationKind.RelationLoad);
             keyless.Validate();
             return new(this, source, index, key, owner, factory, keyless: keyless);
         }
@@ -90,7 +90,7 @@ public partial class TableCache
             var decoded = ProviderRowDecoder.DecodeFullRow(reader, Table, $"sql:{source.Provider.DatabaseType}:relation");
             if (!decoded.TryCreateCanonicalPrimaryKey(out var primary)) throw new InvalidOperationException("A relation row has no canonical primary key.");
             rows.Add(new(decoded, primary));
-        }, () => rows, owner);
+        }, () => rows, owner, operationKind: ExecutionOperationKind.RelationLoad);
         matched.Validate();
         return new(this, source, index, key, owner, factory, matched: matched);
     }
@@ -99,13 +99,16 @@ public partial class TableCache
         RelationProperty property, IDataSourceAccess source, CancellationToken token = default)
         where TKey : notnull
     {
-        using var scope = DataSourceAccess.BeginRead(source, "load asynchronous relation rows");
+        var identity = ReadExecutionIdentity.Capture(source, ExecutionOperationKind.RelationLoad);
+        using var scope = DataSourceAccess.BeginRead(source, "load asynchronous relation rows", operationKind: identity.Operation);
+        var stage = ExecutionFailureStage.Validation;
         try
         {
             var prepared = PrepareRelationRowsAsyncCore(key, property, source, scope?.Step);
+            stage = ExecutionFailureStage.Materialization;
             return await ExecuteRelationRowsAsyncCore(prepared, token).ConfigureAwait(false);
         }
-        catch (Exception failure) { scope?.ReportFailure(failure); throw; }
+        catch (Exception failure) { identity.ReportLocalFailure(failure, source, scope?.Step, token, stage); scope?.ReportFailure(failure); throw; }
     }
 
     internal Task<IImmutableInstance[]> ExecuteRelationRowsAsyncCore(PreparedRelationRows prepared, CancellationToken token)
@@ -147,14 +150,15 @@ public partial class TableCache
             if (prepared.Single is { } single)
             {
                 var row = await GetProviderRowAsyncCore(key, source, token, step, prepared.Factory,
-                    read => observed = read, single).ConfigureAwait(false);
+                    read => observed = read, single, ExecutionOperationKind.RelationLoad).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
                 return complete(row is null ? [] : [row]);
             }
             var cacheMembership = source is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None;
             if (cacheMembership && TryGetIndexCache(index)?.TryGet(key, out var keys) == true)
             {
-                var result = await LoadQueryRowsAsync(keys!, source, prepared.Factory, step, read => observed = read, token).ConfigureAwait(false);
+                var result = await LoadQueryRowsAsync(keys!, source, prepared.Factory, step, read => observed = read, token,
+                    ExecutionOperationKind.RelationLoad).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
                 return complete(result.ToArray());
             }
@@ -212,7 +216,8 @@ public partial class TableCache
                 }
                 catch (Exception assessment) { assessed = false; evidence = new(); failures.AddReported(assessment, ExecutionFailureStage.Recovery); }
                 var context = failures.Snapshot(evidence, ExecutionCompletion.NotAttempted,
-                    ExecutionRecoveryPolicy.ForReadFailure(evidence, assessed && !failures.HasCleanupFailure), transaction.TransactionID);
+                    ExecutionRecoveryPolicy.ForReadFailure(evidence, assessed && !failures.HasCleanupFailure), transaction.TransactionID,
+                    step.Kind, step.ProviderInstanceId);
                 transaction.RecordAsyncReadFailure(step, context);
                 ExecutionFailureContexts.Attach(failure, context);
             }

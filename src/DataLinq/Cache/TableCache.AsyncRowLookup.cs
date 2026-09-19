@@ -17,7 +17,7 @@ public partial class TableCache
     internal Task<IImmutableInstance?> GetCanonicalRowAsyncCore(
         DataLinqKey key, IDataSourceAccess dataSource, CancellationToken token = default)
     {
-        DataSourceAccess.EnsureReadAllowed(dataSource, "read an asynchronous cache row");
+        DataSourceAccess.EnsureReadAllowed(dataSource, "read an asynchronous cache row", operationKind: ExecutionOperationKind.KeyLookup);
         if (GetCanonicalPrimaryKeySourceServices(dataSource) is null)
             throw new NotSupportedException("This key shape does not support neutral canonical row loading.");
         return GetProviderRowAsyncCore(key, dataSource, token);
@@ -27,13 +27,14 @@ public partial class TableCache
         DataLinqKey key, IDataSourceAccess dataSource, CancellationToken token = default,
         TransactionOperationGate.Step? owner = null, IAsyncSqlReaderFactory? factory = null,
         Action<IAsyncReadFailureEvidence>? observingRead = null,
-        AsyncBufferedRead<CanonicalProviderValueRow?>? preparedRead = null)
+        AsyncBufferedRead<CanonicalProviderValueRow?>? preparedRead = null,
+        ExecutionOperationKind operationKind = ExecutionOperationKind.KeyLookup)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
-        DataSourceAccess.EnsureReadAllowed(dataSource, "read an asynchronous cache row", owner);
+        DataSourceAccess.EnsureReadAllowed(dataSource, "read an asynchronous cache row", owner, owner?.Kind ?? operationKind);
         if (dataSource is not IDataLinqSourceRowServices)
             throw new NotSupportedException("This read source does not support canonical model materialization.");
-        var loader = new DataSourceAccessSourceRowLoader(dataSource, owner, factory);
+        var loader = new DataSourceAccessSourceRowLoader(dataSource, owner, factory, operationKind);
         var read = preparedRead ?? (ProviderKeyComponents.SupportsNeutralSourceRowLoading(Table, dataSource.Provider.DatabaseType)
             ? loader.CaptureSingleAsyncRead(Table, key)
             : loader.CaptureProviderMatchedSingleAsyncRead(Table, key));
