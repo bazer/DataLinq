@@ -2,8 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
@@ -22,6 +25,7 @@ public class DatabaseCache : IDisposable
     public IDatabaseProvider Database { get; set; }
     internal DatabaseCachePolicy Policy { get; }
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
+    private OwnedRootDisposal? disposal;
     public Dictionary<TableDefinition, TableCache> TableCaches { get; }
 
     public CleanCacheWorker? CleanCacheWorker => null;
@@ -31,7 +35,15 @@ public class DatabaseCache : IDisposable
     public CacheHistory History { get; } = new();
 
     public DatabaseCache(IDatabaseProvider database, DataLinqLoggingConfiguration loggingConfiguration)
+        : this(database, loggingConfiguration, static cache => IsBrowserRuntime() ? null
+            : new CacheCleanupScheduler(cache, cache.Policy.CacheCleanup, TimeProviderFactory(), MemoryPressureReaderFactory()))
     {
+    }
+
+    internal DatabaseCache(IDatabaseProvider database, DataLinqLoggingConfiguration loggingConfiguration,
+        Func<DatabaseCache, CacheCleanupScheduler?> createScheduler)
+    {
+        ArgumentNullException.ThrowIfNull(createScheduler);
         this.Database = database;
         this.loggingConfiguration = loggingConfiguration;
         this.Policy = DatabaseCachePolicy.FromMetadata(database.Metadata);
@@ -42,11 +54,8 @@ public class DatabaseCache : IDisposable
             this.TableCaches.Add(table, new TableCache(table, this, loggingConfiguration));
         }
 
-        if (!IsBrowserRuntime())
-        {
-            CleanupScheduler = new CacheCleanupScheduler(this, Policy.CacheCleanup, TimeProviderFactory(), MemoryPressureReaderFactory());
-            CleanupScheduler.Start();
-        }
+        CleanupScheduler = createScheduler(this);
+        CleanupScheduler?.Start();
     }
 
     //public TableCache GetTableCache(string tableName)
@@ -392,9 +401,31 @@ public class DatabaseCache : IDisposable
 
     public void Dispose()
     {
-        this.CleanupScheduler?.Stop();
+        GetDisposal().Dispose();
+    }
+
+    internal ValueTask DisposeAsyncCore() => GetDisposal().DisposeAsync();
+
+    internal void ValidateDisposal() => CleanupScheduler?.ValidateStop();
+
+    private OwnedRootDisposal GetDisposal() => LazyInitializer.EnsureInitialized(ref disposal,
+        () => new OwnedRootDisposal(CaptureCleanup));
+
+    private RootCleanupStep[] CaptureCleanup()
+    {
+        var steps = new List<RootCleanupStep>();
+        if (CleanupScheduler is { } scheduler)
+            steps.Add(RootCleanupStep.Resource(scheduler.Dispose, scheduler.DisposeAsyncCore, scheduler.ValidateStop));
+        // Every table gets both independent cleanup attempts even if an earlier
+        // observer or telemetry callback failed. No user transaction is disposed.
         foreach (var table in TableCaches.Values)
-            table.UnregisterTelemetry();
-        this.ClearCache();
+            steps.Add(RootCleanupStep.Local(table.UnregisterTelemetry));
+        foreach (var table in TableCaches.Values)
+        {
+            steps.Add(RootCleanupStep.Local(table.ClearRowsWithoutNotification));
+            steps.Add(RootCleanupStep.Local(table.ClearIndex));
+            steps.Add(RootCleanupStep.Local(table.NotifyRecoveryClear));
+        }
+        return steps.ToArray();
     }
 }

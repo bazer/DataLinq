@@ -196,7 +196,7 @@ Required work:
 - add focused cancellation/failure tests with deterministic controllable providers
 - keep synchronous implementations direct
 
-The [async relation loading slice](W1%20Async%20Relation%20Loading.md) adds shared synchronous/asynchronous cold-load coordination, independent waiting cancellation and generation-safe buffered publication with controllable evidence. The [relation keys and targets follow-through](W1%20Relation%20Keys%20and%20Targets.md) reconciles converted/binary/composite keys, GUID writer capture and keyless candidate-key views, fixing async rejection and synchronous false cache identity. Full diagnostics, measured coordination costs and the final cross-family audit remain tracked in the completion audit.
+The [async relation loading slice](W1%20Async%20Relation%20Loading.md) adds shared synchronous/asynchronous cold-load coordination, independent waiting cancellation and generation-safe buffered publication with controllable evidence. The [relation keys and targets follow-through](W1%20Relation%20Keys%20and%20Targets.md) reconciles converted/binary/composite keys, GUID writer capture and keyless candidate-key views, fixing async rejection and synchronous false cache identity. The [owning-root disposal slice](W1%20Owning%20Root%20Disposal.md) adds internal shared disposal state, independent cleanup/failure preservation and safe owned-maintenance shutdown without draining dependent application work. It also clarifies internal adapter compatibility readiness versus W2 production wiring under the accepted limited W1 exception. Full diagnostics, measured coordination costs and the final cross-family audit remain tracked in the completion audit.
 
 Exit gate:
 

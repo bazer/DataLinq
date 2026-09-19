@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 
 namespace DataLinq.Cache;
 
@@ -18,6 +19,12 @@ public sealed class CacheCleanupScheduler : IDisposable
     private readonly List<ScheduledCleanupInterval> schedules;
     private CancellationTokenSource? cancellationTokenSource;
     private Task? workerTask;
+    private bool stopping;
+    private bool disposed;
+    private TaskCompletionSource<ExecutionFailures?>? stopCompletion;
+    // Self-join detection only, never execution authority. Synchronous callbacks
+    // restore this marker before any await, including on subsequent worker ticks.
+    [ThreadStatic] private static CacheCleanupScheduler? executingMaintenance;
     private DateTimeOffset? lastPressureCleanupAt;
     private DateTimeOffset nextPressureCheck;
 
@@ -41,16 +48,19 @@ public sealed class CacheCleanupScheduler : IDisposable
     public bool IsRunning => Volatile.Read(ref workerTask) is { IsCompleted: false };
 
     internal int BackgroundWorkerCount => IsRunning ? 1 : 0;
+    internal bool IsStopping { get { lock (lifecycleGate) return stopping; } }
 
     public void Start()
     {
-        if (!HasWorkToSchedule())
-            return;
-
         lock (lifecycleGate)
         {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (stopping) throw new InvalidOperationException("Cache maintenance shutdown is in progress.");
+            if (!HasWorkToSchedule()) return;
             if (workerTask is { IsCompleted: false })
                 return;
+            if (workerTask is not null)
+                throw new InvalidOperationException("Stop the completed cache maintenance worker before starting another one.");
 
             cancellationTokenSource = new CancellationTokenSource();
             var token = cancellationTokenSource.Token;
@@ -70,33 +80,100 @@ public sealed class CacheCleanupScheduler : IDisposable
 
     public void Stop()
     {
-        CancellationTokenSource? source;
-        Task? task;
+        Stop(permanent: false);
+    }
 
+    internal void ValidateStop()
+    {
+        if (ReferenceEquals(executingMaintenance, this))
+            throw new InvalidOperationException("Cache maintenance cannot dispose its own owning root or wait for itself.");
+    }
+
+    private (CancellationTokenSource Source, Task Task, TaskCompletionSource<ExecutionFailures?> Completion, bool Owner)? BeginStop(bool permanent)
+    {
+        ValidateStop();
         lock (lifecycleGate)
         {
-            source = cancellationTokenSource;
-            task = workerTask;
-            cancellationTokenSource = null;
-            workerTask = null;
+            // A root can take over a temporary Stop already in progress. Both
+            // callers observe the same shutdown; neither abandons the worker.
+            if (stopping)
+            {
+                disposed |= permanent;
+                return (cancellationTokenSource!, workerTask!, stopCompletion!, false);
+            }
+            if (disposed) return null;
+            if (permanent) disposed = true;
+            if (workerTask is null) return null;
+            stopping = true;
+            stopCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            return (cancellationTokenSource!, workerTask, stopCompletion, true);
         }
+    }
 
-        source?.Cancel();
+    private ExecutionFailures? Cancel(CancellationTokenSource source)
+    {
+        var previous = executingMaintenance;
+        executingMaintenance = this;
+        try { source.Cancel(); return null; }
+        catch (Exception failure) { var failures = new ExecutionFailures(); failures.AddCleanup(failure); return failures; }
+        finally { executingMaintenance = previous; }
+    }
 
-        if (task is not null &&
-            task.Id != Task.CurrentId &&
-            !task.IsCompleted)
+    private void Stop(bool permanent)
+    {
+        if (BeginStop(permanent) is not { } worker) return;
+        if (!worker.Owner)
         {
-            try
+            OwnedRootDisposal.ThrowFailures(worker.Completion.Task.GetAwaiter().GetResult());
+            return;
+        }
+        var failures = Cancel(worker.Source);
+        try
+        {
+            // Join this root's local maintenance task. This is not a provider
+            // sync-over-async execution path and has no abandonment timeout.
+            worker.Task.GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException canceled) when (worker.Source.IsCancellationRequested && canceled.CancellationToken == worker.Source.Token) { }
+        catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
+        FinishStop(worker.Source, ref failures);
+        worker.Completion.SetResult(failures);
+        OwnedRootDisposal.ThrowFailures(failures);
+    }
+
+    internal ValueTask DisposeAsyncCore() => StopAsync(permanent: true);
+
+    private async ValueTask StopAsync(bool permanent)
+    {
+        if (BeginStop(permanent) is not { } worker) return;
+        if (!worker.Owner)
+        {
+            OwnedRootDisposal.ThrowFailures(await worker.Completion.Task.ConfigureAwait(false));
+            return;
+        }
+        var failures = Cancel(worker.Source);
+        try { await worker.Task.ConfigureAwait(false); }
+        catch (OperationCanceledException canceled) when (worker.Source.IsCancellationRequested && canceled.CancellationToken == worker.Source.Token) { }
+        catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
+        FinishStop(worker.Source, ref failures);
+        worker.Completion.SetResult(failures);
+        OwnedRootDisposal.ThrowFailures(failures);
+    }
+
+    private void FinishStop(CancellationTokenSource source, ref ExecutionFailures? failures)
+    {
+        try { source.Dispose(); }
+        catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
+        finally
+        {
+            lock (lifecycleGate)
             {
-                task.Wait(TimeSpan.FromSeconds(5));
-            }
-            catch (AggregateException exception) when (exception.InnerExceptions.All(x => x is OperationCanceledException))
-            {
+                workerTask = null;
+                cancellationTokenSource = null;
+                stopCompletion = null;
+                stopping = false;
             }
         }
-
-        source?.Dispose();
     }
 
     internal CacheCleanupPassResult RunScheduledCleanup()
@@ -203,22 +280,28 @@ public sealed class CacheCleanupScheduler : IDisposable
 
     private async Task RunLoopAsync(CancellationToken cancellationToken)
     {
-        var now = timeProvider.GetUtcNow();
-        for (var i = 0; i < schedules.Count; i++)
-            schedules[i].MarkDue(now);
-        nextPressureCheck = now;
-
+        var first = true;
         while (!cancellationToken.IsCancellationRequested)
         {
-            now = timeProvider.GetUtcNow();
-            RunDueScheduledCleanup(now);
-            RunDueMemoryPressureCleanup(now);
-
-            var delay = GetDelayUntilNextWork(now);
-            if (delay <= TimeSpan.Zero)
-                continue;
-
-            await Task.Delay(delay, timeProvider, cancellationToken).ConfigureAwait(false);
+            Task delayTask;
+            var previous = executingMaintenance;
+            executingMaintenance = this;
+            try
+            {
+                var now = timeProvider.GetUtcNow();
+                if (first)
+                {
+                    foreach (var schedule in schedules) schedule.MarkDue(now);
+                    nextPressureCheck = now;
+                    first = false;
+                }
+                RunDueScheduledCleanup(now);
+                RunDueMemoryPressureCleanup(now);
+                var delay = GetDelayUntilNextWork(now);
+                delayTask = delay <= TimeSpan.Zero ? Task.CompletedTask : Task.Delay(delay, timeProvider, cancellationToken);
+            }
+            finally { executingMaintenance = previous; }
+            await delayTask.ConfigureAwait(false);
         }
     }
 
@@ -244,7 +327,7 @@ public sealed class CacheCleanupScheduler : IDisposable
 
     public void Dispose()
     {
-        Stop();
+        Stop(permanent: true);
     }
 
     internal static TimeSpan ConvertCleanupIntervalToTimeSpan(CacheCleanupType type, long amount)
