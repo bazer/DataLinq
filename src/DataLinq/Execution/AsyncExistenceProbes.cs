@@ -101,10 +101,11 @@ internal static class AsyncExistenceProbes
             ?? throw new InvalidOperationException("Probe capture returned no plan.");
         plan.Validate();
         token.ThrowIfCancellationRequested();
-        return ExecuteAsync(plan, request.Kind, token);
+        return ExecuteAsync(plan, request.Kind, token, provider.TelemetryInstanceId);
     }
 
-    private static async Task<bool> ExecuteAsync(ExistenceProbePlan plan, ExistenceProbeKind kind, CancellationToken token)
+    private static async Task<bool> ExecuteAsync(ExistenceProbePlan plan, ExistenceProbeKind kind, CancellationToken token,
+        string? providerInstanceId)
     {
         IAsyncExistenceProbeSession? session = null;
         var failures = new ExecutionFailures();
@@ -134,7 +135,7 @@ internal static class AsyncExistenceProbes
                 if (plan.CommandKind == AsyncCommandKind.Reader)
                 {
                     await foreach (var _ in new AsyncReaderEnumerable<bool>(() => execution, static _ => true,
-                        cancellationToken: token).ConfigureAwait(false))
+                        cancellationToken: token, identity: new(ExecutionOperationKind.ExistenceCheck, providerInstanceId)).ConfigureAwait(false))
                     {
                         result = true;
                         break;
@@ -153,7 +154,7 @@ internal static class AsyncExistenceProbes
         {
             failures.AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown);
+                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.ExistenceCheck);
         }
         finally
         {
@@ -167,7 +168,7 @@ internal static class AsyncExistenceProbes
             { failures.Add(canceled, ExecutionFailureCause.Cancellation, ExecutionFailureStage.Materialization); }
         }
         if (failures.Primary is not { } primary) return result;
-        var context = Snapshot(failures);
+        var context = Snapshot(failures, providerInstanceId);
         // Only the availability probe can map an explicitly classified, settled
         // provider/open failure to false. Metadata-query failures are never absence.
         if (kind == ExistenceProbeKind.FileOrServer && !token.IsCancellationRequested &&
@@ -179,14 +180,15 @@ internal static class AsyncExistenceProbes
             var expected = false;
             try { expected = classify(primary); }
             catch (Exception classificationFailure)
-            { failures.AddReported(classificationFailure, ExecutionFailureStage.Validation); }
+            { failures.AddReported(classificationFailure, ExecutionFailureStage.Validation, fallbackOperation: ExecutionOperationKind.ExistenceCheck); }
             if (expected && !token.IsCancellationRequested) return false;
         }
-        ExecutionFailureContexts.Attach(primary, Snapshot(failures));
+        ExecutionFailureContexts.Attach(primary, Snapshot(failures, providerInstanceId));
         failures.ThrowIfAny();
         return false; // ThrowIfAny always throws when Primary is present.
     }
 
-    private static ExecutionFailureContext Snapshot(ExecutionFailures failures) =>
-        failures.Snapshot(new(), ExecutionCompletion.NotApplicable, ExecutionRecoveryActions.None, transactionId: null);
+    private static ExecutionFailureContext Snapshot(ExecutionFailures failures, string? providerInstanceId) =>
+        failures.Snapshot(new(), ExecutionCompletion.NotApplicable, ExecutionRecoveryActions.None, transactionId: null,
+            ExecutionOperationKind.ExistenceCheck, providerInstanceId, providerIdentityIsAuthoritative: true);
 }

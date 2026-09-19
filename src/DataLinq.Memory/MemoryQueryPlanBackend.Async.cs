@@ -19,24 +19,32 @@ internal sealed partial class MemoryQueryPlanBackend
 
     public async Task<T> ExecuteAsync<T>(ValidatedQueryExecutionRequest request)
     {
-        request.EnsureBackend(this);
-        var result = request.Invocation.Template.Result;
-        // These are the existing local CPU kernels, never a database-I/O fallback.
-        if (result.IsScalarResult) return ExecuteScalar<T>(request);
-        if (!IsElementResult(result.Kind)) throw CreateCapabilityInvariantException(request);
-
-        await using var rows = new AsyncRows<T>(this, request).GetAsyncEnumerator();
-        if (!await rows.MoveNextAsync().ConfigureAwait(false))
+        try
         {
-            if (result.Kind is QueryPlanResultKind.Single or QueryPlanResultKind.First)
-                throw new InvalidOperationException("Sequence contains no elements");
-            return default!;
+            request.EnsureBackend(this);
+            var result = request.Invocation.Template.Result;
+            // These are the existing local CPU kernels, never a database-I/O fallback.
+            if (result.IsScalarResult) return ExecuteScalar<T>(request);
+            if (!IsElementResult(result.Kind)) throw CreateCapabilityInvariantException(request);
+
+            await using var rows = new AsyncRows<T>(this, request).GetAsyncEnumerator();
+            if (!await rows.MoveNextAsync().ConfigureAwait(false))
+            {
+                if (result.Kind is QueryPlanResultKind.Single or QueryPlanResultKind.First)
+                    throw new InvalidOperationException("Sequence contains no elements");
+                return default!;
+            }
+            var value = rows.Current;
+            // The local cursor enforces Single cardinality before materialization and
+            // bounds ordered First to one row, as it does for synchronous execution.
+            if (await rows.MoveNextAsync().ConfigureAwait(false)) throw MemorySingleResult.MoreThanOneElement();
+            return value;
         }
-        var value = rows.Current;
-        // The local cursor enforces Single cardinality before materialization and
-        // bounds ordered First to one row, as it does for synchronous execution.
-        if (await rows.MoveNextAsync().ConfigureAwait(false)) throw MemorySingleResult.MoreThanOneElement();
-        return value;
+        catch (Exception failure)
+        {
+            MemoryAsyncResult.ReportFailure(failure, ExecutionOperationKind.Query, request.Context.CancellationToken);
+            throw;
+        }
     }
 
     private sealed class AsyncRows<T>(MemoryQueryPlanBackend backend, ValidatedQueryExecutionRequest request) : IAsyncEnumerable<T>
@@ -127,7 +135,7 @@ internal sealed partial class MemoryQueryPlanBackend
             catch (Exception failure)
             {
                 Finish();
-                return MemoryAsyncResult.FromFailure<bool>(failure);
+                return MemoryAsyncResult.FromFailure<bool>(failure, ExecutionOperationKind.Query, request.Context.CancellationToken);
             }
         }
 

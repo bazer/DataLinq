@@ -44,10 +44,10 @@ internal static class AsyncJournalMode
             ?? throw new InvalidOperationException("Journal-mode capture returned no plan.");
         plan.Validate();
         token.ThrowIfCancellationRequested();
-        return ExecuteAsync(plan, token);
+        return ExecuteAsync(plan, token, provider.TelemetryInstanceId);
     }
 
-    private static async Task ExecuteAsync(IAsyncJournalModePlan plan, CancellationToken token)
+    private static async Task ExecuteAsync(IAsyncJournalModePlan plan, CancellationToken token, string? providerInstanceId)
     {
         IAsyncJournalModeSession? session = null;
         ExecutionFailures? failures = null;
@@ -70,7 +70,7 @@ internal static class AsyncJournalMode
         {
             (failures ??= new()).AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown);
+                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.ProviderConfiguration);
         }
         finally
         {
@@ -80,7 +80,8 @@ internal static class AsyncJournalMode
         if (failures?.Primary is { } primary)
         {
             ExecutionFailureContexts.Attach(primary, failures.Snapshot(new(), ExecutionCompletion.NotApplicable,
-                ExecutionRecoveryActions.None, transactionId: null));
+                ExecutionRecoveryActions.None, transactionId: null, ExecutionOperationKind.ProviderConfiguration, providerInstanceId,
+                providerIdentityIsAuthoritative: true));
             failures.ThrowIfAny();
         }
     }

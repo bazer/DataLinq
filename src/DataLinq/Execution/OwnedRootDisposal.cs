@@ -35,7 +35,7 @@ internal sealed class RootCleanupStep
 /// One attempt shared by both disposal forms. Captures only owned resources;
 /// dependent transactions/readers are never canceled or drained here.
 /// </summary>
-internal sealed class OwnedRootDisposal(Func<RootCleanupStep[]> capture)
+internal sealed class OwnedRootDisposal(Func<RootCleanupStep[]> capture, string? providerInstanceId = null)
 {
     private readonly Func<RootCleanupStep[]> capture = capture ?? throw new ArgumentNullException(nameof(capture));
     private int state; // 0 usable, 1 disposing, 2 disposed (including failed cleanup).
@@ -78,7 +78,7 @@ internal sealed class OwnedRootDisposal(Func<RootCleanupStep[]> capture)
                 catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
         }
         finally { Volatile.Write(ref state, 2); }
-        ThrowFailures(failures);
+        ThrowFailures(failures, providerInstanceId);
     }
 
     internal ValueTask DisposeAsync()
@@ -94,14 +94,14 @@ internal sealed class OwnedRootDisposal(Func<RootCleanupStep[]> capture)
                 catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
         }
         finally { Volatile.Write(ref state, 2); }
-        ThrowFailures(failures);
+        ThrowFailures(failures, providerInstanceId);
     }
 
-    internal static void ThrowFailures(ExecutionFailures? failures)
+    internal static void ThrowFailures(ExecutionFailures? failures, string? providerInstanceId = null)
     {
         if (failures?.Primary is not { } failure) return;
         ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(), ExecutionCompletion.NotApplicable,
-            ExecutionRecoveryActions.None, transactionId: null));
+            ExecutionRecoveryActions.None, transactionId: null, ExecutionOperationKind.Dispose, providerInstanceId));
         failures.ThrowIfAny();
     }
 }

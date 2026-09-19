@@ -35,18 +35,20 @@ internal static class AsyncMetadataRead
         var settings = MetadataReadSettings.Runtime(commandTimeout, log);
         var capability = provider as IAsyncProviderMetadataSource
             ?? throw new NotSupportedException("This provider does not support asynchronous validation metadata reads.");
-        return Begin(capability.CaptureValidationMetadata(settings), settings, token);
+        return Begin(capability.CaptureValidationMetadata(settings), settings, token, provider.TelemetryInstanceId);
     }
 
-    private static Task<Option<DatabaseDefinition, IDLOptionFailure>> Begin(IAsyncMetadataReadPlan plan, MetadataReadSettings settings, CancellationToken token)
+    private static Task<Option<DatabaseDefinition, IDLOptionFailure>> Begin(IAsyncMetadataReadPlan plan, MetadataReadSettings settings,
+        CancellationToken token, string? providerInstanceId = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         plan.Validate();
         token.ThrowIfCancellationRequested();
-        return ExecuteAsync(plan, settings, token);
+        return ExecuteAsync(plan, settings, token, providerInstanceId);
     }
 
-    private static async Task<Option<DatabaseDefinition, IDLOptionFailure>> ExecuteAsync(IAsyncMetadataReadPlan plan, MetadataReadSettings settings, CancellationToken token)
+    private static async Task<Option<DatabaseDefinition, IDLOptionFailure>> ExecuteAsync(IAsyncMetadataReadPlan plan, MetadataReadSettings settings,
+        CancellationToken token, string? providerInstanceId)
     {
         IAsyncMetadataSession? session = null;
         MetadataReadContext? context = null;
@@ -57,7 +59,8 @@ internal static class AsyncMetadataRead
         try
         {
             session = plan.CreateSession() ?? throw new InvalidOperationException("Metadata capture created no session.");
-            context = new(session.Access, session.Commands, settings.CommandTimeoutSeconds, token);
+            context = new(session.Access, session.Commands, settings.CommandTimeoutSeconds, token,
+                new(ExecutionOperationKind.MetadataRead, providerInstanceId));
             token.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.Initialization;
             await session.OpenAsync(token).ConfigureAwait(false);
@@ -71,7 +74,7 @@ internal static class AsyncMetadataRead
             context?.CopyFailuresTo(failures);
             failures.AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown);
+                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.MetadataRead);
         }
         finally
         {
@@ -95,7 +98,8 @@ internal static class AsyncMetadataRead
         }
         if (failures.Primary is not { } primary) return result;
         ExecutionFailureContexts.Attach(primary, failures.Snapshot(new(), ExecutionCompletion.NotApplicable,
-            ExecutionRecoveryActions.None, transactionId: null));
+            ExecutionRecoveryActions.None, transactionId: null, ExecutionOperationKind.MetadataRead, providerInstanceId,
+            providerIdentityIsAuthoritative: true));
         if (primary is OperationCanceledException) failures.ThrowIfAny();
         IDLOptionFailure operational = DLOptionFailure.Fail(DLFailureType.Exception, primary);
         if (resultAvailable && result.TryUnwrap(out _, out var original) == false && original is not null)

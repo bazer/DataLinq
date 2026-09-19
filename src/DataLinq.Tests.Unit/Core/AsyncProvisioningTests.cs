@@ -21,6 +21,38 @@ public sealed class AsyncProvisioningTests
     private static DatabaseDefinition Metadata() => new("destination", new("Database", "Tests", ModelCsType.Class));
 
     [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task NontransactionalCorrelation_ProvisioningDoesNotInventOrImportProviderIdentity(bool reused)
+    {
+        var factory = new ProvisioningFactory();
+        var primary = new Exception("provisioning command");
+        var cleanup = new Exception("provisioning session cleanup");
+        var previous = new ExecutionFailureContext(ExecutionFailureCause.ProviderError, ExecutionFailureStage.CommandExecution,
+            ExecutionCompletion.NotApplicable, ExecutionRecoveryActions.None, null, [], operation: ExecutionOperationKind.RawCommand,
+            providerInstanceId: "previous-provider");
+        if (reused) ExecutionFailureContexts.Attach(primary, previous);
+        var dispatch = new AsyncCheckpoint(paused: true);
+        dispatch.Fail(primary);
+        factory.Session.Access = new ControlledAsyncDatabaseAccess(dispatch);
+        factory.Session.Cleanup = new(paused: true);
+        factory.Session.Cleanup.Fail(cleanup);
+        var failure = await Fails(() => Create(factory));
+        var context = ExecutionFailureContexts.Get(failure)!;
+        await Assert.That(failure).IsSameReferenceAs(primary);
+        await Assert.That(context.Operation).IsEqualTo(ExecutionOperationKind.Provisioning);
+        await Assert.That(context.ProviderInstanceId).IsNull();
+        await Assert.That(context.TransactionId).IsNull();
+        await Assert.That(context.Completion).IsEqualTo(ExecutionCompletion.NotApplicable);
+        await Assert.That(context.Recovery).IsEqualTo(ExecutionRecoveryActions.None);
+        await Assert.That(context.SecondaryFailures.Count).IsEqualTo(1);
+        await Assert.That(context.SecondaryFailures[0].Exception).IsSameReferenceAs(cleanup);
+        await Assert.That(context.SecondaryFailures[0].Operation).IsEqualTo(ExecutionOperationKind.Dispose);
+        await Assert.That(previous.ProviderInstanceId).IsEqualTo("previous-provider");
+        await Assert.That(previous.Operation).IsEqualTo(ExecutionOperationKind.RawCommand);
+    }
+
+    [Test]
     [Arguments("factory")]
     [Arguments("sql")]
     [Arguments("database")]
