@@ -58,6 +58,7 @@ internal sealed class AutomaticTransactionRecovery : IAsyncDisposable
 
     private async ValueTask FinishAsync()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         try
         {
             if (resource is not { } owned)
@@ -67,6 +68,7 @@ internal sealed class AutomaticTransactionRecovery : IAsyncDisposable
             {
                 if (rollbackAllowed)
                 {
+                    using var rollbackDiagnostics = ExecutionFailureScope.Begin();
                     // No request token is accepted or linked. Expiry requests cancellation;
                     // it never races the await, abandons work or starts a second attempt.
                     try
@@ -79,7 +81,7 @@ internal sealed class AutomaticTransactionRecovery : IAsyncDisposable
                         }
                         catch (Exception rollback)
                         {
-                            var reported = ExecutionFailureContexts.Get(rollback);
+                            var reported = ExecutionFailureContexts.GetCurrent(rollback);
                             completion = ExecutionRecoveryPolicy.PreserveCompletion(completion,
                                 reported?.TransactionId == transactionId && reported.Completion == ExecutionCompletion.RolledBack
                                     ? ExecutionCompletion.RolledBack : ExecutionCompletion.Unknown);
@@ -97,10 +99,16 @@ internal sealed class AutomaticTransactionRecovery : IAsyncDisposable
                     }
                 }
 
-                try { await owned.DisposeTransactionAsync(step).ConfigureAwait(false); }
-                catch (Exception cleanup) { failures.AddCleanup(cleanup); }
-                try { await owned.DisposeConnectionAsync(step).ConfigureAwait(false); }
-                catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+                using (ExecutionFailureScope.Begin())
+                {
+                    try { await owned.DisposeTransactionAsync(step).ConfigureAwait(false); }
+                    catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+                }
+                using (ExecutionFailureScope.Begin())
+                {
+                    try { await owned.DisposeConnectionAsync(step).ConfigureAwait(false); }
+                    catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+                }
 
                 if (failures.Primary is { } primary)
                 {

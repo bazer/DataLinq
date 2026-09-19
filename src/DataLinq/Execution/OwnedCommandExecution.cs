@@ -48,6 +48,7 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSo
 
     private async Task<IAsyncDataReader> OpenReaderCoreAsync(CancellationToken token)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         IAsyncOwnedCommand? command = null;
         IAsyncDataReader? reader = null;
         var stage = ExecutionFailureStage.Validation;
@@ -84,6 +85,7 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSo
     private async Task<TResult> ExecuteAsync<TResult>(AsyncCommandKind kind, CancellationToken token,
         Func<IAsyncDatabaseAccess, IDbCommand, CancellationToken, Task<TResult>> execute)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         IAsyncOwnedCommand? command = null;
         ExecutionFailures? failures = null;
         var result = default(TResult)!;

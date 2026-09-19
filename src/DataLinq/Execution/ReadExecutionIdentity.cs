@@ -26,7 +26,7 @@ internal readonly record struct ReadExecutionIdentity(ExecutionOperationKind Ope
         TransactionOperationGate.Step? owner, CancellationToken token,
         ExecutionFailureStage stage = ExecutionFailureStage.Materialization)
     {
-        var existing = ExecutionFailureContexts.Get(failure);
+        var existing = ExecutionFailureContexts.GetCurrent(failure);
         var failures = new ExecutionFailures();
         failures.AddReported(failure, stage,
             failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested

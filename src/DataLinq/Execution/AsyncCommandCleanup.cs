@@ -8,6 +8,7 @@ internal static class AsyncCommandCleanup
     internal static async ValueTask DisposeAsync(IAsyncDataReader? reader, IAsyncOwnedCommand? command,
         uint? transactionId, ExecutionFailures? failures = null)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         try { if (reader is not null) await reader.DisposeAsync().ConfigureAwait(false); }
         catch (Exception failure) { Add(ref failures, failure); }
         try { if (command is not null) await command.DisposeAsync().ConfigureAwait(false); }
@@ -17,6 +18,7 @@ internal static class AsyncCommandCleanup
 
     internal static void Dispose(IAsyncDataReader? reader, IAsyncOwnedCommand? command, uint? transactionId)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         ExecutionFailures? failures = null;
         try { reader?.Dispose(); }
         catch (Exception failure) { Add(ref failures, failure); }

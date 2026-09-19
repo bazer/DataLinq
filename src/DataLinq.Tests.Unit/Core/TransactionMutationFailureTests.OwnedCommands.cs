@@ -16,13 +16,14 @@ public sealed partial class TransactionMutationFailureTests
         using var transaction = fixture.Database.Transaction();
         var factory = new ControlledOwnedCommandFactory();
         var cleanup = new Exception("reused exception thrown by cleanup");
-        ExecutionFailureContexts.Attach(cleanup, new(ExecutionFailureCause.ProviderError, ExecutionFailureStage.CommandExecution,
+        ExecutionFailureContexts.Attach(cleanup, new(ExecutionFailureCause.Timeout, ExecutionFailureStage.CommandExecution,
             ExecutionCompletion.NotApplicable, ExecutionRecoveryActions.None, null, []));
         factory.Resource.Cleanup = new(paused: true);
         factory.Resource.Cleanup.Fail(cleanup);
         var access = new ControlledAsyncDatabaseAccess
         {
-            FailureEvidence = new(Effects: ExecutionEffects.OrdinaryRead, Integrity: TransactionIntegrity.Confirmed, RollbackAvailable: true)
+            FailureEvidence = new(Cause: ExecutionFailureCause.ProviderError, Effects: ExecutionEffects.OrdinaryRead,
+                Integrity: TransactionIntegrity.Confirmed, RollbackAvailable: true)
         };
         var sequence = new AsyncReaderEnumerable<int>(() => new OwnedCommandExecution(access, factory, transaction.TransactionID),
             reader => reader.GetInt32(0), transaction);

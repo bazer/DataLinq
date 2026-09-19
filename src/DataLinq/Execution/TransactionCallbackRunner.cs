@@ -21,6 +21,7 @@ internal static class TransactionCallbackRunner
         Func<CancellationToken, Task<TResult>> callback, CancellationToken cancellationToken = default,
         TimeProvider? timeProvider = null, ExecutionOperationKind callbackOperation = ExecutionOperationKind.TransactionCallback)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(gate);
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(settings);
@@ -40,12 +41,14 @@ internal static class TransactionCallbackRunner
         }
         catch (Exception failure)
         {
-            failures.AddReported(failure, stage, failure is OperationCanceledException canceled &&
+            var cause = failure is OperationCanceledException canceled &&
                 canceled.CancellationToken == cancellationToken && cancellationToken.IsCancellationRequested
                     ? ExecutionFailureCause.Cancellation
                     : stage == ExecutionFailureStage.Callback && callbackOperation == ExecutionOperationKind.TransactionCallback
-                        ? ExecutionFailureCause.ApplicationError : ExecutionFailureCause.Unknown,
-                callbackOperation);
+                        ? ExecutionFailureCause.ApplicationError : ExecutionFailureCause.Unknown;
+            if (lifetime.TryGetObserved(failure, out var observed))
+                failures.AddObserved(observed, stage, cause, callbackOperation);
+            else failures.AddReported(failure, stage, cause, callbackOperation);
         }
 
         // Closing admission and taking the active-work snapshot are one gate transition.

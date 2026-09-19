@@ -30,6 +30,7 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
 
     internal static IDataLinqDataReader Open(SyncRawCommand command, Transaction? transaction)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         transaction?.EnsureCanRead(Operation, operationKind: ExecutionOperationKind.RawCommand);
         command.Reserve(SyncCommandKind.Reader, transaction is not null);
         var ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, Operation, operationKind: ExecutionOperationKind.RawCommand);
@@ -59,6 +60,7 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
 
     public bool ReadNextRow()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using var call = calls.Enter();
         Validate();
         hasCurrent = false;
@@ -71,6 +73,7 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
 
     public void Dispose()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         if (Volatile.Read(ref helperDrained)) return;
         using var call = calls.Enter();
         Finish(null)?.ThrowIfAny();
@@ -79,6 +82,7 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
     public void StopAdmission() => calls.StopAdmission();
     public async ValueTask DrainAsync()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         await calls.WaitForIdleAsync().ConfigureAwait(false);
         // This resource came from the synchronous boundary. Drain its actual sync
         // cleanup directly, even when an async helper owns transaction completion.

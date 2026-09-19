@@ -352,11 +352,12 @@ public sealed partial class TransactionMutationFailureTests
     {
         var harness = new ExistenceProbeHarness { Classify = _ => true };
         var primary = new ProbeConnectionFailure();
-        ExecutionFailureContexts.Attach(primary, new(ExecutionFailureCause.Cancellation,
+        var fault = ProbeFault(primary);
+        fault.ReportingFailure = failure => ExecutionFailureContexts.Attach(failure, new(ExecutionFailureCause.Cancellation,
             opening ? ExecutionFailureStage.Initialization : ExecutionFailureStage.CommandExecution,
             ExecutionCompletion.NotApplicable, ExecutionRecoveryActions.None, null, []));
-        if (opening) harness.Session.Opening = ProbeFault(primary);
-        else { harness.Access = new(ProbeFault(primary)); harness.Session.Access = harness.Access; }
+        if (opening) harness.Session.Opening = fault;
+        else { harness.Access = new(fault); harness.Session.Access = harness.Access; }
         using var provider = new ExistenceProbeProvider(new(), () => harness);
         await Assert.That(await AsyncEnumerationFailureOf(() => provider.FileOrServerExistsAsyncCore())).IsSameReferenceAs(primary);
         await Assert.That(harness.Classifications).IsEqualTo(0);

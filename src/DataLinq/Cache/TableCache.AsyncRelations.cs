@@ -99,6 +99,7 @@ public partial class TableCache
         RelationProperty property, IDataSourceAccess source, CancellationToken token = default)
         where TKey : notnull
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         var identity = ReadExecutionIdentity.Capture(source, ExecutionOperationKind.RelationLoad);
         using var scope = DataSourceAccess.BeginRead(source, "load asynchronous relation rows", operationKind: identity.Operation);
         var stage = ExecutionFailureStage.Validation;
@@ -117,6 +118,7 @@ public partial class TableCache
     internal async Task<TResult> ExecuteRelationRowsAsyncCore<TResult>(PreparedRelationRows prepared,
         Func<IImmutableInstance[], TResult> complete, CancellationToken token)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(complete);
         if (!ReferenceEquals(prepared.Cache, this)) throw new ArgumentException("This relation plan belongs to a different cache.", nameof(prepared));
         var source = prepared.Source;
@@ -202,7 +204,7 @@ public partial class TableCache
         }
         catch (Exception failure)
         {
-            if (source is Transaction transaction && step is not null && ExecutionFailureContexts.Get(failure) is null)
+            if (source is Transaction transaction && step is not null && ExecutionFailureContexts.GetCurrent(failure) is null)
             {
                 var failures = new ExecutionFailures();
                 failures.AddReported(failure, ExecutionFailureStage.Materialization, failure is OperationCanceledException canceled &&

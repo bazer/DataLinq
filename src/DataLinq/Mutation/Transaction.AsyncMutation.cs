@@ -144,6 +144,7 @@ public partial class Transaction
     private async Task<List<IImmutableInstance?>> ExecuteCapturedMutationsAsync(IReadOnlyList<CapturedMutation> inputs,
         IAsyncSqlReaderFactory? readers, ExecutionOperationKind operationKind, CancellationToken token)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         token.ThrowIfCancellationRequested();
         var results = new List<IImmutableInstance?>(inputs.Count);
         using var operation = BeginExclusiveOperation("execute asynchronous mutations", operationKind: operationKind);

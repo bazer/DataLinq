@@ -52,6 +52,7 @@ internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, 
 
     internal T GetOrInitialize(TransactionOperationGate.Step step)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using var call = EnterCall(step);
         var ready = GetReadyOrValidate();
         if (ready is not null)
@@ -85,6 +86,7 @@ internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, 
 
     internal async Task<T> GetOrInitializeAsync(TransactionOperationGate.Step step, CancellationToken cancellationToken)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using var call = EnterCall(step);
         var ready = GetReadyOrValidate();
         cancellationToken.ThrowIfCancellationRequested();
@@ -189,7 +191,7 @@ internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, 
         var failures = new ExecutionFailures();
         var cause = failure is OperationCanceledException canceled &&
             canceled.CancellationToken == token && token.IsCancellationRequested
-                ? ExecutionFailureCause.Cancellation : ExecutionFailureContexts.Get(failure)?.Cause ?? ExecutionFailureCause.Unknown;
+                ? ExecutionFailureCause.Cancellation : ExecutionFailureContexts.GetCurrent(failure)?.Cause ?? ExecutionFailureCause.Unknown;
         // Initialization is the enclosing boundary; import any nested cleanup details
         // without allowing an older exception attachment to change that boundary.
         failures.Add(failure, cause, ExecutionFailureStage.Initialization);

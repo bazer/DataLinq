@@ -18,6 +18,7 @@ public partial class ImmutableForeignKey<T, TKey>
 
     private async Task<T?> LoadValueAsyncCore(bool required, CancellationToken token)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         var source = GetDataSource();
         var identity = ReadExecutionIdentity.Capture(source, ExecutionOperationKind.RelationLoad);
         using var read = DataSourceAccess.BeginRead(source, "load an asynchronous relation reference", operationKind: identity.Operation);

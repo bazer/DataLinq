@@ -171,12 +171,15 @@ public sealed class ExecutionCorrelationTests
         var primary = new Exception("callback or query");
         var rollback = new Exception("rollback");
         var disposal = new Exception("dispose");
-        if (inner) ExecutionFailureContexts.Attach(primary, new(ExecutionFailureCause.MaterializationError,
-            ExecutionFailureStage.RowLoading, ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, 63, [],
-            operation: ExecutionOperationKind.Query, providerInstanceId: "provider-63"));
         var resource = new ControlledHelperTransaction { Rollback = Fault(rollback), TransactionCleanup = Fault(disposal) };
         var failure = await FailureAsync(() => TransactionCallbackRunner.RunAsync<int>(gate, resource, new(), 63,
-            _ => Task.FromException<int>(primary)));
+            _ =>
+            {
+                if (inner) ExecutionFailureContexts.Attach(primary, new(ExecutionFailureCause.MaterializationError,
+                    ExecutionFailureStage.RowLoading, ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, 63, [],
+                    operation: ExecutionOperationKind.Query, providerInstanceId: "provider-63"));
+                return Task.FromException<int>(primary);
+            }));
         await Assert.That(failure).IsSameReferenceAs(primary);
         var context = ExecutionFailureContexts.Get(primary)!;
         await Assert.That(context.Operation).IsEqualTo(inner ? ExecutionOperationKind.Query : ExecutionOperationKind.TransactionCallback);

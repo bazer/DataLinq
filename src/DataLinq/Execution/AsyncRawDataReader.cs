@@ -30,6 +30,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
 
     internal static async Task<IAsyncDataReader> OpenAsync(IAsyncReaderSource source, Transaction? transaction, CancellationToken token)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(source);
         transaction?.EnsureCanRead(Operation, operationKind: ExecutionOperationKind.RawCommand);
         source.Validate();
@@ -61,6 +62,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
 
     private async Task<bool> ReadAsync(EnumeratorCallGate.Call call, CancellationToken token)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using (call)
         {
             // A stale/overlapping call must not run cleanup or replace an earlier failure.
@@ -83,6 +85,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
 
     public bool ReadNextRow()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using var call = calls.Enter();
         Validate();
         hasCurrent = false;
@@ -96,6 +99,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
 
     public void Dispose()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         if (Volatile.Read(ref helperDrained)) return;
         using var call = calls.Enter();
         var failures = new ExecutionFailures();
@@ -107,6 +111,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
 
     private async ValueTask DisposeAsync(EnumeratorCallGate.Call call)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using (call)
         {
             var failures = new ExecutionFailures();
@@ -118,6 +123,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
     public void StopAdmission() => calls.StopAdmission();
     public async ValueTask DrainAsync()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         await calls.WaitForIdleAsync().ConfigureAwait(false);
         try
         {

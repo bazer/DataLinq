@@ -88,6 +88,7 @@ internal sealed class GuardedEnumerable<T> : IEnumerable<T>
 
         public bool MoveNext()
         {
+            using var diagnostics = ExecutionFailureScope.Begin();
             using var call = calls.Enter();
             if (finished)
                 return false;
@@ -107,6 +108,7 @@ internal sealed class GuardedEnumerable<T> : IEnumerable<T>
 
         public void Dispose()
         {
+            using var diagnostics = ExecutionFailureScope.Begin();
             if (Volatile.Read(ref helperDrained))
                 return;
             using var call = calls.Enter();
@@ -124,6 +126,7 @@ internal sealed class GuardedEnumerable<T> : IEnumerable<T>
         public void StopAdmission() => calls.StopAdmission();
         public async ValueTask DrainAsync()
         {
+            using var diagnostics = ExecutionFailureScope.Begin();
             await calls.WaitForIdleAsync().ConfigureAwait(false);
             try { DisposeCore(); }
             finally { Volatile.Write(ref helperDrained, true); }

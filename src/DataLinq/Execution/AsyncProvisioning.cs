@@ -69,6 +69,7 @@ internal static class AsyncProvisioning
 
     private static async Task<Option<int, IDLOptionFailure>> ExecuteAsync(IAsyncProvisioningPlan plan, CancellationToken token)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         IAsyncProvisioningSession? session = null;
         ExecutionFailures? failures = null;
         var stage = ExecutionFailureStage.Validation;

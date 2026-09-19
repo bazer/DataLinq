@@ -69,13 +69,18 @@ internal sealed class OwnedRootDisposal(Func<RootCleanupStep[]> capture, string?
 
     internal void Dispose()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
+        var reportingScope = ExecutionFailureScope.Current;
         if (Begin(asynchronous: false) is not { } steps) return;
         ExecutionFailures? failures = null;
         try
         {
             foreach (var step in steps)
+            {
+                using var cleanupDiagnostics = ExecutionFailureScope.Begin();
                 try { step.Dispose(); }
-                catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
+                catch (Exception failure) { (failures ??= new(reportingScope)).AddCleanup(failure); }
+            }
         }
         finally { Volatile.Write(ref state, 2); }
         ThrowFailures(failures, providerInstanceId);
@@ -86,12 +91,17 @@ internal sealed class OwnedRootDisposal(Func<RootCleanupStep[]> capture, string?
 
     private async ValueTask DisposeAsync(RootCleanupStep[] steps)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
+        var reportingScope = ExecutionFailureScope.Current;
         ExecutionFailures? failures = null;
         try
         {
             foreach (var step in steps)
+            {
+                using var cleanupDiagnostics = ExecutionFailureScope.Begin();
                 try { await step.DisposeAsync!().ConfigureAwait(false); }
-                catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
+                catch (Exception failure) { (failures ??= new(reportingScope)).AddCleanup(failure); }
+            }
         }
         finally { Volatile.Write(ref state, 2); }
         ThrowFailures(failures, providerInstanceId);

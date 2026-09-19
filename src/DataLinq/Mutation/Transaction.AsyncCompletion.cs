@@ -18,6 +18,7 @@ public partial class Transaction
 
     private async Task CompleteAsyncCore(bool commit, CancellationToken cancellationToken)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using var operation = BeginExclusiveOperation(commit ? "commit asynchronously" : "roll back asynchronously", completion: true,
             operationKind: commit ? ExecutionOperationKind.Commit : ExecutionOperationKind.Rollback);
         var resource = new ManagedAsyncCompletion(this, RequireAsyncCompletion());
@@ -36,6 +37,7 @@ public partial class Transaction
 
     internal async ValueTask DisposeAsyncCore(RecoveryRollbackSettings? settings = null, TimeProvider? timeProvider = null)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         if (IsDisposed)
         {
             ExecutionGate.ThrowIfActive("dispose asynchronously", ExecutionOperationKind.Dispose);
@@ -64,6 +66,7 @@ public partial class Transaction
         RecoveryRollbackSettings settings, CancellationToken cancellationToken = default, TimeProvider? timeProvider = null,
         ExecutionOperationKind callbackOperation = ExecutionOperationKind.TransactionCallback)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(callback);
         ArgumentNullException.ThrowIfNull(settings);
         var resource = new ManagedAsyncCompletion(this, RequireAsyncCompletion());
@@ -74,7 +77,7 @@ public partial class Transaction
         }
         catch (Exception failure)
         {
-            if (ExecutionFailureContexts.Get(failure) is { } context)
+            if (ExecutionFailureContexts.GetCurrent(failure) is { } context)
                 Volatile.Write(ref asyncFailureContext, context);
             throw;
         }
@@ -132,6 +135,7 @@ public partial class Transaction
 
         public async Task CommitAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken)
         {
+            using var diagnostics = ExecutionFailureScope.Begin();
             transaction.ExecutionGate.ValidateStep(owner);
             Volatile.Write(ref transaction.managedCommitFinalizationState, 1);
             try
@@ -160,6 +164,7 @@ public partial class Transaction
 
         public void FinalizeCommit(TransactionOperationGate.Step owner)
         {
+            using var diagnostics = ExecutionFailureScope.Begin();
             transaction.ExecutionGate.ValidateStep(owner);
             var failures = new ExecutionFailures();
             try
@@ -186,6 +191,7 @@ public partial class Transaction
 
         public async Task RollbackAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken)
         {
+            using var diagnostics = ExecutionFailureScope.Begin();
             transaction.ExecutionGate.ValidateStep(owner);
             var previous = Completion;
             var failures = new ExecutionFailures();
@@ -233,6 +239,7 @@ public partial class Transaction
 
         public async ValueTask DisposeTransactionAsync(TransactionOperationGate.Step owner)
         {
+            using var diagnostics = ExecutionFailureScope.Begin();
             transaction.ExecutionGate.ValidateStep(owner);
             if (Interlocked.Exchange(ref transaction.disposeState, 1) != 0) return;
             var completion = Completion;
