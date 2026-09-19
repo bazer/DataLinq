@@ -39,7 +39,7 @@ public partial class TableCache
             return row is null ? [] : [row];
         }
 
-        if (dataSource is ReadOnlyAccess &&
+        if (Table.PrimaryKeyColumns.Count != 0 && dataSource is ReadOnlyAccess &&
             indexCachePolicy.type != IndexCacheType.None &&
             TryGetIndexCache(index)?.TryGet(foreignKey, out var keys) == true)
             return GetRows(keys!, dataSource, owner: owner);

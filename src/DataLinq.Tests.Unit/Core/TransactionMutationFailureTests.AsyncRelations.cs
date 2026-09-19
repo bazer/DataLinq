@@ -414,6 +414,8 @@ public sealed partial class TransactionMutationFailureTests
         scenario.AsyncSqlReaders = factory;
         var property = provider.Metadata.GetTableModel(typeof(AsyncRelationMatchChild)).Model.RelationProperties[
             composite ? nameof(AsyncRelationMatchChild.CompositeParent) : nameof(AsyncRelationMatchChild.Parent)];
+        provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
+        provider.State.Cache.CleanupScheduler?.Stop();
         var key = composite ? DataLinqKey.FromValues(["mixed", 7]) : DataLinqKey.FromValue("mixed");
         var reference = new ImmutableForeignKey<AsyncRelationMatchParent>(key, transaction, property);
         if (outcome == "multiple")
@@ -497,6 +499,9 @@ public sealed partial class TransactionMutationFailureTests
         };
         scenario.AsyncSqlReaders = factory;
         var property = provider.Metadata.GetTableModel(typeof(AsyncRelationMatchParent)).Model.RelationProperties[nameof(AsyncRelationMatchParent.CompositeChildren)];
+        // This case compares one stable generation; invalidation races have separate tests.
+        provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
+        provider.State.Cache.CleanupScheduler?.Stop();
         var relation = new ImmutableRelation<AsyncRelationMatchChild>(DataLinqKey.FromValues(["mixed", 7]), transaction, property);
         if (duplicate)
         {

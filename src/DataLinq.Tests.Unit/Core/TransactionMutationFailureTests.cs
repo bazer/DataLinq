@@ -1645,10 +1645,10 @@ public sealed partial class TransactionMutationFailureTests
         private readonly ScriptedDatabaseAccess databaseAccess;
         private readonly ScriptedWriter writer = new();
 
-        internal ScriptedMutationProvider(ScriptedMutationScenario scenario)
+        internal ScriptedMutationProvider(ScriptedMutationScenario scenario, DatabaseType databaseType = DatabaseType.SQLite)
             : base(
                 "scripted-transaction-mutation-failure-tests",
-                DatabaseType.SQLite,
+                databaseType,
                 DataLinqLoggingConfiguration.NullConfiguration,
                 "transaction-mutation-failure-tests")
         {

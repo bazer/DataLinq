@@ -22,7 +22,8 @@ public partial class TableCache
         TransactionOperationGate.Step? owner, IAsyncSqlReaderFactory? factory,
         AsyncBufferedRead<CanonicalProviderValueRow?>? single = null,
         AsyncBufferedRead<SourceIndexRowLoadResult>? neutral = null,
-        AsyncBufferedRead<IReadOnlyList<LoadedCanonicalRow>>? matched = null)
+        AsyncBufferedRead<IReadOnlyList<LoadedCanonicalRow>>? matched = null,
+        AsyncBufferedRead<IReadOnlyList<CanonicalProviderValueRow>>? keyless = null)
     {
         internal TableCache Cache { get; } = cache;
         internal IDataSourceAccess Source { get; } = source;
@@ -34,6 +35,7 @@ public partial class TableCache
         internal AsyncBufferedRead<CanonicalProviderValueRow?>? Single { get; } = single;
         internal AsyncBufferedRead<SourceIndexRowLoadResult>? Neutral { get; } = neutral;
         internal AsyncBufferedRead<IReadOnlyList<LoadedCanonicalRow>>? Matched { get; } = matched;
+        internal AsyncBufferedRead<IReadOnlyList<CanonicalProviderValueRow>>? Keyless { get; } = keyless;
     }
 
     internal PreparedRelationRows PrepareRelationRowsAsyncCore<TKey>(TKey foreignKey,
@@ -69,6 +71,18 @@ public partial class TableCache
         var sql = TryConvertScalarProviderColumnValue(foreignKey, index.Columns, source, out var column, out var value)
             ? new ScalarColumnRowsQuery(Table, source, column, value).ToSql()
             : new SqlQuery(Table, source).Where(index.Columns, key).SelectQuery().ToSql();
+        if (Table.PrimaryKeyColumns.Count == 0)
+        {
+            // A view can be a candidate-key target without a primary key. Preserve
+            // its rows and cardinality without inventing row/index cache identities.
+            var keylessRows = new List<CanonicalProviderValueRow>();
+            var keyless = new AsyncBufferedRead<IReadOnlyList<CanonicalProviderValueRow>>(source,
+                factory.BindReader(CapturedSql.Capture(sql)),
+                reader => keylessRows.Add(ProviderRowDecoder.DecodeFullRow(reader, Table, $"sql:{source.Provider.DatabaseType}:relation")),
+                () => keylessRows, owner);
+            keyless.Validate();
+            return new(this, source, index, key, owner, factory, keyless: keyless);
+        }
         var rows = new List<LoadedCanonicalRow>();
         var matched = new AsyncBufferedRead<IReadOnlyList<LoadedCanonicalRow>>(source, factory.BindReader(CapturedSql.Capture(sql)), reader =>
         {
@@ -111,6 +125,24 @@ public partial class TableCache
             EnsureTransactionRowCache(source, step);
             token.ThrowIfCancellationRequested();
             if (prepared.Factory is null) return complete([]);
+            if (prepared.Keyless is { } keyless)
+            {
+                observed = keyless;
+                return await keyless.ExecuteAsync((rows, _, cancellation) =>
+                {
+                    var services = step is null ? (IDataLinqSourceRowServices)source : ((DataSourceAccess)source).GetOwnedRowServices(step);
+                    var result = new IImmutableInstance[rows.Count];
+                    for (var i = 0; i < rows.Count; i++)
+                    {
+                        cancellation.ThrowIfCancellationRequested();
+                        result[i] = services.MaterializationServices.GetOrMaterialize(rows[i]);
+                        MetricsHandle.RecordDatabaseRowsLoaded(1);
+                    }
+                    MetricsHandle.RecordRowCacheMisses(rows.Count);
+                    cancellation.ThrowIfCancellationRequested();
+                    return complete(result);
+                }, token).ConfigureAwait(false);
+            }
             if (prepared.Single is { } single)
             {
                 var row = await GetProviderRowAsyncCore(key, source, token, step, prepared.Factory,
