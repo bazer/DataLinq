@@ -93,7 +93,7 @@ internal static class AsyncProvisioning
         {
             (failures ??= new()).AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown);
+                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.Provisioning);
         }
         finally
         {
@@ -105,7 +105,8 @@ internal static class AsyncProvisioning
             // Provisioning is not a tracked transaction: no rollback/replay or
             // atomicity claim can follow from either success or cleanup.
             ExecutionFailureContexts.Attach(primary, failures.Snapshot(new(), ExecutionCompletion.NotApplicable,
-                ExecutionRecoveryActions.None, transactionId: null));
+                ExecutionRecoveryActions.None, transactionId: null, ExecutionOperationKind.Provisioning,
+                providerIdentityIsAuthoritative: true));
             failures.ThrowIfAny();
         }
         return result;

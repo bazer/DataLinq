@@ -15,7 +15,7 @@ internal enum ExecutionOperationKind
     Dispose, TransactionCallback, RawCommand, MetadataRead, SchemaValidation, ExistenceCheck,
     Provisioning, ProviderConfiguration
 }
-internal enum ExecutionFailureStage { Validation, Initialization, CommandExecution, RowLoading, Materialization, Cleanup, Recovery, Callback, Commit, Finalization }
+internal enum ExecutionFailureStage { Validation, Initialization, CommandExecution, RowLoading, Materialization, Cleanup, Recovery, Callback, Commit, Finalization, Unknown }
 internal enum ExecutionCompletion { NotApplicable, NotAttempted, Committed, RolledBack, Unknown }
 internal enum ExecutionEffects { Unknown, NoStatement, OrdinaryRead, Mutation, Initialization }
 internal enum TransactionIntegrity { Unknown, Confirmed, Lost }
@@ -173,13 +173,17 @@ internal sealed class ExecutionFailures
 
     internal ExecutionFailureContext Snapshot(ReadFailureEvidence evidence, ExecutionCompletion completion,
         ExecutionRecoveryActions recovery, uint? transactionId,
-        ExecutionOperationKind fallbackOperation = ExecutionOperationKind.Unknown, string? fallbackProviderInstanceId = null)
+        ExecutionOperationKind fallbackOperation = ExecutionOperationKind.Unknown, string? fallbackProviderInstanceId = null,
+        bool providerIdentityIsAuthoritative = false)
     {
         // The current boundary supplies the actual transaction. A provider may
         // reuse an exception from an unrelated invocation; its old identity must
         // not migrate into this operation or imply another transaction's outcome.
+        // Standalone factories can explicitly establish that no provider identity
+        // exists; a null fallback otherwise means this layer has not supplied one.
         var foreign = primaryTransactionId is not null && primaryTransactionId != transactionId ||
-            providerInstanceId is not null && fallbackProviderInstanceId is not null && providerInstanceId != fallbackProviderInstanceId;
+            providerInstanceId is not null && (fallbackProviderInstanceId is not null || providerIdentityIsAuthoritative) &&
+                providerInstanceId != fallbackProviderInstanceId;
         var knownOperation = foreign ? unreportedOperation : operation;
         return new(cause == ExecutionFailureCause.Unknown && stage is ExecutionFailureStage.CommandExecution or ExecutionFailureStage.RowLoading or ExecutionFailureStage.Cleanup
                 ? evidence.Cause : cause,

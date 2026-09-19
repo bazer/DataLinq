@@ -11,7 +11,7 @@ using DataLinq.Memory;
 
 namespace DataLinq.Tests.Memory;
 
-public sealed class MemoryAsyncExecutionTests
+public sealed partial class MemoryAsyncExecutionTests
 {
     private static readonly Guid First = new("00112233-4455-6677-8899-aabbccddeeff");
     private static readonly Guid Second = new("10213243-5465-7687-98a9-bacbdcedfe0f");

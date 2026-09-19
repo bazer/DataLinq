@@ -15,16 +15,19 @@ internal sealed class MetadataReadContext
     private readonly IAsyncMetadataCommands commands;
     private readonly int? timeout;
     private readonly CancellationToken token;
+    private readonly ReadExecutionIdentity identity;
     private readonly List<(Exception Exception, ExecutionFailureStage Stage)> failures = [];
     private TaskCompletionSource? active;
     private bool closed;
 
-    internal MetadataReadContext(IAsyncDatabaseAccess access, IAsyncMetadataCommands commands, int? timeout, CancellationToken token)
+    internal MetadataReadContext(IAsyncDatabaseAccess access, IAsyncMetadataCommands commands, int? timeout, CancellationToken token,
+        ReadExecutionIdentity identity = default)
     {
         this.access = access ?? throw new ArgumentNullException(nameof(access));
         this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
         this.timeout = timeout;
         this.token = token;
+        this.identity = identity;
         commands.Validate(timeout);
     }
 
@@ -36,7 +39,8 @@ internal sealed class MetadataReadContext
             var rows = new List<T>();
             // The shared enumerator owns command/reader cleanup and reports read,
             // materialization and cleanup failures with their original identity.
-            await foreach (var row in new AsyncReaderEnumerable<T>(() => execution, materialize, cancellationToken: token).ConfigureAwait(false))
+            await foreach (var row in new AsyncReaderEnumerable<T>(() => execution, materialize,
+                cancellationToken: token, identity: identity).ConfigureAwait(false))
                 rows.Add(row);
             return rows.AsReadOnly();
         });
@@ -108,7 +112,7 @@ internal sealed class MetadataReadContext
         lock (gate)
             foreach (var failure in failures) destination.AddReported(failure.Exception, failure.Stage,
                 failure.Exception is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown);
+                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, identity.Operation);
     }
 
     internal async ValueTask CloseAsync(ExecutionFailures destination)
@@ -121,7 +125,7 @@ internal sealed class MetadataReadContext
             pending = active?.Task;
             if (pending is not null && destination.Primary is null)
                 destination.Add(new InvalidOperationException("The metadata parser returned with an unfinished command."),
-                    ExecutionFailureCause.Unknown, ExecutionFailureStage.Materialization);
+                    ExecutionFailureCause.Unknown, ExecutionFailureStage.Materialization, identity.Operation);
         }
         if (pending is not null) await pending.ConfigureAwait(false);
         CopyFailuresTo(destination);

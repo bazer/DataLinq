@@ -25,6 +25,7 @@ public class DatabaseCache : IDisposable
     public IDatabaseProvider Database { get; set; }
     internal DatabaseCachePolicy Policy { get; }
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
+    private readonly string? providerInstanceId;
     private OwnedRootDisposal? disposal;
     public Dictionary<TableDefinition, TableCache> TableCaches { get; }
 
@@ -45,6 +46,7 @@ public class DatabaseCache : IDisposable
     {
         ArgumentNullException.ThrowIfNull(createScheduler);
         this.Database = database;
+        this.providerInstanceId = database.TelemetryInstanceId;
         this.loggingConfiguration = loggingConfiguration;
         this.Policy = DatabaseCachePolicy.FromMetadata(database.Metadata);
         this.TableCaches = new Dictionary<TableDefinition, TableCache>(this.Database.Metadata.TableModels.Count);
@@ -409,7 +411,7 @@ public class DatabaseCache : IDisposable
     internal void ValidateDisposal() => CleanupScheduler?.ValidateStop();
 
     private OwnedRootDisposal GetDisposal() => LazyInitializer.EnsureInitialized(ref disposal,
-        () => new OwnedRootDisposal(CaptureCleanup));
+        () => new OwnedRootDisposal(CaptureCleanup, providerInstanceId));
 
     private RootCleanupStep[] CaptureCleanup()
     {

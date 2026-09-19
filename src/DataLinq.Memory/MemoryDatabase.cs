@@ -137,7 +137,7 @@ public sealed class MemoryDatabase<TDatabase>
         where TModel : class, IImmutableInstance, ITableModel<TDatabase>
     {
         try { return new(FindCore<TModel>(modelPrimaryKey, cancellationToken)); }
-        catch (Exception failure) { return MemoryAsyncResult.FromFailure<TModel?>(failure); }
+        catch (Exception failure) { return MemoryAsyncResult.FromFailure<TModel?>(failure, DataLinq.Execution.ExecutionOperationKind.KeyLookup, cancellationToken); }
     }
 
     private TModel? FindCore<TModel>(object modelPrimaryKey, CancellationToken cancellationToken)
