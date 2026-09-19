@@ -17,7 +17,8 @@ public partial class Select<T>
             var factory = IAsyncSqlReaderFactory.Require(query.DataSource.DatabaseAccess);
             var sql = CapturedSql.Capture(ToSql());
             var layout = CaptureKeyLayout(query.Table.PrimaryKeyColumns);
-            return new(factory.BindReader(sql), reader => ReadCapturedKey(reader, layout), query.DataSource as Transaction);
+            return new(factory.BindReader(sql), reader => ReadCapturedKey(reader, layout), query.DataSource as Transaction,
+                Identity: ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query));
         }, cancellationToken);
 
     internal IAsyncEnumerable<(DataLinqKey fk, DataLinqKey[] pks)> ReadPrimaryAndForeignKeysAsyncCore(
@@ -30,7 +31,8 @@ public partial class Select<T>
             var sql = CapturedSql.Capture(ToSql());
             var primary = CaptureKeyLayout(query.Table.PrimaryKeyColumns);
             var foreign = CaptureKeyLayout(foreignKeyIndex.Columns);
-            return new(factory.BindReader(sql), null, query.DataSource as Transaction, new KeyGroupBuffer(primary, foreign));
+            return new(factory.BindReader(sql), null, query.DataSource as Transaction, new KeyGroupBuffer(primary, foreign),
+                Identity: ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query));
         }, cancellationToken);
     }
 

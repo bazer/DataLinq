@@ -16,7 +16,8 @@ internal sealed partial class SqlDirectProjectionExecutor
         var source = factory.BindReader(CapturedSql.Capture(select.ToSql()));
         var projection = invocation.Template.Projection;
         var sourceName = $"sql:{dataSource.Provider.DatabaseType}:async-projection";
-        return new(source, reader => ReadAsyncProjection<T>(reader, projection, sourceName), dataSource as Transaction);
+        return new(source, reader => ReadAsyncProjection<T>(reader, projection, sourceName), dataSource as Transaction,
+            Identity: ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.Query));
     }
 
     private static T ReadAsyncProjection<T>(IDataLinqDataReader reader, QueryPlanProjection projection, string sourceName)

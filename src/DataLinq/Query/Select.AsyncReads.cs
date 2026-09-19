@@ -21,7 +21,8 @@ public partial class Select<T>
         {
             var factory = IAsyncSqlReaderFactory.Require(query.DataSource.DatabaseAccess);
             var sql = CapturedSql.Capture(ToSql());
-            return new(factory.BindReader(sql), static reader => reader, query.DataSource as Transaction);
+            return new(factory.BindReader(sql), static reader => reader, query.DataSource as Transaction,
+                Identity: ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query));
         }, cancellationToken);
 
     internal Task<RowData?> ReadFirstRowAsyncCore(CancellationToken cancellationToken = default)
@@ -58,7 +59,8 @@ public partial class Select<T>
         var sql = CapturedSql.Capture(ToSql());
         var layout = CaptureRowLayout();
         var sourceName = $"sql:{source.Provider.DatabaseType}:select-rows";
-        return new(factory.BindReader(sql), reader => new RowData(reader, table, layout, sourceName), source as Transaction);
+        return new(factory.BindReader(sql), reader => new RowData(reader, table, layout, sourceName), source as Transaction,
+            Identity: ReadExecutionIdentity.Capture(source, ExecutionOperationKind.Query));
     }
 
     private (ColumnDefinition Column, int ReaderOrdinal)[] CaptureRowLayout()

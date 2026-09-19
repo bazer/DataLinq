@@ -17,10 +17,12 @@ public abstract partial class DatabaseAccess
         => AsyncRawDataReader.OpenAsync(CaptureRawReader(command), managedTransaction, cancellationToken);
 
     internal IAsyncEnumerable<IDataLinqDataReader> ReadReaderAsyncCore(string sql, CancellationToken cancellationToken = default)
-        => new AsyncReaderEnumerable<IDataLinqDataReader>(() => CaptureRawReader(sql), static reader => reader, managedTransaction, cancellationToken);
+        => new AsyncReaderEnumerable<IDataLinqDataReader>(() => CaptureRawReader(sql), static reader => reader, managedTransaction, cancellationToken,
+            new(ExecutionOperationKind.RawCommand, managedTransaction?.ExecutionGate.ProviderInstanceId));
 
     internal IAsyncEnumerable<IDataLinqDataReader> ReadReaderAsyncCore(IDbCommand command, CancellationToken cancellationToken = default)
-        => new AsyncReaderEnumerable<IDataLinqDataReader>(() => CaptureRawReader(command), static reader => reader, managedTransaction, cancellationToken);
+        => new AsyncReaderEnumerable<IDataLinqDataReader>(() => CaptureRawReader(command), static reader => reader, managedTransaction, cancellationToken,
+            new(ExecutionOperationKind.RawCommand, managedTransaction?.ExecutionGate.ProviderInstanceId));
 
     private void ValidateRawReaderOwner()
     {

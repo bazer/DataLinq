@@ -26,7 +26,8 @@ internal sealed partial class ExpressionQueryPlanProvider
         ArgumentNullException.ThrowIfNull(expression);
         if (readSource is null) throw new NotSupportedException("A parsing-only query provider cannot execute queries.");
         if (readSource is Interfaces.IDataSourceAccess sqlSource)
-            Mutation.DataSourceAccess.EnsureReadAllowed(sqlSource, "capture an asynchronous expression query");
+            Mutation.DataSourceAccess.EnsureReadAllowed(sqlSource, "capture an asynchronous expression query",
+                operationKind: Execution.ExecutionOperationKind.Query);
         var invocation = Parse(expression, typeof(T));
         return ValidatedQueryExecutionRequest.PrepareForAsync(new(invocation, new(readSource, token)));
     }

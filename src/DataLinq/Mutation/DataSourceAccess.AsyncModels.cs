@@ -16,7 +16,7 @@ public abstract partial class DataSourceAccess
         new AsyncReaderEnumerable<T>(() =>
         {
             ArgumentNullException.ThrowIfNull(sql);
-            EnsureReadAllowed(this, "read models from asynchronous SQL");
+            EnsureReadAllowed(this, "read models from asynchronous SQL", operationKind: ExecutionOperationKind.RawCommand);
             var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
             var factory = IAsyncSqlReaderFactory.Require(DatabaseAccess);
             return CaptureRawModels<T>(table, factory.BindReader(CapturedSql.Capture(new Sql(sql))), "raw-query");
@@ -26,7 +26,7 @@ public abstract partial class DataSourceAccess
         new AsyncReaderEnumerable<T>(() =>
         {
             ArgumentNullException.ThrowIfNull(command);
-            EnsureReadAllowed(this, "read models from an asynchronous borrowed command");
+            EnsureReadAllowed(this, "read models from an asynchronous borrowed command", operationKind: ExecutionOperationKind.RawCommand);
             var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
             var factory = IAsyncBorrowedReaderFactory.Require(DatabaseAccess);
             return CaptureRawModels<T>(table, factory.BindBorrowedReader(command), "raw-command");
@@ -53,6 +53,6 @@ public abstract partial class DataSourceAccess
             IRowData constructionRow = providerRow.TryCreateCanonicalPrimaryKey(out var key)
                 ? new KnownCanonicalPrimaryKeyRowData(row, key) : row;
             return InstanceFactory.NewImmutableRow<T>(constructionRow, this);
-        }, this as Transaction);
+        }, this as Transaction, Identity: ReadExecutionIdentity.Capture(this, ExecutionOperationKind.RawCommand));
     }
 }

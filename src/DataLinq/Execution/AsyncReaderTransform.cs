@@ -13,7 +13,7 @@ internal static class AsyncReaderTransform
         Func<IReadOnlyList<T>, CancellationToken, IReadOnlyList<TResult>> transform)
     {
         if (input.Buffer is not null) throw new InvalidOperationException("Query transforms require a materializer or continuation.");
-        return new(input.Source, null, input.Transaction, Continuation: new Transform<T, TResult>(input, transform));
+        return new(input.Source, null, input.Transaction, Continuation: new Transform<T, TResult>(input, transform), Identity: input.Identity);
     }
 
     private sealed class Transform<T, TResult>(AsyncReaderInvocation<T> input,

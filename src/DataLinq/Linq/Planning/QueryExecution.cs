@@ -77,7 +77,8 @@ internal readonly struct ValidatedQueryExecutionRequest
         // starting execution; cancellation follows capability validation on MoveNext.
         if (!asynchronous) context.CancellationToken.ThrowIfCancellationRequested();
         if (asynchronous && context.Source is IDataSourceAccess sqlSource)
-            Mutation.DataSourceAccess.EnsureReadAllowed(sqlSource, "capture an asynchronous query plan");
+            Mutation.DataSourceAccess.EnsureReadAllowed(sqlSource, "capture an asynchronous query plan",
+                operationKind: Execution.ExecutionOperationKind.Query);
         ValidateSourceOwnership(request.Invocation, context.Source);
 
         if (context.Source is not IDataLinqQueryPlanServices services)

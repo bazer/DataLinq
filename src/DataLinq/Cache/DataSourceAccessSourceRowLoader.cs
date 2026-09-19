@@ -19,14 +19,16 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
     private readonly string sourceName;
     private readonly TransactionOperationGate.Step? owner;
     private readonly IAsyncSqlReaderFactory? asyncFactory;
+    private readonly ExecutionOperationKind asyncOperationKind;
 
     internal DataSourceAccessSourceRowLoader(
         IDataSourceAccess dataSource, TransactionOperationGate.Step? owner = null,
-        IAsyncSqlReaderFactory? asyncFactory = null)
+        IAsyncSqlReaderFactory? asyncFactory = null, ExecutionOperationKind asyncOperationKind = ExecutionOperationKind.Unknown)
     {
         this.dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
         this.owner = owner;
         this.asyncFactory = asyncFactory;
+        this.asyncOperationKind = asyncOperationKind;
         sourceName = $"sql:{dataSource.Provider.DatabaseType}";
         ProviderRowMaterializer.ValidateSourceName(sourceName);
     }
@@ -117,7 +119,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
 
     private void EnsureCanLoad(TableDefinition table, string operation)
     {
-        DataSourceAccess.EnsureReadAllowed(dataSource, operation, owner);
+        DataSourceAccess.EnsureReadAllowed(dataSource, operation, owner, owner?.Kind ?? asyncOperationKind);
 
         if (!ReferenceEquals(table.Database, dataSource.Metadata))
         {

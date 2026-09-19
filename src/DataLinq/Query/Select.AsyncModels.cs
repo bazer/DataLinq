@@ -32,7 +32,7 @@ public partial class Select<T>
     internal AsyncReaderInvocation<IImmutableInstance> CaptureModels()
     {
         var source = query.DataSource;
-        DataSourceAccess.EnsureReadAllowed(source, "capture an asynchronous model query");
+        DataSourceAccess.EnsureReadAllowed(source, "capture an asynchronous model query", operationKind: ExecutionOperationKind.Query);
         var factory = IAsyncSqlReaderFactory.Require(source.DatabaseAccess).CaptureInvocation()
             ?? throw new InvalidOperationException("The async reader factory returned no invocation snapshot.");
         var table = query.Table;
@@ -52,7 +52,8 @@ public partial class Select<T>
         IAsyncReaderContinuation<IImmutableInstance> continuation = hasKey
             ? new ModelKeyContinuation(source, table, source.Provider.GetTableCache(table), factory, readerSource, directKey)
             : new ModelRowContinuation(source, table, readerSource, CaptureRowLayout());
-        return new(readerSource, null, source as Transaction, Continuation: continuation);
+        return new(readerSource, null, source as Transaction, Continuation: continuation,
+            Identity: ReadExecutionIdentity.Capture(source, ExecutionOperationKind.Query));
     }
 
     private sealed class ModelKeyContinuation(
@@ -77,7 +78,8 @@ public partial class Select<T>
         {
             if (directKey.HasValue)
             {
-                var row = await cache.GetProviderRowAsyncCore(directKey.Value, source, token, owner, factory, current => evidence = current).ConfigureAwait(false);
+                var row = await cache.GetProviderRowAsyncCore(directKey.Value, source, token, owner, factory, current => evidence = current,
+                    operationKind: ExecutionOperationKind.Query).ConfigureAwait(false);
                 return row is null ? [] : [row];
             }
             return await cache.LoadQueryRowsAsync(keys, source, factory, owner, current => evidence = current, token).ConfigureAwait(false);

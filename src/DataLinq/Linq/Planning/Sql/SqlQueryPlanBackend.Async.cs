@@ -22,7 +22,7 @@ internal sealed partial class SqlQueryPlanBackend
     public Task<T> ExecuteAsync<T>(ValidatedQueryExecutionRequest request)
     {
         EnsureRequest(request);
-        DataSourceAccess.EnsureReadAllowed(dataSource, "capture an asynchronous terminal query plan");
+        DataSourceAccess.EnsureReadAllowed(dataSource, "capture an asynchronous terminal query plan", operationKind: ExecutionOperationKind.Query);
         var result = request.Invocation.Template.Result;
         if (result.IsScalarResult)
         {
@@ -31,7 +31,8 @@ internal sealed partial class SqlQueryPlanBackend
             var factory = IAsyncSqlScalarFactory.Require(dataSource.DatabaseAccess);
             var select = new QueryPlanSqlBuilder(request.Invocation, dataSource).BuildSelect<object>();
             var source = factory.BindScalar(CapturedSql.Capture(select.ToSql()));
-            return AsyncScalarRead.ExecuteAsync(source, dataSource as Transaction, value => ConvertScalarResult<T>(value, result), request.Context.CancellationToken);
+            return AsyncScalarRead.ExecuteAsync(source, dataSource as Transaction, value => ConvertScalarResult<T>(value, result), request.Context.CancellationToken,
+                ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.Query));
         }
         if (result.Kind == QueryPlanResultKind.Sequence)
             throw new InvalidOperationException("A terminal backend request cannot have a sequence result.");
@@ -43,7 +44,7 @@ internal sealed partial class SqlQueryPlanBackend
     private AsyncReaderInvocation<T> CaptureAsyncRows<T>(ValidatedQueryExecutionRequest request)
     {
         EnsureRequest(request);
-        DataSourceAccess.EnsureReadAllowed(dataSource, "capture an asynchronous query plan");
+        DataSourceAccess.EnsureReadAllowed(dataSource, "capture an asynchronous query plan", operationKind: ExecutionOperationKind.Query);
         var invocation = request.Invocation;
         if (invocation.Template.Projection is QueryPlanProjection.Entity)
         {

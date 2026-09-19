@@ -9,17 +9,19 @@ namespace DataLinq.Execution;
 internal static class AsyncScalarRead
 {
     internal static async Task<T> ExecuteAsync<T>(IAsyncScalarSource source, Transaction? transaction,
-        Func<object?, T> convert, CancellationToken token)
+        Func<object?, T> convert, CancellationToken token, ReadExecutionIdentity identity = default)
     {
         const string operation = "execute an asynchronous scalar query";
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(convert);
-        transaction?.EnsureCanRead(operation);
+        identity = identity.Bind(transaction);
+        transaction?.EnsureCanRead(operation, operationKind: identity.Operation);
         source.Validate();
         if (source is IAsyncTransactionScalarSource && transaction is null)
             throw new InvalidOperationException("This scalar source requires a managed transaction owner.");
         token.ThrowIfCancellationRequested();
-        using var ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, operation, cancellationToken: token);
+        using var ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, operation, cancellationToken: token,
+            operationKind: identity.Operation);
         var stage = ExecutionFailureStage.CommandExecution;
         var cause = ExecutionFailureCause.Unknown;
         try
@@ -52,7 +54,7 @@ internal static class AsyncScalarRead
             var recovery = ownership is null ? ExecutionRecoveryActions.None
                 : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessmentSucceeded);
             var context = failures.Snapshot(evidence, transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
-                recovery, transaction?.TransactionID);
+                recovery, transaction?.TransactionID, identity.Operation, identity.ProviderInstanceId);
             if (ownership is not null) transaction!.RecordAsyncReadFailure(ownership.Step, context);
             ExecutionFailureContexts.Attach(failure, context);
             ownership?.ReportFailure(failure);

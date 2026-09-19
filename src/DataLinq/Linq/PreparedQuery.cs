@@ -133,7 +133,8 @@ internal static class PreparedQueryExecution
     {
         ArgumentNullException.ThrowIfNull(source);
         if (asynchronous && source is Mutation.DataSourceAccess managedSource)
-            Mutation.DataSourceAccess.EnsureReadAllowed(managedSource, "capture an asynchronous prepared query");
+            Mutation.DataSourceAccess.EnsureReadAllowed(managedSource, "capture an asynchronous prepared query",
+                operationKind: Execution.ExecutionOperationKind.Query);
 
         var values = new QueryPlanInvocationValue[bindings.Count];
         for (var index = 0; index < bindings.Count; index++)

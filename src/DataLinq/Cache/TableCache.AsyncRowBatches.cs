@@ -16,7 +16,8 @@ public partial class TableCache
     internal async Task<IReadOnlyList<IImmutableInstance>> LoadQueryRowsAsync(
         IReadOnlyList<DataLinqKey> orderedKeys, IDataSourceAccess source,
         IAsyncSqlReaderFactory factory, TransactionOperationGate.Step? owner,
-        Action<IAsyncReadFailureEvidence> observingRead, CancellationToken token)
+        Action<IAsyncReadFailureEvidence> observingRead, CancellationToken token,
+        ExecutionOperationKind operationKind = ExecutionOperationKind.Query)
     {
         EnsureTransactionRowCache(source, owner);
         var neutral = ProviderKeyComponents.SupportsNeutralSourceRowLoading(Table, source.Provider.DatabaseType);
@@ -40,7 +41,7 @@ public partial class TableCache
 
         // Bind all finite missing-key batches before the first batch suspends. The
         // provider factory was captured before even the original key query began.
-        var loader = new DataSourceAccessSourceRowLoader(source, owner, factory);
+        var loader = new DataSourceAccessSourceRowLoader(source, owner, factory, operationKind);
         var reads = new List<(AsyncBufferedRead<SourceRowLoadResult>? Neutral, AsyncBufferedRead<IReadOnlyList<LoadedCanonicalRow>>? ProviderMatched)>();
         for (var offset = 0; offset < missing.Count; offset += 500)
         {

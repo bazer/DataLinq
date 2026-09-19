@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -25,20 +26,21 @@ internal static class AsyncModelLookup
         var table = GetTable<T>(source);
         // Conversion is part of the managed read: user converters cannot re-enter
         // the transaction, and their supported mutable result is owned before await.
-        using var read = DataSourceAccess.BeginRead(source, "normalize an asynchronous lookup key");
+        var identity = ReadExecutionIdentity.Capture(source, ExecutionOperationKind.KeyLookup);
+        using var read = DataSourceAccess.BeginRead(source, "normalize an asynchronous lookup key", operationKind: identity.Operation);
         try
         {
             var key = KeyFactory.CreateKeyFromModelValues(modelValues, table.PrimaryKeyColumns);
             return (T?)await source.Provider.GetTableCache(table)
                 .GetProviderRowAsyncCore(key, source, token, read?.Step).ConfigureAwait(false);
         }
-        catch (Exception failure) { read?.ReportFailure(failure); throw; }
+        catch (Exception failure) { identity.ReportLocalFailure(failure, source, read?.Step, token); read?.ReportFailure(failure); throw; }
     }
 
     private static TableDefinition GetTable<T>(IDataSourceAccess source) where T : IModel
     {
         ArgumentNullException.ThrowIfNull(source);
-        DataSourceAccess.EnsureReadAllowed(source, "look up an asynchronous model");
+        DataSourceAccess.EnsureReadAllowed(source, "look up an asynchronous model", operationKind: ExecutionOperationKind.KeyLookup);
         var table = source.Provider.Metadata.GetTableModel(typeof(T)).Table;
         SourceRowLoadingValidation.ValidatePrimaryKeyTable(table);
         return table;
