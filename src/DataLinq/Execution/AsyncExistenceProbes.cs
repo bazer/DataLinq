@@ -107,6 +107,7 @@ internal static class AsyncExistenceProbes
     private static async Task<bool> ExecuteAsync(ExistenceProbePlan plan, ExistenceProbeKind kind, CancellationToken token,
         string? providerInstanceId)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         IAsyncExistenceProbeSession? session = null;
         var failures = new ExecutionFailures();
         var stage = ExecutionFailureStage.Validation;

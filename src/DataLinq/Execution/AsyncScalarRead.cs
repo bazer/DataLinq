@@ -11,6 +11,7 @@ internal static class AsyncScalarRead
     internal static async Task<T> ExecuteAsync<T>(IAsyncScalarSource source, Transaction? transaction,
         Func<object?, T> convert, CancellationToken token, ReadExecutionIdentity identity = default)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         const string operation = "execute an asynchronous scalar query";
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(convert);

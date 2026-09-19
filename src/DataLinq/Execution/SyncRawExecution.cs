@@ -9,6 +9,7 @@ internal static class SyncRawExecution
         Transaction? transaction, Func<SyncRawCommand, TransactionOperationGate.Step?, TValue> execute,
         Func<TValue, TResult> convert)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         const string operation = "execute a synchronous raw command";
         transaction?.EnsureCanRead(operation, operationKind: ExecutionOperationKind.RawCommand);
         command.Reserve(kind, transaction is not null);

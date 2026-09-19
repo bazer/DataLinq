@@ -85,7 +85,8 @@ internal sealed class TransactionOperationGate(uint transactionId, string? provi
     internal sealed class HelperOwner(TransactionOperationGate gate)
     {
         internal bool Closed { get; private set; }
-        private readonly List<Exception> drainedFailures = [];
+        private readonly List<ObservedExecutionFailure> drainedFailures = [];
+        private Dictionary<Exception, ObservedExecutionFailure>? observedFailures;
 
         internal Task<Lease> CloseAndDrainAsync(ExecutionFailures failures)
         {
@@ -96,6 +97,7 @@ internal sealed class TransactionOperationGate(uint transactionId, string? provi
                 if (Closed)
                     throw new InvalidOperationException("The helper callback has already ended.");
                 Closed = true;
+                observedFailures = null; // Callback attribution is settled; do not retain handled failures.
                 unfinished = gate.active is not null;
                 gate.active?.Reader?.StopAdmission();
             }
@@ -116,7 +118,7 @@ internal sealed class TransactionOperationGate(uint transactionId, string? provi
                     if (gate.active is null)
                     {
                         foreach (var failure in drainedFailures)
-                            failures.AddReported(failure, ExecutionFailureStage.CommandExecution);
+                            failures.AddObserved(failure, ExecutionFailureStage.CommandExecution);
                         drainedFailures.Clear();
                         return gate.active = new Lease(gate, "complete callback helper", ExecutionOperationKind.TransactionCallback);
                     }
@@ -135,7 +137,20 @@ internal sealed class TransactionOperationGate(uint transactionId, string? provi
             }
         }
 
-        internal void Observe(Exception failure) => drainedFailures.Add(failure);
+        internal void Observe(ObservedExecutionFailure failure) => drainedFailures.Add(failure);
+        internal void Remember(ObservedExecutionFailure failure)
+        {
+            if (!Closed) (observedFailures ??= new(ReferenceEqualityComparer.Instance))[failure.Exception] = failure;
+        }
+
+        internal bool TryGetObserved(Exception failure, out ObservedExecutionFailure observed)
+        {
+            lock (gate.sync)
+            {
+                observed = default;
+                return observedFailures?.TryGetValue(failure, out observed) == true;
+            }
+        }
     }
 
     internal Step EnterStep(Lease owner)
@@ -184,7 +199,7 @@ internal sealed class TransactionOperationGate(uint transactionId, string? provi
         internal string? ProviderInstanceId => gate.ProviderInstanceId;
         internal Step? ActiveStep { get; set; }
         internal IHelperTrackedReader? Reader { get; set; }
-        private List<Exception>? failures;
+        private List<ObservedExecutionFailure>? failures;
         private bool readerRegistered;
 
         internal Lease(TransactionOperationGate gate, string operation, ExecutionOperationKind operationKind)
@@ -234,7 +249,11 @@ internal sealed class TransactionOperationGate(uint transactionId, string? provi
             {
                 gate.RequireOwner(this);
                 if (gate.helper is not null)
-                    (failures ??= []).Add(failure);
+                {
+                    var observed = ObservedExecutionFailure.Capture(failure);
+                    (failures ??= []).Add(observed);
+                    gate.helper.Remember(observed);
+                }
             }
         }
 

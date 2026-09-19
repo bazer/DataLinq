@@ -50,6 +50,7 @@ internal static class AsyncMetadataRead
     private static async Task<Option<DatabaseDefinition, IDLOptionFailure>> ExecuteAsync(IAsyncMetadataReadPlan plan, MetadataReadSettings settings,
         CancellationToken token, string? providerInstanceId)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         IAsyncMetadataSession? session = null;
         MetadataReadContext? context = null;
         var failures = new ExecutionFailures();

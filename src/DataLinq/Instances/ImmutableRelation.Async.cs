@@ -19,6 +19,7 @@ public partial class ImmutableRelation<T, TKey>
 
     private async Task<RelationSnapshot> GetSnapshotAsync(CancellationToken token, bool buildDictionary = false)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         // Admission precedes waiting, so same-transaction overlap never becomes
         // implicit queuing behind this relation's owner.
         var source = GetDataSource();

@@ -22,6 +22,7 @@ internal static class AsyncModelLookup
     internal static async Task<T?> GetByModelKeyAsyncCore<T>(IReadOnlyList<object?> modelValues, IDataSourceAccess source, CancellationToken token = default)
         where T : IModel
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(modelValues);
         var table = GetTable<T>(source);
         // Conversion is part of the managed read: user converters cannot re-enter

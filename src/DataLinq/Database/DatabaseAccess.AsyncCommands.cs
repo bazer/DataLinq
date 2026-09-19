@@ -78,6 +78,7 @@ public abstract partial class DatabaseAccess
         Func<AsyncEagerCommand, TransactionOperationGate.Step?, CancellationToken, Task<TValue>> execute,
         Func<TValue, TResult> convert)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         const string operation = "execute an asynchronous command";
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(convert);

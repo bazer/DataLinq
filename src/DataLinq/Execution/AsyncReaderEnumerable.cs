@@ -133,6 +133,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
 
     private async ValueTask<bool> MoveNextCoreAsync(EnumeratorCallGate.Call call)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using (call)
         {
             if (finished)
@@ -261,6 +262,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
 
     public async ValueTask DrainAsync()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         await calls.WaitForIdleAsync().ConfigureAwait(false);
         try
         {
@@ -273,6 +275,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
 
     private async ValueTask DisposeCoreAsync(EnumeratorCallGate.Call call)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using (call)
         {
             var failures = new ExecutionFailures();
@@ -305,7 +308,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                 // Before admission, a gate rejection already describes the active
                 // operation. This enumerator owns no work and must not replace its
                 // FinishActiveOperation policy with a read-cleanup assessment.
-                var reported = continuationStarted || !started ? ExecutionFailureContexts.Get(primary) : null;
+                var reported = continuationStarted || !started ? ExecutionFailureContexts.GetCurrent(primary) : null;
                 if (reported is null && started && failureEvidence is { } classifier)
                 {
                     try

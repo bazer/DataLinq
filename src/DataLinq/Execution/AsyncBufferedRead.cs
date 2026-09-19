@@ -41,6 +41,7 @@ internal sealed class AsyncBufferedRead<TResult>(
         CancellationToken token,
         Func<TransactionOperationGate.Step?, (bool Found, T Result)>? tryCached = null)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(materialize);
         Validate();
         token.ThrowIfCancellationRequested();

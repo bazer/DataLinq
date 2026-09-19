@@ -24,12 +24,14 @@ internal sealed class AsyncCheckpoint
 
     internal CancellationToken ObservedToken { get; private set; }
     internal Task Entered => entered.Task;
+    internal Action<Exception>? ReportingFailure { get; set; }
 
     internal async Task ReachAsync(CancellationToken cancellationToken)
     {
         ObservedToken = cancellationToken;
         entered.TrySetResult();
-        await resumed.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { await resumed.Task.WaitAsync(cancellationToken).ConfigureAwait(false); }
+        catch (Exception failure) { ReportingFailure?.Invoke(failure); throw; }
     }
 
     internal void Release() => resumed.TrySetResult();

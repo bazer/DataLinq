@@ -203,9 +203,16 @@ public sealed class LazyTransactionResourceTests
         var gate = new TransactionOperationGate(2);
         var expected = new Exception("sync initialization");
         var cleanup = new Exception("sync cleanup");
-        var resource = new ControlledTransactionResource { SyncInitializationFailure = expected, SyncCleanupFailure = cleanup };
-        ExecutionFailureContexts.Attach(expected, new(ExecutionFailureCause.Timeout, ExecutionFailureStage.CommandExecution,
-            ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, 2, []));
+        var resource = new ControlledTransactionResource
+        {
+            SyncCleanupFailure = cleanup,
+            Initialized = () =>
+            {
+                ExecutionFailureContexts.Attach(expected, new(ExecutionFailureCause.Timeout, ExecutionFailureStage.CommandExecution,
+                    ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, 2, []));
+                throw expected;
+            }
+        };
         var lazy = new LazyTransactionResource<ControlledTransactionResource>(gate, () => resource);
         using var owner = gate.Enter("sync");
         await Assert.That(Capture(() => lazy.GetOrInitialize(owner))).IsSameReferenceAs(expected);

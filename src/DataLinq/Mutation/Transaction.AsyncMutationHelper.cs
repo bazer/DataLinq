@@ -20,6 +20,7 @@ public partial class Transaction
     private async Task<TResult> RunOwnedMutationAsync<TResult>(IModelInstance model, TransactionChangeType? type,
         Func<CapturedMutation, IImmutableInstance?, TResult> select, CancellationToken token)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         // Construction is lazy and I/O-free. An unsupported adapter cannot acquire
         // resources through this helper; never substitute synchronous completion.
         var resource = new ManagedAsyncCompletion(this, RequireAsyncCompletion());

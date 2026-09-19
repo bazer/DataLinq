@@ -39,6 +39,13 @@ internal sealed record ExecutionSecondaryFailure(
     ExecutionFailureCause Cause, ExecutionFailureStage Stage, Exception Exception,
     ExecutionOperationKind Operation = ExecutionOperationKind.Unknown);
 
+// Captured only at an owned reporting boundary, before another throw can replace
+// the direct exception lookup. Carries an immutable snapshot, never live authority.
+internal readonly record struct ObservedExecutionFailure(Exception Exception, ExecutionFailureContext? Context)
+{
+    internal static ObservedExecutionFailure Capture(Exception exception) => new(exception, ExecutionFailureContexts.GetCurrent(exception));
+}
+
 internal sealed class ExecutionFailureContext
 {
     internal ExecutionFailureCause Cause { get; }
@@ -51,6 +58,7 @@ internal sealed class ExecutionFailureContext
     internal ExecutionOperationKind? ActiveOperation { get; }
     internal IReadOnlyList<ExecutionSecondaryFailure> SecondaryFailures { get; }
     internal bool HasCleanupFailure { get; }
+    internal ExecutionFailureScope? Scope { get; init; } = ExecutionFailureScope.Current;
 
     internal ExecutionFailureContext(ExecutionFailureCause cause, ExecutionFailureStage stage,
         ExecutionCompletion completion, ExecutionRecoveryActions recovery, uint? transactionId,
@@ -73,7 +81,7 @@ internal sealed class ExecutionFailureContext
 
     internal ExecutionFailureContext AfterRecovery(ExecutionCompletion completion, ExecutionRecoveryActions recovery) =>
         new(Cause, Stage, ExecutionRecoveryPolicy.PreserveCompletion(Completion, completion), recovery,
-            TransactionId, SecondaryFailures, HasCleanupFailure, Operation, ProviderInstanceId, ActiveOperation);
+            TransactionId, SecondaryFailures, HasCleanupFailure, Operation, ProviderInstanceId, ActiveOperation) { Scope = Scope };
 }
 
 internal static class ExecutionRecoveryPolicy
@@ -100,6 +108,9 @@ internal static class ExecutionRecoveryPolicy
 /// <summary>Collects failures in encounter order without replacing or flattening original exceptions.</summary>
 internal sealed class ExecutionFailures
 {
+    private readonly ExecutionFailureScope? scope;
+    internal ExecutionFailures() : this(ExecutionFailureScope.Current) { }
+    internal ExecutionFailures(ExecutionFailureScope? scope) => this.scope = scope;
     private ExceptionDispatchInfo? primary;
     private ExecutionFailureCause cause;
     private ExecutionFailureStage stage;
@@ -117,7 +128,7 @@ internal sealed class ExecutionFailures
         ExecutionOperationKind failureOperation = ExecutionOperationKind.Unknown)
     {
         ArgumentNullException.ThrowIfNull(exception);
-        var context = ExecutionFailureContexts.Get(exception);
+        var context = Observe(exception);
         var observedOperation = context is { Operation: not ExecutionOperationKind.Unknown }
             ? context.Operation : failureOperation;
         if (primary is null) unreportedOperation = failureOperation;
@@ -149,8 +160,15 @@ internal sealed class ExecutionFailures
     internal void AddReported(Exception exception, ExecutionFailureStage fallbackStage,
         ExecutionFailureCause fallbackCause = ExecutionFailureCause.Unknown,
         ExecutionOperationKind fallbackOperation = ExecutionOperationKind.Unknown)
+        => AddObserved(new(exception, Observe(exception)), fallbackStage, fallbackCause, fallbackOperation);
+
+    // An owned coordinator can hand off facts it already captured, including when
+    // application code suppressed ExecutionContext flow. Never reread the exception.
+    internal void AddObserved(ObservedExecutionFailure observed, ExecutionFailureStage fallbackStage,
+        ExecutionFailureCause fallbackCause = ExecutionFailureCause.Unknown,
+        ExecutionOperationKind fallbackOperation = ExecutionOperationKind.Unknown)
     {
-        var context = ExecutionFailureContexts.Get(exception);
+        var (exception, context) = observed;
         // Identity deduplication can omit a cleanup occurrence when a provider throws
         // the same exception for execution and disposal. Preserve that safety fact.
         if (context?.HasCleanupFailure == true) HasCleanupFailure = true;
@@ -166,7 +184,7 @@ internal sealed class ExecutionFailures
     {
         // A direct disposal failure establishes a cleanup failure even if the same
         // exception already carries context from earlier execution (or is the primary).
-        Add(exception, ExecutionFailureContexts.Get(exception)?.Cause ?? ExecutionFailureCause.Unknown, ExecutionFailureStage.Cleanup,
+        Add(exception, Observe(exception)?.Cause ?? ExecutionFailureCause.Unknown, ExecutionFailureStage.Cleanup,
             ExecutionOperationKind.Dispose);
         AddReported(exception, ExecutionFailureStage.Cleanup);
     }
@@ -192,7 +210,16 @@ internal sealed class ExecutionFailures
             completion, recovery, transactionId, secondary, HasCleanupFailure,
             knownOperation == ExecutionOperationKind.Unknown ? fallbackOperation : knownOperation,
             foreign ? fallbackProviderInstanceId : providerInstanceId ?? fallbackProviderInstanceId,
-            foreign ? null : activeOperation);
+            foreign ? null : activeOperation) { Scope = scope };
+    }
+
+    private ExecutionFailureContext? Observe(Exception exception)
+    {
+        var current = ExecutionFailureScope.Current;
+        // Recovery/cleanup can create a narrower call beneath this collector.
+        // Its newly thrown occurrence must not borrow an earlier sibling's facts.
+        return ExecutionFailureContexts.GetObserved(exception,
+            current is not null && (scope is null || scope.Contains(current)) ? current : scope);
     }
 
     internal void ThrowIfAny() => primary?.Throw();
@@ -212,4 +239,13 @@ internal static class ExecutionFailureContexts
 
     internal static void Attach(Exception exception, ExecutionFailureContext context) =>
         Volatile.Write(ref contexts.GetValue(exception, static _ => new Holder()).Value, context);
+
+    internal static ExecutionFailureContext? GetCurrent(Exception exception) =>
+        GetObserved(exception, ExecutionFailureScope.Current);
+
+    internal static ExecutionFailureContext? GetObserved(Exception exception, ExecutionFailureScope? scope)
+    {
+        var context = Get(exception);
+        return scope is null || scope.Contains(context?.Scope) ? context : null;
+    }
 }

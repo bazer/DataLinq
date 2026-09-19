@@ -16,7 +16,7 @@ internal sealed class MetadataReadContext
     private readonly int? timeout;
     private readonly CancellationToken token;
     private readonly ReadExecutionIdentity identity;
-    private readonly List<(Exception Exception, ExecutionFailureStage Stage)> failures = [];
+    private readonly List<(ObservedExecutionFailure Failure, ExecutionFailureStage Stage, ExecutionFailureCause Cause)> failures = [];
     private TaskCompletionSource? active;
     private bool closed;
 
@@ -58,7 +58,7 @@ internal sealed class MetadataReadContext
             if (active is not null)
             {
                 var failure = new InvalidOperationException("A metadata command is still active.");
-                failures.Add((failure, ExecutionFailureStage.Validation));
+                failures.Add((new(failure, null), ExecutionFailureStage.Validation, ExecutionFailureCause.Unknown));
                 throw failure;
             }
             if (failures.Count != 0) throw new InvalidOperationException("This metadata read has failed.");
@@ -77,6 +77,7 @@ internal sealed class MetadataReadContext
 
     private async Task<T> ExecuteCoreAsync<T>(Sql sql, Func<OwnedCommandExecution, Task<T>> execute, TaskCompletionSource call)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         var stage = ExecutionFailureStage.Validation;
         try
         {
@@ -94,7 +95,9 @@ internal sealed class MetadataReadContext
         }
         catch (Exception failure)
         {
-            lock (gate) failures.Add((failure, stage));
+            var cause = failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
+                ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown;
+            lock (gate) failures.Add((ObservedExecutionFailure.Capture(failure), stage, cause));
             throw;
         }
         finally
@@ -110,9 +113,7 @@ internal sealed class MetadataReadContext
     internal void CopyFailuresTo(ExecutionFailures destination)
     {
         lock (gate)
-            foreach (var failure in failures) destination.AddReported(failure.Exception, failure.Stage,
-                failure.Exception is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, identity.Operation);
+            foreach (var failure in failures) destination.AddObserved(failure.Failure, failure.Stage, failure.Cause, identity.Operation);
     }
 
     internal async ValueTask CloseAsync(ExecutionFailures destination)

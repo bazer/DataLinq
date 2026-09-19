@@ -49,6 +49,7 @@ internal static class AsyncJournalMode
 
     private static async Task ExecuteAsync(IAsyncJournalModePlan plan, CancellationToken token, string? providerInstanceId)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         IAsyncJournalModeSession? session = null;
         ExecutionFailures? failures = null;
         var stage = ExecutionFailureStage.Validation;
