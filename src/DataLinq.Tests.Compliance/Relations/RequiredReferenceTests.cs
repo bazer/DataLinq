@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Diagnostics;
@@ -21,6 +22,8 @@ public sealed class RequiredReferenceTests
     {
         using var scope = TemporaryModelTestDatabase<RequiredReferenceDb>.Create(provider, "required_reference_missing");
         var database = scope.Database;
+        // Warm-load counts require a stable cache; cleanup overlap is tested separately.
+        database.Provider.State.Cache.CleanupScheduler?.Stop();
         foreach (var key in new int?[] { null, 71001 })
         {
             var child = ScalarChild(database, key);
@@ -52,6 +55,8 @@ public sealed class RequiredReferenceTests
     {
         using var scope = TemporaryModelTestDatabase<RequiredReferenceDb>.Create(provider, "required_reference_invalidation");
         var database = scope.Database;
+        // Only the explicit invalidations below should interrupt these identity assertions.
+        database.Provider.State.Cache.CleanupScheduler?.Stop();
         var child = ScalarChild(database, 1);
         _ = Capture<InvalidOperationException>(() => _ = child.RequiredParent);
         await Assert.That(child.OptionalParent).IsNull();
@@ -109,6 +114,7 @@ public sealed class RequiredReferenceTests
     {
         using var scope = TemporaryModelTestDatabase<TypedIdRelationKeyDb>.Create(provider, "required_reference_converted");
         var database = scope.Database;
+        database.Provider.State.Cache.CleanupScheduler?.Stop();
         var child = new ImmutableTypedIdRelationKeyChild(new MutableTypedIdRelationKeyChild
         {
             Id = new QueryTypedId(201), ParentId = new QueryTypedId(101), Name = "child"
@@ -156,6 +162,7 @@ public sealed class RequiredReferenceTests
     {
         using var scope = TemporaryModelTestDatabase<RequiredReferenceDb>.Create(provider, "required_reference_composite");
         var database = scope.Database;
+        database.Provider.State.Cache.CleanupScheduler?.Stop();
         foreach (var (tenant, id) in new (int?, int?)[] { (null, null), (1, null), (null, 2), (1, 2) })
         {
             var child = new ImmutableCompositeReferenceChild(new MutableCompositeReferenceChild
@@ -183,6 +190,47 @@ public sealed class RequiredReferenceTests
                 database.Provider.GetTableCache(database.Provider.Metadata.GetTableModel(typeof(CompositeReferenceParent)).Table).ClearCache();
                 _ = Capture<InvalidOperationException>(() => _ = child.RequiredParent);
                 await Assert.That(child.OptionalParent).IsNull();
+            }
+        }
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ScalarReferences_CleanupDuringConstructionPreservesValuesWithoutStableIdentity(TestProviderDescriptor provider)
+    {
+        foreach (var forceCleanup in new[] { false, true })
+        {
+            using var scope = TemporaryModelTestDatabase<RequiredReferenceDb>.Create(provider, "required_reference_cleanup");
+            var database = scope.Database;
+            var scheduler = database.Provider.State.Cache.CleanupScheduler!;
+            scheduler.Stop();
+            database.Insert(new MutableRequiredReferenceParent { Id = 1 });
+            database.Cache.Clear();
+            var child = ScalarChild(database, 1);
+            using var gate = CachePublicationGate.Install(database.Provider.TelemetryInstanceId);
+            var read = Task.Factory.StartNew(() => child.RequiredParent,
+                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            try
+            {
+                gate.WaitUntilBlocked();
+                if (forceCleanup)
+                    await Assert.That(scheduler.RunScheduledCleanup().RowsRemoved).IsEqualTo(0);
+                gate.Release();
+                var first = await read.WaitAsync(TimeSpan.FromSeconds(20));
+                var optional = child.OptionalParent!;
+                await Assert.That(first.Id).IsEqualTo(1);
+                await Assert.That(optional.Id).IsEqualTo(1);
+                // A cleanup generation change can suppress both row and reference
+                // publication even without eviction. The next load may be a new instance.
+                await Assert.That(ReferenceEquals(first, optional)).IsEqualTo(!forceCleanup);
+                await Assert.That(child.RequiredParent).IsSameReferenceAs(optional);
+                await Assert.That(child.OptionalParent).IsSameReferenceAs(optional);
+            }
+            finally
+            {
+                gate.Release();
+                await read.WaitAsync(TimeSpan.FromSeconds(20));
             }
         }
     }
@@ -226,9 +274,10 @@ public sealed partial class RequiredReferenceDb(DataSourceAccess source) : IData
 }
 
 [Table("required_reference_parents")]
-public abstract partial class RequiredReferenceParent(IRowData row, IDataSourceAccess source)
-    : Immutable<RequiredReferenceParent, RequiredReferenceDb>(row, source), ITableModel<RequiredReferenceDb>
+public abstract partial class RequiredReferenceParent : Immutable<RequiredReferenceParent, RequiredReferenceDb>, ITableModel<RequiredReferenceDb>
 {
+    protected RequiredReferenceParent(IRowData row, IDataSourceAccess source) : base(row, source)
+        => CachePublicationGate.OnConstruction(source);
     [PrimaryKey, Column("id")]
     public abstract int Id { get; }
     [Relation("required_reference_children", "required_parent_id", "FK_required_reference")]
