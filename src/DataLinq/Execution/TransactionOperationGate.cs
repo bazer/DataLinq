@@ -9,48 +9,59 @@ namespace DataLinq.Execution;
 /// execution context, owns the slot. Locks protect transitions only, not provider work.
 /// Lifecycle/capability validation and pre-cancellation remain the caller's responsibility.
 /// </summary>
-internal sealed class TransactionOperationGate(uint transactionId)
+internal sealed class TransactionOperationGate(uint transactionId, string? providerInstanceId = null)
 {
     private readonly object sync = new();
     internal uint TransactionId => transactionId;
+    internal string? ProviderInstanceId => providerInstanceId;
     private Lease? active;
     private HelperOwner? helper;
     private TaskCompletionSource? changed;
 
-    internal Lease Enter(string operation, bool completion = false)
+    internal Lease Enter(string operation, bool completion = false, ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown)
     {
         ArgumentException.ThrowIfNullOrEmpty(operation);
         lock (sync)
         {
             if (completion && helper is not null)
-                throw new InvalidOperationException($"Transaction {transactionId} completion is owned by its callback helper.");
-            ThrowIfBusyCore(operation);
-            return active = new Lease(this, operation);
+                throw Rejected($"Transaction {transactionId} completion is owned by its callback helper.", operationKind);
+            ThrowIfBusyCore(operation, operationKind);
+            return active = new Lease(this, operation, operationKind);
         }
     }
 
-    internal void ThrowIfBusy(string operation)
+    internal void ThrowIfBusy(string operation, ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown)
     {
         lock (sync)
-            ThrowIfBusyCore(operation);
+            ThrowIfBusyCore(operation, operationKind);
     }
 
     // Repeated disposal after completion is harmless, but disposal still in progress
     // owns its slot even after the wrapper has already become terminal.
-    internal void ThrowIfActive(string operation)
+    internal void ThrowIfActive(string operation, ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown)
     {
         lock (sync)
             if (active is not null)
-                throw new InvalidOperationException($"Cannot {operation} through transaction {transactionId} while '{active.Operation}' is active.");
+                throw Rejected($"Cannot {operation} through transaction {transactionId} while '{active.Operation}' is active.", operationKind);
     }
 
-    private void ThrowIfBusyCore(string operation)
+    private void ThrowIfBusyCore(string operation, ExecutionOperationKind operationKind)
     {
         if (helper?.Closed == true)
-            throw new InvalidOperationException($"Cannot {operation} through transaction {transactionId} after its helper callback has ended.");
+            throw Rejected($"Cannot {operation} through transaction {transactionId} after its helper callback has ended.", operationKind);
         if (active is not null)
-            throw new InvalidOperationException(
-                $"Cannot {operation} through transaction {transactionId} while '{active.Operation}' is active.");
+            throw Rejected($"Cannot {operation} through transaction {transactionId} while '{active.Operation}' is active.", operationKind);
+    }
+
+    // Called under the gate lock. Reporting copies identifiers only and never
+    // publishes a failure into the admitted operation or transaction state.
+    private InvalidOperationException Rejected(string message, ExecutionOperationKind operationKind)
+    {
+        var failure = new InvalidOperationException(message);
+        ExecutionFailureContexts.Attach(failure, new(ExecutionFailureCause.InvalidOperation, ExecutionFailureStage.Validation,
+            ExecutionCompletion.Unknown, active is null ? ExecutionRecoveryActions.None : ExecutionRecoveryActions.FinishActiveOperation,
+            transactionId, [], operation: operationKind, providerInstanceId: providerInstanceId, activeOperation: active?.Kind));
+        return failure;
     }
 
     internal HelperOwner BeginHelperLifetime()
@@ -58,8 +69,8 @@ internal sealed class TransactionOperationGate(uint transactionId)
         lock (sync)
         {
             if (helper is not null)
-                throw new InvalidOperationException($"Transaction {transactionId} already belongs to a callback helper.");
-            ThrowIfBusyCore("begin callback helper");
+                throw Rejected($"Transaction {transactionId} already belongs to a callback helper.", ExecutionOperationKind.TransactionCallback);
+            ThrowIfBusyCore("begin callback helper", ExecutionOperationKind.TransactionCallback);
             return helper = new HelperOwner(this);
         }
     }
@@ -107,7 +118,7 @@ internal sealed class TransactionOperationGate(uint transactionId)
                         foreach (var failure in drainedFailures)
                             failures.AddReported(failure, ExecutionFailureStage.CommandExecution);
                         drainedFailures.Clear();
-                        return gate.active = new Lease(gate, "complete callback helper");
+                        return gate.active = new Lease(gate, "complete callback helper", ExecutionOperationKind.TransactionCallback);
                     }
                     reader = gate.active.Reader;
                     gate.active.Reader = null; // Exactly one helper-owned close per reader.
@@ -169,15 +180,18 @@ internal sealed class TransactionOperationGate(uint transactionId)
         private readonly TransactionOperationGate gate;
         private bool released;
         internal string Operation { get; }
+        internal ExecutionOperationKind Kind { get; }
+        internal string? ProviderInstanceId => gate.ProviderInstanceId;
         internal Step? ActiveStep { get; set; }
         internal IHelperTrackedReader? Reader { get; set; }
         private List<Exception>? failures;
         private bool readerRegistered;
 
-        internal Lease(TransactionOperationGate gate, string operation)
+        internal Lease(TransactionOperationGate gate, string operation, ExecutionOperationKind operationKind)
         {
             this.gate = gate;
             Operation = operation;
+            Kind = operationKind;
         }
 
         /// <summary>Hand resource lifetime to a new owner; disposing the old lease is then harmless.</summary>
@@ -186,7 +200,7 @@ internal sealed class TransactionOperationGate(uint transactionId)
             lock (gate.sync)
             {
                 gate.RequireIdle(this);
-                var next = new Lease(gate, Operation);
+                var next = new Lease(gate, Operation, Kind);
                 next.Reader = Reader;
                 next.failures = failures;
                 next.readerRegistered = readerRegistered;
@@ -245,6 +259,8 @@ internal sealed class TransactionOperationGate(uint transactionId)
     {
         private readonly TransactionOperationGate gate;
         private readonly Lease owner;
+        internal ExecutionOperationKind Kind => owner.Kind;
+        internal string? ProviderInstanceId => gate.ProviderInstanceId;
 
         internal Step(TransactionOperationGate gate, Lease owner)
         {

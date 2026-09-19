@@ -27,7 +27,7 @@ internal static class SyncRawModelEnumerable
         Func<TransactionOperationGate.Step, SyncRawModelPlan<T>> capture, IHelperTrackedReader tracked)
     {
         const string operation = "read synchronous raw models";
-        using var ownership = DataSourceAccess.BeginRead(transaction, operation)!;
+        using var ownership = DataSourceAccess.BeginRead(transaction, operation, operationKind: ExecutionOperationKind.RawCommand)!;
         ownership.RegisterReader(tracked);
         ISyncRawModelReaderSource? source = null;
         IDataLinqDataReader? reader = null;

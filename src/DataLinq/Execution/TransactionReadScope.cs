@@ -12,9 +12,9 @@ internal sealed class TransactionReadScope : IDisposable
     private readonly TransactionOperationGate.Lease lease;
     internal TransactionOperationGate.Step Step { get; }
 
-    internal TransactionReadScope(Transaction transaction, string operation)
+    internal TransactionReadScope(Transaction transaction, string operation, ExecutionOperationKind operationKind)
     {
-        lease = transaction.ExecutionGate.Enter(operation);
+        lease = transaction.ExecutionGate.Enter(operation, operationKind: operationKind);
         try
         {
             Step = transaction.ExecutionGate.EnterStep(lease);

@@ -8,13 +8,19 @@ using System.Threading;
 namespace DataLinq.Execution;
 
 // Internal evidence vocabulary. Public diagnostic declarations/mappings remain W3 work.
-internal enum ExecutionFailureCause { Unknown, Cancellation, Timeout, ProviderError, MaterializationError }
+internal enum ExecutionFailureCause { Unknown, Cancellation, Timeout, ProviderError, MaterializationError, ApplicationError, LocalFinalizationError, InvalidOperation }
+internal enum ExecutionOperationKind
+{
+    Unknown, Query, KeyLookup, RelationLoad, Insert, Update, Save, Delete, Commit, Rollback,
+    Dispose, TransactionCallback, RawCommand, MetadataRead, SchemaValidation, ExistenceCheck,
+    Provisioning, ProviderConfiguration
+}
 internal enum ExecutionFailureStage { Validation, Initialization, CommandExecution, RowLoading, Materialization, Cleanup, Recovery, Callback, Commit, Finalization }
 internal enum ExecutionCompletion { NotApplicable, NotAttempted, Committed, RolledBack, Unknown }
 internal enum ExecutionEffects { Unknown, NoStatement, OrdinaryRead, Mutation, Initialization }
 internal enum TransactionIntegrity { Unknown, Confirmed, Lost }
 [Flags]
-internal enum ExecutionRecoveryActions { None = 0, Continue = 1, Rollback = 2, Dispose = 4 }
+internal enum ExecutionRecoveryActions { None = 0, Continue = 1, Rollback = 2, Dispose = 4, FinishActiveOperation = 8 }
 
 /// <summary>Provider-recorded evidence, never inferred from an open connection or a canceled token.</summary>
 internal sealed record ReadFailureEvidence(
@@ -30,7 +36,8 @@ internal interface IAsyncReadFailureEvidence
 }
 
 internal sealed record ExecutionSecondaryFailure(
-    ExecutionFailureCause Cause, ExecutionFailureStage Stage, Exception Exception);
+    ExecutionFailureCause Cause, ExecutionFailureStage Stage, Exception Exception,
+    ExecutionOperationKind Operation = ExecutionOperationKind.Unknown);
 
 internal sealed class ExecutionFailureContext
 {
@@ -39,18 +46,26 @@ internal sealed class ExecutionFailureContext
     internal ExecutionCompletion Completion { get; }
     internal ExecutionRecoveryActions Recovery { get; }
     internal uint? TransactionId { get; }
+    internal ExecutionOperationKind Operation { get; }
+    internal string? ProviderInstanceId { get; }
+    internal ExecutionOperationKind? ActiveOperation { get; }
     internal IReadOnlyList<ExecutionSecondaryFailure> SecondaryFailures { get; }
     internal bool HasCleanupFailure { get; }
 
     internal ExecutionFailureContext(ExecutionFailureCause cause, ExecutionFailureStage stage,
         ExecutionCompletion completion, ExecutionRecoveryActions recovery, uint? transactionId,
-        IEnumerable<ExecutionSecondaryFailure> secondaryFailures, bool hasCleanupFailure = false)
+        IEnumerable<ExecutionSecondaryFailure> secondaryFailures, bool hasCleanupFailure = false,
+        ExecutionOperationKind operation = ExecutionOperationKind.Unknown, string? providerInstanceId = null,
+        ExecutionOperationKind? activeOperation = null)
     {
         Cause = cause;
         Stage = stage;
         Completion = completion;
         Recovery = recovery;
         TransactionId = transactionId;
+        Operation = operation;
+        ProviderInstanceId = providerInstanceId;
+        ActiveOperation = activeOperation;
         SecondaryFailures = Array.AsReadOnly(secondaryFailures.ToArray());
         HasCleanupFailure = hasCleanupFailure || stage == ExecutionFailureStage.Cleanup ||
             SecondaryFailures.Any(x => x.Stage == ExecutionFailureStage.Cleanup);
@@ -58,7 +73,7 @@ internal sealed class ExecutionFailureContext
 
     internal ExecutionFailureContext AfterRecovery(ExecutionCompletion completion, ExecutionRecoveryActions recovery) =>
         new(Cause, Stage, ExecutionRecoveryPolicy.PreserveCompletion(Completion, completion), recovery,
-            TransactionId, SecondaryFailures, HasCleanupFailure);
+            TransactionId, SecondaryFailures, HasCleanupFailure, Operation, ProviderInstanceId, ActiveOperation);
 }
 
 internal static class ExecutionRecoveryPolicy
@@ -88,14 +103,30 @@ internal sealed class ExecutionFailures
     private ExceptionDispatchInfo? primary;
     private ExecutionFailureCause cause;
     private ExecutionFailureStage stage;
+    private ExecutionOperationKind operation;
+    private ExecutionOperationKind unreportedOperation;
+    private string? providerInstanceId;
+    private uint? primaryTransactionId;
+    private ExecutionOperationKind? activeOperation;
     private readonly List<ExecutionSecondaryFailure> secondary = [];
     internal Exception? Primary => primary?.SourceException;
     internal bool HasCleanupFailure { get; private set; }
     internal Exception? FirstCleanupFailure { get; private set; }
 
-    internal void Add(Exception exception, ExecutionFailureCause failureCause, ExecutionFailureStage failureStage)
+    internal void Add(Exception exception, ExecutionFailureCause failureCause, ExecutionFailureStage failureStage,
+        ExecutionOperationKind failureOperation = ExecutionOperationKind.Unknown)
     {
         ArgumentNullException.ThrowIfNull(exception);
+        var context = ExecutionFailureContexts.Get(exception);
+        var observedOperation = context is { Operation: not ExecutionOperationKind.Unknown }
+            ? context.Operation : failureOperation;
+        if (primary is null) unreportedOperation = failureOperation;
+        AddCore(exception, failureCause, failureStage, observedOperation, context);
+    }
+
+    private void AddCore(Exception exception, ExecutionFailureCause failureCause, ExecutionFailureStage failureStage,
+        ExecutionOperationKind observedOperation, ExecutionFailureContext? context)
+    {
         if (failureStage == ExecutionFailureStage.Cleanup)
         {
             HasCleanupFailure = true;
@@ -106,39 +137,59 @@ internal sealed class ExecutionFailures
             primary = ExceptionDispatchInfo.Capture(exception);
             cause = failureCause;
             stage = failureStage;
+            operation = observedOperation;
+            providerInstanceId = context?.ProviderInstanceId;
+            primaryTransactionId = context?.TransactionId;
+            activeOperation = context?.ActiveOperation;
         }
         else if (!ReferenceEquals(exception, Primary) && !secondary.Any(x => ReferenceEquals(x.Exception, exception)))
-            secondary.Add(new(failureCause, failureStage, exception));
+            secondary.Add(new(failureCause, failureStage, exception, observedOperation));
     }
 
     internal void AddReported(Exception exception, ExecutionFailureStage fallbackStage,
-        ExecutionFailureCause fallbackCause = ExecutionFailureCause.Unknown)
+        ExecutionFailureCause fallbackCause = ExecutionFailureCause.Unknown,
+        ExecutionOperationKind fallbackOperation = ExecutionOperationKind.Unknown)
     {
         var context = ExecutionFailureContexts.Get(exception);
         // Identity deduplication can omit a cleanup occurrence when a provider throws
         // the same exception for execution and disposal. Preserve that safety fact.
         if (context?.HasCleanupFailure == true) HasCleanupFailure = true;
-        Add(exception, context?.Cause ?? fallbackCause, context?.Stage ?? fallbackStage);
+        if (primary is null) unreportedOperation = fallbackOperation;
+        AddCore(exception, context?.Cause ?? fallbackCause, context?.Stage ?? fallbackStage,
+            context is { Operation: not ExecutionOperationKind.Unknown } ? context.Operation : fallbackOperation, context);
         if (context is not null)
             foreach (var failure in context.SecondaryFailures)
-                Add(failure.Exception, failure.Cause, failure.Stage);
+                AddCore(failure.Exception, failure.Cause, failure.Stage, failure.Operation, null);
     }
 
     internal void AddCleanup(Exception exception)
     {
         // A direct disposal failure establishes a cleanup failure even if the same
         // exception already carries context from earlier execution (or is the primary).
-        Add(exception, ExecutionFailureContexts.Get(exception)?.Cause ?? ExecutionFailureCause.Unknown, ExecutionFailureStage.Cleanup);
+        Add(exception, ExecutionFailureContexts.Get(exception)?.Cause ?? ExecutionFailureCause.Unknown, ExecutionFailureStage.Cleanup,
+            ExecutionOperationKind.Dispose);
         AddReported(exception, ExecutionFailureStage.Cleanup);
     }
 
     internal ExecutionFailureContext Snapshot(ReadFailureEvidence evidence, ExecutionCompletion completion,
-        ExecutionRecoveryActions recovery, uint? transactionId) =>
-        new(cause == ExecutionFailureCause.Unknown && stage is ExecutionFailureStage.CommandExecution or ExecutionFailureStage.RowLoading or ExecutionFailureStage.Cleanup
+        ExecutionRecoveryActions recovery, uint? transactionId,
+        ExecutionOperationKind fallbackOperation = ExecutionOperationKind.Unknown, string? fallbackProviderInstanceId = null)
+    {
+        // The current boundary supplies the actual transaction. A provider may
+        // reuse an exception from an unrelated invocation; its old identity must
+        // not migrate into this operation or imply another transaction's outcome.
+        var foreign = primaryTransactionId is not null && primaryTransactionId != transactionId ||
+            providerInstanceId is not null && fallbackProviderInstanceId is not null && providerInstanceId != fallbackProviderInstanceId;
+        var knownOperation = foreign ? unreportedOperation : operation;
+        return new(cause == ExecutionFailureCause.Unknown && stage is ExecutionFailureStage.CommandExecution or ExecutionFailureStage.RowLoading or ExecutionFailureStage.Cleanup
                 ? evidence.Cause : cause,
             stage == ExecutionFailureStage.CommandExecution && evidence.Effects == ExecutionEffects.Initialization
                 ? ExecutionFailureStage.Initialization : stage,
-            completion, recovery, transactionId, secondary, HasCleanupFailure);
+            completion, recovery, transactionId, secondary, HasCleanupFailure,
+            knownOperation == ExecutionOperationKind.Unknown ? fallbackOperation : knownOperation,
+            foreign ? fallbackProviderInstanceId : providerInstanceId ?? fallbackProviderInstanceId,
+            foreign ? null : activeOperation);
+    }
 
     internal void ThrowIfAny() => primary?.Throw();
 }

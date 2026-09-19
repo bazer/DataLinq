@@ -41,10 +41,11 @@ public abstract partial class DataSourceAccess :
     internal static void EnsureReadAllowed(
         IDataSourceAccess dataSource,
         string operation,
-        TransactionOperationGate.Step? owner = null)
+        TransactionOperationGate.Step? owner = null,
+        ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown)
     {
         if (dataSource is Transaction transaction)
-            transaction.EnsureCanRead(operation, owner);
+            transaction.EnsureCanRead(operation, owner, operationKind);
         else if (owner is not null)
             throw new InvalidOperationException("An owned read requires its original transaction source.");
     }
@@ -53,12 +54,13 @@ public abstract partial class DataSourceAccess :
         IDataSourceAccess dataSource,
         string operation,
         TransactionOperationGate.Step? owner = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown)
     {
-        EnsureReadAllowed(dataSource, operation, owner);
+        EnsureReadAllowed(dataSource, operation, owner, operationKind);
         cancellationToken.ThrowIfCancellationRequested();
         return owner is null && dataSource is Transaction transaction
-            ? new TransactionReadScope(transaction, operation)
+            ? new TransactionReadScope(transaction, operation, operationKind)
             : null;
     }
 

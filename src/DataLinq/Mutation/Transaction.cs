@@ -218,7 +218,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         isAttachedTransaction = false;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
-        ExecutionGate = new TransactionOperationGate(TransactionID);
+        ExecutionGate = new TransactionOperationGate(TransactionID, Provider.TelemetryInstanceId);
         MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
         DatabaseAccess.BindManagedTransaction(this);
     }
@@ -244,7 +244,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         isAttachedTransaction = true;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
-        ExecutionGate = new TransactionOperationGate(TransactionID);
+        ExecutionGate = new TransactionOperationGate(TransactionID, Provider.TelemetryInstanceId);
         MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
         DatabaseAccess.BindManagedTransaction(this);
     }
@@ -652,7 +652,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// </summary>
     public void Commit()
     {
-        var operation = BeginExclusiveOperation("commit", completion: true);
+        var operation = BeginExclusiveOperation("commit", completion: true, operationKind: ExecutionOperationKind.Commit);
         try
         {
             EnsureTransactionCanComplete("commit", rejectPoisoned: true);
@@ -700,7 +700,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// </summary>
     public void Rollback()
     {
-        var operation = BeginExclusiveOperation("roll back", completion: true);
+        var operation = BeginExclusiveOperation("roll back", completion: true, operationKind: ExecutionOperationKind.Rollback);
         try
         {
             EnsureTransactionCanComplete("roll back", rejectPoisoned: false);
@@ -1176,7 +1176,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
             allowRollback: false);
     }
 
-    internal void EnsureCanRead(string operation, TransactionOperationGate.Step? owner = null)
+    internal void EnsureCanRead(string operation, TransactionOperationGate.Step? owner = null,
+        ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown)
     {
         if (IsDisposed)
             throw new ObjectDisposedException(nameof(Transaction));
@@ -1200,7 +1201,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         ThrowIfRollbackAttemptFailed(operation);
 
         if (owner is null)
-            ThrowIfOperationInProgress(operation);
+            ThrowIfOperationInProgress(operation, operationKind);
         else
             ExecutionGate.ValidateStep(owner);
 
@@ -1279,12 +1280,13 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         }
     }
 
-    private TransactionOperationGate.Lease BeginExclusiveOperation(string operation, bool completion = false)
+    private TransactionOperationGate.Lease BeginExclusiveOperation(string operation, bool completion = false,
+        ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown)
     {
         if (IsDisposed)
             throw new ObjectDisposedException(nameof(Transaction));
 
-        var lease = ExecutionGate.Enter(operation, completion);
+        var lease = ExecutionGate.Enter(operation, completion, operationKind);
 
         if (IsDisposed)
         {
@@ -1295,8 +1297,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         return lease;
     }
 
-    private void ThrowIfOperationInProgress(string operation) =>
-        ExecutionGate.ThrowIfBusy(operation);
+    private void ThrowIfOperationInProgress(string operation, ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown) =>
+        ExecutionGate.ThrowIfBusy(operation, operationKind);
 
     private void ThrowIfRollbackAttemptFailed(string operation)
     {
@@ -1375,11 +1377,11 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     {
         if (IsDisposed)
         {
-            ExecutionGate.ThrowIfActive("dispose");
+            ExecutionGate.ThrowIfActive("dispose", ExecutionOperationKind.Dispose);
             return;
         }
 
-        var operation = BeginExclusiveOperation("dispose", completion: true);
+        var operation = BeginExclusiveOperation("dispose", completion: true, operationKind: ExecutionOperationKind.Dispose);
         try
         {
             if (Interlocked.Exchange(ref disposeState, 1) != 0)

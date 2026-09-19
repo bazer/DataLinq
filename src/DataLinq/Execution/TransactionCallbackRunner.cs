@@ -38,7 +38,14 @@ internal static class TransactionCallbackRunner
             result = await (callback(cancellationToken)
                 ?? throw new InvalidOperationException("The transaction callback returned a null task.")).ConfigureAwait(false);
         }
-        catch (Exception failure) { failures.AddReported(failure, stage); }
+        catch (Exception failure)
+        {
+            failures.AddReported(failure, stage, failure is OperationCanceledException canceled &&
+                canceled.CancellationToken == cancellationToken && cancellationToken.IsCancellationRequested
+                    ? ExecutionFailureCause.Cancellation
+                    : stage == ExecutionFailureStage.Callback ? ExecutionFailureCause.ApplicationError : ExecutionFailureCause.Unknown,
+                ExecutionOperationKind.TransactionCallback);
+        }
 
         // Closing admission and taking the active-work snapshot are one gate transition.
         // A successful callback does not authorize committing work found unfinished here.
@@ -63,7 +70,8 @@ internal static class TransactionCallbackRunner
             {
                 if (dispatched && completion != ExecutionCompletion.Committed)
                     completion = ExecutionCompletion.Unknown;
-                failures.AddReported(failure, stage);
+                failures.AddReported(failure, stage, stage == ExecutionFailureStage.Finalization
+                    ? ExecutionFailureCause.LocalFinalizationError : ExecutionFailureCause.Unknown, ExecutionOperationKind.Commit);
             }
         }
 

@@ -86,14 +86,14 @@ internal sealed class AutomaticTransactionRecovery : IAsyncDisposable
                             var cause = rollback is OperationCanceledException canceled &&
                                 canceled.CancellationToken == budget.Token && budget.IsCancellationRequested
                                     ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown;
-                            failures.AddReported(rollback, ExecutionFailureStage.Recovery, cause);
+                            failures.AddReported(rollback, ExecutionFailureStage.Recovery, cause, ExecutionOperationKind.Rollback);
                         }
                     }
                     catch (Exception setup)
                     {
                         // Timer setup/disposal cannot skip cleanup or overwrite established
                         // completion. A setup failure alone does not imply database dispatch.
-                        failures.Add(setup, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery);
+                        failures.Add(setup, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, ExecutionOperationKind.Rollback);
                     }
                 }
 
@@ -106,7 +106,8 @@ internal sealed class AutomaticTransactionRecovery : IAsyncDisposable
                 {
                     // The helper owns this terminal boundary; callers cannot recover a resource
                     // it has already disposed/retired, even when a disposal attempt failed.
-                    var context = failures.Snapshot(new(), completion, ExecutionRecoveryActions.None, transactionId);
+                    var context = failures.Snapshot(new(), completion, ExecutionRecoveryActions.None, transactionId,
+                        owner.Kind, owner.ProviderInstanceId);
                     Volatile.Write(ref failureContext, context);
                     ExecutionFailureContexts.Attach(primary, context);
                 }
