@@ -1,15 +1,18 @@
 using System;
 using System.Data;
+using System.Threading;
 using DataLinq.Interfaces;
 
 namespace DataLinq.Execution;
 
 /// <summary>
-/// Direct synchronous read cleanup. A value type keeps successful command/reader ownership
-/// allocation-free; the failure collector is created only on an actual failure. Declare this
+/// Direct synchronous read cleanup uses a value-type owner;
+/// the failure collector is created only on an actual failure. Diagnostic
+/// invocation/cleanup scopes are separate successful-path costs. Declare this
 /// inside the transaction read scope so cleanup and diagnostic publication precede lease release.
 /// </summary>
-internal struct ReadCommandResources(uint? transactionId) : IDisposable
+internal struct ReadCommandResources(uint? transactionId, ReadExecutionIdentity identity = default,
+    CancellationToken cancellationToken = default) : IDisposable
 {
     private IDbCommand? command;
     private IDataLinqDataReader? reader;
@@ -35,25 +38,39 @@ internal struct ReadCommandResources(uint? transactionId) : IDisposable
     }
 
     internal void RecordFailure(Exception failure, ExecutionFailureStage stage) =>
-        (failures ??= new()).AddReported(failure, stage, stage == ExecutionFailureStage.Materialization
-            ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown);
+        (failures ??= new()).AddReported(failure, stage,
+            failure is OperationCanceledException canceled && canceled.CancellationToken == cancellationToken && cancellationToken.IsCancellationRequested
+                ? ExecutionFailureCause.Cancellation : stage == ExecutionFailureStage.Materialization
+                    ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown, identity.Operation);
 
     public void Dispose()
     {
         if (disposed)
             return;
         disposed = true;
-        try { reader?.Dispose(); }
-        catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
-        finally { reader = null; }
-        try { command?.Dispose(); }
-        catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
-        finally { command = null; }
+        // Capture this call, not construction: an iterator's owner can survive many
+        // MoveNext calls, whose diagnostic scopes must never remain ambient at yield.
+        var reportingScope = ExecutionFailureScope.Current;
+        if (reader is not null)
+        {
+            using var cleanupDiagnostics = ExecutionFailureScope.Begin();
+            try { reader.Dispose(); }
+            catch (Exception failure) { (failures ??= new(reportingScope)).AddCleanup(failure); }
+            finally { reader = null; }
+        }
+        if (command is not null)
+        {
+            using var cleanupDiagnostics = ExecutionFailureScope.Begin();
+            try { command.Dispose(); }
+            catch (Exception failure) { (failures ??= new(reportingScope)).AddCleanup(failure); }
+            finally { command = null; }
+        }
         if (failures?.Primary is { } primary)
         {
             var context = failures.Snapshot(new(),
                 transactionId is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
-                transactionId is null ? ExecutionRecoveryActions.None : ExecutionRecoveryActions.Dispose, transactionId);
+                transactionId is null ? ExecutionRecoveryActions.None : ExecutionRecoveryActions.Dispose, transactionId,
+                identity.Operation, identity.ProviderInstanceId);
             ExecutionFailureContexts.Attach(primary, context);
             failures.ThrowIfAny();
         }

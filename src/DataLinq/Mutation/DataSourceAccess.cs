@@ -69,29 +69,30 @@ public abstract partial class DataSourceAccess :
         string operation,
         Func<TransactionOperationGate.Step?, IEnumerable<T>> rows,
         TransactionOperationGate.Step? owner = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ExecutionOperationKind operationKind = ExecutionOperationKind.Query)
     {
-        // Private composition shares the outer owner's lifetime. Database-root
-        // reads remain independent and retain their existing execution path.
+        // Private composition shares the outer owner's lifetime. All iterator calls
+        // need diagnostic isolation, including database-root and private reads;
+        // GuardedEnumerable ends each scope before yielding control to the consumer.
         if (owner is not null)
         {
             EnsureReadAllowed(source, operation, owner);
-            return rows(owner);
         }
-        if (source is not Transaction)
-            return rows(owner);
 
         return new GuardedEnumerable<T>(Read);
 
         IEnumerable<T> Read(IHelperTrackedReader reader)
         {
-            using var scope = BeginRead(source, operation, cancellationToken: cancellationToken);
-            scope!.RegisterReader(reader);
+            var identity = ReadExecutionIdentity.Capture(source, operationKind, owner);
+            using var scope = BeginRead(source, operation, owner, cancellationToken, identity.Operation);
+            scope?.RegisterReader(reader);
+            var step = owner ?? scope?.Step;
             IEnumerator<T>? iterator = null;
             ExecutionFailures? failures = null;
             try
             {
-                try { iterator = rows(scope.Step).GetEnumerator(); }
+                try { iterator = rows(step).GetEnumerator(); }
                 catch (Exception failure) { Record(failure); throw; }
                 while (true)
                 {
@@ -99,7 +100,7 @@ public abstract partial class DataSourceAccess :
                     T row = default!;
                     try
                     {
-                        EnsureReadAllowed(source, operation, scope.Step);
+                        EnsureReadAllowed(source, operation, step);
                         cancellationToken.ThrowIfCancellationRequested();
                         hasRow = iterator.MoveNext();
                         cancellationToken.ThrowIfCancellationRequested();
@@ -117,15 +118,20 @@ public abstract partial class DataSourceAccess :
                 catch (Exception failure) { Record(failure, ExecutionFailureStage.Cleanup); }
                 if (failures?.Primary is { } primary)
                 {
-                    ExecutionFailureContexts.Attach(primary, failures.Snapshot(new(), ExecutionCompletion.NotAttempted,
-                        ExecutionRecoveryActions.Dispose, ((Transaction)source).TransactionID));
-                    scope.ReportFailure(primary);
+                    var transaction = source as Transaction;
+                    ExecutionFailureContexts.Attach(primary, failures.Snapshot(new(),
+                        transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
+                        transaction is null ? ExecutionRecoveryActions.None : ExecutionRecoveryActions.Dispose,
+                        transaction?.TransactionID, identity.Operation, identity.ProviderInstanceId));
+                    scope?.ReportFailure(primary);
                     failures.ThrowIfAny();
                 }
             }
 
             void Record(Exception failure, ExecutionFailureStage stage = ExecutionFailureStage.RowLoading) =>
-                (failures ??= new()).AddReported(failure, stage);
+                (failures ??= new()).AddReported(failure, stage,
+                    failure is OperationCanceledException canceled && canceled.CancellationToken == cancellationToken && cancellationToken.IsCancellationRequested
+                        ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, identity.Operation);
         }
     }
 

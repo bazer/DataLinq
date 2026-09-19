@@ -38,6 +38,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
         in DataLinqKey canonicalProviderKey,
         CancellationToken cancellationToken = default)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         SourceRowLoadingValidation.ValidatePrimaryKeyTable(table);
         SourceRowLoadingValidation.ValidateCanonicalKey(
             table,
@@ -46,7 +47,7 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
             nameof(canonicalProviderKey));
         EnsureCanLoad(table, "load one source row");
         using var read = DataSourceAccess.BeginRead(
-            dataSource, "load one source row", owner, cancellationToken);
+            dataSource, "load one source row", owner, cancellationToken, ExecutionOperationKind.KeyLookup);
         try
         {
             var query = CreateSingleQuery(
@@ -71,10 +72,11 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
 
     public SourceRowLoadResult Load(SourcePrimaryKeyRowRequest request)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(request);
         EnsureCanLoad(request.Table, "load source rows");
         using var read = DataSourceAccess.BeginRead(
-            dataSource, "load source rows", owner, request.CancellationToken);
+            dataSource, "load source rows", owner, request.CancellationToken, ExecutionOperationKind.KeyLookup);
         try
         {
             request.ThrowIfCancellationRequested();
@@ -95,10 +97,11 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
 
     public SourceIndexRowLoadResult Load(SourceIndexRowRequest request)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(request);
         EnsureCanLoad(request.Table, "load indexed source rows");
         using var read = DataSourceAccess.BeginRead(
-            dataSource, "load indexed source rows", owner, request.CancellationToken);
+            dataSource, "load indexed source rows", owner, request.CancellationToken, ExecutionOperationKind.RelationLoad);
         try
         {
             request.ThrowIfCancellationRequested();
@@ -133,7 +136,8 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
         SourcePrimaryKeyRowRequest request,
         TransactionOperationGate.Step? step)
     {
-        using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
+        using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID,
+            ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.KeyLookup, step), request.CancellationToken);
         var stage = ExecutionFailureStage.Validation;
         try
         {
@@ -178,7 +182,8 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
         SourceIndexRowRequest request,
         TransactionOperationGate.Step? step)
     {
-        using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
+        using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID,
+            ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.RelationLoad, step), request.CancellationToken);
         var stage = ExecutionFailureStage.Validation;
         try
         {
@@ -223,7 +228,8 @@ internal sealed partial class DataSourceAccessSourceRowLoader : ISourceRowLoader
         CancellationToken cancellationToken,
         TransactionOperationGate.Step? step)
     {
-        using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
+        using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID,
+            ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.KeyLookup, step), cancellationToken);
         var stage = ExecutionFailureStage.Validation;
         try
         {

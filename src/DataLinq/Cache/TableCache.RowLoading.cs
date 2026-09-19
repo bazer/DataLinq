@@ -118,21 +118,28 @@ public partial class TableCache
         }
         else if (TryConvertScalarProviderColumnValue(foreignKey, index.Columns, dataSource, out var predicateColumn, out var predicateValue))
         {
-            using var read = DataSourceAccess.BeginRead(dataSource, "load relation rows", owner);
-            var scalarQuery = new ScalarColumnRowsQuery(Table, dataSource, predicateColumn, predicateValue);
-            using var command = scalarQuery.ToDbCommand();
-            using var reader = SyncCommandDispatch.ExecuteReader(dataSource.DatabaseAccess, command, owner ?? read?.Step);
-
-            while (reader.ReadNextRow())
+            using var diagnostics = ExecutionFailureScope.Begin();
+            var identity = ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.RelationLoad, owner);
+            using var read = DataSourceAccess.BeginRead(dataSource, "load relation rows", owner, operationKind: identity.Operation);
+            using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID, identity);
+            var stage = ExecutionFailureStage.Validation;
+            try
             {
-                var rowData = new RowData(
-                    reader,
-                    Table,
-                    Table.Columns,
-                    true,
-                    $"sql:{dataSource.Provider.DatabaseType}:relation-cache-row");
-                AddRowData(rowData);
+                var scalarQuery = new ScalarColumnRowsQuery(Table, dataSource, predicateColumn, predicateValue);
+                var command = resources.OwnCommand(scalarQuery.ToDbCommand());
+                stage = ExecutionFailureStage.CommandExecution;
+                var reader = resources.OwnReader(SyncCommandDispatch.ExecuteReader(dataSource.DatabaseAccess, command, owner ?? read?.Step));
+                while (true)
+                {
+                    stage = ExecutionFailureStage.RowLoading;
+                    if (!reader.ReadNextRow()) break;
+                    stage = ExecutionFailureStage.Materialization;
+                    var rowData = new RowData(reader, Table, Table.Columns, true,
+                        $"sql:{dataSource.Provider.DatabaseType}:relation-cache-row");
+                    AddRowData(rowData);
+                }
             }
+            catch (Exception failure) { resources.RecordFailure(failure, stage); throw; }
         }
         else
         {

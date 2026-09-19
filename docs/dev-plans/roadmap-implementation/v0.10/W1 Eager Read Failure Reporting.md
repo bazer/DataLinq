@@ -40,3 +40,5 @@ These modified-checkout results are development verification, not frozen release
 ## Next Boundary
 
 Complete internal initialization/completion handoff and managed finalization, then continue async mutation/hydration, immutable invocation capture and command ownership, relation/cache coordination, metadata/root orchestration and performance evidence. The official SQLite dependency, 0.9.2 compatibility baseline and .NET 10 benchmark target are unchanged. Native provider/public acceptance and release gates remain open.
+
+**Follow-up, 2026-09-19:** [Synchronous read diagnostics](W1%20Synchronous%20Read%20Diagnostics.md) supplies invocation provenance and read-resource identity, preserves conversion failures before iterator cleanup, and fixes the direct scalar relation-row cleanup path. It retains the earlier helper-handoff behavior without claiming complete outer synchronous classification or performance acceptance.
