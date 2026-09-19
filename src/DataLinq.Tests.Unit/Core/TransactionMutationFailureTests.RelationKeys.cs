@@ -17,6 +17,42 @@ public sealed partial class TransactionMutationFailureTests
     [Test]
     [Arguments(false)]
     [Arguments(true)]
+    public async Task RelationKey_FactoryCaptureCannotChangePredicateOrMembershipIdentity(bool keyless)
+    {
+        var scenario = new ScriptedMutationScenario();
+        using DatabaseProvider provider = keyless
+            ? new CapturedReadProvider<RelationViewDb>(scenario)
+            : new CapturedReadProvider<RelationKeyDb>(scenario);
+        var property = keyless
+            ? provider.Metadata.GetTableModel(typeof(RelationViewChild)).Model.RelationProperties[nameof(RelationViewChild.Parent)]
+            : provider.Metadata.GetTableModel(typeof(RelationKeyParent)).Model.RelationProperties[nameof(RelationKeyParent.Children)];
+        var cache = provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
+        provider.State.Cache.CleanupScheduler?.Stop();
+        var key = new MutableRelationProviderKey { Value = 1 };
+        var factory = new ControlledSqlReaderFactory
+        {
+            CreateAccess = _ => new() { ReaderOverride = new ControlledRowDataReader(), FailureEvidence = TrustedScalarRead }
+        };
+        scenario.AsyncSqlReaders = new CapturingRelationReaderFactory(factory, () => key.Value = 2);
+        await Assert.That(await cache.GetRelationRowsAsyncCore(key, property, provider.ReadOnlyAccess)).IsEmpty();
+        await Assert.That(key.Value).IsEqualTo(2);
+        await Assert.That(factory.Inputs[0].ToSql().Parameters.Single().Value).IsEqualTo(1);
+        key.Value = 1;
+        scenario.AsyncSqlReaders = factory;
+        await Assert.That(await cache.GetRelationRowsAsyncCore(key, property, provider.ReadOnlyAccess)).IsEmpty();
+        await Assert.That(factory.Commands.Sum(command => command.Creates)).IsEqualTo(keyless ? 2 : 1);
+        await Assert.That(cache.IndicesCount.Sum(index => index.count)).IsEqualTo(keyless ? 0 : 1);
+    }
+
+    private sealed class CapturingRelationReaderFactory(IAsyncSqlReaderFactory inner, Action capture) : IAsyncSqlReaderFactory
+    {
+        public IAsyncSqlReaderFactory CaptureInvocation() { capture(); return inner.CaptureInvocation(); }
+        public IAsyncReaderSource BindReader(CapturedSql sql) => inner.BindReader(sql);
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
     public async Task RelationKey_ConvertedRelationUsesCanonicalInputsAndWarmRowIdentity(bool transactional)
     {
         var scenario = new ScriptedMutationScenario();

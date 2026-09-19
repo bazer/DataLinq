@@ -61,14 +61,15 @@ public partial class TableCache
             single.Validate();
             return new(this, source, index, key, owner, factory, single: single);
         }
-        if (TryGetCanonicalIndexSourceServices(foreignKey, index, source, out _, out var canonical))
+        if (TryGetCanonicalIndexSourceServices(key, index, source, out _, out var canonical))
         {
             var neutral = loader.CaptureAsyncRead(new SourceIndexRowRequest(Table, index, canonical));
             neutral.Validate();
             return new(this, source, index, key, owner, factory, neutral: neutral);
         }
-        // Preserve scalar storage conversion and provider comparison semantics.
-        var sql = TryConvertScalarProviderColumnValue(foreignKey, index.Columns, source, out var column, out var value)
+        // Use the captured key after provider callbacks; never reread caller-owned
+        // components when binding the predicate for this same cache identity.
+        var sql = TryConvertScalarProviderColumnValue(key, index.Columns, source, out var column, out var value)
             ? new ScalarColumnRowsQuery(Table, source, column, value).ToSql()
             : new SqlQuery(Table, source).Where(index.Columns, key).SelectQuery().ToSql();
         if (Table.PrimaryKeyColumns.Count == 0)

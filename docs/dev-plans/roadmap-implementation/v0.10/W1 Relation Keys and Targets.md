@@ -3,7 +3,7 @@
 
 # W1 Relation Keys and Targets
 
-**Date:** 2026-09-18. Follows [async relation loading](W1%20Async%20Relation%20Loading.md) and reconciles its less common key layouts and relation targets with the frozen [W0 I/O map](W0%20IO%20Execution%20Map.md#keys-materialization-and-relations). The [completion audit](W1%20Completion%20Audit.md) remains the full W1 checklist.
+**Date:** 2026-09-18; final capture review 2026-09-19. Follows [async relation loading](W1%20Async%20Relation%20Loading.md) and reconciles its less common key layouts and relation targets with the frozen [W0 I/O map](W0%20IO%20Execution%20Map.md#keys-materialization-and-relations). The [completion audit](W1%20Completion%20Audit.md) remains the full W1 checklist.
 
 ## Discovered target and cache defects
 
@@ -31,13 +31,15 @@ The GUID cases use the actual SQLite/MySQL/MariaDB writers for Text32, Binary16R
 
 Binary inputs and reader-owned cells are mutated while cleanup is suspended; captured SQL, returned model values and canonical row identities retain their original bytes. Composite parameter order is checked explicitly. Converted-row failures retain already valid individual rows without publishing partial relation/index membership. Constructor-triggered invalidation may return obtained rows but cannot install those rows, membership or the holder as current state.
 
+Final review reproduced another capture defect: after taking the canonical key snapshot, neutral-index and scalar-predicate binding reread the original caller-owned key after the provider's invocation-capture callback. If that callback changed a custom mutable `IProviderKey`, SQL could target key 2 while cache membership/subscription still used key 1. Both branches now use the captured key. Two cases mutate the input during that callback and verify the predicate and subsequent membership reuse; the keyless case also confirms that no membership is stored. The failing reproduction is retained as `artifacts/w1-relation-layouts-capture-probe.json`.
+
 ## Verification
 
-`TransactionMutationFailureTests.RelationKeys.cs` and `.RelationViews.cs` add **29 cases**. Final focused verification passed **29/29 new cases** and **51/51 existing `AsyncRelation_*` cases**, Release / .NET 10, maximum parallelism 8 (`artifacts/w1-relation-layouts-focused-final.json`, `w1-relation-layouts-existing-final.json`).
+`TransactionMutationFailureTests.RelationKeys.cs` and `.RelationViews.cs` add **31 cases**. Final focused verification passed **31/31 new cases** and **51/51 existing `AsyncRelation_*` cases**, Release / .NET 10, maximum parallelism 8 (`artifacts/w1-relation-layouts-capture-focused.json`, `w1-relation-layouts-capture-existing.json`).
 
-Broad verification passed **2,755/2,755 unit**, **210/210 Memory**, and **527/527 compliance cases on each SQLite anchor**: **4,019 cases**, zero failures/skips. Reports are `artifacts/w1-relation-layouts-unit-final.json`, `w1-relation-layouts-memory.json`, `w1-relation-layouts-sqlite-file.json` and `w1-relation-layouts-sqlite-memory.json`. Unit/Memory maximum parallelism was 16; compliance was 8. Invocation and artifacts are complete. Local `ValidForEvidence` remains false because these bounded development checks are not canonical full-provider/clean-runner release acceptance.
+Broad verification initially passed **4,019 cases**. After the capture correction, repeated runs passed **2,757/2,757 unit**, **210/210 Memory**, and **527/527 compliance cases on each SQLite anchor**: **4,021 cases**, zero failures/skips. Reports are `artifacts/w1-relation-layouts-capture-unit.json`, `w1-relation-layouts-capture-memory.json`, `w1-relation-layouts-capture-sqlite-file.json` and `w1-relation-layouts-capture-sqlite-memory.json`. Unit/Memory maximum parallelism was 16; compliance was 8. Invocation and artifacts are complete. Local `ValidForEvidence` remains false because these bounded development checks are not canonical full-provider/clean-runner release acceptance.
 
-Core .NET 8/9/10 and unit/dependency/compliance/Memory Release builds passed with zero warnings/errors (`artifacts/w1-relation-layouts-*-build.log`). The integration PR records exact-head CI and merge evidence separately.
+Core .NET 8/9/10 and unit/dependency/compliance/Memory Release builds passed with zero warnings/errors, including repeated builds after the capture correction (`artifacts/w1-relation-layouts-capture-*-build.log`). The integration PR records exact-head CI and merge evidence separately.
 
 Development evidence is retained. `artifacts/w1-relation-view-probe.json` reproduces the async rejection while the first synchronous result succeeds; `w1-relation-view-identity-probe.json` additionally reproduces the wrong synchronous result for a second key. The first converted-key probe incorrectly expected no normalization when creating a generated handle; the corrected test requires exactly that one conversion and no further conversion during loading/reuse.
 
