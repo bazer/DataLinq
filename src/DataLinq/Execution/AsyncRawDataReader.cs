@@ -31,7 +31,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
     internal static async Task<IAsyncDataReader> OpenAsync(IAsyncReaderSource source, Transaction? transaction, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(source);
-        transaction?.EnsureCanRead(Operation);
+        transaction?.EnsureCanRead(Operation, operationKind: ExecutionOperationKind.RawCommand);
         source.Validate();
         if (source is IAsyncTransactionReaderSource && transaction is null)
             throw new InvalidOperationException("This reader requires a managed transaction owner.");
@@ -41,7 +41,8 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
         ExecutionFailures failures;
         try
         {
-            result.ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token);
+            result.ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token,
+                operationKind: ExecutionOperationKind.RawCommand);
             result.ownership?.RegisterReader(result);
             result.reader = await (source is IAsyncTransactionReaderSource owned
                 ? owned.OpenReaderAsync(result.ownership!.Step, token) : source.OpenReaderAsync(token)).ConfigureAwait(false)
@@ -175,7 +176,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
             var recovery = ownership is null ? ExecutionRecoveryActions.None
                 : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessed);
             var context = failures.Snapshot(evidence, transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
-                recovery, transaction?.TransactionID);
+                recovery, transaction?.TransactionID, ExecutionOperationKind.RawCommand, transaction?.ExecutionGate.ProviderInstanceId);
             if (ownership is not null) transaction!.RecordAsyncReadFailure(ownership.Step, context);
             ExecutionFailureContexts.Attach(failure, context);
             ownership?.ReportFailure(failure);

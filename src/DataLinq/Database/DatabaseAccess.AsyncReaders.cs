@@ -26,7 +26,7 @@ public abstract partial class DatabaseAccess
     {
         if (this is DatabaseTransaction && managedTransaction is null)
             throw new InvalidOperationException("Transaction reader execution requires its managed transaction owner.");
-        managedTransaction?.EnsureCanRead("execute an asynchronous raw reader");
+        managedTransaction?.EnsureCanRead("execute an asynchronous raw reader", operationKind: ExecutionOperationKind.RawCommand);
     }
 
     private IAsyncReaderSource CaptureRawReader(string sql)

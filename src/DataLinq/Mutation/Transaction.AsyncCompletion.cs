@@ -18,7 +18,8 @@ public partial class Transaction
 
     private async Task CompleteAsyncCore(bool commit, CancellationToken cancellationToken)
     {
-        using var operation = BeginExclusiveOperation(commit ? "commit asynchronously" : "roll back asynchronously", completion: true);
+        using var operation = BeginExclusiveOperation(commit ? "commit asynchronously" : "roll back asynchronously", completion: true,
+            operationKind: commit ? ExecutionOperationKind.Commit : ExecutionOperationKind.Rollback);
         var resource = new ManagedAsyncCompletion(this, RequireAsyncCompletion());
         if (commit) resource.ValidateCommit();
         else resource.ValidateRollback();
@@ -37,10 +38,10 @@ public partial class Transaction
     {
         if (IsDisposed)
         {
-            ExecutionGate.ThrowIfActive("dispose asynchronously");
+            ExecutionGate.ThrowIfActive("dispose asynchronously", ExecutionOperationKind.Dispose);
             return;
         }
-        using var operation = BeginExclusiveOperation("dispose asynchronously", completion: true);
+        using var operation = BeginExclusiveOperation("dispose asynchronously", completion: true, operationKind: ExecutionOperationKind.Dispose);
         var resource = new ManagedAsyncCompletion(this, RequireAsyncCompletion());
         resource.ValidateDisposal();
         var failures = new ExecutionFailures();
@@ -149,7 +150,7 @@ public partial class Transaction
                 var recovery = ExecutionRecoveryActions.Dispose;
                 try { recovery = Recovery; }
                 catch (Exception inspection) { failures.AddReported(inspection, ExecutionFailureStage.Recovery); }
-                Report(failures, ExecutionCompletion.Unknown, recovery);
+                Report(failures, ExecutionCompletion.Unknown, recovery, ExecutionOperationKind.Commit);
                 throw;
             }
             transaction.DatabaseAccess.RecordConfirmedAsyncCompletion(ExecutionCompletion.Committed);
@@ -177,7 +178,7 @@ public partial class Transaction
                     try { transaction.PublishDeferredCommittedStatus(); }
                     catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Finalization); }
                 }
-                Report(failures, ExecutionCompletion.Committed, ExecutionRecoveryActions.Dispose);
+                Report(failures, ExecutionCompletion.Committed, ExecutionRecoveryActions.Dispose, ExecutionOperationKind.Commit);
             }
             finally { ResetCommitNotification(); }
         }
@@ -220,7 +221,7 @@ public partial class Transaction
                     try { transaction.PublishDeferredRolledBackStatus(); }
                     catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Finalization); }
                 }
-                Report(failures, completion, ExecutionRecoveryActions.Dispose);
+                Report(failures, completion, ExecutionRecoveryActions.Dispose, ExecutionOperationKind.Rollback);
             }
             finally
             {
@@ -247,7 +248,7 @@ public partial class Transaction
                 foreach (var failure in cleanup) failures.AddCleanup(failure);
             }
             catch (Exception failure) { failures.AddCleanup(failure); }
-            Report(failures, completion, ExecutionRecoveryActions.None);
+            Report(failures, completion, ExecutionRecoveryActions.None, ExecutionOperationKind.Dispose);
         }
 
         public async ValueTask DisposeConnectionAsync(TransactionOperationGate.Step owner)
@@ -257,10 +258,12 @@ public partial class Transaction
             await provider.DisposeConnectionAsync(owner).ConfigureAwait(false);
         }
 
-        private void Report(ExecutionFailures failures, ExecutionCompletion completion, ExecutionRecoveryActions recovery)
+        private void Report(ExecutionFailures failures, ExecutionCompletion completion, ExecutionRecoveryActions recovery,
+            ExecutionOperationKind operation)
         {
             if (failures.Primary is not { } primary) return;
-            var context = failures.Snapshot(new(), completion, recovery, transaction.TransactionID);
+            var context = failures.Snapshot(new(), completion, recovery, transaction.TransactionID,
+                operation, transaction.ExecutionGate.ProviderInstanceId);
             Volatile.Write(ref transaction.asyncFailureContext, context);
             ExecutionFailureContexts.Attach(primary, context);
             failures.ThrowIfAny();

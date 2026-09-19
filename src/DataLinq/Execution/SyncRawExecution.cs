@@ -10,9 +10,9 @@ internal static class SyncRawExecution
         Func<TValue, TResult> convert)
     {
         const string operation = "execute a synchronous raw command";
-        transaction?.EnsureCanRead(operation);
+        transaction?.EnsureCanRead(operation, operationKind: ExecutionOperationKind.RawCommand);
         command.Reserve(kind, transaction is not null);
-        using var ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, operation);
+        using var ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, operation, operationKind: ExecutionOperationKind.RawCommand);
         ExecutionFailures? failures = null;
         var value = default(TValue)!;
         try { value = execute(command, ownership?.Step); }
@@ -52,7 +52,7 @@ internal static class SyncRawExecution
             : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessed);
         var context = failures.Snapshot(evidence,
             transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
-            recovery, transaction?.TransactionID);
+            recovery, transaction?.TransactionID, ExecutionOperationKind.RawCommand, transaction?.ExecutionGate.ProviderInstanceId);
         if (ownership is not null) transaction!.RecordAsyncReadFailure(ownership.Step, context);
         ExecutionFailureContexts.Attach(failure, context);
         ownership?.ReportFailure(failure);

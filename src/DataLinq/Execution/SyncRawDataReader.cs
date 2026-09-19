@@ -30,9 +30,9 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
 
     internal static IDataLinqDataReader Open(SyncRawCommand command, Transaction? transaction)
     {
-        transaction?.EnsureCanRead(Operation);
+        transaction?.EnsureCanRead(Operation, operationKind: ExecutionOperationKind.RawCommand);
         command.Reserve(SyncCommandKind.Reader, transaction is not null);
-        var ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, Operation);
+        var ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, Operation, operationKind: ExecutionOperationKind.RawCommand);
         IDataLinqDataReader? reader = null;
         ExecutionFailures failures;
         try

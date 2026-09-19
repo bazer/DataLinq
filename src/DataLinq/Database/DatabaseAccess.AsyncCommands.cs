@@ -84,11 +84,12 @@ public abstract partial class DatabaseAccess
         var transaction = managedTransaction;
         if (transaction is null && (owner is not null || this is DatabaseTransaction))
             throw new InvalidOperationException("Transaction command execution requires its managed transaction owner.");
-        transaction?.EnsureCanRead(operation, owner);
+        var operationKind = owner?.Kind ?? ExecutionOperationKind.RawCommand;
+        transaction?.EnsureCanRead(operation, owner, operationKind);
         command.Validate(kind, transaction is not null);
         token.ThrowIfCancellationRequested();
         using var ownership = transaction is not null && owner is null
-            ? DataSourceAccess.BeginRead(transaction, operation, cancellationToken: token) : null;
+            ? DataSourceAccess.BeginRead(transaction, operation, cancellationToken: token, operationKind: operationKind) : null;
         var step = owner ?? ownership?.Step;
         var stage = ExecutionFailureStage.CommandExecution;
         var cause = ExecutionFailureCause.Unknown;
@@ -124,7 +125,7 @@ public abstract partial class DatabaseAccess
             var recovery = transaction is null ? ExecutionRecoveryActions.None
                 : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessed);
             var context = failures.Snapshot(evidence, transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
-                recovery, transaction?.TransactionID);
+                recovery, transaction?.TransactionID, operationKind, transaction?.ExecutionGate.ProviderInstanceId);
             if (step is not null) transaction!.RecordAsyncReadFailure(step, context);
             ExecutionFailureContexts.Attach(failure, context);
             ownership?.ReportFailure(failure);

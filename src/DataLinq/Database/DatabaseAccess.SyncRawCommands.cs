@@ -66,6 +66,6 @@ public abstract partial class DatabaseAccess
     {
         if (this is DatabaseTransaction && managedTransaction is null)
             throw new InvalidOperationException("Synchronous raw execution requires its managed transaction owner.");
-        managedTransaction?.EnsureCanRead("execute a synchronous raw command");
+        managedTransaction?.EnsureCanRead("execute a synchronous raw command", operationKind: ExecutionOperationKind.RawCommand);
     }
 }
