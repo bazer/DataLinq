@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using DataLinq.Cache;
 using DataLinq.Logging;
 
@@ -74,4 +75,8 @@ public class State : IDisposable
     {
         Cache.Dispose();
     }
+
+    internal ValueTask DisposeAsyncCore() => Cache.DisposeAsyncCore();
+
+    internal void ValidateDisposal() => Cache.ValidateDisposal();
 }
