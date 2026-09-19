@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DataLinq.Exceptions;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -12,22 +13,22 @@ internal static class MutationPreflight
     internal static void Ensure(
         Transaction transaction,
         IModelInstance model,
-        TransactionChangeType operation)
+        TransactionChangeType operation, ExecutionOperationKind? operationKind = null)
     {
-        _ = EnsureCore(transaction, model, operation, snapshot: null);
+        _ = EnsureCore(transaction, model, operation, snapshot: null, operationKind);
     }
 
     internal static MutationSnapshot CaptureAndEnsure(
         Transaction transaction,
         IModelInstance model,
-        TransactionChangeType operation) =>
-        EnsureCore(transaction, model, operation, snapshot: null);
+        TransactionChangeType operation, ExecutionOperationKind? operationKind = null) =>
+        EnsureCore(transaction, model, operation, snapshot: null, operationKind);
 
     private static MutationSnapshot EnsureCore(
         Transaction transaction,
         IModelInstance model,
         TransactionChangeType operation,
-        MutationSnapshot? snapshot)
+        MutationSnapshot? snapshot, ExecutionOperationKind? operationKind = null)
     {
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(model);
@@ -36,7 +37,7 @@ internal static class MutationPreflight
             transaction,
             operation,
             model,
-            modelType: null);
+            modelType: null, operationKind);
         EnsureTargetProviderMapsModel(transaction, model, operation);
 
         if (model is IMutableLifecycle mutableLifecycle)
@@ -143,7 +144,7 @@ internal static class MutationPreflight
         Transaction transaction,
         TransactionChangeType operation,
         IModelInstance? model,
-        Type? modelType)
+        Type? modelType, ExecutionOperationKind? operationKind = null)
     {
         if (transaction.IsDisposed)
         {
@@ -180,7 +181,7 @@ internal static class MutationPreflight
                 "Start a new transaction and materialize a fresh committed row before retrying the mutation.");
         }
 
-        transaction.EnsureMutationNotPoisoned(operation);
+        transaction.EnsureMutationNotPoisoned(operation, operationKind);
 
         if (transaction.Type == TransactionType.ReadOnly)
         {

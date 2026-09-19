@@ -19,7 +19,7 @@ internal static class TransactionCallbackRunner
     internal static async Task<TResult> RunAsync<TResult>(TransactionOperationGate gate,
         IAsyncHelperTransaction resource, RecoveryRollbackSettings settings, uint transactionId,
         Func<CancellationToken, Task<TResult>> callback, CancellationToken cancellationToken = default,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null, ExecutionOperationKind callbackOperation = ExecutionOperationKind.TransactionCallback)
     {
         ArgumentNullException.ThrowIfNull(gate);
         ArgumentNullException.ThrowIfNull(resource);
@@ -33,7 +33,7 @@ internal static class TransactionCallbackRunner
         var result = default(TResult)!;
         try
         {
-            CheckCancellation();
+            CheckCancellation(callbackOperation);
             stage = ExecutionFailureStage.Callback;
             result = await (callback(cancellationToken)
                 ?? throw new InvalidOperationException("The transaction callback returned a null task.")).ConfigureAwait(false);
@@ -43,8 +43,9 @@ internal static class TransactionCallbackRunner
             failures.AddReported(failure, stage, failure is OperationCanceledException canceled &&
                 canceled.CancellationToken == cancellationToken && cancellationToken.IsCancellationRequested
                     ? ExecutionFailureCause.Cancellation
-                    : stage == ExecutionFailureStage.Callback ? ExecutionFailureCause.ApplicationError : ExecutionFailureCause.Unknown,
-                ExecutionOperationKind.TransactionCallback);
+                    : stage == ExecutionFailureStage.Callback && callbackOperation == ExecutionOperationKind.TransactionCallback
+                        ? ExecutionFailureCause.ApplicationError : ExecutionFailureCause.Unknown,
+                callbackOperation);
         }
 
         // Closing admission and taking the active-work snapshot are one gate transition.
@@ -57,7 +58,7 @@ internal static class TransactionCallbackRunner
             {
                 stage = ExecutionFailureStage.Validation;
                 resource.ValidateCommit();
-                CheckCancellation();
+                CheckCancellation(ExecutionOperationKind.Commit);
                 stage = ExecutionFailureStage.Commit;
                 using var step = gate.EnterStep(owner);
                 dispatched = true;
@@ -83,12 +84,12 @@ internal static class TransactionCallbackRunner
         await cleanup.DisposeAsync().ConfigureAwait(false);
         return result;
 
-        void CheckCancellation()
+        void CheckCancellation(ExecutionOperationKind operationKind)
         {
             try { cancellationToken.ThrowIfCancellationRequested(); }
             catch (OperationCanceledException failure)
             {
-                failures.Add(failure, ExecutionFailureCause.Cancellation, stage);
+                failures.Add(failure, ExecutionFailureCause.Cancellation, stage, operationKind);
                 throw;
             }
         }

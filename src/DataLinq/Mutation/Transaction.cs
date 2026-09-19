@@ -1152,9 +1152,9 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                 DatabaseTransactionStatus.RolledBack));
     }
 
-    internal void EnsureMutationNotPoisoned(TransactionChangeType operation)
+    internal void EnsureMutationNotPoisoned(TransactionChangeType operation, ExecutionOperationKind? operationKind = null)
     {
-        ThrowIfOperationInProgress($"execute {operation.ToString().ToLowerInvariant()}");
+        ThrowIfOperationInProgress($"execute {operation.ToString().ToLowerInvariant()}", operationKind ?? MutationOperationKind(operation));
         ThrowIfExternalCompletionUnknown(
             $"execute {operation.ToString().ToLowerInvariant()}");
         ThrowIfCommitOutcomeUnknown(

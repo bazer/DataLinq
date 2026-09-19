@@ -25,19 +25,20 @@ public partial class Transaction
         var resource = new ManagedAsyncCompletion(this, RequireAsyncCompletion());
         var settings = new RecoveryRollbackSettings();
         CapturedMutation? input = null;
+        var operationKind = MutationOperationKind(type);
         try
         {
             ArgumentNullException.ThrowIfNull(model);
             var selected = type ?? (model is IMutableInstance mutable && mutable.IsNew()
                 ? TransactionChangeType.Insert : TransactionChangeType.Update);
-            input = CaptureMutation(model, selected);
+            input = CaptureMutation(model, selected, operationKind);
             CapturedMutation[] inputs = [input];
             var readers = BindCapturedMutations(inputs);
             return await RunCallbackAsyncCore(async cancellation =>
             {
-                var results = await ExecuteCapturedMutationsAsync(inputs, readers, cancellation).ConfigureAwait(false);
+                var results = await ExecuteCapturedMutationsAsync(inputs, readers, operationKind, cancellation).ConfigureAwait(false);
                 return select(input, results[0]);
-            }, settings, token).ConfigureAwait(false);
+            }, settings, token, callbackOperation: operationKind).ConfigureAwait(false);
         }
         catch (Exception failure) when (!IsDisposed)
         {
@@ -45,8 +46,8 @@ public partial class Transaction
             // callback runner takes ownership. The database helper still owns this
             // transaction, and must retain the original failure through cleanup.
             var failures = new ExecutionFailures();
-            failures.AddReported(failure, ExecutionFailureStage.Validation);
-            using var operation = BeginExclusiveOperation("clean up failed mutation helper", completion: true);
+            failures.AddReported(failure, ExecutionFailureStage.Validation, fallbackOperation: operationKind);
+            using var operation = BeginExclusiveOperation("clean up failed mutation helper", completion: true, operationKind: operationKind);
             var actions = ExecutionRecoveryActions.Dispose;
             try { actions = resource.Recovery; }
             catch (Exception assessment) { failures.AddReported(assessment, ExecutionFailureStage.Recovery); }
