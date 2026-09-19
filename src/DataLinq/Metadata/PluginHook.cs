@@ -41,7 +41,7 @@ public sealed record DatabaseProviderRegistration(
     ISqlFromMetadataFactory SqlFromMetadataFactory,
     IMetadataFromDatabaseFactoryCreator MetadataFromSqlFactory);
 
-public static class PluginHook
+public static partial class PluginHook
 {
     private static readonly object RegistrationGate = new();
     private static RegistrySnapshot snapshot = new();
