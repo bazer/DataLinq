@@ -1,0 +1,46 @@
+> [!WARNING]
+> Internal W1 orchestration and controllable-provider evidence only. No native SQLite async binding or public setter is added. W1 and SQLite W0-F1 remain open.
+
+# W1 Async Journal Mode and Setup Audit
+
+**Date:** 2026-09-19. Implements the internal explicit journal-mode boundary and audits the existing setup paths under [AAPI-81–83](Async%20Public%20API%20Decisions.md#aapi-81-backend-policy-acceptance-does-not-complete-the-io-audit). The frozen [W0 I/O map](W0%20IO%20Execution%20Map.md#metadata-probes-provisioning-and-setup) is unchanged; the [completion audit](W1%20Completion%20Audit.md) retains the full W1 scope.
+
+## Explicit captured execution
+
+[AsyncJournalMode](../../../../src/DataLinq/Execution/AsyncJournalMode.cs) requires an explicit internal provider capability, captures the requested mode and provider binding before suspension, and executes one owned non-query command. The generic enum binding leaves `SQLiteJournalMode` in its existing provider assembly without introducing a duplicate enum or a core-to-SQLite dependency. An unrelated enum with the same numeric value does not bind accidentally. This is an internal implementation boundary, not a new generic public administration API.
+
+The provider capture and plan validation are I/O-free. Input/lifecycle/capability validation precedes pre-cancellation. The plan creates unopened owned resources, cleaning any partial construction it cannot hand off. The executor captures access and command-factory collaborators before opening can suspend, validates the command factory, and passes the request token through opening and execution. It never borrows an application transaction or recreates a setup-performing provider. Synchronous-only providers fail explicitly without calling the existing setter.
+
+The non-query integer is deliberately ignored: successful completion confirms that the command completed, not that the requested mode became effective. There is no scalar verification query, retry, automatic rollback, restoration of the previous mode, or schema-validation precheck. A confirmed command is not retroactively canceled. Non-cooperative opening/execution remains owned until it settles; cancellation cannot abandon active resources. Command and session cleanup are independently awaited without the request token, and either cleanup failure prevents a normal result.
+
+Original exception identity and ordered, identity-deduplicated secondary failures flow through the shared failure context, including repeated exception objects encountered during cleanup. The context has no application transaction identity, `NotApplicable` completion and no recovery actions. Full operation correlation and cross-family diagnostics remain separate W1 work.
+
+## Constructor and preparation audit
+
+This is a source audit of existing code, not proof of native asynchronous behavior. None of these native constructors, factories or synchronous execution paths changes in this slice.
+
+| Existing boundary | Source finding and disposition |
+| --- | --- |
+| Query handles, `From`, composition and preparation | [Database](../../../../src/DataLinq/Database.cs), [SqlQuery](../../../../src/DataLinq/Query/SqlQuery.cs) and [PreparedQuery](../../../../src/DataLinq/Linq/PreparedQuery.cs) construct handles, expression/structural plans and argument bindings. Execution/terminal calls remain distinct. No async construction counterpart is introduced. |
+| SQL generation | [PluginHook.GenerateSql](../../../../src/DataLinq/Metadata/PluginHook.cs) dispatches to `GetCreateTables`; [SQLite](../../../../src/DataLinq.SQLite/SqlFromSQLiteFactory.cs) and [server](../../../../src/DataLinq.MySql/Shared/SqlFromMetadataFactory.cs) factories render DDL from metadata. Provider `GetCreateSql` and [Select.ToSql](../../../../src/DataLinq/Query/Select.cs) render local SQL. Actual provisioning remains the separate [owned execution boundary](W1%20Async%20Provisioning.md). |
+| `ToDbCommand` and `GetDbConnection` | [SQLiteProvider](../../../../src/DataLinq.SQLite/SQLiteProvider.cs) and [SqlProvider](../../../../src/DataLinq.MySql/Shared/SqlProvider.cs) construct commands/parameters and unopened connections. Command construction disposes its partial command if parameter binding throws; it does not execute SQL. These methods remain synchronous. |
+| Managed transaction construction | [DatabaseProvider.StartTransaction](../../../../src/DataLinq/Database/DatabaseProvider.cs) constructs [Transaction](../../../../src/DataLinq/Mutation/Transaction.cs), which obtains the provider's lazy transaction wrapper. The owned constructors in [SQLiteDatabaseTransaction](../../../../src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs) and [SqlDatabaseTransaction](../../../../src/DataLinq.MySql/Shared/SqlDatabaseTransaction.cs) retain configuration without opening a connection. First execution currently opens/begins and applies SQLite committed-visibility policy or server database selection. W1's [initialization handoff](W1%20Initialization%20Handoff.md) supplies controllable async publication/failure evidence; native adoption remains W2. Attached wrappers instead validate an already-open borrowed transaction. |
+| SQLite provider construction | `SQLiteProvider` normalizes the effective identity, acquires an in-memory keeper when applicable, creates its access object and calls the synchronous `SetJournalMode(WAL)`. [SQLiteConnectionStringFactory](../../../../src/DataLinq.SQLite/SQLiteConnectionStringFactory.cs) actually opens the keeper. Preserve this I/O-bearing timing, identity, failure and lifetime boundary under AAPI-82; do not silently defer it or add `CreateProviderAsync`. |
+| Server provider construction | `SqlProvider` constructs its data source/access/writer; [MySqlProvider](../../../../src/DataLinq.MySql/MySql/MySqlProvider.cs) adds no explicit opening call. [MariaDBProvider](../../../../src/DataLinq.MySql/MariaDB/MariaDBProvider.cs) additionally executes `SELECT @@version`, catches detection failures and disables UUID support. Preserve that documented synchronous setup exception. |
+| Existing explicit journal setter | `SQLiteProvider.SetJournalMode` dispatches one of six literal PRAGMAs through synchronous non-query access and returns no effective mode. Its switch has no default: undefined enum values currently do nothing. This slice neither changes that behavior nor establishes a different public invalid-enum contract; native/public binding must reconcile it explicitly. |
+
+The audit does not make arbitrary custom constructors, callbacks, query parts or overrides I/O-free. They retain their own contracts. It also does not classify terminal execution as construction merely because it is reached through a query object. The final W1 audit must still map every inventoried execution family, diagnostics and unsupported boundary.
+
+## Verification
+
+[Controllable journal-mode tests](../../../../src/DataLinq.Tests.Unit/Core/TransactionMutationFailureTests.JournalMode.cs) passed **41/41** focused Release/.NET 10 cases (`artifacts/w1-journal-focused.json`, maximum parallelism 8). They use the real enum with a controlled provider, not the native SQLite adapter. Coverage includes all six modes, arbitrary non-query return values, mode/identity/collaborator capture across suspension, independent fresh sessions, no constructor invocation or synchronous fallback, validation before cancellation, original failures at eleven ownership/execution stages, request-token propagation, non-cooperative work, late cancellation during command/session cleanup and ordered/deduplicated cleanup failures.
+
+Broad local checks passed **2,975/2,975 unit**, **210/210 Memory**, and **528/528 compliance on each SQLite anchor**: **4,241 cases**, zero failures/skips. Reports are `artifacts/w1-journal-unit.json`, `w1-journal-memory.json`, `w1-journal-sqlite-file.json` and `w1-journal-sqlite-memory.json`. Unit/Memory parallelism was 16; compliance was 8. These bounded development runs are not canonical full-provider/clean-runner release evidence.
+
+Core .NET 8/9/10 and unit/dependency/compliance/Memory Release builds passed with zero warnings/errors (`artifacts/w1-journal-*-build.log`). Planning docs are excluded from DocFX and published navigation/presentation did not change. The PR records exact-head CI and merge verification separately.
+
+## Remaining gates
+
+W2 must bind the actual SQLite command and independent session, preserve the effective existing file/in-memory identity and keeper ownership, and test real dispatch, interruption/locking limits, unchanged constructor behavior and mode limitations. W3 owns the exact public `Task SetJournalModeAsync(SQLiteJournalMode, CancellationToken = default)` signature, provider-specific discoverability and compatibility/consumer evidence against 0.9.2. This slice does not add a native friend-assembly binding or claim SQLite nonblocking I/O.
+
+Complete diagnostics/correlation, internal synchronous adapter compatibility readiness, comparable .NET 10 coordination/allocation evidence and final requirement-to-code/test/I/O mapping remain W1 work. The [limited W1 exception](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception) remains in force; W0-F1, native/public acceptance and release approval are not closed by this orchestration or audit.
