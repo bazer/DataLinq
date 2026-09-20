@@ -50,6 +50,7 @@ internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = 
     internal IAsyncDataReader? ReaderOverride { get; set; }
     internal Action? ReaderAcquired { get; set; }
     internal Exception? ValidationFailure { get; set; }
+    internal Action? ValidatingCommand { get; set; }
     internal AsyncCommandKind? UnsupportedKind { get; set; }
     internal IDbCommand? ObservedCommand { get; private set; }
     internal object? ScalarResult { get; set; }
@@ -57,6 +58,7 @@ internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = 
     internal ReadFailureEvidence FailureEvidence { get; set; } = new();
     internal Exception? EvidenceFailure { get; set; }
     internal Action? AssessingFailure { get; set; }
+    internal DatabaseAccess? TelemetryAccess { get; set; }
 
     public ReadFailureEvidence GetReadFailureEvidence(Exception failure)
     {
@@ -70,6 +72,7 @@ internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = 
     protected override void ValidateCommand(IDbCommand command, AsyncCommandKind kind)
     {
         Calls.Enqueue($"validate:{kind}");
+        ValidatingCommand?.Invoke();
         if (ValidationFailure is not null)
             throw ValidationFailure;
         if (command is not ControlledCommand || kind == UnsupportedKind)
@@ -83,20 +86,35 @@ internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = 
         return Dispatch.ReachAsync(cancellationToken);
     }
 
-    protected override async Task<IAsyncDataReader> ExecuteReaderCoreAsync(IDbCommand command, CancellationToken cancellationToken)
+    protected override Task<IAsyncDataReader> ExecuteReaderCoreAsync(IDbCommand command, CancellationToken cancellationToken) =>
+        TelemetryAccess is { } telemetry ? telemetry.ExecuteReaderWithTelemetryAsync(command,
+            telemetry is DatabaseTransaction, (telemetry as DatabaseTransaction)?.Type, cancellationToken,
+            () => ExecuteReaderNativeAsync(command, cancellationToken)) : ExecuteReaderNativeAsync(command, cancellationToken);
+
+    private async Task<IAsyncDataReader> ExecuteReaderNativeAsync(IDbCommand command, CancellationToken cancellationToken)
     {
         await DispatchAsync(command, AsyncCommandKind.Reader, cancellationToken).ConfigureAwait(false);
         ReaderAcquired?.Invoke();
         return ReaderOverride ?? Reader;
     }
 
-    protected override async Task<object?> ExecuteScalarCoreAsync(IDbCommand command, CancellationToken cancellationToken)
+    protected override Task<object?> ExecuteScalarCoreAsync(IDbCommand command, CancellationToken cancellationToken) =>
+        TelemetryAccess is { } telemetry ? telemetry.ExecuteCommandWithTelemetryAsync(command, "scalar",
+            telemetry is DatabaseTransaction, (telemetry as DatabaseTransaction)?.Type, cancellationToken,
+            () => ExecuteScalarNativeAsync(command, cancellationToken)) : ExecuteScalarNativeAsync(command, cancellationToken);
+
+    private async Task<object?> ExecuteScalarNativeAsync(IDbCommand command, CancellationToken cancellationToken)
     {
         await DispatchAsync(command, AsyncCommandKind.Scalar, cancellationToken).ConfigureAwait(false);
         return ScalarResult;
     }
 
-    protected override async Task<int> ExecuteNonQueryCoreAsync(IDbCommand command, CancellationToken cancellationToken)
+    protected override Task<int> ExecuteNonQueryCoreAsync(IDbCommand command, CancellationToken cancellationToken) =>
+        TelemetryAccess is { } telemetry ? telemetry.ExecuteCommandWithTelemetryAsync(command, "non_query",
+            telemetry is DatabaseTransaction, (telemetry as DatabaseTransaction)?.Type, cancellationToken,
+            () => ExecuteNonQueryNativeAsync(command, cancellationToken)) : ExecuteNonQueryNativeAsync(command, cancellationToken);
+
+    private async Task<int> ExecuteNonQueryNativeAsync(IDbCommand command, CancellationToken cancellationToken)
     {
         await DispatchAsync(command, AsyncCommandKind.NonQuery, cancellationToken).ConfigureAwait(false);
         return NonQueryResult;
@@ -115,6 +133,7 @@ internal sealed class ControlledAsyncDataReader(int[]? values = null) : IAsyncDa
     internal int SyncCalls { get; private set; }
     internal bool IsDisposed { get; private set; }
     internal bool AllowSynchronousCalls { get; set; }
+    internal Exception? SyncDisposalFailure { get; set; }
 
     public async Task<bool> ReadNextRowAsync(CancellationToken cancellationToken)
     {
@@ -138,6 +157,7 @@ internal sealed class ControlledAsyncDataReader(int[]? values = null) : IAsyncDa
     {
         SyncCalls++;
         if (!AllowSynchronousCalls) throw new InvalidOperationException("Unexpected synchronous reader disposal.");
+        if (SyncDisposalFailure is not null) throw SyncDisposalFailure;
         IsDisposed = true;
     }
 

@@ -13,6 +13,7 @@ internal static class ExecutionActivity
         var completedActivity = activity;
         activity = null;
         if (completedActivity is null) return;
+        var reportingScope = ExecutionFailureScope.Current;
         using (ExecutionFailureScope.Begin())
         {
             try
@@ -21,12 +22,12 @@ internal static class ExecutionActivity
                 else if (!succeeded) completedActivity.SetStatus(ActivityStatusCode.Error);
                 completedActivity.SetTag("datalinq.outcome", outcome ?? (succeeded && failures?.Primary is null ? "success" : "failure"));
             }
-            catch (Exception failure) { AddFailure(ref failures, failure, operation); }
+            catch (Exception failure) { AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
         using (ExecutionFailureScope.Begin())
         {
             try { completedActivity.Dispose(); }
-            catch (Exception failure) { AddFailure(ref failures, failure, operation); }
+            catch (Exception failure) { AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
         // Activity.Stop notifies listeners before restoring Current. A listener can
         // throw after the activity became stopped, leaving it ambient in this call.
@@ -34,7 +35,7 @@ internal static class ExecutionActivity
         {
             using var restoration = ExecutionFailureScope.Begin();
             try { Activity.Current = completedActivity.Parent is { IsStopped: false } parent ? parent : null; }
-            catch (Exception failure) { AddFailure(ref failures, failure, operation); }
+            catch (Exception failure) { AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
     }
 

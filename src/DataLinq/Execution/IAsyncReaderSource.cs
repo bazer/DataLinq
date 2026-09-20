@@ -57,7 +57,18 @@ internal sealed class BorrowedCommandReaderSource : IAsyncReaderSource, IAsyncRe
         CommandDispatched = false;
         Validate();
         cancellationToken.ThrowIfCancellationRequested();
+        return OpenReaderCoreAsync(cancellationToken);
+    }
+
+    private async Task<IAsyncDataReader> OpenReaderCoreAsync(CancellationToken cancellationToken)
+    {
+        using var diagnostics = ExecutionFailureScope.Begin();
         CommandDispatched = true;
-        return access.ExecuteReaderAsync(command, cancellationToken);
+        try { return await access.ExecuteReaderAsync(command, cancellationToken).ConfigureAwait(false); }
+        catch (Exception failure)
+        {
+            if (CommandDispatchEvidence.ProvesNoDispatch(failure, command)) CommandDispatched = false;
+            throw;
+        }
     }
 }

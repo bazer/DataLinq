@@ -59,6 +59,7 @@ internal sealed class ExecutionFailureContext
     internal IReadOnlyList<ExecutionSecondaryFailure> SecondaryFailures { get; }
     internal bool HasCleanupFailure { get; }
     internal ExecutionFailureScope? Scope { get; init; } = ExecutionFailureScope.Current;
+    internal CommandDispatchEvidence? CommandDispatch { get; init; }
 
     internal ExecutionFailureContext(ExecutionFailureCause cause, ExecutionFailureStage stage,
         ExecutionCompletion completion, ExecutionRecoveryActions recovery, uint? transactionId,
@@ -81,7 +82,8 @@ internal sealed class ExecutionFailureContext
 
     internal ExecutionFailureContext AfterRecovery(ExecutionCompletion completion, ExecutionRecoveryActions recovery) =>
         new(Cause, Stage, ExecutionRecoveryPolicy.PreserveCompletion(Completion, completion), recovery,
-            TransactionId, SecondaryFailures, HasCleanupFailure, Operation, ProviderInstanceId, ActiveOperation) { Scope = Scope };
+            TransactionId, SecondaryFailures, HasCleanupFailure, Operation, ProviderInstanceId, ActiveOperation)
+            { Scope = Scope, CommandDispatch = CommandDispatch };
 }
 
 internal static class ExecutionRecoveryPolicy
@@ -119,6 +121,7 @@ internal sealed class ExecutionFailures
     private string? providerInstanceId;
     private uint? primaryTransactionId;
     private ExecutionOperationKind? activeOperation;
+    private CommandDispatchEvidence? commandDispatch;
     private readonly List<ExecutionSecondaryFailure> secondary = [];
     internal Exception? Primary => primary?.SourceException;
     internal bool HasCleanupFailure { get; private set; }
@@ -152,6 +155,7 @@ internal sealed class ExecutionFailures
             providerInstanceId = context?.ProviderInstanceId;
             primaryTransactionId = context?.TransactionId;
             activeOperation = context?.ActiveOperation;
+            commandDispatch = context?.CommandDispatch;
         }
         else if (!ReferenceEquals(exception, Primary) && !secondary.Any(x => ReferenceEquals(x.Exception, exception)))
             secondary.Add(new(failureCause, failureStage, exception, observedOperation));
@@ -210,7 +214,7 @@ internal sealed class ExecutionFailures
             completion, recovery, transactionId, secondary, HasCleanupFailure,
             knownOperation == ExecutionOperationKind.Unknown ? fallbackOperation : knownOperation,
             foreign ? fallbackProviderInstanceId : providerInstanceId ?? fallbackProviderInstanceId,
-            foreign ? null : activeOperation) { Scope = scope };
+            foreign ? null : activeOperation) { Scope = scope, CommandDispatch = commandDispatch };
     }
 
     private ExecutionFailureContext? Observe(Exception exception)

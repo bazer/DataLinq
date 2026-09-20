@@ -58,8 +58,24 @@ internal abstract class AsyncDatabaseAccess : IAsyncDatabaseAccess
     private void Validate(IDbCommand command, AsyncCommandKind kind, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        ValidateCommand(command, kind);
-        cancellationToken.ThrowIfCancellationRequested();
+        using var diagnostics = ExecutionFailureScope.Begin();
+        try
+        {
+            ValidateCommand(command, kind);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        catch (Exception failure)
+        {
+            // The enclosing source may already have entered adapter dispatch. These
+            // I/O-free checks prove that this command's provider core never ran.
+            var failures = new ExecutionFailures();
+            failures.AddReported(failure, ExecutionFailureStage.Validation,
+                failure is OperationCanceledException canceled && canceled.CancellationToken == cancellationToken && cancellationToken.IsCancellationRequested
+                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown);
+            CommandDispatchEvidence.Attach(failure, failures.Snapshot(new(Effects: ExecutionEffects.NoStatement),
+                ExecutionCompletion.NotApplicable, ExecutionRecoveryActions.None, null), command, dispatched: false);
+            throw;
+        }
     }
 
     /// <summary>
