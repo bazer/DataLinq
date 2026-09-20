@@ -522,4 +522,19 @@ public sealed partial class TransactionMutationFailureTests
         else if (route == "entity") _ = select.Execute().ToArray();
         else _ = SqlQueryPlanBackend.ExecuteTerminalPrimaryKeyLookup(transaction, fixture.RowTable, null, QueryPlanResultKind.SingleOrDefault);
     }
+
+    [Test, NotInParallel]
+    [Arguments("object")]
+    [Arguments("entity")]
+    public async Task SyncQueryTelemetry_DoesNotRestoreACallerStoppedDuringReporting(string route)
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        using var caller = new Activity("caller").Start();
+        using var activities = new QueryActivityProbe(stopping: _ => caller.Stop());
+        ExecuteSyncTelemetryQuery(fixture, transaction, route);
+        await Assert.That(caller.IsStopped).IsTrue();
+        await Assert.That(Activity.Current).IsNull();
+        await Assert.That(activities.Stopped.Count).IsEqualTo(1);
+    }
 }

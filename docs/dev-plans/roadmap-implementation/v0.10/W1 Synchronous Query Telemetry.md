@@ -19,7 +19,7 @@ The collector preserves current child completion/recovery facts from the same so
 
 ## Iterator activity and ownership
 
-The [logical-query enumerator](../../../../src/DataLinq/Execution/SyncQueryEnumerable.cs) lives inside the existing ReadSequence admission and GuardedEnumerable call gate. Its activity starts on the first admitted MoveNext, becomes current only while query work runs, and restores the activity of each individual caller before returning. Resuming or disposing under another caller preserves the original query parent and restores that later caller. Activity.CurrentChanged failures are collected and still allow resource cleanup and query finalization.
+The [logical-query enumerator](../../../../src/DataLinq/Execution/SyncQueryEnumerable.cs) lives inside the existing ReadSequence admission and GuardedEnumerable call gate. Its activity starts on the first admitted MoveNext, becomes current only while query work runs, and restores the activity of each individual caller before returning. Resuming or disposing under another caller preserves the original query parent and restores that later caller. If an observer stops the caller during reporting, restoration clears Current instead of reintroducing that stopped activity. Activity.CurrentChanged failures are collected and still allow resource cleanup and query finalization.
 
 The existing cache/key-query algorithms, SQL order replay and keyless materialization remain in Select. Typed entity conversion now happens inside the logical query, so an invalid projection remains primary through reporting. Keyless readers stay open across rows, and early disposal or a later read error disposes the reader and command before reporting. Compiler-iterator cleanup, callback-helper draining, overlap rejection and explicit private admission continue to use the existing owners.
 
@@ -31,7 +31,7 @@ Diagnostic scopes end on each iterator call; none remains ambient in consumer co
 
 ## Verification
 
-[The 56 new nonparallel TUnit cases](../../../../src/DataLinq.Tests.Unit/Core/TransactionMutationFailureTests.SyncQueryTelemetry.cs) use real activity/meter listeners and controlled synchronous provider resources:
+[The 58 new nonparallel TUnit cases](../../../../src/DataLinq.Tests.Unit/Core/TransactionMutationFailureTests.SyncQueryTelemetry.cs) use real activity/meter listeners and controlled synchronous provider resources:
 
 | Cases | Covered boundary |
 | ---: | --- |
@@ -50,10 +50,11 @@ Diagnostic scopes end on each iterator call; none remains ambient in consumer co
 | 2 | Reused reporter exceptions cannot import stale completion/cleanup facts |
 | 4 | Root/transaction keyless readers retain later-read and both cleanup failures in order |
 | 4 | Scalar conversion and matching/foreign/unrequested cancellation survive reporting |
+| 2 | A caller stopped by a completion observer is not restored as current |
 
 The original negative report is **0/6**, but only five cases are valid product reproductions: the iterator case incorrectly primed the provider cache for a transaction read and produced no row. The first implementation passed those five cases (**5/6**); the iterator fixture was corrected to return a real transaction row. The expanded **36/40** run exposed four test-setup errors: it attempted public query creation after taking private ownership. Query capture now precedes that admission. The **55/56** boundary run passed its assertions but the helper case incorrectly attempted public transaction disposal after transferring completion to its controlled helper; the helper remains the disposal owner. These intermediate failures are retained, not counted as product regressions or passing evidence.
 
-Final cases pass **56/56**, and all query/mutation/transaction/command reporting regressions pass **197/197** together. Broad verification passes **3,340 unit + 221 Memory + 528 SQLite file + 528 SQLite memory = 4,617**, with no skips. Focused tests are included in the unit total. Release core builds for .NET 8/9/10 and unit/Memory/compliance builds complete with zero warnings and errors.
+The first complete captures passed **56/56** focused, **197/197** combined reporting and **4,617** broad tests. Final review then reproduced a further product edge in **0/2** cases: a completion observer could stop the caller, after which query finalization restored that stopped activity. Restoration now rejects stopped callers. The final `verified` captures pass **58/58** focused and **199/199** combined query/mutation/transaction/command reporting cases. Repeated broad verification passes **3,342 unit + 221 Memory + 528 SQLite file + 528 SQLite memory = 4,619**, with no skips. Focused tests are included in the unit total. Release core builds for .NET 8/9/10 and unit/Memory/compliance builds complete with zero warnings and errors.
 
 All listed reports have complete counts, invocations and artifacts. Final runs exit zero; intermediate failed captures exit two. `ValidForEvidence=false` identifies bounded local checks, not release qualification. Reports remain local under `artifacts/`, unmodified and unuploaded. Final-head Latest CI and the expected-head merge are recorded in the PR.
 
@@ -69,6 +70,13 @@ All listed reports have complete counts, invocations and artifacts. Final runs e
 | `w1-sync-query-telemetry-memory.json` | 221 / 221 | `1c2a31975137fdf7fd70a144d6b1849531ba4a13aca53fb3a0c7134dd8d013ec` |
 | `w1-sync-query-telemetry-sqlite-file.json` | 528 / 528 | `5b44a059acea9f1b9cbe105232014098cadb510ad8e2876075f52e31b242dd77` |
 | `w1-sync-query-telemetry-sqlite-memory.json` | 528 / 528 | `d321d9981279d8afa0214b6ba097d30a61ff3c7564405783293b78b4f3b2be7b` |
+| `w1-sync-query-telemetry-stopped-caller-negative.json` | 0 / 2 | `9763a9a298301b704db719bc0076f7caafffecddb983a66338d3ff0c7222199b` |
+| `w1-sync-query-telemetry-verified.json` | 58 / 58 | `000d34fa1b4be5b7ff54e06f28cd255cd8204fced0652b9070283f5b3d22bcfa` |
+| `w1-sync-query-telemetry-all-reporting-verified.json` | 199 / 199 | `05e7209014aa698a3215826ce6756916be832450e3cf3755228aa792179ed6b6` |
+| `w1-sync-query-telemetry-unit-verified.json` | 3342 / 3342 | `bd53e1bc6e730ad36f611a5b7794cf4d232c20225279b74baf067a97f0a523fc` |
+| `w1-sync-query-telemetry-memory-verified.json` | 221 / 221 | `2489447ee14ed9a28671ba04041cb7893bd4ef429c06ebde23f10d6ed8c0a06a` |
+| `w1-sync-query-telemetry-sqlite-file-verified.json` | 528 / 528 | `2d37f187be24593fa3c9d89ed21c0e4412e135178d2151f7e6893d3d5d84c2af` |
+| `w1-sync-query-telemetry-sqlite-memory-verified.json` | 528 / 528 | `aa36818bc6c23bccc4b4d46bf3a6c69a4bed0dfd4454da4bc2db7c9f447053ac` |
 
 ## Remaining work and cost
 
