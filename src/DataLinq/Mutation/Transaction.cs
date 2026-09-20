@@ -1154,27 +1154,34 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
 
     internal void EnsureMutationNotPoisoned(TransactionChangeType operation, ExecutionOperationKind? operationKind = null)
     {
-        ThrowIfOperationInProgress($"execute {operation.ToString().ToLowerInvariant()}", operationKind ?? MutationOperationKind(operation));
-        ThrowIfExternalCompletionUnknown(
-            $"execute {operation.ToString().ToLowerInvariant()}");
-        ThrowIfCommitOutcomeUnknown(
-            $"execute {operation.ToString().ToLowerInvariant()}",
-            allowRollback: false);
-        ThrowIfRollbackAttemptFailed($"execute {operation.ToString().ToLowerInvariant()}");
-        ThrowIfPoisoned($"execute {operation.ToString().ToLowerInvariant()}");
-        EnsureAsyncRecoveryAllowed($"execute {operation.ToString().ToLowerInvariant()}", ExecutionRecoveryActions.Continue);
+        var operationDescription = MutationOperationDescription(operation);
+        ThrowIfOperationInProgress(operationDescription, operationKind ?? MutationOperationKind(operation));
+        ThrowIfExternalCompletionUnknown(operationDescription);
+        ThrowIfCommitOutcomeUnknown(operationDescription, allowRollback: false);
+        ThrowIfRollbackAttemptFailed(operationDescription);
+        ThrowIfPoisoned(operationDescription);
+        EnsureAsyncRecoveryAllowed(operationDescription, ExecutionRecoveryActions.Continue);
     }
 
     internal void EnsureMutationCommitOutcomeKnown(TransactionChangeType operation)
     {
-        var operationDescription =
-            $"execute {operation.ToString().ToLowerInvariant()}";
+        var operationDescription = MutationOperationDescription(operation);
         EnsureAttachedTransactionNotCompletedExternally(operationDescription);
         ThrowIfExternalCompletionUnknown(operationDescription);
         ThrowIfCommitOutcomeUnknown(
             operationDescription,
             allowRollback: false);
     }
+
+    // Successful preflight also visits these guards. Known operation labels must
+    // not allocate merely to supply messages for branches that do not throw.
+    private static string MutationOperationDescription(TransactionChangeType operation) => operation switch
+    {
+        TransactionChangeType.Insert => "execute insert",
+        TransactionChangeType.Update => "execute update",
+        TransactionChangeType.Delete => "execute delete",
+        _ => $"execute {operation.ToString().ToLowerInvariant()}"
+    };
 
     internal void EnsureCanRead(string operation, TransactionOperationGate.Step? owner = null,
         ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown)
