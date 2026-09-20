@@ -38,10 +38,12 @@ internal sealed class ScalarColumnRowsQuery(
 
     internal RowData? ReadFirstRow(TransactionOperationGate.Step? owner = null)
     {
-        using var read = DataSourceAccess.BeginRead(dataSource, "read a cache row", owner);
+        using var diagnostics = ExecutionFailureScope.Begin();
+        using var read = DataSourceAccess.BeginRead(dataSource, "read a cache row", owner, operationKind: ExecutionOperationKind.KeyLookup);
         try
         {
-            using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID);
+            using var resources = new ReadCommandResources((dataSource as Transaction)?.TransactionID,
+                ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.KeyLookup, owner));
             var stage = ExecutionFailureStage.Validation;
             try
             {

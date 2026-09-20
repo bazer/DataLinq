@@ -159,7 +159,8 @@ public partial class Select<T> : IQuery
     {
         using var read = DataSourceAccess.BeginRead(
             query.DataSource, "read query rows", owner, cancellationToken);
-        using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+        using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID,
+            ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query, owner), cancellationToken);
         IDataLinqDataReader reader;
         var stage = ExecutionFailureStage.Validation;
         try
@@ -203,17 +204,39 @@ public partial class Select<T> : IQuery
 
     private IEnumerable<RowData> ReadRowsCore(TransactionOperationGate.Step? owner)
     {
-        // Resolve the actual columns being fetched to ensure the RowData 
-        // reader aligns with the DataReader's fields.
-        var columnsToRead = GetColumnsToRead();
+        // Conversion must report before unwinding reader ownership. Projecting a
+        // yielded reader through foreach would let Dispose replace that failure.
+        using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID,
+            ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query, owner));
+        IReadOnlyList<ColumnDefinition> columnsToRead;
+        IDataLinqDataReader reader;
+        var stage = ExecutionFailureStage.Validation;
+        try
+        {
+            columnsToRead = GetColumnsToRead();
+            var command = resources.OwnCommand(ToDbCommand());
+            stage = ExecutionFailureStage.CommandExecution;
+            reader = resources.OwnReader(SyncCommandDispatch.ExecuteReader(query.DataSource.DatabaseAccess, command, owner));
+        }
+        catch (Exception failure) { resources.RecordFailure(failure, stage); throw; }
 
-        foreach (var reader in ReadReader(default, owner))
-            yield return new RowData(
-                reader,
-                query.Table,
-                columnsToRead,
-                true,
-                $"sql:{query.DataSource.Provider.DatabaseType}:select-rows");
+        while (true)
+        {
+            RowData? row = null;
+            stage = ExecutionFailureStage.RowLoading;
+            try
+            {
+                if (reader.ReadNextRow())
+                {
+                    stage = ExecutionFailureStage.Materialization;
+                    row = new RowData(reader, query.Table, columnsToRead, true,
+                        $"sql:{query.DataSource.Provider.DatabaseType}:select-rows");
+                }
+            }
+            catch (Exception failure) { resources.RecordFailure(failure, stage); throw; }
+            if (row is null) yield break;
+            yield return row;
+        }
     }
 
     public RowData? ReadFirstRow()
@@ -221,10 +244,12 @@ public partial class Select<T> : IQuery
 
     internal RowData? ReadFirstRow(TransactionOperationGate.Step? owner)
     {
-        using var read = DataSourceAccess.BeginRead(query.DataSource, "read the first query row", owner);
+        using var diagnostics = ExecutionFailureScope.Begin();
+        using var read = DataSourceAccess.BeginRead(query.DataSource, "read the first query row", owner, operationKind: ExecutionOperationKind.Query);
         try
         {
-            using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+            using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID,
+                ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query, owner));
             var stage = ExecutionFailureStage.Validation;
             try
             {
@@ -464,8 +489,9 @@ public partial class Select<T> : IQuery
 
     internal V ExecuteScalar<V>(CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using var read = DataSourceAccess.BeginRead(
-            query.DataSource, "execute a scalar query", owner, cancellationToken);
+            query.DataSource, "execute a scalar query", owner, cancellationToken, ExecutionOperationKind.Query);
         try
         {
             var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
@@ -481,7 +507,8 @@ public partial class Select<T> : IQuery
 
             try
             {
-                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID,
+                    ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query, owner), cancellationToken);
                 var stage = ExecutionFailureStage.Validation;
                 try
                 {
@@ -534,8 +561,9 @@ public partial class Select<T> : IQuery
 
     internal object? ExecuteScalar(CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         using var read = DataSourceAccess.BeginRead(
-            query.DataSource, "execute a scalar query", owner, cancellationToken);
+            query.DataSource, "execute a scalar query", owner, cancellationToken, ExecutionOperationKind.Query);
         try
         {
             var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
@@ -551,7 +579,8 @@ public partial class Select<T> : IQuery
 
             try
             {
-                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID);
+                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID,
+                    ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query, owner), cancellationToken);
                 var stage = ExecutionFailureStage.Validation;
                 try
                 {

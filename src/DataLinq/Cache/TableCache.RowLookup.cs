@@ -17,9 +17,13 @@ public partial class TableCache
     internal IEnumerable<IImmutableInstance> GetRows<TKey>(
         TKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource,
         TransactionOperationGate.Step? owner = null)
-        where TKey : notnull =>
-        DataSourceAccess.ReadSequence(dataSource, "enumerate relation rows",
-            step => GetRelationRowsCore(foreignKey, otherSide, dataSource, step), owner);
+        where TKey : notnull
+    {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+        return DataSourceAccess.ReadSequence(dataSource, "enumerate relation rows",
+            step => GetRelationRowsCore(foreignKey, otherSide, dataSource, step), owner,
+            operationKind: ExecutionOperationKind.RelationLoad);
+    }
 
     private IEnumerable<IImmutableInstance> GetRelationRowsCore<TKey>(
         TKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource,
@@ -196,9 +200,12 @@ public partial class TableCache
     internal IEnumerable<IImmutableInstance> GetRows<TKey>(
         IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null,
         TransactionOperationGate.Step? owner = null)
-        where TKey : notnull =>
-        DataSourceAccess.ReadSequence(dataSource, "enumerate cached query rows",
+        where TKey : notnull
+    {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+        return DataSourceAccess.ReadSequence(dataSource, "enumerate cached query rows",
             step => GetRowsCore(primaryKeys, dataSource, orderings, step), owner);
+    }
 
     private IEnumerable<IImmutableInstance> GetRowsCore<TKey>(
         IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings,
