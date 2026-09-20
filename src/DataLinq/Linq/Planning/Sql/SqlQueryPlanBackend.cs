@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
-using DataLinq.Diagnostics;
 using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -202,55 +201,33 @@ internal sealed partial class SqlQueryPlanBackend : IQueryPlanBackend, IAsyncQue
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(table);
-        using var read = DataSourceAccess.BeginRead(dataSource, "execute an exact primary-key terminal query");
+        using var diagnostics = ExecutionFailureScope.Begin();
+        using var read = DataSourceAccess.BeginRead(dataSource, "execute an exact primary-key terminal query",
+            operationKind: ExecutionOperationKind.Query);
         try
         {
-            var telemetryContext = DataLinqTelemetryContext.FromProvider(dataSource.Provider);
-            var activity = DataLinqTelemetry.StartQueryActivity(
-                telemetryContext,
-                table.DbName,
-                "entity",
-                dataSource is Transaction);
-            var startedAt = Stopwatch.GetTimestamp();
+            var execution = new SyncQueryExecution(QueryTelemetryContext.Capture(dataSource, table.DbName),
+                ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.Query), (dataSource as Transaction)?.TransactionID);
+            var caller = Activity.Current;
             var succeeded = false;
-
-            DataLinqMetrics.RecordEntityQueryExecution(dataSource.Provider);
-
-            try
+            IImmutableInstance? result = null;
+            if (execution.Start())
             {
-                var row = primaryKey is null
-                    ? null
-                    : GetRowByScalarPrimaryKey(dataSource, table, primaryKey, read?.Step);
-
-                var result = ExactPrimaryKeyTerminalExecution.ApplyResultSemantics(row, resultKind);
-                succeeded = true;
-                return result;
-            }
-            catch (Exception exception)
-            {
-                DataLinqTelemetry.RecordException(activity, exception);
-                throw;
-            }
-            finally
-            {
-                var duration = Stopwatch.GetElapsedTime(startedAt);
-                DataLinqTelemetry.RecordQueryExecution(
-                    telemetryContext,
-                    table.DbName,
-                    "entity",
-                    dataSource is Transaction,
-                    succeeded,
-                    duration);
-
-                if (activity is not null)
+                try
                 {
-                    if (!succeeded)
-                        activity.SetStatus(ActivityStatusCode.Error);
-
-                    activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                    activity.Dispose();
+                    var row = primaryKey is null ? null : GetRowByScalarPrimaryKey(dataSource, table, primaryKey, read?.Step);
+                    result = ExactPrimaryKeyTerminalExecution.ApplyResultSemantics(row, resultKind);
+                    succeeded = true;
+                }
+                catch (Exception failure)
+                {
+                    execution.RecordFailure(failure, ExecutionFailureStage.Materialization, ExecutionFailureCause.MaterializationError);
                 }
             }
+            execution.Complete(succeeded);
+            execution.RestoreCurrent(caller);
+            execution.ThrowIfAny();
+            return result;
         }
         catch (Exception failure)
         {

@@ -308,9 +308,11 @@ internal static class DataLinqTelemetry
     }
 
     internal static void RecordQueryExecution(DataLinqTelemetryContext context, string tableName,
-        string queryKind, bool transactional, bool succeeded, TimeSpan duration, ref ExecutionFailures? failures)
+        string queryKind, bool transactional, bool succeeded, TimeSpan duration, ref ExecutionFailures? failures,
+        ExecutionOperationKind operation = ExecutionOperationKind.Query)
     {
         if (!QueryCounter.Enabled && !QueryDuration.Enabled) return;
+        var reportingScope = ExecutionFailureScope.Current;
         var tags = CreateTableTags(context, tableName);
         tags.Add("datalinq.query.kind", queryKind);
         tags.Add("datalinq.transactional", transactional);
@@ -319,13 +321,13 @@ internal static class DataLinqTelemetry
         {
             using var reporting = ExecutionFailureScope.Begin();
             try { QueryCounter.Add(1, tags); }
-            catch (Exception failure) { QueryExecutionTelemetry.AddFailure(ref failures, failure); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
         if (QueryDuration.Enabled)
         {
             using var reporting = ExecutionFailureScope.Begin();
             try { QueryDuration.Record(duration.TotalMilliseconds, tags); }
-            catch (Exception failure) { QueryExecutionTelemetry.AddFailure(ref failures, failure); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
     }
 

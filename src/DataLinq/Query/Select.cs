@@ -4,9 +4,9 @@ using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
-using DataLinq.Diagnostics;
 using DataLinq.Execution;
 using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 
@@ -398,89 +398,59 @@ public partial class Select<T> : IQuery
 
     public IEnumerable<V> ExecuteAs<V>() =>
         DataSourceAccess.ReadSequence(query.DataSource, "execute a typed entity query",
-            owner => ExecuteCore(owner).Select(x => (V)x));
+            owner => WithQueryTelemetry(ExecuteRowsCore(owner).Select(x => (V)x), owner));
 
     public IEnumerable<IImmutableInstance> Execute() => Execute(owner: null);
 
     internal IEnumerable<IImmutableInstance> Execute(TransactionOperationGate.Step? owner) =>
-        DataSourceAccess.ReadSequence(query.DataSource, "execute an entity query", ExecuteCore, owner);
+        DataSourceAccess.ReadSequence(query.DataSource, "execute an entity query",
+            step => WithQueryTelemetry(ExecuteRowsCore(step), step), owner);
 
-    private IEnumerable<IImmutableInstance> ExecuteCore(TransactionOperationGate.Step? owner)
+    private IEnumerable<V> WithQueryTelemetry<V>(IEnumerable<V> rows, TransactionOperationGate.Step? owner) =>
+        new SyncQueryEnumerable<V>(rows, QueryTelemetryContext.Capture(query.DataSource, query.Table.DbName),
+            ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query, owner),
+            (query.DataSource as Transaction)?.TransactionID);
+
+    private IEnumerable<IImmutableInstance> ExecuteRowsCore(TransactionOperationGate.Step? owner)
     {
         DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute an entity query", owner);
-        var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
-        var activity = DataLinqTelemetry.StartQueryActivity(
-            telemetryContext,
-            query.Table.DbName,
-            "entity",
-            query.DataSource is Mutation.Transaction);
-        var startedAt = Stopwatch.GetTimestamp();
-        var succeeded = false;
-
-        DataLinqMetrics.RecordEntityQueryExecution(query.DataSource.Provider);
-
-        try
+        if (query.Table.PrimaryKeyColumns.Length != 0)
         {
-            if (query.Table.PrimaryKeyColumns.Length != 0)
-            {
-                var tableCache = query.DataSource.Provider.GetTableCache(query.Table);
+            var tableCache = query.DataSource.Provider.GetTableCache(query.Table);
 
-                if (query.TryGetSimpleScalarPrimaryKey(out var simpleScalarKey) &&
-                    tableCache.TryGetRowFromProviderKeyValue(simpleScalarKey, query.DataSource, out var scalarRow, owner))
-                {
-                    if (scalarRow is not null)
-                        yield return scalarRow;
-                }
-                else if (query.TryGetSimplePrimaryKey() is DataLinqKey simpleKey)
-                {
-                    var row = tableCache.GetRow(simpleKey, query.DataSource, owner);
-                    if (row is not null)
-                        yield return row;
-                }
-                else if (!query.HasDerivedSource &&
-                    !query.HasJoins &&
-                    tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, out var providerKeyRows, owner))
-                {
-                    foreach (var row in providerKeyRows)
-                        yield return row;
-                }
-                else
-                {
-                    this.What(query.Table.PrimaryKeyColumns);
-                    var keys = KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns, owner).ToArray();
-                    // The database has already applied ordering, collation, and paging.
-                    // Replay that key sequence instead of sorting cached models in the CLR.
-                    foreach (var row in tableCache.GetRows(keys, query.DataSource, owner: owner))
-                        yield return row;
-                }
+            if (query.TryGetSimpleScalarPrimaryKey(out var simpleScalarKey) &&
+                tableCache.TryGetRowFromProviderKeyValue(simpleScalarKey, query.DataSource, out var scalarRow, owner))
+            {
+                if (scalarRow is not null)
+                    yield return scalarRow;
+            }
+            else if (query.TryGetSimplePrimaryKey() is DataLinqKey simpleKey)
+            {
+                var row = tableCache.GetRow(simpleKey, query.DataSource, owner);
+                if (row is not null)
+                    yield return row;
+            }
+            else if (!query.HasDerivedSource &&
+                !query.HasJoins &&
+                tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, out var providerKeyRows, owner))
+            {
+                foreach (var row in providerKeyRows)
+                    yield return row;
             }
             else
             {
-                foreach (var rowData in this.ReadRows(owner))
-                    yield return InstanceFactory.NewImmutableRow(rowData, query.DataSource);
+                this.What(query.Table.PrimaryKeyColumns);
+                var keys = KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns, owner).ToArray();
+                // The database has already applied ordering, collation, and paging.
+                // Replay that key sequence instead of sorting cached models in the CLR.
+                foreach (var row in tableCache.GetRows(keys, query.DataSource, owner: owner))
+                    yield return row;
             }
-
-            succeeded = true;
         }
-        finally
+        else
         {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordQueryExecution(
-                telemetryContext,
-                query.Table.DbName,
-                "entity",
-                query.DataSource is Mutation.Transaction,
-                succeeded,
-                duration);
-
-            if (activity is not null)
-            {
-                if (!succeeded)
-                    activity.SetStatus(ActivityStatusCode.Error);
-
-                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity.Dispose();
-            }
+            foreach (var rowData in this.ReadRows(owner))
+                yield return InstanceFactory.NewImmutableRow(rowData, query.DataSource);
         }
     }
 
@@ -488,138 +458,53 @@ public partial class Select<T> : IQuery
         => ExecuteScalar<V>(CancellationToken.None);
 
     internal V ExecuteScalar<V>(CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
-    {
-        using var diagnostics = ExecutionFailureScope.Begin();
-        using var read = DataSourceAccess.BeginRead(
-            query.DataSource, "execute a scalar query", owner, cancellationToken, ExecutionOperationKind.Query);
-        try
-        {
-            var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
-            var activity = DataLinqTelemetry.StartQueryActivity(
-                telemetryContext,
-                query.Table.DbName,
-                "scalar",
-                query.DataSource is Mutation.Transaction);
-            var startedAt = Stopwatch.GetTimestamp();
-            var succeeded = false;
-
-            DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
-
-            try
-            {
-                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID,
-                    ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query, owner), cancellationToken);
-                var stage = ExecutionFailureStage.Validation;
-                try
-                {
-                    var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
-                    stage = ExecutionFailureStage.CommandExecution;
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var result = SyncCommandDispatch.ExecuteScalar<V>(query.DataSource.DatabaseAccess, command, owner ?? read?.Step);
-                    resources.Dispose();
-                    succeeded = true;
-                    return result;
-                }
-                catch (Exception failure)
-                {
-                    resources.RecordFailure(failure, stage);
-                    throw;
-                }
-            }
-            catch (Exception exception)
-            {
-                DataLinqTelemetry.RecordException(activity, exception);
-                throw;
-            }
-            finally
-            {
-                var duration = Stopwatch.GetElapsedTime(startedAt);
-                DataLinqTelemetry.RecordQueryExecution(
-                    telemetryContext,
-                    query.Table.DbName,
-                    "scalar",
-                    query.DataSource is Mutation.Transaction,
-                    succeeded,
-                    duration);
-
-                if (activity is not null)
-                {
-                    activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                    activity.Dispose();
-                }
-            }
-        }
-        catch (Exception failure)
-        {
-            read?.ReportFailure(failure);
-            throw;
-        }
-    }
+        => ExecuteScalarCore(cancellationToken, owner,
+            static (access, command, step) => SyncCommandDispatch.ExecuteScalar<V>(access, command, step));
 
     public object? ExecuteScalar()
         => ExecuteScalar(CancellationToken.None);
 
     internal object? ExecuteScalar(CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
+        => ExecuteScalarCore(cancellationToken, owner,
+            static (access, command, step) => SyncCommandDispatch.ExecuteScalar(access, command, step));
+
+    private V ExecuteScalarCore<V>(CancellationToken cancellationToken, TransactionOperationGate.Step? owner,
+        Func<IDatabaseAccess, IDbCommand, TransactionOperationGate.Step?, V> execute)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         using var read = DataSourceAccess.BeginRead(
             query.DataSource, "execute a scalar query", owner, cancellationToken, ExecutionOperationKind.Query);
         try
         {
-            var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
-            var activity = DataLinqTelemetry.StartQueryActivity(
-                telemetryContext,
-                query.Table.DbName,
-                "scalar",
-                query.DataSource is Mutation.Transaction);
-            var startedAt = Stopwatch.GetTimestamp();
+            var identity = ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query, owner);
+            var execution = new SyncQueryExecution(QueryTelemetryContext.Capture(query.DataSource, query.Table.DbName, scalar: true),
+                identity, (query.DataSource as Transaction)?.TransactionID);
+            var caller = Activity.Current;
             var succeeded = false;
-
-            DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
-
-            try
+            V result = default!;
+            if (execution.Start())
             {
-                using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID,
-                    ReadExecutionIdentity.Capture(query.DataSource, ExecutionOperationKind.Query, owner), cancellationToken);
                 var stage = ExecutionFailureStage.Validation;
                 try
                 {
-                    var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
-                    stage = ExecutionFailureStage.CommandExecution;
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var result = SyncCommandDispatch.ExecuteScalar(query.DataSource.DatabaseAccess, command, owner ?? read?.Step);
-                    resources.Dispose();
-                    succeeded = true;
-                    return result;
+                    using var resources = new ReadCommandResources((query.DataSource as Transaction)?.TransactionID, identity, cancellationToken);
+                    try
+                    {
+                        var command = resources.OwnCommand(query.DataSource.Provider.ToDbCommand(this));
+                        stage = ExecutionFailureStage.CommandExecution;
+                        cancellationToken.ThrowIfCancellationRequested();
+                        result = execute(query.DataSource.DatabaseAccess, command, owner ?? read?.Step);
+                        resources.Dispose();
+                        succeeded = true;
+                    }
+                    catch (Exception failure) { resources.RecordFailure(failure, stage); throw; }
                 }
-                catch (Exception failure)
-                {
-                    resources.RecordFailure(failure, stage);
-                    throw;
-                }
+                catch (Exception failure) { execution.RecordFailure(failure, stage); }
             }
-            catch (Exception exception)
-            {
-                DataLinqTelemetry.RecordException(activity, exception);
-                throw;
-            }
-            finally
-            {
-                var duration = Stopwatch.GetElapsedTime(startedAt);
-                DataLinqTelemetry.RecordQueryExecution(
-                    telemetryContext,
-                    query.Table.DbName,
-                    "scalar",
-                    query.DataSource is Mutation.Transaction,
-                    succeeded,
-                    duration);
-
-                if (activity is not null)
-                {
-                    activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                    activity.Dispose();
-                }
-            }
+            execution.Complete(succeeded);
+            execution.RestoreCurrent(caller);
+            execution.ThrowIfAny();
+            return result;
         }
         catch (Exception failure)
         {

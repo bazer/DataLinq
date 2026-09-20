@@ -19,7 +19,8 @@ internal readonly record struct QueryTelemetryContext(
 /// One admitted logical query, including local composition and owned cleanup. Listener failures
 /// are ordered after the execution failure and never prevent other reporting or resource cleanup.
 /// </summary>
-internal struct QueryExecutionTelemetry(QueryTelemetryContext context)
+internal struct QueryExecutionTelemetry(QueryTelemetryContext context,
+    ExecutionOperationKind operation = ExecutionOperationKind.Query)
 {
     private Activity? activity;
     private long startedAt;
@@ -43,14 +44,16 @@ internal struct QueryExecutionTelemetry(QueryTelemetryContext context)
         if (activity is { IsStopped: false } && !ReferenceEquals(Activity.Current, activity)) Activity.Current = activity;
     }
 
+    internal readonly bool NeedsCurrent => activity is { IsStopped: false } && !ReferenceEquals(Activity.Current, activity);
+
     internal void Complete(ref ExecutionFailures? failures, bool succeeded)
     {
         if (!started || completed) return;
         completed = true;
         var duration = Stopwatch.GetElapsedTime(startedAt);
         DataLinqTelemetry.RecordQueryExecution(context.Provider, context.TableName!, context.Kind,
-            context.Transactional, succeeded && failures?.Primary is null, duration, ref failures);
-        ExecutionActivity.Complete(ref activity, ref failures, succeeded, ExecutionOperationKind.Query);
+            context.Transactional, succeeded && failures?.Primary is null, duration, ref failures, operation);
+        ExecutionActivity.Complete(ref activity, ref failures, succeeded, operation);
     }
 
     internal static void AddFailure(ExecutionFailures failures, Exception failure) =>
