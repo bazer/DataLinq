@@ -51,12 +51,13 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSo
         using var diagnostics = ExecutionFailureScope.Begin();
         IAsyncOwnedCommand? command = null;
         IAsyncDataReader? reader = null;
+        IDbCommand? borrowed = null;
         var stage = ExecutionFailureStage.Validation;
         ExecutionFailures failures;
         try
         {
             command = Create();
-            var borrowed = ValidateCommand(command, AsyncCommandKind.Reader, token);
+            borrowed = ValidateCommand(command, AsyncCommandKind.Reader, token);
             stage = ExecutionFailureStage.CommandExecution;
             dispatched = true;
             reader = await access.ExecuteReaderAsync(borrowed, token).ConfigureAwait(false)
@@ -65,7 +66,11 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSo
             // next cancellation checkpoint and must first receive the acquired resources.
             return OwnedAsyncDataReader.Create(reader, command, transactionId);
         }
-        catch (Exception failure) { failures = Capture(failure, stage, token); }
+        catch (Exception failure)
+        {
+            if (borrowed is not null && CommandDispatchEvidence.ProvesNoDispatch(failure, borrowed)) dispatched = false;
+            failures = Capture(failure, stage, token);
+        }
         await AsyncCommandCleanup.DisposeAsync(reader, command, transactionId, failures).ConfigureAwait(false);
         throw new InvalidOperationException("Failed reader acquisition did not report its failure.");
     }
@@ -87,18 +92,23 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSo
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         IAsyncOwnedCommand? command = null;
+        IDbCommand? borrowed = null;
         ExecutionFailures? failures = null;
         var result = default(TResult)!;
         var stage = ExecutionFailureStage.Validation;
         try
         {
             command = Create();
-            var borrowed = ValidateCommand(command, kind, token);
+            borrowed = ValidateCommand(command, kind, token);
             stage = ExecutionFailureStage.CommandExecution;
             dispatched = true;
             result = await execute(access, borrowed, token).ConfigureAwait(false);
         }
-        catch (Exception failure) { failures = Capture(failure, stage, token); }
+        catch (Exception failure)
+        {
+            if (borrowed is not null && CommandDispatchEvidence.ProvesNoDispatch(failure, borrowed)) dispatched = false;
+            failures = Capture(failure, stage, token);
+        }
         // Cleanup is independent of the request token. It must settle and succeed before
         // returning a normal result, including when execution completed despite cancellation.
         await AsyncCommandCleanup.DisposeAsync(null, command, transactionId, failures).ConfigureAwait(false);

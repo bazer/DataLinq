@@ -239,14 +239,14 @@ internal static class DataLinqTelemetry
             _ => "unknown"
         };
 
-    internal static Activity? StartCommandActivity(
+    internal static Activity? CreateCommandActivity(
         DataLinqTelemetryContext context,
         string commandKind,
         string operation,
         bool transactional,
         TransactionType? transactionType)
     {
-        var activity = ActivitySource.StartActivity("datalinq.db.command", ActivityKind.Client);
+        var activity = ActivitySource.CreateActivity("datalinq.db.command", ActivityKind.Client);
         if (activity is null)
             return null;
 
@@ -336,8 +336,12 @@ internal static class DataLinqTelemetry
         bool transactional,
         TransactionType? transactionType,
         bool succeeded,
-        TimeSpan duration)
+        TimeSpan duration,
+        ref ExecutionFailures? failures)
     {
+        DataLinqMetrics.RecordCommandExecution(context, commandKind, succeeded, duration);
+        if (!CommandCounter.Enabled && !CommandDuration.Enabled) return;
+        var reportingScope = ExecutionFailureScope.Current;
         var tags = CreateCommonTags(context);
         tags.Add("db.operation.name", operation);
         tags.Add("datalinq.command.kind", commandKind);
@@ -347,9 +351,18 @@ internal static class DataLinqTelemetry
         if (transactionType.HasValue)
             tags.Add("datalinq.transaction.type", GetTransactionTypeName(transactionType.Value));
 
-        CommandCounter.Add(1, tags);
-        CommandDuration.Record(duration.TotalMilliseconds, tags);
-        DataLinqMetrics.RecordCommandExecution(context, commandKind, succeeded, duration);
+        if (CommandCounter.Enabled)
+        {
+            using var reporting = ExecutionFailureScope.Begin();
+            try { CommandCounter.Add(1, tags); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, ExecutionOperationKind.Unknown); }
+        }
+        if (CommandDuration.Enabled)
+        {
+            using var reporting = ExecutionFailureScope.Begin();
+            try { CommandDuration.Record(duration.TotalMilliseconds, tags); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, ExecutionOperationKind.Unknown); }
+        }
     }
 
     internal static Activity? StartTransactionActivity(DataLinqTelemetryContext context, TransactionType transactionType)

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
 using DataLinq.Diagnostics;
 using DataLinq.Execution;
 using DataLinq.Interfaces;
@@ -70,32 +69,7 @@ public abstract partial class DatabaseAccess : IDatabaseAccess
         bool transactional,
         TransactionType? transactionType,
         Func<TResult> execute)
-    {
-        var operation = DataLinqTelemetry.GetCommandOperation(command);
-        using var activity = DataLinqTelemetry.StartCommandActivity(
-            TelemetryContext,
-            commandKind,
-            operation,
-            transactional,
-            transactionType);
-        var startedAt = Stopwatch.GetTimestamp();
-
-        try
-        {
-            var result = execute();
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordCommand(TelemetryContext, commandKind, operation, transactional, transactionType, succeeded: true, duration);
-            activity?.SetStatus(ActivityStatusCode.Ok);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordCommand(TelemetryContext, commandKind, operation, transactional, transactionType, succeeded: false, duration);
-            DataLinqTelemetry.RecordException(activity, ex);
-            throw;
-        }
-    }
+        => ExecuteCommandTelemetry(command, commandKind, transactional, transactionType, execute);
 
     public IEnumerable<IDataLinqDataReader> ReadReader(IDbCommand command)
     {

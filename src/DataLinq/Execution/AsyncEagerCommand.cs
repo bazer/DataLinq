@@ -67,6 +67,7 @@ internal sealed class AsyncEagerCommand : IAsyncReadFailureEvidence
         Func<OwnedCommandExecution, CancellationToken, Task<T>> executeOwned,
         Func<IAsyncDatabaseAccess, IDbCommand, CancellationToken, Task<T>> executeBorrowed)
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         Validate(kind, owner is not null);
         token.ThrowIfCancellationRequested();
         if (Interlocked.CompareExchange(ref started, 1, 0) != 0)
@@ -82,7 +83,12 @@ internal sealed class AsyncEagerCommand : IAsyncReadFailureEvidence
         access.ValidateCommand(borrowed!, kind);
         token.ThrowIfCancellationRequested();
         borrowedDispatched = true;
-        return await executeBorrowed(access, borrowed!, token).ConfigureAwait(false);
+        try { return await executeBorrowed(access, borrowed!, token).ConfigureAwait(false); }
+        catch (Exception failure)
+        {
+            if (CommandDispatchEvidence.ProvesNoDispatch(failure, borrowed!)) borrowedDispatched = false;
+            throw;
+        }
     }
 
     public ReadFailureEvidence GetReadFailureEvidence(Exception failure)
