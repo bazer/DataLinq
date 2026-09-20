@@ -386,6 +386,49 @@ internal static class DataLinqTelemetry
         DataLinqMetrics.RecordTransactionCompleted(context, outcome, succeeded, duration);
     }
 
+    internal static Activity? CreateTransactionActivity(DataLinqTelemetryContext context, TransactionType transactionType)
+    {
+        var activity = ActivitySource.CreateActivity("datalinq.db.transaction", ActivityKind.Client);
+        if (activity is null) return null;
+        ApplyCommonTags(activity, context);
+        activity.SetTag("datalinq.transaction.type", GetTransactionTypeName(transactionType));
+        return activity;
+    }
+
+    internal static void RecordTransactionStarted(DataLinqTelemetryContext context, ExecutionOperationKind operation,
+        ref ExecutionFailures? failures)
+    {
+        DataLinqMetrics.RecordTransactionStarted(context);
+        if (!TransactionStartCounter.Enabled) return;
+        using var reporting = ExecutionFailureScope.Begin();
+        try { TransactionStartCounter.Add(1, CreateCommonTags(context)); }
+        catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+    }
+
+    internal static void RecordTransactionCompleted(DataLinqTelemetryContext context, TransactionType transactionType,
+        DatabaseTransactionStatus outcome, bool confirmed, TimeSpan duration, ExecutionOperationKind operation,
+        ref ExecutionFailures? failures)
+    {
+        // Confirmed native completion is independent of later notification failure.
+        DataLinqMetrics.RecordTransactionCompleted(context, outcome, confirmed, duration);
+        if (!TransactionCompleteCounter.Enabled && !TransactionDuration.Enabled) return;
+        var tags = CreateCommonTags(context);
+        tags.Add("datalinq.transaction.type", GetTransactionTypeName(transactionType));
+        tags.Add("datalinq.outcome", confirmed ? GetTransactionOutcome(outcome) : "failure");
+        if (TransactionCompleteCounter.Enabled)
+        {
+            using var reporting = ExecutionFailureScope.Begin();
+            try { TransactionCompleteCounter.Add(1, tags); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+        }
+        if (TransactionDuration.Enabled)
+        {
+            using var reporting = ExecutionFailureScope.Begin();
+            try { TransactionDuration.Record(duration.TotalMilliseconds, tags); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+        }
+    }
+
     internal static Activity? StartMutationActivity(
         DataLinqTelemetryContext context,
         string tableName,
