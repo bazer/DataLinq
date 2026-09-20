@@ -426,6 +426,50 @@ internal static class DataLinqTelemetry
         DataLinqMetrics.RecordMutationExecution(context, tableName, mutationType, succeeded, affectedRows, duration);
     }
 
+    internal static Activity? CreateMutationActivity(DataLinqTelemetryContext context, string tableName,
+        TransactionChangeType mutationType, TransactionType transactionType)
+    {
+        var activity = ActivitySource.CreateActivity("datalinq.db.mutation", ActivityKind.Client);
+        if (activity is null) return null;
+        ApplyCommonTags(activity, context);
+        activity.SetTag("datalinq.table", tableName);
+        activity.SetTag("datalinq.mutation.type", GetMutationTypeName(mutationType));
+        activity.SetTag("datalinq.transaction.type", GetTransactionTypeName(transactionType));
+        return activity;
+    }
+
+    internal static void RecordMutationExecution(DataLinqTelemetryContext context, string tableName,
+        TransactionChangeType mutationType, TransactionType transactionType, bool succeeded, int affectedRows,
+        TimeSpan duration, ExecutionOperationKind operation, ref ExecutionFailures? failures)
+    {
+        // Aggregate counts describe the settled mutation before reporting starts;
+        // a throwing observer cannot suppress this non-callback bookkeeping.
+        DataLinqMetrics.RecordMutationExecution(context, tableName, mutationType, succeeded, affectedRows, duration);
+        if (!MutationCounter.Enabled && !MutationAffectedRowsCounter.Enabled && !MutationDuration.Enabled) return;
+        var tags = CreateTableTags(context, tableName);
+        tags.Add("datalinq.mutation.type", GetMutationTypeName(mutationType));
+        tags.Add("datalinq.transaction.type", GetTransactionTypeName(transactionType));
+        tags.Add("datalinq.outcome", succeeded ? "success" : "failure");
+        if (MutationCounter.Enabled)
+        {
+            using var reporting = ExecutionFailureScope.Begin();
+            try { MutationCounter.Add(1, tags); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+        }
+        if (affectedRows > 0 && MutationAffectedRowsCounter.Enabled)
+        {
+            using var reporting = ExecutionFailureScope.Begin();
+            try { MutationAffectedRowsCounter.Add(affectedRows, tags); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+        }
+        if (MutationDuration.Enabled)
+        {
+            using var reporting = ExecutionFailureScope.Begin();
+            try { MutationDuration.Record(duration.TotalMilliseconds, tags); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+        }
+    }
+
     internal static void RecordException(Activity? activity, Exception exception)
     {
         if (activity is null)
