@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Diagnostics;
@@ -160,15 +159,20 @@ public partial class Transaction
             IAsyncReadFailureEvidence? observedRead = null;
             var stage = ExecutionFailureStage.Validation;
             var mutationStage = TransactionFailureStage.ProviderStatement;
-            var telemetry = DataLinqTelemetryContext.FromProvider(Provider);
-            using var activity = DataLinqTelemetry.StartMutationActivity(telemetry, change.Table.DbName, change.Type, Type);
-            var started = Stopwatch.GetTimestamp();
+            var telemetry = new MutationExecutionTelemetry(DataLinqTelemetryContext.FromProvider(Provider),
+                change.Table.DbName, change.Type, Type, operationKind);
+            ExecutionFailures? failures = null;
             var succeeded = false;
             var affected = 0;
             try
             {
                 token.ThrowIfCancellationRequested();
                 if (!change.HasSameCapturedMutation()) throw new InvalidOperationException("The captured mutation inputs changed before execution.");
+                stage = ExecutionFailureStage.Finalization;
+                mutationStage = TransactionFailureStage.LifecycleFinalization;
+                telemetry.Start();
+                stage = ExecutionFailureStage.Validation;
+                mutationStage = TransactionFailureStage.ProviderStatement;
                 if (!input.Unchanged)
                 {
                     if (!change.TryBeginExecution()) throw new InvalidOperationException("This state change has already started execution.");
@@ -220,14 +224,21 @@ public partial class Transaction
                 results.Add(immutable);
                 succeeded = true;
             }
-            catch (Exception failure)
+            catch (Exception executionFailure)
             {
-                var failures = new ExecutionFailures();
-                failures.AddReported(failure, stage, failure is OperationCanceledException canceled &&
+                failures = new ExecutionFailures();
+                failures.AddReported(executionFailure, stage, executionFailure is OperationCanceledException canceled &&
                     canceled.CancellationToken == token && token.IsCancellationRequested
                         ? ExecutionFailureCause.Cancellation : stage == ExecutionFailureStage.Finalization
                             ? ExecutionFailureCause.LocalFinalizationError : stage == ExecutionFailureStage.Materialization
                                 ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown, operationKind);
+            }
+            // Reporting is fallible local finalization under the same owner and
+            // reservations. Collect it before publishing recovery or releasing admission.
+            telemetry.Complete(ref failures, succeeded, affected);
+            if (failures?.Primary is { } failure)
+            {
+                if (succeeded) mutationStage = TransactionFailureStage.LifecycleFinalization;
                 var effects = wrote || input.Command?.Dispatched == true;
                 var evidence = new ReadFailureEvidence(Effects: ExecutionEffects.NoStatement, Integrity: TransactionIntegrity.Confirmed);
                 var assessed = true;
@@ -257,15 +268,7 @@ public partial class Transaction
                 RecordAsyncReadFailure(owner, context);
                 ExecutionFailureContexts.Attach(failure, context);
                 operation.ReportFailure(failure);
-                DataLinqTelemetry.RecordException(activity, failure);
                 failures.ThrowIfAny();
-                throw;
-            }
-            finally
-            {
-                DataLinqTelemetry.RecordMutationExecution(telemetry, change.Table.DbName, change.Type, Type, succeeded, affected, Stopwatch.GetElapsedTime(started));
-                activity?.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity?.SetTag("db.operation.rows_affected", affected);
             }
         }
         return results;

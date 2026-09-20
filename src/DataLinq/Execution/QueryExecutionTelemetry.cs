@@ -50,36 +50,11 @@ internal struct QueryExecutionTelemetry(QueryTelemetryContext context)
         var duration = Stopwatch.GetElapsedTime(startedAt);
         DataLinqTelemetry.RecordQueryExecution(context.Provider, context.TableName!, context.Kind,
             context.Transactional, succeeded && failures?.Primary is null, duration, ref failures);
-        var completedActivity = activity;
-        activity = null;
-        if (completedActivity is null) return;
-        using (ExecutionFailureScope.Begin())
-        {
-            try
-            {
-                if (failures?.Primary is { } failure) DataLinqTelemetry.RecordException(completedActivity, failure);
-                else if (!succeeded) completedActivity.SetStatus(ActivityStatusCode.Error);
-                completedActivity.SetTag("datalinq.outcome", succeeded && failures?.Primary is null ? "success" : "failure");
-            }
-            catch (Exception failure) { AddFailure(ref failures, failure); }
-        }
-        using (ExecutionFailureScope.Begin())
-        {
-            try { completedActivity.Dispose(); }
-            catch (Exception failure) { AddFailure(ref failures, failure); }
-        }
-        // Activity.Stop notifies listeners before restoring Current. A listener can
-        // throw after the activity became stopped, leaving it ambient in this call.
-        if (ReferenceEquals(Activity.Current, completedActivity))
-        {
-            using var restoration = ExecutionFailureScope.Begin();
-            try { Activity.Current = completedActivity.Parent is { IsStopped: false } parent ? parent : null; }
-            catch (Exception failure) { AddFailure(ref failures, failure); }
-        }
+        ExecutionActivity.Complete(ref activity, ref failures, succeeded, ExecutionOperationKind.Query);
     }
 
     internal static void AddFailure(ExecutionFailures failures, Exception failure) =>
-        failures.Add(failure, ExecutionFailureCause.LocalFinalizationError, ExecutionFailureStage.Finalization, ExecutionOperationKind.Query);
+        ExecutionActivity.AddFailure(failures, failure, ExecutionOperationKind.Query);
 
     internal static void AddFailure(ref ExecutionFailures? failures, Exception failure) =>
         AddFailure(failures ??= new(), failure);
