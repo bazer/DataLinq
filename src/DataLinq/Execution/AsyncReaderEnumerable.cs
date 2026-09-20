@@ -42,13 +42,13 @@ internal sealed class AsyncReaderEnumerable<T> : IAsyncEnumerable<T>
         if ((invocation.Materialize is null ? 0 : 1) + (invocation.Buffer is null ? 0 : 1) + (invocation.Continuation is null ? 0 : 1) != 1)
             throw new InvalidOperationException("A reader invocation requires exactly one row materializer, buffer or continuation.");
         return new AsyncReaderEnumerator<T>(invocation.Source, invocation.Materialize, invocation.Transaction, methodToken, cancellationToken,
-            invocation.Buffer, invocation.Continuation, invocation.Identity);
+            invocation.Buffer, invocation.Continuation, invocation.Identity, invocation.Telemetry);
     }
 }
 
 internal sealed record AsyncReaderInvocation<T>(IAsyncReaderSource Source, Func<IAsyncDataReader, T>? Materialize,
     Transaction? Transaction = null, IAsyncReaderBuffer<T>? Buffer = null, IAsyncReaderContinuation<T>? Continuation = null,
-    ReadExecutionIdentity Identity = default);
+    ReadExecutionIdentity Identity = default, QueryTelemetryContext Telemetry = default);
 
 /// <summary>Invocation-local aggregation. No result is visible until all rows and cleanup succeed.</summary>
 internal interface IAsyncReaderBuffer<T>
@@ -81,6 +81,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
     private int bufferedPosition;
     private readonly Transaction? transaction;
     private readonly ReadExecutionIdentity identity;
+    private QueryExecutionTelemetry telemetry;
     private readonly EnumeratorCallGate calls = new();
     private readonly CancellationToken token;
     private CancellationTokenSource? linkedTokens;
@@ -97,7 +98,8 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
     internal AsyncReaderEnumerator(
         IAsyncReaderSource source, Func<IAsyncDataReader, T>? materialize, Transaction? transaction,
         CancellationToken methodToken, CancellationToken enumeratorToken, IAsyncReaderBuffer<T>? buffer = null,
-        IAsyncReaderContinuation<T>? continuation = null, ReadExecutionIdentity identity = default)
+        IAsyncReaderContinuation<T>? continuation = null, ReadExecutionIdentity identity = default,
+        QueryTelemetryContext telemetryContext = default)
     {
         this.source = source;
         this.materialize = materialize;
@@ -106,6 +108,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
         failureEvidence = source as IAsyncReadFailureEvidence;
         this.transaction = transaction;
         this.identity = identity.Bind(transaction);
+        telemetry = new(telemetryContext);
         if (!methodToken.CanBeCanceled)
             token = enumeratorToken;
         else if (!enumeratorToken.CanBeCanceled || methodToken == enumeratorToken)
@@ -145,6 +148,11 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
             var cause = ExecutionFailureCause.Unknown;
             try
             {
+                stage = ExecutionFailureStage.Finalization;
+                cause = ExecutionFailureCause.LocalFinalizationError;
+                telemetry.MakeCurrent();
+                stage = ExecutionFailureStage.Validation;
+                cause = ExecutionFailureCause.Unknown;
                 transaction?.EnsureCanRead(Operation, ownership?.Step, identity.Operation);
                 if (!started)
                 {
@@ -156,7 +164,11 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                         ownership = DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token, operationKind: identity.Operation);
                     ownership?.RegisterReader(this);
                     started = true;
+                    stage = ExecutionFailureStage.Finalization;
+                    cause = ExecutionFailureCause.LocalFinalizationError;
+                    telemetry.Start();
                     stage = ExecutionFailureStage.CommandExecution;
+                    cause = ExecutionFailureCause.Unknown;
                     // Assignment precedes cancellation: a successfully acquired reader must
                     // be cleaned up even if its provider completed despite a cancellation request.
                     if (continuation?.RequiresInitialReader != false)
@@ -241,7 +253,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                     canceled.CancellationToken == token && token.IsCancellationRequested ? ExecutionFailureCause.Cancellation : cause);
             }
             failures ??= new ExecutionFailures();
-            await FinishAsync(failures).ConfigureAwait(false);
+            await FinishAsync(failures, succeeded: failures.Primary is null).ConfigureAwait(false);
             failures.ThrowIfAny();
             return false;
 
@@ -284,7 +296,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
         }
     }
 
-    private async ValueTask FinishAsync(ExecutionFailures failures)
+    private async ValueTask FinishAsync(ExecutionFailures failures, bool succeeded = false)
     {
         if (finished)
             return;
@@ -296,7 +308,11 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
         bufferedResults = null;
         try
         {
+            try { telemetry.MakeCurrent(); }
+            catch (Exception failure) { QueryExecutionTelemetry.AddFailure(failures, failure); }
             await DisposeReaderAsync(failures).ConfigureAwait(false);
+            ExecutionFailures? reportingFailures = failures;
+            telemetry.Complete(ref reportingFailures, succeeded);
 
             if (failures.Primary is { } primary)
             {

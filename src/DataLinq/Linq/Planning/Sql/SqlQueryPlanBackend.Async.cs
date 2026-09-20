@@ -32,7 +32,8 @@ internal sealed partial class SqlQueryPlanBackend
             var select = new QueryPlanSqlBuilder(request.Invocation, dataSource).BuildSelect<object>();
             var source = factory.BindScalar(CapturedSql.Capture(select.ToSql()));
             return AsyncScalarRead.ExecuteAsync(source, dataSource as Transaction, value => ConvertScalarResult<T>(value, result), request.Context.CancellationToken,
-                ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.Query));
+                ReadExecutionIdentity.Capture(dataSource, ExecutionOperationKind.Query),
+                QueryTelemetryContext.Capture(dataSource, select.Query.Table.DbName, scalar: true));
         }
         if (result.Kind == QueryPlanResultKind.Sequence)
             throw new InvalidOperationException("A terminal backend request cannot have a sequence result.");

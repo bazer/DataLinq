@@ -5,6 +5,7 @@ using System.Diagnostics.Metrics;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using DataLinq.Cache;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 
@@ -292,6 +293,40 @@ internal static class DataLinqTelemetry
 
         QueryCounter.Add(1, tags);
         QueryDuration.Record(duration.TotalMilliseconds, tags);
+    }
+
+    internal static Activity? CreateQueryActivity(DataLinqTelemetryContext context, string tableName,
+        string queryKind, bool transactional)
+    {
+        var activity = ActivitySource.CreateActivity("datalinq.query", ActivityKind.Internal);
+        if (activity is null) return null;
+        ApplyCommonTags(activity, context);
+        activity.SetTag("datalinq.table", tableName);
+        activity.SetTag("datalinq.query.kind", queryKind);
+        activity.SetTag("datalinq.transactional", transactional);
+        return activity;
+    }
+
+    internal static void RecordQueryExecution(DataLinqTelemetryContext context, string tableName,
+        string queryKind, bool transactional, bool succeeded, TimeSpan duration, ref ExecutionFailures? failures)
+    {
+        if (!QueryCounter.Enabled && !QueryDuration.Enabled) return;
+        var tags = CreateTableTags(context, tableName);
+        tags.Add("datalinq.query.kind", queryKind);
+        tags.Add("datalinq.transactional", transactional);
+        tags.Add("datalinq.outcome", succeeded ? "success" : "failure");
+        if (QueryCounter.Enabled)
+        {
+            using var reporting = ExecutionFailureScope.Begin();
+            try { QueryCounter.Add(1, tags); }
+            catch (Exception failure) { QueryExecutionTelemetry.AddFailure(ref failures, failure); }
+        }
+        if (QueryDuration.Enabled)
+        {
+            using var reporting = ExecutionFailureScope.Begin();
+            try { QueryDuration.Record(duration.TotalMilliseconds, tags); }
+            catch (Exception failure) { QueryExecutionTelemetry.AddFailure(ref failures, failure); }
+        }
     }
 
     internal static void RecordCommand(

@@ -53,7 +53,8 @@ public partial class Select<T>
             ? new ModelKeyContinuation(source, table, source.Provider.GetTableCache(table), factory, readerSource, directKey)
             : new ModelRowContinuation(source, table, readerSource, CaptureRowLayout());
         return new(readerSource, null, source as Transaction, Continuation: continuation,
-            Identity: ReadExecutionIdentity.Capture(source, ExecutionOperationKind.Query));
+            Identity: ReadExecutionIdentity.Capture(source, ExecutionOperationKind.Query),
+            Telemetry: QueryTelemetryContext.Capture(source, table.DbName));
     }
 
     private sealed class ModelKeyContinuation(

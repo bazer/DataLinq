@@ -9,7 +9,8 @@ namespace DataLinq.Execution;
 internal static class AsyncScalarRead
 {
     internal static async Task<T> ExecuteAsync<T>(IAsyncScalarSource source, Transaction? transaction,
-        Func<object?, T> convert, CancellationToken token, ReadExecutionIdentity identity = default)
+        Func<object?, T> convert, CancellationToken token, ReadExecutionIdentity identity = default,
+        QueryTelemetryContext telemetryContext = default)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         const string operation = "execute an asynchronous scalar query";
@@ -23,10 +24,17 @@ internal static class AsyncScalarRead
         token.ThrowIfCancellationRequested();
         using var ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, operation, cancellationToken: token,
             operationKind: identity.Operation);
-        var stage = ExecutionFailureStage.CommandExecution;
-        var cause = ExecutionFailureCause.Unknown;
+        var telemetry = new QueryExecutionTelemetry(telemetryContext);
+        var stage = ExecutionFailureStage.Finalization;
+        var cause = ExecutionFailureCause.LocalFinalizationError;
+        ExecutionFailures? failures = null;
+        T result = default!;
+        var succeeded = false;
         try
         {
+            telemetry.Start();
+            stage = ExecutionFailureStage.CommandExecution;
+            cause = ExecutionFailureCause.Unknown;
             var value = await (source is IAsyncTransactionScalarSource ownedSource
                 ? ownedSource.ExecuteScalarAsync(ownership!.Step, token)
                 : source.ExecuteScalarAsync(token)).ConfigureAwait(false);
@@ -34,18 +42,23 @@ internal static class AsyncScalarRead
             cause = ExecutionFailureCause.MaterializationError;
             // A request arriving after completed scalar execution/cleanup cannot undo
             // success. Conversion is local and remains inside transaction admission.
-            return convert(value);
+            result = convert(value);
+            succeeded = true;
         }
         catch (Exception failure)
         {
-            var failures = new ExecutionFailures();
+            failures = new ExecutionFailures();
             failures.AddReported(failure, stage, failure is OperationCanceledException canceled &&
                 canceled.CancellationToken == token && token.IsCancellationRequested ? ExecutionFailureCause.Cancellation : cause);
+        }
+        telemetry.Complete(ref failures, succeeded);
+        if (failures?.Primary is { } primary)
+        {
             var evidence = new ReadFailureEvidence();
             var assessmentSucceeded = true;
             if (source is IAsyncReadFailureEvidence classifier)
             {
-                try { evidence = classifier.GetReadFailureEvidence(failure) ?? throw new InvalidOperationException("The provider returned no failure evidence."); }
+                try { evidence = classifier.GetReadFailureEvidence(primary) ?? throw new InvalidOperationException("The provider returned no failure evidence."); }
                 catch (Exception assessment)
                 {
                     assessmentSucceeded = false;
@@ -57,9 +70,10 @@ internal static class AsyncScalarRead
             var context = failures.Snapshot(evidence, transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
                 recovery, transaction?.TransactionID, identity.Operation, identity.ProviderInstanceId);
             if (ownership is not null) transaction!.RecordAsyncReadFailure(ownership.Step, context);
-            ExecutionFailureContexts.Attach(failure, context);
-            ownership?.ReportFailure(failure);
-            throw;
+            ExecutionFailureContexts.Attach(primary, context);
+            ownership?.ReportFailure(primary);
+            failures.ThrowIfAny();
         }
+        return result;
     }
 }
