@@ -770,6 +770,13 @@ public static class DataLinqMetrics
     internal static void RecordScalarQueryExecution(IDatabaseProvider databaseProvider)
         => GetOrCreateProvider(databaseProvider).RecordScalarQueryExecution();
 
+    internal static void RecordQueryExecution(DataLinqTelemetryContext context, bool scalar)
+    {
+        var provider = GetOrCreateProvider(context);
+        if (scalar) provider.RecordScalarQueryExecution();
+        else provider.RecordEntityQueryExecution();
+    }
+
     internal static void RecordCommandExecution(DataLinqTelemetryContext telemetryContext, string commandKind, bool succeeded, TimeSpan duration)
         => GetOrCreateProvider(telemetryContext).RecordCommandExecution(commandKind, succeeded, duration);
 
