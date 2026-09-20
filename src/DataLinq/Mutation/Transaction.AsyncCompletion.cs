@@ -155,6 +155,7 @@ public partial class Transaction
                 var recovery = ExecutionRecoveryActions.Dispose;
                 try { recovery = Recovery; }
                 catch (Exception inspection) { failures.AddReported(inspection, ExecutionFailureStage.Recovery); }
+                transaction.DatabaseAccess.CompleteAsyncTransactionTelemetry(ExecutionCompletion.Unknown, failures, ExecutionOperationKind.Commit);
                 Report(failures, ExecutionCompletion.Unknown, recovery, ExecutionOperationKind.Commit);
                 throw;
             }
@@ -180,10 +181,12 @@ public partial class Transaction
                 if (failures.Primary is null)
                 {
                     Volatile.Write(ref transaction.managedCommitFinalizationState, 2);
-                    transaction.DatabaseAccess.NotifyConfirmedAsyncCompletion(failures);
+                    transaction.DatabaseAccess.NotifyConfirmedAsyncCompletion(failures, completeTelemetry: false);
+                    using var notification = ExecutionFailureScope.Begin();
                     try { transaction.PublishDeferredCommittedStatus(); }
-                    catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Finalization); }
+                    catch (Exception failure) { ExecutionActivity.AddFailure(failures, failure, ExecutionOperationKind.Commit); }
                 }
+                transaction.DatabaseAccess.CompleteAsyncTransactionTelemetry(ExecutionCompletion.Committed, failures, ExecutionOperationKind.Commit);
                 Report(failures, ExecutionCompletion.Committed, ExecutionRecoveryActions.Dispose, ExecutionOperationKind.Commit);
             }
             finally { ResetCommitNotification(); }
@@ -224,10 +227,12 @@ public partial class Transaction
                 Volatile.Write(ref transaction.managedRollbackFinalizationState, 2);
                 if (confirmed)
                 {
-                    transaction.DatabaseAccess.NotifyConfirmedAsyncCompletion(failures);
+                    transaction.DatabaseAccess.NotifyConfirmedAsyncCompletion(failures, completeTelemetry: false);
+                    using var notification = ExecutionFailureScope.Begin();
                     try { transaction.PublishDeferredRolledBackStatus(); }
-                    catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Finalization); }
+                    catch (Exception failure) { ExecutionActivity.AddFailure(failures, failure, ExecutionOperationKind.Rollback); }
                 }
+                transaction.DatabaseAccess.CompleteAsyncTransactionTelemetry(completion, failures, ExecutionOperationKind.Rollback);
                 Report(failures, completion, ExecutionRecoveryActions.Dispose, ExecutionOperationKind.Rollback);
             }
             finally
@@ -256,6 +261,7 @@ public partial class Transaction
                 foreach (var failure in cleanup) failures.AddCleanup(failure);
             }
             catch (Exception failure) { failures.AddCleanup(failure); }
+            transaction.DatabaseAccess.CompleteAsyncTransactionTelemetry(completion, failures, ExecutionOperationKind.Dispose);
             Report(failures, completion, ExecutionRecoveryActions.None, ExecutionOperationKind.Dispose);
         }
 

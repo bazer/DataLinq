@@ -8,7 +8,7 @@ namespace DataLinq.Execution;
 internal static class ExecutionActivity
 {
     internal static void Complete(ref Activity? activity, ref ExecutionFailures? failures, bool succeeded,
-        ExecutionOperationKind operation)
+        ExecutionOperationKind operation, string? outcome = null)
     {
         var completedActivity = activity;
         activity = null;
@@ -19,7 +19,7 @@ internal static class ExecutionActivity
             {
                 if (failures?.Primary is { } failure) DataLinqTelemetry.RecordException(completedActivity, failure);
                 else if (!succeeded) completedActivity.SetStatus(ActivityStatusCode.Error);
-                completedActivity.SetTag("datalinq.outcome", succeeded && failures?.Primary is null ? "success" : "failure");
+                completedActivity.SetTag("datalinq.outcome", outcome ?? (succeeded && failures?.Primary is null ? "success" : "failure"));
             }
             catch (Exception failure) { AddFailure(ref failures, failure, operation); }
         }

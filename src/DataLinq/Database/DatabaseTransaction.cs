@@ -78,12 +78,70 @@ public abstract class DatabaseTransaction : DatabaseAccess, IDisposable
         Status = completion == ExecutionCompletion.Committed
             ? DatabaseTransactionStatus.Committed : DatabaseTransactionStatus.RolledBack;
 
-    internal void NotifyConfirmedAsyncCompletion(ExecutionFailures failures)
+    internal void NotifyConfirmedAsyncCompletion(ExecutionFailures failures, bool completeTelemetry = true)
     {
-        try { OnStatusChanged?.Invoke(this, new DatabaseTransactionStatusChangeEventArgs { Status = Status }); }
-        catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Finalization); }
-        try { CompleteTransactionTelemetry(Status); }
-        catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Finalization); }
+        var operation = Status == DatabaseTransactionStatus.Committed ? ExecutionOperationKind.Commit : ExecutionOperationKind.Rollback;
+        using (ExecutionFailureScope.Begin())
+        {
+            try { OnStatusChanged?.Invoke(this, new DatabaseTransactionStatusChangeEventArgs { Status = Status }); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures, failure, operation); }
+        }
+        if (completeTelemetry) CompleteAsyncTransactionTelemetry(Status == DatabaseTransactionStatus.Committed
+            ? ExecutionCompletion.Committed : ExecutionCompletion.RolledBack, failures, operation);
+    }
+
+    // Provider first-use integration point: invoke only after native begin has settled,
+    // under the existing initialization owner. This method performs no provider I/O.
+    internal void BeginAsyncTransactionTelemetry(ExecutionOperationKind operation)
+    {
+        using var diagnostics = ExecutionFailureScope.Begin();
+        if (transactionTelemetryStarted) return;
+        transactionTelemetryStarted = true;
+        transactionStartedTimestamp = Stopwatch.GetTimestamp();
+        ExecutionFailures? failures = null;
+        using (ExecutionFailureScope.Begin())
+        {
+            try
+            {
+                transactionActivity = DataLinqTelemetry.CreateTransactionActivity(TelemetryContext, Type);
+                transactionActivity?.Start();
+            }
+            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+        }
+        DataLinqTelemetry.RecordTransactionStarted(TelemetryContext, operation, ref failures);
+        if (failures?.Primary is not { } primary) return;
+        CompleteAsyncTransactionTelemetry(ExecutionCompletion.NotAttempted, failures, operation);
+        ExecutionFailureContexts.Attach(primary, failures.Snapshot(new(Effects: ExecutionEffects.Initialization),
+            ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, null, operation, TelemetryContext.ProviderInstanceId));
+        failures.ThrowIfAny();
+    }
+
+    internal void CompleteAsyncTransactionTelemetry(ExecutionCompletion completion, ExecutionFailures failures,
+        ExecutionOperationKind operation)
+    {
+        if (!transactionTelemetryStarted || transactionTelemetryCompleted) return;
+        // Claim completion before any observer, so failure or later disposal cannot
+        // repeat reporting or relabel an uncertain outcome as successful recovery.
+        transactionTelemetryCompleted = true;
+        var confirmed = completion is ExecutionCompletion.Committed or ExecutionCompletion.RolledBack;
+        var outcome = completion == ExecutionCompletion.Committed ? DatabaseTransactionStatus.Committed : DatabaseTransactionStatus.RolledBack;
+        ExecutionFailures? reportingFailures = failures;
+        DataLinqTelemetry.RecordTransactionCompleted(TelemetryContext, Type, outcome, confirmed,
+            Stopwatch.GetElapsedTime(transactionStartedTimestamp), operation, ref reportingFailures);
+        if (confirmed && failures.Primary is null) transactionActivity?.SetStatus(ActivityStatusCode.Ok);
+        var caller = Activity.Current;
+        var activityWasCurrent = ReferenceEquals(caller, transactionActivity);
+        ExecutionActivity.Complete(ref transactionActivity, ref reportingFailures, confirmed, operation,
+            confirmed ? DataLinqTelemetry.GetTransactionOutcome(outcome) : "failure");
+        // A transaction can outlive the query that started it. Activity.Stop restores
+        // its original start context even when completion runs under another caller.
+        // Preserve that later caller for helper cleanup in this same async invocation.
+        if (!activityWasCurrent && !ReferenceEquals(Activity.Current, caller))
+        {
+            using var restoration = ExecutionFailureScope.Begin();
+            try { Activity.Current = caller is { IsStopped: true } ? null : caller; }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures, failure, operation); }
+        }
     }
 
     protected void BeginTransactionTelemetry()

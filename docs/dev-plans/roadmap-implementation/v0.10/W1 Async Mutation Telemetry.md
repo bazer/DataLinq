@@ -64,6 +64,8 @@ All listed reports have complete counts, invocations and artifacts. Final report
 
 ## Remaining work
 
+**2026-09-20 follow-through:** [Async transaction telemetry](W1%20Async%20Transaction%20Telemetry.md) now preserves confirmed completion through independent notifications/reporting, closes uncertain/disposed lifetimes once, and supplies a controllable first-use hook. It also preserves the later caller inside helper cleanup. Native start binding and protected synchronous telemetry remain unchanged; the remaining scope below is retained where not covered by that bounded record.
+
 The audit found that command and transaction instrumentation currently lives at the provider boundary. The next integration must preserve that single boundary, isolate observer failures from confirmed native completion, and avoid adding duplicate command/transaction counts in managed callers. Synchronous mutation/command/transaction observer composition, higher local diagnostics, standalone raw-provider attribution, administrative coverage and complete cause/stage mapping remain open.
 
 This slice does not measure or waive async coordination/allocation costs. Final mapping across the W0 I/O inventory, internal adapter readiness, all six strict W0 performance lanes and broad W1 closeout remain required. Native binding stays W2, public/packed declarations stay W3, and the W0-F1 SQLite official-package acceptance gate is unchanged. No public API, synchronous telemetry implementation or package publication is changed here.
