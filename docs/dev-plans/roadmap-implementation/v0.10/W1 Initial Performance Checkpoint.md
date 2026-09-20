@@ -3,6 +3,8 @@
 
 # W1 Initial Performance Checkpoint
 
+**2026-09-20 follow-up:** the [mutation preflight reduction](W1%20Mutation%20Preflight%20Allocation%20Reduction.md) adds full 48-stage evidence and measures a reduction in update/CRUD allocation after the read-diagnostics changes. It preserves this earlier checkpoint and its unresolved warnings; final performance acceptance remains open.
+
 **Date:** 2026-09-19. Follows [scoped failure attribution](W1%20Scoped%20Failure%20Attribution.md) and the [W1 completion audit](W1%20Completion%20Audit.md). The frozen [W0 performance baseline](W0%20Baseline%20Evidence.md) remains `7e36614b5f26f1dd199ff93bc60620f4b0714d5f`; the published compatibility baseline remains 0.9.2.
 
 ## Scope and provenance
