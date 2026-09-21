@@ -330,6 +330,8 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(failure).IsTypeOf<InvalidOperationException>();
         var context = ExecutionFailureContexts.Get(failure)!;
         await Assert.That(context.SecondaryFailures.Count).IsEqualTo(commandFails ? 1 : 0);
+        await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.InvalidOperation);
+        await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Materialization);
         if (commandFails)
         {
             await Assert.That(context.SecondaryFailures[0].Exception).IsSameReferenceAs(expected);
@@ -474,6 +476,8 @@ public sealed partial class TransactionMutationFailureTests
         };
         var result = await ImportMetadata(new MetadataTestFactory(() => harness));
         await Assert.That(MetadataException(result)).IsSameReferenceAs(rejected);
+        await Assert.That(ExecutionFailureContexts.Get(rejected!)!.Cause).IsEqualTo(ExecutionFailureCause.InvalidOperation);
+        await Assert.That(ExecutionFailureContexts.Get(rejected!)!.Stage).IsEqualTo(ExecutionFailureStage.Validation);
         await Assert.That(harness.Executed.SequenceEqual(new[] { "tables" })).IsTrue();
         await Assert.That(first.Command.Resource.AsyncDisposals).IsEqualTo(1);
     }

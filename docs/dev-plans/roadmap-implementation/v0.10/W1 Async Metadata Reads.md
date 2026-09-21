@@ -60,6 +60,8 @@ Follow-up Release/.NET 10 checks passed **7/7** focused reference cases and **52
 
 ## Remaining work
 
+The later [administrative failure classification slice](W1%20Administrative%20Failure%20Classification.md) distinguishes local parser failures, known incomplete-result/command-lifetime violations and scoped logger notifications. It preserves original exceptions, settled cleanup, complete-result rules and captured import/runtime identities; native errors without sufficient evidence remain Unknown. Administrative session/preflight attribution and the final cross-family audit remain open.
+
 Native factory/default compatibility, actual import filtering/metadata fidelity, provider timeout/cancellation classification, SQLite identity/keeper/no-creation evidence and public consumers retain W2/W3 gates. W5 still owns configuration callbacks, comparison `Include`, finalized-model validation, comparison results, severity policy and operational-failure translation. No schema validator is shipped by this internal reader.
 
 Boolean probes, explicit journal-mode orchestration, complete diagnostics/correlation, internal adapter compatibility readiness, comparable .NET 10 coordination/allocation measurements and final requirement-to-I/O-path verification remain W1 work. Published compatibility remains 0.9.2; the [limited W1 exception](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception) still does not close W0-F1 or authorize native/public/release acceptance.

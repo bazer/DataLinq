@@ -155,7 +155,8 @@ internal static class AsyncExistenceProbes
         {
             failures.AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.ExistenceCheck);
+                    ? ExecutionFailureCause.Cancellation : stage == ExecutionFailureStage.Materialization
+                        ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown, ExecutionOperationKind.ExistenceCheck);
         }
         finally
         {

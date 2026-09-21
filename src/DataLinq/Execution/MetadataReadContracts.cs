@@ -20,7 +20,7 @@ internal sealed class MetadataReadSettings
         CapitaliseNames = options.CapitaliseNames;
         DeclareEnumsInClass = options.DeclareEnumsInClass;
         Include = Array.AsReadOnly(options.Include?.ToArray() ?? []);
-        Log = options.Log;
+        Log = options.Log is { } log ? CaptureLog(log) : null;
         CommandTimeoutSeconds = NormalizeTimeout(commandTimeout);
     }
 
@@ -30,6 +30,22 @@ internal sealed class MetadataReadSettings
     internal IReadOnlyList<string> Include { get; }
     internal Action<string>? Log { get; }
     internal int? CommandTimeoutSeconds { get; }
+
+    private static Action<string> CaptureLog(Action<string> log) => message =>
+    {
+        // Each notification owns its diagnostic occurrence. A reused exception
+        // cannot borrow an earlier logger invocation's nested command failure.
+        using var notification = ExecutionFailureScope.Begin();
+        try { log(message); }
+        catch (Exception failure)
+        {
+            var failures = new ExecutionFailures();
+            ExecutionActivity.AddFailure(failures, failure, ExecutionOperationKind.MetadataRead);
+            ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(), ExecutionCompletion.NotApplicable,
+                ExecutionRecoveryActions.None, transactionId: null, ExecutionOperationKind.MetadataRead));
+            throw;
+        }
+    };
 
     internal static MetadataReadSettings Import(MetadataFromDatabaseFactoryOptions options) =>
         new(MetadataReadPurpose.Import, options, null);

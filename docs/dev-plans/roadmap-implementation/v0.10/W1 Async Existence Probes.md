@@ -49,6 +49,8 @@ Core .NET 8/9/10 and unit/dependency/compliance/Memory Release builds passed wit
 
 ## Remaining work
 
+The later [administrative failure classification slice](W1%20Administrative%20Failure%20Classification.md) classifies failed scalar interpretation as MaterializationError, preserves request versus foreign cancellation and independent cleanup, and leaves availability-only mapping unchanged. A local TimeoutException is not native timeout evidence. Administrative session/preflight attribution and the final cross-family audit remain open.
+
 No native or public probe implementation changes here. W2 must bind actual server query/connection failure classification, schema/table identifier rules, SQLite file/named-memory behavior, no missing-database creation, independent resources and real driver interruption limits. W3 must verify database forwarding, public signatures/default capability behavior and packed/custom consumers against the 0.9.2 compatibility baseline.
 
 Explicit journal-mode orchestration and constructor/setup auditing remain open, together with complete diagnostics/correlation, internal adapter compatibility readiness, comparable .NET 10 coordination/allocation evidence and the final cross-family I/O audit. The [limited W1 exception](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception) still does not close W0-F1 or authorize native/public/release acceptance.

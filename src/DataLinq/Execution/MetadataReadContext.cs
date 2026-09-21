@@ -58,7 +58,7 @@ internal sealed class MetadataReadContext
             if (active is not null)
             {
                 var failure = new InvalidOperationException("A metadata command is still active.");
-                failures.Add((new(failure, null), ExecutionFailureStage.Validation, ExecutionFailureCause.Unknown));
+                failures.Add((new(failure, null), ExecutionFailureStage.Validation, ExecutionFailureCause.InvalidOperation));
                 throw failure;
             }
             if (failures.Count != 0) throw new InvalidOperationException("This metadata read has failed.");
@@ -126,7 +126,7 @@ internal sealed class MetadataReadContext
             pending = active?.Task;
             if (pending is not null && destination.Primary is null)
                 destination.Add(new InvalidOperationException("The metadata parser returned with an unfinished command."),
-                    ExecutionFailureCause.Unknown, ExecutionFailureStage.Materialization, identity.Operation);
+                    ExecutionFailureCause.InvalidOperation, ExecutionFailureStage.Materialization, identity.Operation);
         }
         if (pending is not null) await pending.ConfigureAwait(false);
         CopyFailuresTo(destination);
