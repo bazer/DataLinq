@@ -57,9 +57,15 @@ internal static class AsyncMetadataRead
         Option<DatabaseDefinition, IDLOptionFailure> result = default;
         var resultAvailable = false;
         var stage = ExecutionFailureStage.Validation;
+        var localCause = ExecutionFailureCause.Unknown;
         try
         {
-            session = plan.CreateSession() ?? throw new InvalidOperationException("Metadata capture created no session.");
+            session = plan.CreateSession();
+            if (session is null)
+            {
+                localCause = ExecutionFailureCause.InvalidOperation;
+                throw new InvalidOperationException("Metadata capture created no session.");
+            }
             context = new(session.Access, session.Commands, settings.CommandTimeoutSeconds, token,
                 new(ExecutionOperationKind.MetadataRead, providerInstanceId));
             token.ThrowIfCancellationRequested();
@@ -76,13 +82,17 @@ internal static class AsyncMetadataRead
             failures.AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
                     ? ExecutionFailureCause.Cancellation : stage == ExecutionFailureStage.Materialization
-                        ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown, ExecutionOperationKind.MetadataRead);
+                        ? ExecutionFailureCause.MaterializationError : localCause, ExecutionOperationKind.MetadataRead);
         }
         finally
         {
             if (context is not null) await context.CloseAsync(failures).ConfigureAwait(false);
-            try { if (session is not null) await session.DisposeAsync().ConfigureAwait(false); }
-            catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+            if (session is not null)
+            {
+                using var cleanupScope = ExecutionFailureScope.Begin();
+                try { await session.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+            }
         }
         if (failures.Primary is null)
         {

@@ -58,6 +58,8 @@ All reports retain complete invocation/count/artifact information and remain unm
 
 ## Remaining requirements and cost
 
+The later [session diagnostics slice](W1%20Administrative%20Session%20Diagnostics.md) closes the tested session-cleanup, availability-classifier and missing-session gaps across probes, metadata, provisioning and journal mode. Its 32 new cases pass within 4,798 broad local passes; the complete classification/I/O inventory and performance gates remain open.
+
 This slice closes the tested local interpretation, complete-result and logger classification gaps only. Administrative session/preflight attribution, standalone provider/raw paths, remaining dispatch-evidence consumers, complete cause/stage mapping and internal adapter readiness still need the final cross-family audit. Native fidelity/classification remains W2; public declarations and consumers remain W3.
 
 A logger wrapper is created only when a logger is configured. Each logger invocation introduces a diagnostic scope; exception snapshots are created on failure. These costs are unmeasured here. Attributable coordination-cost work and all six strict .NET 10 W0 comparison lanes remain required. W0-F1 and the 0.9.2 compatibility baseline are unchanged; no packages are published.

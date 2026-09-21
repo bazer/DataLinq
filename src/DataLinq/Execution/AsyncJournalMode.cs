@@ -53,9 +53,15 @@ internal static class AsyncJournalMode
         IAsyncJournalModeSession? session = null;
         ExecutionFailures? failures = null;
         var stage = ExecutionFailureStage.Validation;
+        var localCause = ExecutionFailureCause.Unknown;
         try
         {
-            session = plan.CreateSession() ?? throw new InvalidOperationException("Journal-mode capture created no session.");
+            session = plan.CreateSession();
+            if (session is null)
+            {
+                localCause = ExecutionFailureCause.InvalidOperation;
+                throw new InvalidOperationException("Journal-mode capture created no session.");
+            }
             var execution = new OwnedCommandExecution(session.Access, session.CommandFactory);
             execution.Validate(AsyncCommandKind.NonQuery);
             token.ThrowIfCancellationRequested();
@@ -71,12 +77,16 @@ internal static class AsyncJournalMode
         {
             (failures ??= new()).AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.ProviderConfiguration);
+                    ? ExecutionFailureCause.Cancellation : localCause, ExecutionOperationKind.ProviderConfiguration);
         }
         finally
         {
-            try { if (session is not null) await session.DisposeAsync().ConfigureAwait(false); }
-            catch (Exception cleanup) { (failures ??= new()).AddCleanup(cleanup); }
+            if (session is not null)
+            {
+                using var cleanupScope = ExecutionFailureScope.Begin();
+                try { await session.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception cleanup) { (failures ??= new()).AddCleanup(cleanup); }
+            }
         }
         if (failures?.Primary is { } primary)
         {
