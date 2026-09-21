@@ -54,6 +54,7 @@ internal static class AsyncJournalMode
         ExecutionFailures? failures = null;
         var stage = ExecutionFailureStage.Validation;
         var localCause = ExecutionFailureCause.Unknown;
+        var occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try
         {
             session = plan.CreateSession();
@@ -62,11 +63,14 @@ internal static class AsyncJournalMode
                 localCause = ExecutionFailureCause.InvalidOperation;
                 throw new InvalidOperationException("Journal-mode capture created no session.");
             }
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             var execution = new OwnedCommandExecution(session.Access, session.CommandFactory);
             execution.Validate(AsyncCommandKind.NonQuery);
             token.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.Initialization;
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             await session.OpenAsync(token).ConfigureAwait(false);
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             token.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.CommandExecution;
             await execution.ExecuteNonQueryAsync(token).ConfigureAwait(false);
@@ -75,6 +79,8 @@ internal static class AsyncJournalMode
         }
         catch (Exception failure)
         {
+            // A later phase cannot borrow a report caught during completed setup.
+            ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
             (failures ??= new()).AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
                     ? ExecutionFailureCause.Cancellation : localCause, ExecutionOperationKind.ProviderConfiguration);

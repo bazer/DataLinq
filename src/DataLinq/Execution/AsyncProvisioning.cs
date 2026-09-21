@@ -75,6 +75,7 @@ internal static class AsyncProvisioning
         var stage = ExecutionFailureStage.Validation;
         var localCause = ExecutionFailureCause.Unknown;
         var result = 0;
+        var occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try
         {
             session = plan.CreateSession();
@@ -85,11 +86,14 @@ internal static class AsyncProvisioning
             }
             // Capture both collaborators before initialization suspends. The command
             // factory is already bound to the provider's captured script and settings.
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             var execution = new OwnedCommandExecution(session.Access, session.CommandFactory);
             execution.Validate(AsyncCommandKind.NonQuery);
             token.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.Initialization;
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             await session.InitializeAsync(token).ConfigureAwait(false);
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             token.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.CommandExecution;
             result = await execution.ExecuteNonQueryAsync(token).ConfigureAwait(false);
@@ -98,6 +102,8 @@ internal static class AsyncProvisioning
         }
         catch (Exception failure)
         {
+            // A later phase cannot borrow a report caught during completed setup.
+            ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
             (failures ??= new()).AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
                     ? ExecutionFailureCause.Cancellation : localCause, ExecutionOperationKind.Provisioning);
