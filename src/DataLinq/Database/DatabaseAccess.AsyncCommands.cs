@@ -10,6 +10,7 @@ namespace DataLinq;
 public abstract partial class DatabaseAccess
 {
     private Transaction? managedTransaction;
+    internal Transaction? ManagedTransaction => managedTransaction;
 
     internal void BindManagedTransaction(Transaction transaction)
     {

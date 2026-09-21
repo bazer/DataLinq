@@ -122,7 +122,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
 
     private void EnsureAsyncRecoveryAllowed(string operation, ExecutionRecoveryActions required)
     {
-        if (DatabaseAccess is IAsyncTransactionCompletion { InitializationState: TransactionInitializationState.Failed or TransactionInitializationState.Disposed })
+        if (DatabaseAccess.SynchronousResourceUnavailable ||
+            DatabaseAccess is IAsyncTransactionCompletion { InitializationState: TransactionInitializationState.Failed or TransactionInitializationState.Disposed })
             throw new InvalidOperationException($"Cannot {operation} after transaction initialization became unusable; only disposal is permitted.");
         var context = AsyncFailureContext;
         if (context is not null && (context.Recovery & required) == 0)
@@ -545,36 +546,67 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// </summary>
     public void Commit()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         var operation = BeginExclusiveOperation("commit", completion: true, operationKind: ExecutionOperationKind.Commit);
         try
         {
             EnsureTransactionCanComplete("commit", rejectPoisoned: true);
+            using var completionStep = ExecutionGate.EnterStep(operation);
+            using var telemetry = DatabaseAccess.DeferSynchronousTransactionTelemetry(completionStep);
             Volatile.Write(ref managedCommitFinalizationState, 1);
             try
             {
+                var failures = new ExecutionFailures();
                 try
                 {
                     DatabaseAccess.Commit();
                 }
                 catch (Exception providerFailure)
                 {
-                    UpdateAsyncRecoveryAfterCommitFailure();
-                    var recoveryFailures = FinalizeUncertainCompletionState(
-                        MutableTransactionOutcome.CommitOutcomeUnknown,
-                        MutableInvalidationReason.CommitOutcomeUnknown);
-                    AddManagedCompletionFailureContext(
-                        providerFailure,
-                        operation: "Commit",
-                        MutableInvalidationReason.CommitOutcomeUnknown,
-                        recoveryFailures);
-                    throw;
+                    var observed = ObservedExecutionFailure.Capture(providerFailure);
+                    failures.AddObserved(observed, ExecutionFailureStage.Commit, fallbackOperation: ExecutionOperationKind.Commit);
+                    if (DatabaseAccess.SynchronousCompletion != ExecutionCompletion.Committed)
+                    {
+                        UpdateAsyncRecoveryAfterCommitFailure();
+                        using (ExecutionFailureScope.Begin())
+                        {
+                            var recoveryFailures = FinalizeUncertainCompletionState(
+                                MutableTransactionOutcome.CommitOutcomeUnknown,
+                                MutableInvalidationReason.CommitOutcomeUnknown);
+                            AddManagedCompletionFailureContext(providerFailure, "Commit", MutableInvalidationReason.CommitOutcomeUnknown, recoveryFailures);
+                            foreach (var recoveryFailure in recoveryFailures)
+                                failures.AddReported(recoveryFailure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
+                        }
+                        telemetry.Complete(failures, ExecutionCompletion.Unknown, ExecutionOperationKind.Commit);
+                        var recovery = ExecutionRecoveryActions.Dispose;
+                        if (!failures.HasCleanupFailure && Status is not (DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack) &&
+                            (observed.Context is null || (observed.Context.Recovery & ExecutionRecoveryActions.Rollback) != 0) &&
+                            (AsyncFailureContext is null || (AsyncFailureContext.Recovery & ExecutionRecoveryActions.Rollback) != 0))
+                            recovery |= ExecutionRecoveryActions.Rollback;
+                        PublishSynchronousCompletionFailure(failures, operation, ExecutionOperationKind.Commit, ExecutionCompletion.Unknown, recovery);
+                        failures.ThrowIfAny();
+                    }
                 }
 
                 UpdateAsyncRecovery(ExecutionCompletion.Committed, ExecutionRecoveryActions.Dispose);
-                FinalizeCommittedState();
-
-                Volatile.Write(ref managedCommitFinalizationState, 2);
-                PublishDeferredCommittedStatus();
+                using (ExecutionFailureScope.Begin())
+                {
+                    try
+                    {
+                        FinalizeCommittedState();
+                        Volatile.Write(ref managedCommitFinalizationState, 2);
+                        PublishDeferredCommittedStatus();
+                    }
+                    catch (Exception finalizationFailure)
+                    {
+                        failures.AddReported(finalizationFailure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
+                        if (finalizationFailure is TransactionCommitFinalizationException committed)
+                            foreach (var cleanupFailure in committed.CleanupFailures) failures.AddCleanup(cleanupFailure);
+                    }
+                }
+                telemetry.Complete(failures, ExecutionCompletion.Committed, ExecutionOperationKind.Commit);
+                PublishSynchronousCompletionFailure(failures, operation, ExecutionOperationKind.Commit, ExecutionCompletion.Committed, ExecutionRecoveryActions.Dispose);
+                failures.ThrowIfAny();
             }
             finally
             {
@@ -593,10 +625,13 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// </summary>
     public void Rollback()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         var operation = BeginExclusiveOperation("roll back", completion: true, operationKind: ExecutionOperationKind.Rollback);
         try
         {
             EnsureTransactionCanComplete("roll back", rejectPoisoned: false);
+            using var completionStep = ExecutionGate.EnterStep(operation);
+            using var telemetry = DatabaseAccess.DeferSynchronousTransactionTelemetry(completionStep);
             Volatile.Write(ref managedRollbackAttempted, 1);
             Volatile.Write(ref managedRollbackFinalizationState, 1);
             try
@@ -604,6 +639,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                 var attachedRollbackWasAmbiguous =
                     IsAttachedProviderTransactionUnavailable();
                 Exception? providerFailure = null;
+                ExecutionFailureContext? providerFailureContext = null;
                 try
                 {
                     DatabaseAccess.Rollback();
@@ -611,6 +647,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                 catch (Exception exception)
                 {
                     providerFailure = exception;
+                    providerFailureContext = ExecutionFailureContexts.GetCurrent(exception);
                 }
 
                 var commitOutcomeUnknown =
@@ -637,6 +674,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                         rolledBack);
                 }
 
+                using var finalizationDiagnostics = ExecutionFailureScope.Begin();
                 var cleanupFailures = attachedRollbackWasAmbiguous
                     ? FinalizeUncertainCompletionState(
                         outcome,
@@ -652,7 +690,10 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                     invalidationReason,
                     providerFailure,
                     cleanupFailures,
-                    observerFailure);
+                    observerFailure,
+                    operation,
+                    providerFailureContext,
+                    telemetry);
             }
             finally
             {
@@ -928,7 +969,10 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         MutableInvalidationReason? invalidationReason,
         Exception? providerFailure,
         IReadOnlyList<Exception> cleanupFailures,
-        Exception? observerFailure)
+        Exception? observerFailure,
+        TransactionOperationGate.Lease lease,
+        ExecutionFailureContext? providerFailureContext,
+        DatabaseTransaction.SynchronousTelemetryScope telemetry)
     {
         Exception? primaryFailure = providerFailure;
         var secondaryFailures = new List<Exception>();
@@ -949,15 +993,32 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                 secondaryFailures.Add(observerFailure);
         }
 
-        if (primaryFailure is null)
-            return;
-
-        AddManagedCompletionFailureContext(
-            primaryFailure,
-            operation,
-            invalidationReason,
-            secondaryFailures);
-        ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+        var kind = operation == "Rollback" ? ExecutionOperationKind.Rollback : ExecutionOperationKind.Dispose;
+        var failures = new ExecutionFailures();
+        if (providerFailure is not null)
+            failures.AddObserved(new(providerFailure, providerFailureContext),
+                kind == ExecutionOperationKind.Rollback ? ExecutionFailureStage.Recovery : ExecutionFailureStage.Cleanup,
+                fallbackOperation: kind);
+        foreach (var cleanupFailure in cleanupFailures)
+            failures.AddReported(cleanupFailure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, kind);
+        if (observerFailure is not null)
+            failures.AddObserved(new(observerFailure, null), ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, kind);
+        var completion = ExecutionRecoveryPolicy.PreserveCompletion(AsyncFailureContext?.Completion ?? ExecutionCompletion.NotAttempted,
+            DatabaseAccess.SynchronousCompletion != ExecutionCompletion.NotAttempted
+            ? DatabaseAccess.SynchronousCompletion : MutableOwnership.Outcome switch
+            {
+                MutableTransactionOutcome.Committed or MutableTransactionOutcome.CommittedStateFinalizationFailed => ExecutionCompletion.Committed,
+                MutableTransactionOutcome.RolledBack => ExecutionCompletion.RolledBack,
+                MutableTransactionOutcome.CommitOutcomeUnknown or MutableTransactionOutcome.RollbackOutcomeUnknown or MutableTransactionOutcome.ExternalCompletionUnknown => ExecutionCompletion.Unknown,
+                _ => ExecutionCompletion.NotAttempted
+            });
+        telemetry.Complete(failures, completion, kind);
+        UpdateAsyncRecovery(completion, kind == ExecutionOperationKind.Dispose ? ExecutionRecoveryActions.None : ExecutionRecoveryActions.Dispose);
+        if (failures.Primary is null) return;
+        AddManagedCompletionFailureContext(failures.Primary, operation, invalidationReason, secondaryFailures);
+        PublishSynchronousCompletionFailure(failures, lease, kind, completion,
+            kind == ExecutionOperationKind.Dispose ? ExecutionRecoveryActions.None : ExecutionRecoveryActions.Dispose);
+        failures.ThrowIfAny();
     }
 
     private void AddManagedCompletionFailureContext(
@@ -1267,6 +1328,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// </summary>
     public void Dispose()
     {
+        using var diagnostics = ExecutionFailureScope.Begin();
         if (IsDisposed)
         {
             ExecutionGate.ThrowIfActive("dispose", ExecutionOperationKind.Dispose);
@@ -1278,6 +1340,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         {
             if (Interlocked.Exchange(ref disposeState, 1) != 0)
                 return;
+            using var completionStep = ExecutionGate.EnterStep(operation);
+            using var telemetry = DatabaseAccess.DeferSynchronousTransactionTelemetry(completionStep);
 
             var ownershipOutcome = MutableOwnership.Outcome;
             var commitOutcomeUnknown =
@@ -1305,6 +1369,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
             try
             {
                 Exception? providerFailure = null;
+                ExecutionFailureContext? providerFailureContext = null;
                 try
                 {
                     DatabaseAccess.Dispose();
@@ -1312,11 +1377,13 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                 catch (Exception exception)
                 {
                     providerFailure = exception;
+                    providerFailureContext = ExecutionFailureContexts.GetCurrent(exception);
                 }
 
                 if (externalCompletionDetected && providerFailure is null)
                     providerFailure = CreateExternalCompletionFailure("dispose");
 
+                using var finalizationDiagnostics = ExecutionFailureScope.Begin();
                 IReadOnlyList<Exception> cleanupFailures;
                 MutableInvalidationReason? invalidationReason =
                     MutableOwnership.InvalidationReason;
@@ -1358,7 +1425,10 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                     invalidationReason,
                     providerFailure,
                     cleanupFailures,
-                    observerFailure);
+                    observerFailure,
+                    operation,
+                    providerFailureContext,
+                    telemetry);
             }
             finally
             {

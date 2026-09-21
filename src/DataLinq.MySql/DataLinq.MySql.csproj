@@ -22,19 +22,8 @@
 		<Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)\throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<!-- Shared source files -->
-		<Compile Include="..\DataLinq\Database\GuidCodec.cs">
-			<Link>Core\Database\GuidCodec.cs</Link>
-		</Compile>
-		<Compile Include="..\DataLinq.SharedCore\Metadata\EffectiveColumnTypeResolver.cs">
-			<Link>Core\Metadata\EffectiveColumnTypeResolver.cs</Link>
-		</Compile>
-		<Compile Include="..\DataLinq.SharedCore\Extensions\**\*.cs">
-			<!-- Adjust path -->
-			<Link>Core\%(RecursiveDir)%(FileName)%(Extension)</Link>
-		</Compile>
-	</ItemGroup>
+	<!-- Internal coordination and shared helpers come from DataLinq through its
+	     built-in adapter friendship; do not compile duplicate helper types here. -->
 
 	<ItemGroup>
 	  <None Update="datalinq_mysql.json">

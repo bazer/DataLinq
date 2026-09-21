@@ -21,7 +21,7 @@ public class DatabaseTransactionStatusChangeEventArgs : EventArgs
     public DatabaseTransactionStatus Status { get; set; }
 }
 
-public abstract class DatabaseTransaction : DatabaseAccess, IDisposable
+public abstract partial class DatabaseTransaction : DatabaseAccess, IDisposable
 {
     private Activity? transactionActivity;
     private long transactionStartedTimestamp;
@@ -72,15 +72,16 @@ public abstract class DatabaseTransaction : DatabaseAccess, IDisposable
         OnStatusChanged?.Invoke(this, new DatabaseTransactionStatusChangeEventArgs { Status = status });
     }
 
-    // The async managed path records confirmed completion before any fallible observer.
-    // Existing synchronous providers retain their original combined boundary.
+    // Native completion is recorded before any fallible observer. The synchronous
+    // built-in coordinator uses this same status publication boundary.
     internal void RecordConfirmedAsyncCompletion(ExecutionCompletion completion) =>
         Status = completion == ExecutionCompletion.Committed
             ? DatabaseTransactionStatus.Committed : DatabaseTransactionStatus.RolledBack;
 
-    internal void NotifyConfirmedAsyncCompletion(ExecutionFailures failures, bool completeTelemetry = true)
+    internal void NotifyConfirmedAsyncCompletion(ExecutionFailures failures, bool completeTelemetry = true,
+        ExecutionOperationKind? requestedOperation = null)
     {
-        var operation = Status == DatabaseTransactionStatus.Committed ? ExecutionOperationKind.Commit : ExecutionOperationKind.Rollback;
+        var operation = requestedOperation ?? (Status == DatabaseTransactionStatus.Committed ? ExecutionOperationKind.Commit : ExecutionOperationKind.Rollback);
         using (ExecutionFailureScope.Begin())
         {
             try { OnStatusChanged?.Invoke(this, new DatabaseTransactionStatusChangeEventArgs { Status = Status }); }
@@ -145,51 +146,13 @@ public abstract class DatabaseTransaction : DatabaseAccess, IDisposable
     }
 
     protected void BeginTransactionTelemetry()
-    {
-        if (transactionTelemetryStarted)
-            return;
-
-        transactionStartedTimestamp = Stopwatch.GetTimestamp();
-        transactionActivity = DataLinqTelemetry.StartTransactionActivity(TelemetryContext, Type);
-        DataLinqTelemetry.RecordTransactionStarted(TelemetryContext);
-        transactionTelemetryStarted = true;
-    }
+        => BeginSynchronousTransactionTelemetry();
 
     protected void CompleteTransactionTelemetry(DatabaseTransactionStatus outcome)
-    {
-        if (!transactionTelemetryStarted || transactionTelemetryCompleted)
-            return;
-
-        var duration = Stopwatch.GetElapsedTime(transactionStartedTimestamp);
-        DataLinqTelemetry.RecordTransactionCompleted(TelemetryContext, Type, outcome, succeeded: true, duration);
-        transactionActivity?.SetTag("datalinq.outcome", DataLinqTelemetry.GetTransactionOutcome(outcome));
-        transactionActivity?.SetStatus(ActivityStatusCode.Ok);
-        transactionActivity?.Dispose();
-        transactionActivity = null;
-        transactionTelemetryCompleted = true;
-    }
+        => CompleteSynchronousTransactionTelemetry(outcome);
 
     protected void FailTransactionTelemetry(DatabaseTransactionStatus outcome, Exception ex)
-    {
-        if (transactionTelemetryCompleted)
-            return;
-
-        if (transactionTelemetryStarted)
-        {
-            var duration = Stopwatch.GetElapsedTime(transactionStartedTimestamp);
-            DataLinqTelemetry.RecordTransactionCompleted(TelemetryContext, Type, outcome, succeeded: false, duration);
-        }
-
-        if (transactionActivity is not null)
-        {
-            transactionActivity.SetTag("datalinq.outcome", DataLinqTelemetry.GetTransactionOutcome(outcome));
-            DataLinqTelemetry.RecordException(transactionActivity, ex);
-            transactionActivity.Dispose();
-            transactionActivity = null;
-        }
-
-        transactionTelemetryCompleted = true;
-    }
+        => FailSynchronousTransactionTelemetry(outcome, ex);
 
     public abstract void Rollback();
     public abstract void Commit();

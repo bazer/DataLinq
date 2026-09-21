@@ -415,9 +415,10 @@ internal static class DataLinqTelemetry
     {
         DataLinqMetrics.RecordTransactionStarted(context);
         if (!TransactionStartCounter.Enabled) return;
+        var reportingScope = ExecutionFailureScope.Current;
         using var reporting = ExecutionFailureScope.Begin();
         try { TransactionStartCounter.Add(1, CreateCommonTags(context)); }
-        catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+        catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, operation); }
     }
 
     internal static void RecordTransactionCompleted(DataLinqTelemetryContext context, TransactionType transactionType,
@@ -427,6 +428,7 @@ internal static class DataLinqTelemetry
         // Confirmed native completion is independent of later notification failure.
         DataLinqMetrics.RecordTransactionCompleted(context, outcome, confirmed, duration);
         if (!TransactionCompleteCounter.Enabled && !TransactionDuration.Enabled) return;
+        var reportingScope = ExecutionFailureScope.Current;
         var tags = CreateCommonTags(context);
         tags.Add("datalinq.transaction.type", GetTransactionTypeName(transactionType));
         tags.Add("datalinq.outcome", confirmed ? GetTransactionOutcome(outcome) : "failure");
@@ -434,13 +436,13 @@ internal static class DataLinqTelemetry
         {
             using var reporting = ExecutionFailureScope.Begin();
             try { TransactionCompleteCounter.Add(1, tags); }
-            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
         if (TransactionDuration.Enabled)
         {
             using var reporting = ExecutionFailureScope.Begin();
             try { TransactionDuration.Record(duration.TotalMilliseconds, tags); }
-            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
     }
 
