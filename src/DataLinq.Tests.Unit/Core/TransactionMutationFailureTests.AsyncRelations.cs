@@ -231,6 +231,52 @@ public sealed partial class TransactionMutationFailureTests
     [Arguments(false, true)]
     [Arguments(true, false)]
     [Arguments(true, true)]
+    public async Task AsyncRelation_WaiterRechecksAfterSuccessfulOwnerWasInvalidated(bool reference, bool initiallyEmpty)
+    {
+        using var fixture = new AsyncRelationFixture(reference);
+        using var ownerToken = new CancellationTokenSource();
+        using var waiterToken = new CancellationTokenSource();
+        var first = fixture.SetRows(empty: initiallyEmpty, cleanupPaused: true);
+        var reader = (ControlledRowDataReader)first.ReaderOverride!;
+        var holder = fixture.Holder();
+        var owner = holder.Read(ownerToken.Token);
+        await reader.Cleanup.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+        var second = fixture.SetRows(empty: !initiallyEmpty, paused: true);
+        var waiter = holder.Read(waiterToken.Token);
+        try
+        {
+            await Assert.That(waiter.IsCompleted).IsFalse();
+            fixture.Cache.ClearCache();
+            reader.Cleanup.Release();
+            await Assert.That(await owner.WaitAsync(TimeSpan.FromSeconds(10)))
+                .IsEquivalentTo(initiallyEmpty ? Array.Empty<int>() : [1]);
+            await second.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            await Assert.That(waiter.IsCompleted).IsFalse();
+            await Assert.That(second.Dispatch.ObservedToken).IsEqualTo(waiterToken.Token);
+            // The first call has returned. Its later cancellation cannot cancel
+            // the waiting caller's distinct load or cause an automatic replay.
+            ownerToken.Cancel();
+            await Assert.That(waiter.IsCompleted).IsFalse();
+            await Assert.That(fixture.Dispatches).IsEqualTo(2);
+        }
+        finally { reader.Cleanup.Release(); second.Dispatch.Release(); }
+        var expected = initiallyEmpty ? new[] { 1 } : Array.Empty<int>();
+        await Assert.That(await waiter.WaitAsync(TimeSpan.FromSeconds(10))).IsEquivalentTo(expected);
+        // Warm calls still bind and validate capability; they must not create
+        // native resources or dispatch the replacement reader.
+        var replacement = fixture.SetRows(empty: initiallyEmpty);
+        await Assert.That(await holder.Read()).IsEquivalentTo(expected);
+        await Assert.That(replacement.Calls).IsEmpty();
+        await Assert.That(fixture.Factory.Commands.Sum(command => command.Creates)).IsEqualTo(2);
+        await Assert.That(fixture.Dispatches).IsEqualTo(2);
+        await Assert.That(fixture.Scenario.ReaderExecutions).IsEqualTo(0);
+    }
+
+    [Test]
+    [Arguments(false, false)]
+    [Arguments(false, true)]
+    [Arguments(true, false)]
+    [Arguments(true, true)]
     public async Task AsyncRelation_FailedCleanupOrCanceledLoadNeverCachesAbsence(bool reference, bool cancel)
     {
         using var fixture = new AsyncRelationFixture(reference);
