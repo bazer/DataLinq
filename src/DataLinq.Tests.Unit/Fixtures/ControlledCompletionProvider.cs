@@ -16,7 +16,17 @@ internal sealed class ControlledCompletionProvider : IAsyncTransactionCompletion
     }
     internal Func<TransactionInitializationState>? InspectInitialization { get; set; }
     internal Func<TransactionOperationGate.Step, ValueTask>? DisposeResource { get; set; }
-    public ExecutionRecoveryActions Recovery => RecoveryFailure is { } failure ? throw failure : RecoveryActions;
+    public ExecutionRecoveryActions Recovery
+    {
+        get
+        {
+            RecoveryReads++;
+            InspectRecovery?.Invoke();
+            return RecoveryFailure is { } failure ? throw failure : RecoveryActions;
+        }
+    }
+    internal int RecoveryReads { get; private set; }
+    internal Action? InspectRecovery { get; set; }
     internal ExecutionRecoveryActions RecoveryActions { get; set; } = ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose;
     internal Exception? RecoveryFailure { get; set; }
     internal AsyncCheckpoint Commit { get; set; } = new();
@@ -25,10 +35,12 @@ internal sealed class ControlledCompletionProvider : IAsyncTransactionCompletion
     internal AsyncCheckpoint ConnectionCleanup { get; set; } = new();
     internal List<string> Calls { get; } = [];
     internal Exception? ValidationFailure { get; set; }
+    internal Action<AsyncCompletionOperation>? Validating { get; set; }
     internal Action? Committed { get; set; }
     internal CancellationToken RollbackToken { get; private set; }
     public void ValidateCompletion(AsyncCompletionOperation operation)
     {
+        Validating?.Invoke(operation);
         if (ValidationFailure is not null) throw ValidationFailure;
     }
     public async Task CommitAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken)

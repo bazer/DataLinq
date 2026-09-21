@@ -211,12 +211,21 @@ public partial class TableCache
                     canceled.CancellationToken == token && token.IsCancellationRequested ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.MaterializationError);
                 var evidence = new ReadFailureEvidence(Effects: ExecutionEffects.NoStatement, Integrity: TransactionIntegrity.Confirmed);
                 var assessed = true;
-                try
+                if (observed is not null)
                 {
-                    if (observed is not null) evidence = observed.GetReadFailureEvidence(failure)
-                        ?? throw new InvalidOperationException("The provider returned no failure evidence.");
+                    using var assessmentDiagnostics = ExecutionFailureScope.Begin();
+                    try
+                    {
+                        evidence = observed.GetReadFailureEvidence(failure)
+                            ?? throw new InvalidOperationException("The provider returned no failure evidence.");
+                    }
+                    catch (Exception assessment)
+                    {
+                        assessed = false;
+                        evidence = new();
+                        failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, step.Kind);
+                    }
                 }
-                catch (Exception assessment) { assessed = false; evidence = new(); failures.AddReported(assessment, ExecutionFailureStage.Recovery); }
                 var context = failures.Snapshot(evidence, ExecutionCompletion.NotAttempted,
                     ExecutionRecoveryPolicy.ForReadFailure(evidence, assessed && !failures.HasCleanupFailure), transaction.TransactionID,
                     step.Kind, step.ProviderInstanceId);

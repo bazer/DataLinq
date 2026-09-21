@@ -86,12 +86,17 @@ internal sealed class AsyncBufferedRead<TResult>(
         finally
         {
             // Cleanup never inherits operation cancellation and never uses synchronous fallback.
-            try { if (reader is not null) await reader.DisposeAsync().ConfigureAwait(false); }
-            catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+            if (reader is not null)
+            {
+                using var cleanupDiagnostics = ExecutionFailureScope.Begin();
+                try { await reader.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+            }
         }
 
         if (failures.Primary is null)
         {
+            using var conversionDiagnostics = ExecutionFailureScope.Begin();
             stage = ExecutionFailureStage.Materialization;
             cause = ExecutionFailureCause.MaterializationError;
             try
@@ -108,11 +113,12 @@ internal sealed class AsyncBufferedRead<TResult>(
             var assessmentSucceeded = true;
             if (source is IAsyncReadFailureEvidence classifier)
             {
+                using var assessmentDiagnostics = ExecutionFailureScope.Begin();
                 try { evidence = classifier.GetReadFailureEvidence(primary) ?? throw new InvalidOperationException("The provider returned no failure evidence."); }
                 catch (Exception assessment)
                 {
                     assessmentSucceeded = false;
-                    failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery);
+                    failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, identity.Operation);
                 }
             }
             var recovery = step is null ? ExecutionRecoveryActions.None

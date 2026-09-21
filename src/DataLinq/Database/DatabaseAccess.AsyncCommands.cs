@@ -95,12 +95,16 @@ public abstract partial class DatabaseAccess
         var step = owner ?? ownership?.Step;
         var stage = ExecutionFailureStage.CommandExecution;
         var cause = ExecutionFailureCause.Unknown;
+        ExecutionFailureScope.Call? conversionDiagnostics = null;
         try
         {
             var result = await execute(command, step, token).ConfigureAwait(false);
             stage = ExecutionFailureStage.Materialization;
             cause = ExecutionFailureCause.MaterializationError;
             // Owned cleanup has settled. A late cancellation request cannot undo success.
+            // Keep the conversion scope active through its catch so stale command or
+            // cleanup reports cannot classify a later throw of the same exception.
+            conversionDiagnostics = ExecutionFailureScope.Begin();
             return convert(result);
         }
         catch (Exception failure)
@@ -137,5 +141,6 @@ public abstract partial class DatabaseAccess
             ownership?.ReportFailure(failure);
             throw;
         }
+        finally { conversionDiagnostics?.Dispose(); }
     }
 }

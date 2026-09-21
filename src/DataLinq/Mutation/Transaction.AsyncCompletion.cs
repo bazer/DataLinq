@@ -47,8 +47,11 @@ public partial class Transaction
         resource.ValidateDisposal();
         var failures = new ExecutionFailures();
         var actions = ExecutionRecoveryActions.Dispose;
-        try { actions = resource.Recovery; }
-        catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Recovery); }
+        using (ExecutionFailureScope.Begin())
+        {
+            try { actions = resource.Recovery; }
+            catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Recovery, fallbackOperation: ExecutionOperationKind.Dispose); }
+        }
         var recovery = new AutomaticTransactionRecovery(ExecutionGate, operation, resource,
             settings ?? new(), failures, resource.Completion, actions, TransactionID, timeProvider);
         try { await recovery.DisposeAsync().ConfigureAwait(false); }
@@ -152,8 +155,12 @@ public partial class Transaction
                     failures.AddObserved(cleanup, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
                 ResetCommitNotification();
                 var recovery = ExecutionRecoveryActions.Dispose;
-                try { if (!failures.HasCleanupFailure) recovery = Recovery; }
-                catch (Exception inspection) { failures.AddReported(inspection, ExecutionFailureStage.Recovery); }
+                if (!failures.HasCleanupFailure)
+                {
+                    using var recoveryDiagnostics = ExecutionFailureScope.Begin();
+                    try { recovery = Recovery; }
+                    catch (Exception inspection) { failures.AddReported(inspection, ExecutionFailureStage.Recovery, fallbackOperation: ExecutionOperationKind.Commit); }
+                }
                 transaction.DatabaseAccess.CompleteAsyncTransactionTelemetry(ExecutionCompletion.Unknown, failures, ExecutionOperationKind.Commit);
                 Report(failures, ExecutionCompletion.Unknown, recovery, ExecutionOperationKind.Commit);
                 throw;

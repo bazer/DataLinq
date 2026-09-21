@@ -242,17 +242,20 @@ public partial class Transaction
                 var effects = wrote || input.Command?.Dispatched == true;
                 var evidence = new ReadFailureEvidence(Effects: ExecutionEffects.NoStatement, Integrity: TransactionIntegrity.Confirmed);
                 var assessed = true;
-                try
+                if ((observedRead ?? input.Command) is { } classifier)
                 {
-                    if (observedRead is not null) evidence = observedRead.GetReadFailureEvidence(failure);
-                    else if (input.Command is not null) evidence = input.Command.GetReadFailureEvidence(failure);
-                    if (evidence is null) throw new InvalidOperationException("The provider returned no failure evidence.");
-                }
-                catch (Exception assessment)
-                {
-                    assessed = false;
-                    evidence = new();
-                    failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery);
+                    using var assessmentDiagnostics = ExecutionFailureScope.Begin();
+                    try
+                    {
+                        evidence = classifier.GetReadFailureEvidence(failure)
+                            ?? throw new InvalidOperationException("The provider returned no failure evidence.");
+                    }
+                    catch (Exception assessment)
+                    {
+                        assessed = false;
+                        evidence = new();
+                        failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, operationKind);
+                    }
                 }
                 if (effects)
                 {

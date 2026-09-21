@@ -50,8 +50,11 @@ public partial class Transaction
             failures.AddReported(failure, ExecutionFailureStage.Validation, fallbackOperation: operationKind);
             using var operation = BeginExclusiveOperation("clean up failed mutation helper", completion: true, operationKind: operationKind);
             var actions = ExecutionRecoveryActions.Dispose;
-            try { actions = resource.Recovery; }
-            catch (Exception assessment) { failures.AddReported(assessment, ExecutionFailureStage.Recovery); }
+            using (ExecutionFailureScope.Begin())
+            {
+                try { actions = resource.Recovery; }
+                catch (Exception assessment) { failures.AddReported(assessment, ExecutionFailureStage.Recovery, fallbackOperation: operationKind); }
+            }
             var cleanup = new AutomaticTransactionRecovery(ExecutionGate, operation, resource, settings, failures,
                 resource.Completion, actions, TransactionID);
             try { await cleanup.DisposeAsync().ConfigureAwait(false); }

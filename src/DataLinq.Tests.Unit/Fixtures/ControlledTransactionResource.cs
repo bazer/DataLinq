@@ -15,6 +15,7 @@ internal sealed class ControlledTransactionResource : ITransactionResource
     internal List<string> Calls { get; } = [];
     internal Exception? SyncInitializationFailure { get; set; }
     internal Exception? SyncCleanupFailure { get; set; }
+    internal Action? SyncDisposing { get; set; }
     internal Action? Initialized { get; set; }
 
     public void Initialize()
@@ -39,6 +40,7 @@ internal sealed class ControlledTransactionResource : ITransactionResource
     public void Dispose()
     {
         Calls.Add("sync-dispose");
+        SyncDisposing?.Invoke();
         if (SyncCleanupFailure is not null)
             throw SyncCleanupFailure;
     }
