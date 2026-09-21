@@ -504,6 +504,7 @@ internal static class DataLinqTelemetry
         // a throwing observer cannot suppress this non-callback bookkeeping.
         DataLinqMetrics.RecordMutationExecution(context, tableName, mutationType, succeeded, affectedRows, duration);
         if (!MutationCounter.Enabled && !MutationAffectedRowsCounter.Enabled && !MutationDuration.Enabled) return;
+        var reportingScope = ExecutionFailureScope.Current;
         var tags = CreateTableTags(context, tableName);
         tags.Add("datalinq.mutation.type", GetMutationTypeName(mutationType));
         tags.Add("datalinq.transaction.type", GetTransactionTypeName(transactionType));
@@ -512,19 +513,19 @@ internal static class DataLinqTelemetry
         {
             using var reporting = ExecutionFailureScope.Begin();
             try { MutationCounter.Add(1, tags); }
-            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
         if (affectedRows > 0 && MutationAffectedRowsCounter.Enabled)
         {
             using var reporting = ExecutionFailureScope.Begin();
             try { MutationAffectedRowsCounter.Add(affectedRows, tags); }
-            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
         if (MutationDuration.Enabled)
         {
             using var reporting = ExecutionFailureScope.Begin();
             try { MutationDuration.Record(duration.TotalMilliseconds, tags); }
-            catch (Exception failure) { ExecutionActivity.AddFailure(ref failures, failure, operation); }
+            catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, operation); }
         }
     }
 

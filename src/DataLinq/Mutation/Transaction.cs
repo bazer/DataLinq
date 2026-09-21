@@ -256,21 +256,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// <param name="model">The model to insert.</param>
     /// <returns>The inserted model.</returns>
     public T Insert<T>(Mutable<T> model) where T : class, IImmutableInstance
-    {
-        ArgumentNullException.ThrowIfNull(model);
-        var snapshot = MutationPreflight.CaptureAndEnsure(
-            this,
-            model,
-            TransactionChangeType.Insert);
-
-        var change = new StateChange(
-            model,
-            model.Metadata().Table,
-            TransactionChangeType.Insert,
-            snapshot);
-        return ExecutePreflightedStateChange(change) as T ??
-            throw new ModelLoadFailureException(change.PrimaryKeys);
-    }
+        => ExecuteSingleMutation(model, TransactionChangeType.Insert, ExecutionOperationKind.Insert);
 
     /// <summary>
     /// Applies changes to a new mutable row and inserts it.
@@ -308,9 +294,11 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         ArgumentNullException.ThrowIfNull(models);
         EnsureMutationPreflight(TransactionChangeType.Insert, typeof(T));
 
-        return models
-            .Select(Insert)
-            .ToList();
+        var results = new List<T>();
+        foreach (var model in models)
+            results.Add(ExecuteSingleMutation(model, TransactionChangeType.Insert, ExecutionOperationKind.Insert,
+                hasBatchPrefix: results.Count != 0));
+        return results;
     }
 
     /// <summary>
@@ -320,28 +308,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// <param name="model">The model to update.</param>
     /// <returns>The updated model.</returns>
     public T Update<T>(Mutable<T> model) where T : class, IImmutableInstance
-    {
-        ArgumentNullException.ThrowIfNull(model);
-        var snapshot = MutationPreflight.CaptureAndEnsure(
-            this,
-            model,
-            TransactionChangeType.Update);
-
-        var change = new StateChange(
-            model,
-            model.Metadata().Table,
-            TransactionChangeType.Update,
-            snapshot);
-
-        // If there are no changes to save, skip saving and return the model from the cache directly.
-        if (change.Snapshot.IsEmpty)
-        {
-            return GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
-        }
-
-        return ExecutePreflightedStateChange(change) as T ??
-            throw new ModelLoadFailureException(change.PrimaryKeys);
-    }
+        => ExecuteSingleMutation(model, TransactionChangeType.Update, ExecutionOperationKind.Update);
 
     /// <summary>
     /// Applies changes to an existing mutable row and updates it.
@@ -394,10 +361,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (model.IsNew())
-            return Insert(model);
-        else
-            return Update(model);
+        return ExecuteSingleMutation(model, model.IsNew() ? TransactionChangeType.Insert : TransactionChangeType.Update,
+            ExecutionOperationKind.Save);
     }
 
     /// <summary>
@@ -443,7 +408,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         var operation = model.IsNew()
             ? TransactionChangeType.Insert
             : TransactionChangeType.Update;
-        EnsureMutationPreflight(model, operation);
+        MutationPreflight.Ensure(this, model, operation, ExecutionOperationKind.Save);
 
         changes(model);
 
@@ -467,7 +432,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
             model.Metadata().Table,
             TransactionChangeType.Delete,
             snapshot);
-        _ = ExecutePreflightedStateChange(change);
+        _ = ExecutePreflightedStateChange(change, ExecutionOperationKind.Delete);
     }
 
     /// <summary>
@@ -510,79 +475,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     {
         ArgumentNullException.ThrowIfNull(change);
         MutationPreflight.EnsureExecution(this, change);
-        return ExecutePreflightedStateChange(change);
-    }
-
-    private IImmutableInstance? ExecutePreflightedStateChange(StateChange change)
-    {
-        var operation = BeginExclusiveOperation("execute a mutation");
-        try
-        {
-            successfulChanges.EnsureCapacity(successfulChanges.Count + 1);
-            if (change.Model is IMutableLifecycle)
-                touchedMutables.EnsureCapacity(touchedMutables.Count + 1);
-
-            if (!change.TryBeginExecution())
-            {
-                throw new InvalidOperationException(
-                    "This state change has already started provider execution and cannot be executed again.");
-            }
-
-            var failureStage = TransactionFailureStage.ProviderStatement;
-            try
-            {
-                using (var step = ExecutionGate.EnterStep(operation))
-                    change.ExecuteReservedQuery(this, step);
-
-                failureStage = TransactionFailureStage.PendingCacheApplication;
-                Provider.State.ApplyChanges([change], this);
-                if (!change.HasSameFinalizedMutation())
-                {
-                    throw new InvalidOperationException(
-                        "The mutable assignments changed while the transaction-local cache effect was being applied.");
-                }
-
-                failureStage = TransactionFailureStage.Hydration;
-                var immutable = LoadAuthoritativeStateChange(change, operation);
-                if (!change.HasSameFinalizedMutation())
-                {
-                    throw new InvalidOperationException(
-                        "The mutable assignments changed during authoritative-row hydration.");
-                }
-                change.FinalizeSuccessfulRelationKeys(immutable);
-                if (!change.HasSameFinalizedMutation())
-                {
-                    throw new InvalidOperationException(
-                        "The mutable assignments changed while finalizing authoritative relation impact keys.");
-                }
-
-                failureStage = TransactionFailureStage.LifecycleFinalization;
-                FinalizeSuccessfulStateChange(change, immutable);
-
-                successfulChanges.Add(change);
-                return immutable;
-            }
-            catch (Exception exception)
-            {
-                if (failureStage == TransactionFailureStage.ProviderStatement &&
-                    change.ExecutionPhase == StateChangeExecutionPhase.Hydration)
-                {
-                    failureStage = TransactionFailureStage.Hydration;
-                }
-
-                PoisonMutation(failureStage, exception, change.Model);
-                throw;
-            }
-        }
-        catch (Exception failure)
-        {
-            operation.ReportFailure(failure);
-            throw;
-        }
-        finally
-        {
-            operation.Dispose();
-        }
+        return ExecutePreflightedStateChange(change, MutationOperationKind(change.Type));
     }
 
     private IImmutableInstance? LoadAuthoritativeStateChange(
@@ -633,7 +526,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     private void PoisonMutation(
         TransactionFailureStage stage,
         Exception cause,
-        IModelInstance currentModel)
+        IModelInstance? currentModel)
     {
         Interlocked.CompareExchange(
             ref failure,
@@ -771,14 +664,6 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         {
             operation.Dispose();
         }
-    }
-
-    private T? GetModelFromCache<T>(Mutable<T> model) where T : class, IImmutableInstance
-    {
-        var metadata = model.Metadata();
-        var keys = model.PrimaryKeys();
-
-        return (T?)Provider.GetTableCache(metadata.Table).GetRow(keys, this);
     }
 
     private void RegisterTouchedMutable(IMutableLifecycle mutable) =>
@@ -1280,11 +1165,11 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
 
         ThrowIfRollbackAttemptFailed(operation);
 
-        EnsureAsyncRecoveryAllowed(operation, rejectPoisoned ? ExecutionRecoveryActions.Continue : ExecutionRecoveryActions.Rollback);
         if (rejectPoisoned)
         {
             ThrowIfPoisoned(operation);
         }
+        EnsureAsyncRecoveryAllowed(operation, rejectPoisoned ? ExecutionRecoveryActions.Continue : ExecutionRecoveryActions.Rollback);
     }
 
     private TransactionOperationGate.Lease BeginExclusiveOperation(string operation, bool completion = false,
