@@ -27,12 +27,13 @@ internal struct QueryExecutionTelemetry(QueryTelemetryContext context,
     private bool started;
     private bool completed;
 
-    internal void Start()
+    internal void Start(bool createActivity = true)
     {
         if (context.TableName is null) return;
         started = true;
         startedAt = Stopwatch.GetTimestamp();
         DataLinqMetrics.RecordQueryExecution(context.Provider, context.Scalar);
+        if (!createActivity) return;
         // Own the activity before invoking ActivityStarted: a throwing listener
         // must not lose the activity that has already become current.
         activity = DataLinqTelemetry.CreateQueryActivity(context.Provider, context.TableName, context.Kind, context.Transactional);

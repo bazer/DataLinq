@@ -817,8 +817,10 @@ public static class DataLinqMetrics
                 duration);
 
     private static DataLinqProviderMetricsState GetOrCreateProvider(IDatabaseProvider databaseProvider)
-        => providers.GetOrAdd(databaseProvider.TelemetryInstanceId, _ => new DataLinqProviderMetricsState(databaseProvider));
+        => providers.GetOrAdd(databaseProvider.TelemetryInstanceId,
+            static (_, provider) => new DataLinqProviderMetricsState(provider), databaseProvider);
 
     private static DataLinqProviderMetricsState GetOrCreateProvider(DataLinqTelemetryContext telemetryContext)
-        => providers.GetOrAdd(telemetryContext.ProviderInstanceId, _ => new DataLinqProviderMetricsState(telemetryContext));
+        => providers.GetOrAdd(telemetryContext.ProviderInstanceId,
+            static (_, context) => new DataLinqProviderMetricsState(context), telemetryContext);
 }
