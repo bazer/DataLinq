@@ -18,6 +18,7 @@ internal sealed class MetadataReadContext
     private readonly ReadExecutionIdentity identity;
     private readonly List<(ObservedExecutionFailure Failure, ExecutionFailureStage Stage, ExecutionFailureCause Cause)> failures = [];
     private TaskCompletionSource? active;
+    private long completedCommandOccurrence;
     private bool closed;
 
     internal MetadataReadContext(IAsyncDatabaseAccess access, IAsyncMetadataCommands commands, int? timeout, CancellationToken token,
@@ -79,6 +80,7 @@ internal sealed class MetadataReadContext
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         var stage = ExecutionFailureStage.Validation;
+        var succeeded = false;
         try
         {
             var captured = CapturedSql.Capture(sql);
@@ -91,6 +93,7 @@ internal sealed class MetadataReadContext
             // including scalar reads that have no reader enumerator of their own.
             stage = ExecutionFailureStage.Materialization;
             token.ThrowIfCancellationRequested();
+            succeeded = true;
             return result;
         }
         catch (Exception failure)
@@ -104,11 +107,18 @@ internal sealed class MetadataReadContext
         {
             lock (gate)
             {
+                // A successful command has settled before the parser resumes.
+                // Reports caught inside it cannot classify later local parser work.
+                if (succeeded)
+                    Volatile.Write(ref completedCommandOccurrence, ExecutionFailureContexts.CaptureOccurrence());
                 active = null;
                 call.TrySetResult();
             }
         }
     }
+
+    internal void DiscardCompletedCommandReport(Exception failure) =>
+        ExecutionFailureContexts.DiscardEarlierReport(failure, Volatile.Read(ref completedCommandOccurrence));
 
     internal void CopyFailuresTo(ExecutionFailures destination)
     {
