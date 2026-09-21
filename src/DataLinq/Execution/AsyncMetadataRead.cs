@@ -58,6 +58,7 @@ internal static class AsyncMetadataRead
         var resultAvailable = false;
         var stage = ExecutionFailureStage.Validation;
         var localCause = ExecutionFailureCause.Unknown;
+        var occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try
         {
             session = plan.CreateSession();
@@ -66,11 +67,14 @@ internal static class AsyncMetadataRead
                 localCause = ExecutionFailureCause.InvalidOperation;
                 throw new InvalidOperationException("Metadata capture created no session.");
             }
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             context = new(session.Access, session.Commands, settings.CommandTimeoutSeconds, token,
                 new(ExecutionOperationKind.MetadataRead, providerInstanceId));
             token.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.Initialization;
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             await session.OpenAsync(token).ConfigureAwait(false);
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             token.ThrowIfCancellationRequested();
             stage = ExecutionFailureStage.Materialization;
             result = await plan.ReadAsync(context, token).ConfigureAwait(false);
@@ -78,6 +82,10 @@ internal static class AsyncMetadataRead
         }
         catch (Exception failure)
         {
+            // Opening and successful context commands have already settled;
+            // only a new report can describe the parser's later local failure.
+            ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
+            context?.DiscardCompletedCommandReport(failure);
             context?.CopyFailuresTo(failures);
             failures.AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested

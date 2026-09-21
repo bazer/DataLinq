@@ -703,9 +703,10 @@ public sealed partial class TransactionMutationFailureTests
         internal int Opens { get; private set; }
         internal int Disposals { get; private set; }
         internal bool IgnoreOpenCancellation { get; set; }
+        internal Action? OpeningCompleted { get; set; }
         internal CancellationToken OpenToken { get; private set; }
         public async Task OpenAsync(CancellationToken token)
-        { Opens++; OpenToken = token; await Opening.ReachAsync(IgnoreOpenCancellation ? CancellationToken.None : token); }
+        { Opens++; OpenToken = token; await Opening.ReachAsync(IgnoreOpenCancellation ? CancellationToken.None : token); OpeningCompleted?.Invoke(); }
         public async ValueTask DisposeAsync() { Disposals++; await Cleanup.ReachAsync(CancellationToken.None); }
     }
 

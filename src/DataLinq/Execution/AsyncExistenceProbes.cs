@@ -109,10 +109,12 @@ internal static class AsyncExistenceProbes
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         IAsyncExistenceProbeSession? session = null;
+        OwnedCommandExecution? execution = null;
         var failures = new ExecutionFailures();
         var stage = ExecutionFailureStage.Validation;
         var localCause = ExecutionFailureCause.Unknown;
         var result = false;
+        var occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try
         {
             if (plan.ReadLocal is { } local)
@@ -132,11 +134,14 @@ internal static class AsyncExistenceProbes
                     localCause = ExecutionFailureCause.InvalidOperation;
                     throw new InvalidOperationException("Probe capture created no session.");
                 }
-                var execution = new OwnedCommandExecution(session.Access, session.CommandFactory);
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
+                execution = new OwnedCommandExecution(session.Access, session.CommandFactory);
                 execution.Validate(plan.CommandKind);
                 token.ThrowIfCancellationRequested();
                 stage = ExecutionFailureStage.Initialization;
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 await session.OpenAsync(token).ConfigureAwait(false);
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 token.ThrowIfCancellationRequested();
                 stage = ExecutionFailureStage.CommandExecution;
                 if (plan.CommandKind == AsyncCommandKind.Reader)
@@ -151,6 +156,7 @@ internal static class AsyncExistenceProbes
                 else
                 {
                     var scalar = await execution.ExecuteScalarAsync(token).ConfigureAwait(false);
+                    occurrence = ExecutionFailureContexts.CaptureOccurrence();
                     stage = ExecutionFailureStage.Materialization;
                     token.ThrowIfCancellationRequested();
                     result = plan.InterpretScalar!(scalar);
@@ -159,6 +165,7 @@ internal static class AsyncExistenceProbes
         }
         catch (Exception failure)
         {
+            ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
             failures.AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
                     ? ExecutionFailureCause.Cancellation : stage == ExecutionFailureStage.Materialization
@@ -182,9 +189,14 @@ internal static class AsyncExistenceProbes
         }
         if (failures.Primary is not { } primary) return result;
         var context = Snapshot(failures, providerInstanceId);
+        var failedDuringProbeIo = stage == ExecutionFailureStage.Initialization ||
+            stage is ExecutionFailureStage.CommandExecution or ExecutionFailureStage.RowLoading && execution?.Dispatched == true;
         // Only the availability probe can map an explicitly classified, settled
-        // provider/open failure to false. Metadata-query failures are never absence.
+        // provider/open failure to false. A nested command report from construction
+        // or local interpretation does not turn that failure into probe I/O failure.
+        // Metadata-query failures are never absence.
         if (kind == ExistenceProbeKind.FileOrServer && !token.IsCancellationRequested &&
+            failedDuringProbeIo &&
             primary is not (OperationCanceledException or ArgumentException or NotSupportedException or ObjectDisposedException) &&
             context.Cause != ExecutionFailureCause.Cancellation &&
             context.Stage is ExecutionFailureStage.Initialization or ExecutionFailureStage.CommandExecution or ExecutionFailureStage.RowLoading &&
