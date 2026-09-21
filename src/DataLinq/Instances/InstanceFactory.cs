@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -104,7 +105,7 @@ public static class InstanceFactory
         if (model.ReadSourceImmutableFactory is
             Func<IRowData, IDataLinqReadSource, IImmutableInstance> readSourceFactory)
         {
-            return readSourceFactory(rowData, readSource)
+            return InvokeImmutableFactory(readSourceFactory, rowData, readSource)
                 ?? throw new InvalidOperationException(
                     $"Generated read-source immutable factory returned null for '{model.CsType}'.");
         }
@@ -148,7 +149,21 @@ public static class InstanceFactory
                 "Run the DataLinq source generator and ensure the immutable model factory hook is compiled into the application.");
         }
 
-        return factory(rowData, dataSource) ?? throw new Exception($"Failed to create instance of immutable model type '{rowData.Table.Model.CsType}'");
+        return InvokeImmutableFactory(factory, rowData, dataSource) ?? throw new Exception($"Failed to create instance of immutable model type '{rowData.Table.Model.CsType}'");
+    }
+
+    private static IImmutableInstance InvokeImmutableFactory<TSource>(
+        Func<IRowData, TSource, IImmutableInstance> factory, IRowData rowData, TSource source)
+    {
+        // One batch may construct several models under the same outer read scope.
+        // A later constructor cannot borrow a report caught by an earlier model.
+        var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+        try { return factory(rowData, source); }
+        catch (Exception failure)
+        {
+            ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
+            throw;
+        }
     }
 
     public static T NewImmutableRow<T>(IRowData rowData, IDataSourceAccess dataSource)
