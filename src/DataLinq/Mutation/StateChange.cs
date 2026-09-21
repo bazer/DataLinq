@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using DataLinq.Attributes;
-using DataLinq.Diagnostics;
 using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -317,103 +315,76 @@ public partial class StateChange
     internal void ExecutePreflightedQuery(Transaction transaction)
     {
         ArgumentNullException.ThrowIfNull(transaction);
-        using var execution = DataSourceAccess.BeginRead(transaction, "execute a preflighted mutation");
-        if (!TryBeginExecution())
-        {
-            throw new InvalidOperationException(
-                "This state change has already started provider execution and cannot be executed again.");
-        }
-
-        ExecuteReservedQuery(transaction, execution!.Step);
+        transaction.ExecutePreflightedStatement(this);
     }
 
     internal bool TryBeginExecution() =>
         Interlocked.CompareExchange(ref executionState, 1, 0) == 0;
 
-    internal void ExecuteReservedQuery(Transaction transaction, TransactionOperationGate.Step owner)
+    internal int ExecuteReservedQuery(Transaction transaction, TransactionOperationGate.Step owner, ref bool mayHaveEffects)
     {
         ArgumentNullException.ThrowIfNull(transaction);
-        ExecuteQueryCore(transaction, owner);
-    }
-
-    private void ExecuteQueryCore(Transaction transaction, TransactionOperationGate.Step owner)
-    {
         executionPhase = StateChangeExecutionPhase.ProviderStatement;
-        var telemetryContext = DataLinqTelemetryContext.FromProvider(transaction.Provider);
-        var activity = DataLinqTelemetry.StartMutationActivity(telemetryContext, Table.DbName, Type, transaction.Type);
-        var startedAt = Stopwatch.GetTimestamp();
-        var succeeded = false;
+        var reportingScope = ExecutionFailureScope.Current;
+        ExecutionFailures? failures = null;
+        IDbCommand? command = null;
+        var stage = ExecutionFailureStage.Validation;
         var affectedRows = 0;
-
         try
         {
-            using (var command = PrepareExecutionCommand(transaction))
+            // Legacy custom preparation has no I/O-free capability contract. Keep
+            // its conservative poisoning rule unless the exact command later proves
+            // it was rejected before dispatch at the owned provider boundary.
+            mayHaveEffects = true;
+            command = PrepareExecutionCommand(transaction);
+            EnsureCapturedMutationUnchanged("provider command preparation");
+            object? newId = null;
+            stage = ExecutionFailureStage.CommandExecution;
+            try
             {
-                EnsureCapturedMutationUnchanged("provider command preparation");
-
-                if (Type == TransactionChangeType.Insert && HasAutoIncrement && PrimaryKeys.IsNull)
+                if (NeedsGeneratedValue)
                 {
-                    var newId = SyncCommandDispatch.ExecuteScalar(transaction.DatabaseAccess, command, owner);
+                    newId = SyncCommandDispatch.ExecuteScalar(transaction.DatabaseAccess, command, owner);
                     affectedRows = 1;
-                    EnsureCapturedMutationUnchanged("provider statement execution");
-                    executionPhase = StateChangeExecutionPhase.Hydration;
-
-                    if (Model is IMutableInstance mutable)
-                    {
-                        var autoIncrement = Table.AutoIncrementPrimaryKeyColumn;
-
-                        if (autoIncrement != null)
-                        {
-                            var canonicalValue = GeneratedValueDecoder.DecodeAutoIncrementValue(
-                                autoIncrement,
-                                newId,
-                                "sql.generated");
-                            var modelValue = ProviderRowMaterializer.MaterializeValue(
-                                autoIncrement,
-                                canonicalValue,
-                                "sql.generated");
-                            mutable[autoIncrement] = modelValue;
-                        }
-                    }
                 }
-                else
-                {
-                    affectedRows = SyncCommandDispatch.ExecuteNonQuery(transaction.DatabaseAccess, command, owner);
-                    EnsureCapturedMutationUnchanged("provider statement execution");
-                }
-
-                executionPhase = StateChangeExecutionPhase.Hydration;
-                FinalizePrimaryKeysAfterExecution();
-                FinalizeRelationKeysAfterExecution();
-                CaptureFinalizedMutation();
+                else affectedRows = SyncCommandDispatch.ExecuteNonQuery(transaction.DatabaseAccess, command, owner);
             }
-            executionPhase = StateChangeExecutionPhase.Completed;
-            succeeded = true;
-        }
-        catch (Exception exception)
-        {
-            DataLinqTelemetry.RecordException(activity, exception);
-            throw;
-        }
-        finally
-        {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordMutationExecution(
-                telemetryContext,
-                Table.DbName,
-                Type,
-                transaction.Type,
-                succeeded,
-                affectedRows,
-                duration);
-
-            if (activity is not null)
+            catch (Exception failure)
             {
-                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity.SetTag("db.operation.rows_affected", affectedRows);
-                activity.Dispose();
+                if (CommandDispatchEvidence.ProvesNoDispatch(failure, command)) mayHaveEffects = false;
+                throw;
             }
+            EnsureCapturedMutationUnchanged("provider statement execution");
+            executionPhase = StateChangeExecutionPhase.Hydration;
+            stage = ExecutionFailureStage.Materialization;
+            if (NeedsGeneratedValue && Model is IMutableInstance mutable && Table.AutoIncrementPrimaryKeyColumn is { } autoIncrement)
+            {
+                var canonicalValue = GeneratedValueDecoder.DecodeAutoIncrementValue(autoIncrement, newId, "sql.generated");
+                mutable[autoIncrement] = ProviderRowMaterializer.MaterializeValue(autoIncrement, canonicalValue, "sql.generated");
+            }
+            FinalizePrimaryKeysAfterExecution();
+            FinalizeRelationKeysAfterExecution();
+            CaptureFinalizedMutation();
         }
+        catch (Exception failure)
+        {
+            (failures ??= new(reportingScope)).AddReported(failure, stage,
+                stage == ExecutionFailureStage.Materialization ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown, owner.Kind);
+        }
+        using (ExecutionFailureScope.Begin())
+        {
+            try { command?.Dispose(); }
+            catch (Exception failure) { (failures ??= new(reportingScope)).AddCleanup(failure); }
+        }
+        if (failures?.Primary is { } primary)
+        {
+            ExecutionFailureContexts.Attach(primary, failures.Snapshot(new(), ExecutionCompletion.NotAttempted,
+                failures.HasCleanupFailure ? ExecutionRecoveryActions.Dispose : ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose,
+                transaction.TransactionID, owner.Kind, owner.ProviderInstanceId));
+            failures.ThrowIfAny();
+        }
+        executionPhase = StateChangeExecutionPhase.Completed;
+        return affectedRows;
     }
 
     private void EnsureCapturedMutationUnchanged(string stage)

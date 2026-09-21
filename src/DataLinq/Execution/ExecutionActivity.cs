@@ -7,6 +7,20 @@ namespace DataLinq.Execution;
 /// <summary>Owned activity finalization; observer failures are diagnostic facts, never admission authority.</summary>
 internal static class ExecutionActivity
 {
+    internal static bool RestoreCurrent(Activity? caller, ref ExecutionFailures? failures, ExecutionOperationKind operation)
+    {
+        if (caller is { IsStopped: true }) caller = null;
+        if (ReferenceEquals(Activity.Current, caller)) return true;
+        var reportingScope = ExecutionFailureScope.Current;
+        using var restoration = ExecutionFailureScope.Begin();
+        try { Activity.Current = caller; return true; }
+        catch (Exception failure)
+        {
+            AddFailure(failures ??= new(reportingScope), failure, operation);
+            return false;
+        }
+    }
+
     internal static void Complete(ref Activity? activity, ref ExecutionFailures? failures, bool succeeded,
         ExecutionOperationKind operation, string? outcome = null)
     {

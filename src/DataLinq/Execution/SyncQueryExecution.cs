@@ -39,20 +39,7 @@ internal struct SyncQueryExecution(QueryTelemetryContext context, ReadExecutionI
     }
 
     internal bool RestoreCurrent(Activity? caller)
-    {
-        // Completion observers can stop the caller while the query is active.
-        // Do not reintroduce that stopped activity into the ambient context.
-        if (caller is { IsStopped: true }) caller = null;
-        if (ReferenceEquals(Activity.Current, caller)) return true;
-        var reportingScope = ExecutionFailureScope.Current;
-        using var reporting = ExecutionFailureScope.Begin();
-        try { Activity.Current = caller; return true; }
-        catch (Exception failure)
-        {
-            ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, identity.Operation);
-            return false;
-        }
-    }
+        => ExecutionActivity.RestoreCurrent(caller, ref failures, identity.Operation);
 
     internal void RecordFailure(Exception failure, ExecutionFailureStage stage,
         ExecutionFailureCause cause = ExecutionFailureCause.Unknown)

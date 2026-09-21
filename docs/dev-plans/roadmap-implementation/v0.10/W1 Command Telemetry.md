@@ -1,5 +1,5 @@
 > [!WARNING]
-> W1 provider-boundary reporting and controllable async evidence only. Native async adoption, synchronous mutation/transaction observer composition and W1 closeout remain open. Synchronous SQL logical queries are covered by the [subsequent query slice](W1%20Synchronous%20Query%20Telemetry.md).
+> W1 provider-boundary reporting and controllable async evidence only. Native async adoption, synchronous transaction observer composition and W1 closeout remain open. Synchronous SQL logical queries and tracked mutations are covered by the subsequent [query](W1%20Synchronous%20Query%20Telemetry.md) and [mutation](W1%20Synchronous%20Mutation%20Telemetry.md) slices.
 
 # W1 Command Telemetry
 
@@ -81,6 +81,6 @@ All listed reports have complete counts, invocations and artifacts. Final runs e
 
 ## Remaining work
 
-Synchronous mutation/transaction observer composition, synchronous consumers' use of no-dispatch evidence, higher local diagnostics, full requested-operation attribution, administrative boundaries and complete cause/stage mapping remain open. This shared command helper does not claim to repair every outer synchronous provider cleanup path. Native async adoption remains W2; public and packed declarations remain W3.
+[Synchronous mutation reporting](W1%20Synchronous%20Mutation%20Telemetry.md) subsequently integrates exact command no-dispatch evidence, tracked finalization and requested Save attribution, including written-prefix and failed-initialization restrictions. Synchronous transaction observer composition, remaining consumers' use of dispatch evidence, higher local diagnostics, full requested-operation attribution, administrative boundaries and complete cause/stage mapping remain open. This shared command helper does not claim to repair every outer synchronous provider cleanup path. Native async adoption remains W2; public and packed declarations remain W3.
 
 The diagnostic scopes and async coordination require attributable cost review. No new performance capture or waiver is claimed here; earlier benchmarks do not qualify this runtime. Remaining allocation work, all six strict W0 lanes, final I/O-path mapping, internal adapter readiness and broad W1 closeout remain required. The W0-F1 official SQLite dependency gate and 0.9.2 compatibility baseline are unchanged. No packages are published.
