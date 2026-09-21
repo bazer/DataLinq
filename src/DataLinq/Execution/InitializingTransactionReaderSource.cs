@@ -61,8 +61,7 @@ internal sealed class InitializingTransactionReaderSource<T> : IAsyncTransaction
             return new(Effects: ExecutionEffects.Initialization);
         var evidence = source is IAsyncReadFailureEvidence classifier ? classifier.GetReadFailureEvidence(failure) : new();
         if (!commandStarted && ReferenceEquals(failure, beforeCommandCancellation))
-            return evidence with { Cause = ExecutionFailureCause.Cancellation,
-                Effects = ExecutionEffects.NoStatement, Integrity = TransactionIntegrity.Confirmed };
+            return evidence.WithNoDispatch(ExecutionFailureCause.Cancellation);
         return evidence;
     }
 }

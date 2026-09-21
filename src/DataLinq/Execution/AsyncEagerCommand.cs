@@ -96,7 +96,6 @@ internal sealed class AsyncEagerCommand : IAsyncReadFailureEvidence
         if (initialization?.State == TransactionInitializationState.Failed)
             return new(Effects: ExecutionEffects.Initialization);
         var evidence = access is IAsyncReadFailureEvidence classifier ? classifier.GetReadFailureEvidence(failure) : new();
-        return Dispatched ? evidence
-            : evidence with { Effects = ExecutionEffects.NoStatement, Integrity = TransactionIntegrity.Confirmed };
+        return Dispatched ? evidence : evidence.WithNoDispatch();
     }
 }
