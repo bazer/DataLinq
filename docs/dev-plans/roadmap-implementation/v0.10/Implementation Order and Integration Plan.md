@@ -184,7 +184,9 @@ Exit gate:
 
 ### W1: Internal Async And Cancellation Contracts
 
-The [no-dispatch recovery restriction follow-through](W1%20No-Dispatch%20Recovery%20Restrictions.md) prevents five async adapters from erasing provider Initialization/Lost evidence and shares its failure-only normalization with synchronous raw execution. All 30 new cases and 4,944 broad local cases pass. Eager read/relation assessment scopes, complete classification/preflight/I/O mapping, adapter readiness and all six final W0 performance lanes remain open.
+The [settled failure occurrence follow-through](W1%20Settled%20Failure%20Occurrences.md) isolates post-cleanup conversion, buffered reader cleanup, optional assessment and recovery-policy getters, and preserves initialization diagnostics and stack before cleanup can overwrite a reused exception. Its 40 new cases pass within 4,984 broad local passes. Complete classification/preflight/per-row/I/O mapping, adapter readiness and all six final W0 performance lanes remain open; added successful-path scope costs remain unmeasured.
+
+The preceding [no-dispatch recovery restriction follow-through](W1%20No-Dispatch%20Recovery%20Restrictions.md) prevents five async adapters from erasing provider Initialization/Lost evidence and shares its failure-only normalization with synchronous raw execution. All 30 new cases and 4,944 broad local cases pass. Its eager read/relation assessment gap is addressed by the follow-through above.
 
 The preceding [raw execution diagnostics slice](W1%20Raw%20Execution%20Diagnostics.md) carries standalone actual/absent provider identity through eager and reader failures, consumes current command-specific synchronous no-dispatch evidence and isolates cleanup/assessment occurrences. Its 116 new cases pass within 4,914 broad local passes. Its async no-dispatch restriction gap is addressed by the follow-through above.
 

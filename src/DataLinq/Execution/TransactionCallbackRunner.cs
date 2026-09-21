@@ -80,8 +80,11 @@ internal static class TransactionCallbackRunner
         }
 
         var recovery = ExecutionRecoveryActions.Dispose;
-        try { recovery = resource.Recovery; }
-        catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Recovery); }
+        using (ExecutionFailureScope.Begin())
+        {
+            try { recovery = resource.Recovery; }
+            catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Recovery, fallbackOperation: callbackOperation); }
+        }
         var cleanup = new AutomaticTransactionRecovery(gate, owner, resource, settings, failures,
             completion, recovery, transactionId, timeProvider);
         await cleanup.DisposeAsync().ConfigureAwait(false);

@@ -10,6 +10,7 @@ internal static class SyncRawExecution
         Func<TValue, TResult> convert, string? providerInstanceId = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
+        var reportingScope = ExecutionFailureScope.Current;
         const string operation = "execute a synchronous raw command";
         transaction?.EnsureCanRead(operation, operationKind: ExecutionOperationKind.RawCommand);
         command.Reserve(kind, transaction is not null);
@@ -22,8 +23,9 @@ internal static class SyncRawExecution
         var result = default(TResult)!;
         if (failures is null)
         {
+            using var conversionDiagnostics = ExecutionFailureScope.Begin();
             try { result = convert(value); }
-            catch (Exception failure) { (failures = new()).AddReported(failure, ExecutionFailureStage.Materialization, ExecutionFailureCause.MaterializationError); }
+            catch (Exception failure) { (failures = new(reportingScope)).AddReported(failure, ExecutionFailureStage.Materialization, ExecutionFailureCause.MaterializationError); }
         }
         PublishFailure(command, failures, transaction, ownership, providerInstanceId);
         failures?.ThrowIfAny();

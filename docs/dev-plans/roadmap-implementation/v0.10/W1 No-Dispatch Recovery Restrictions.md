@@ -43,6 +43,8 @@ Reports remain local, unmodified and unuploaded, with full invocation/artifact m
 
 ## Remaining W1 gates
 
+The subsequent [settled failure occurrence slice](W1%20Settled%20Failure%20Occurrences.md) addresses eager read/relation assessment, post-cleanup conversion, buffered reader cleanup, initialization capture and recovery-policy getter occurrences with 40 new cases. The remaining statements below describe this earlier checkpoint; the complete inventory and performance gates are still open.
+
 The helper replaces existing failure-path record copies; it adds no successful-path call, scope or resource capture. This is not a new performance measurement. The complete occurrence/cause/stage/preflight inventory, eager read and relation assessment boundaries, final cross-family I/O mapping, internal adapter readiness and measured coordination costs remain open. All six strict .NET 10 W0 performance lanes and final requirement-to-code/test/merged-PR audit remain mandatory.
 
 This does not establish native provider classification/fidelity (W2), public declarations/consumers (W3), or release acceptance. W0-F1's limited internal exception and the published 0.9.2 compatibility baseline remain unchanged; no packages are published.

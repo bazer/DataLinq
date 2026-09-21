@@ -68,12 +68,19 @@ internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, 
         }
         catch (Exception failure)
         {
+            var failures = CaptureInitializationFailure(failure, CancellationToken.None, step.Kind);
             Publish(new(TransactionInitializationState.Failed, Failure: new(failure, null)));
             Exception? cleanupFailure = null;
-            try { owned?.Dispose(); owned = null; }
-            catch (Exception cleanup) { cleanupFailure = cleanup; }
+            if (owned is not null)
+            {
+                using var cleanupDiagnostics = ExecutionFailureScope.Begin();
+                try { owned.Dispose(); owned = null; }
+                catch (Exception cleanup) { cleanupFailure = cleanup; failures.AddCleanup(cleanup); }
+            }
             Publish(new(TransactionInitializationState.Failed, Failure: new(failure, cleanupFailure)));
-            ReportInitializationFailure(failure, cleanupFailure, CancellationToken.None);
+            ReportInitializationFailure(failures, step.Kind);
+            // Cleanup may throw the same instance and overwrite its live stack.
+            failures.ThrowIfAny();
             throw;
         }
     }
@@ -105,17 +112,18 @@ internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, 
         }
         catch (Exception failure)
         {
+            var failures = CaptureInitializationFailure(failure, cancellationToken, step.Kind);
             Publish(new(TransactionInitializationState.Failed, Failure: new(failure, null)));
             Exception? cleanupFailure = null;
-            try
+            if (owned is not null)
             {
-                if (owned is not null)
-                    await owned.DisposeAsync().ConfigureAwait(false);
-                owned = null;
+                using var cleanupDiagnostics = ExecutionFailureScope.Begin();
+                try { await owned.DisposeAsync().ConfigureAwait(false); owned = null; }
+                catch (Exception cleanup) { cleanupFailure = cleanup; failures.AddCleanup(cleanup); }
             }
-            catch (Exception cleanup) { cleanupFailure = cleanup; }
             Publish(new(TransactionInitializationState.Failed, Failure: new(failure, cleanupFailure)));
-            ReportInitializationFailure(failure, cleanupFailure, cancellationToken);
+            ReportInitializationFailure(failures, step.Kind);
+            failures.ThrowIfAny();
             throw;
         }
     }
@@ -186,7 +194,7 @@ internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, 
         public void Dispose() => Volatile.Write(ref resource.activeCall, 0);
     }
 
-    private void ReportInitializationFailure(Exception failure, Exception? cleanup, CancellationToken token)
+    private static ExecutionFailures CaptureInitializationFailure(Exception failure, CancellationToken token, ExecutionOperationKind operation)
     {
         var failures = new ExecutionFailures();
         var cause = failure is OperationCanceledException canceled &&
@@ -194,12 +202,15 @@ internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, 
                 ? ExecutionFailureCause.Cancellation : ExecutionFailureContexts.GetCurrent(failure)?.Cause ?? ExecutionFailureCause.Unknown;
         // Initialization is the enclosing boundary; import any nested cleanup details
         // without allowing an older exception attachment to change that boundary.
-        failures.Add(failure, cause, ExecutionFailureStage.Initialization);
+        failures.Add(failure, cause, ExecutionFailureStage.Initialization, operation);
         failures.AddReported(failure, ExecutionFailureStage.Initialization);
-        if (cleanup is not null) failures.AddCleanup(cleanup);
-        ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(Effects: ExecutionEffects.Initialization),
-            ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, gate.TransactionId));
+        return failures;
     }
+
+    private void ReportInitializationFailure(ExecutionFailures failures, ExecutionOperationKind operation) =>
+        ExecutionFailureContexts.Attach(failures.Primary!, failures.Snapshot(new(Effects: ExecutionEffects.Initialization),
+            ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, gate.TransactionId,
+            operation, gate.ProviderInstanceId, providerIdentityIsAuthoritative: true));
 
     private void Publish(Snapshot value) => Volatile.Write(ref snapshot, value);
 }

@@ -13,6 +13,7 @@ internal static class AsyncScalarRead
         QueryTelemetryContext telemetryContext = default)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
+        var reportingScope = ExecutionFailureScope.Current;
         const string operation = "execute an asynchronous scalar query";
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(convert);
@@ -42,15 +43,13 @@ internal static class AsyncScalarRead
             cause = ExecutionFailureCause.MaterializationError;
             // A request arriving after completed scalar execution/cleanup cannot undo
             // success. Conversion is local and remains inside transaction admission.
-            result = convert(value);
-            succeeded = true;
+            using (ExecutionFailureScope.Begin())
+            {
+                try { result = convert(value); succeeded = true; }
+                catch (Exception failure) { Record(failure); }
+            }
         }
-        catch (Exception failure)
-        {
-            failures = new ExecutionFailures();
-            failures.AddReported(failure, stage, failure is OperationCanceledException canceled &&
-                canceled.CancellationToken == token && token.IsCancellationRequested ? ExecutionFailureCause.Cancellation : cause);
-        }
+        catch (Exception failure) { Record(failure); }
         telemetry.Complete(ref failures, succeeded);
         if (failures?.Primary is { } primary)
         {
@@ -58,11 +57,12 @@ internal static class AsyncScalarRead
             var assessmentSucceeded = true;
             if (source is IAsyncReadFailureEvidence classifier)
             {
+                using var assessmentDiagnostics = ExecutionFailureScope.Begin();
                 try { evidence = classifier.GetReadFailureEvidence(primary) ?? throw new InvalidOperationException("The provider returned no failure evidence."); }
                 catch (Exception assessment)
                 {
                     assessmentSucceeded = false;
-                    failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery);
+                    failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, identity.Operation);
                 }
             }
             var recovery = ownership is null ? ExecutionRecoveryActions.None
@@ -75,5 +75,9 @@ internal static class AsyncScalarRead
             failures.ThrowIfAny();
         }
         return result;
+
+        void Record(Exception failure) => (failures ??= new(reportingScope)).AddReported(failure, stage,
+            failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
+                ? ExecutionFailureCause.Cancellation : cause);
     }
 }
