@@ -13,10 +13,11 @@ internal struct MutationExecutionTelemetry(DataLinqTelemetryContext context, str
     private bool started;
     private bool completed;
 
-    internal void Start()
+    internal void Start(bool createActivity = true)
     {
         started = true;
         startedAt = Stopwatch.GetTimestamp();
+        if (!createActivity) return;
         // Capture ownership before Start invokes fallible observers.
         activity = DataLinqTelemetry.CreateMutationActivity(context, tableName, mutationType, transactionType);
         activity?.Start();

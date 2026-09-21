@@ -100,8 +100,9 @@ public abstract partial class DatabaseTransaction : DatabaseAccess, IDisposable
         transactionTelemetryStarted = true;
         transactionStartedTimestamp = Stopwatch.GetTimestamp();
         ExecutionFailures? failures = null;
-        using (ExecutionFailureScope.Begin())
+        if (DataLinqTelemetry.HasActivityListeners)
         {
+            using var reporting = ExecutionFailureScope.Begin();
             try
             {
                 transactionActivity = DataLinqTelemetry.CreateTransactionActivity(TelemetryContext, Type);

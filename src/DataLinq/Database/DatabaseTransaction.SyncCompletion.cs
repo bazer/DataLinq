@@ -41,8 +41,9 @@ public abstract partial class DatabaseTransaction
         var caller = Activity.Current;
         var reportingScope = ExecutionFailureScope.Current;
         ExecutionFailures? failures = null;
-        using (ExecutionFailureScope.Begin())
+        if (DataLinqTelemetry.HasActivityListeners)
         {
+            using var reporting = ExecutionFailureScope.Begin();
             try
             {
                 transactionActivity = DataLinqTelemetry.CreateTransactionActivity(TelemetryContext, Type);
