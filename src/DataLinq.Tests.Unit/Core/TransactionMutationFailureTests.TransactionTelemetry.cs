@@ -59,7 +59,7 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(context.Completion).IsEqualTo(rollback ? ExecutionCompletion.RolledBack : ExecutionCompletion.Committed);
         await Assert.That(context.Operation).IsEqualTo(rollback ? ExecutionOperationKind.Rollback : ExecutionOperationKind.Commit);
         await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.LocalFinalizationError);
-        await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Finalization);
+        await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Notification);
         var secondary = managedStatusFails ? new Exception[] { managedStatus, counter, duration, stop }
             : statusFails ? [counter, duration, stop] : [duration, stop];
         await Assert.That(context.SecondaryFailures.Select(item => item.Exception).SequenceEqual(secondary)).IsTrue();

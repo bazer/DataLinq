@@ -171,7 +171,7 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(context.SecondaryFailures.Count).IsEqualTo(expectedSecondary.Length);
         for (var index = 0; index < expectedSecondary.Length; index++)
             await Assert.That(context.SecondaryFailures[index].Exception).IsSameReferenceAs(expectedSecondary[index]);
-        await Assert.That(context.SecondaryFailures.All(failure => failure.Stage == ExecutionFailureStage.Finalization)).IsTrue();
+        await Assert.That(context.SecondaryFailures.All(failure => failure.Stage == ExecutionFailureStage.Notification)).IsTrue();
         await Assert.That(metrics.Counters.Count).IsEqualTo(1);
         await Assert.That(metrics.Durations.Count).IsEqualTo(1);
         await Assert.That(activities.Stopped.Count).IsEqualTo(1);
@@ -207,7 +207,7 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(metrics.Counters.Single().Outcome).IsEqualTo("failure");
         await Assert.That(metrics.Durations.Count).IsEqualTo(1);
         await Assert.That(activities.Stopped.Count).IsEqualTo(phase == "start" ? 1 : 0);
-        await Assert.That(ExecutionFailureContexts.Get(error)!.Stage).IsEqualTo(ExecutionFailureStage.Finalization);
+        await Assert.That(ExecutionFailureContexts.Get(error)!.Stage).IsEqualTo(ExecutionFailureStage.Notification);
         await Assert.That(Activity.Current).IsSameReferenceAs(caller);
         using (transaction.ExecutionGate.Enter("reporting finished")) { }
         // The owned command source establishes no-statement evidence before dispatch,

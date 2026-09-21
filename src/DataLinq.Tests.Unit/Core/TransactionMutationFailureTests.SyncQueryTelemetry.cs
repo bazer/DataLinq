@@ -418,7 +418,7 @@ public sealed partial class TransactionMutationFailureTests
         var context = ExecutionFailureContexts.Get(failure)!;
         await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.LocalFinalizationError);
         await Assert.That(context.Operation).IsEqualTo(ExecutionOperationKind.Query);
-        await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Finalization);
+        await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Notification);
         await Assert.That(context.Completion).IsEqualTo(ExecutionCompletion.NotAttempted);
         await Assert.That(context.SecondaryFailures).IsEmpty();
         await Assert.That(context.HasCleanupFailure).IsFalse();

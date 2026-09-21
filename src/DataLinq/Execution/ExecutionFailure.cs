@@ -15,7 +15,7 @@ internal enum ExecutionOperationKind
     Dispose, TransactionCallback, RawCommand, MetadataRead, SchemaValidation, ExistenceCheck,
     Provisioning, ProviderConfiguration
 }
-internal enum ExecutionFailureStage { Validation, Initialization, CommandExecution, RowLoading, Materialization, Cleanup, Recovery, Callback, Commit, Finalization, Unknown }
+internal enum ExecutionFailureStage { Validation, Initialization, CommandExecution, RowLoading, Materialization, Cleanup, Recovery, Callback, Commit, Finalization, Unknown, Notification, CacheRecovery }
 internal enum ExecutionCompletion { NotApplicable, NotAttempted, Committed, RolledBack, Unknown }
 internal enum ExecutionEffects { Unknown, NoStatement, OrdinaryRead, Mutation, Initialization }
 internal enum TransactionIntegrity { Unknown, Confirmed, Lost }
@@ -76,8 +76,8 @@ internal sealed class ExecutionFailureContext
         ProviderInstanceId = providerInstanceId;
         ActiveOperation = activeOperation;
         SecondaryFailures = Array.AsReadOnly(secondaryFailures.ToArray());
-        HasCleanupFailure = hasCleanupFailure || stage == ExecutionFailureStage.Cleanup ||
-            SecondaryFailures.Any(x => x.Stage == ExecutionFailureStage.Cleanup);
+        HasCleanupFailure = hasCleanupFailure || stage is ExecutionFailureStage.Cleanup or ExecutionFailureStage.CacheRecovery ||
+            SecondaryFailures.Any(x => x.Stage is ExecutionFailureStage.Cleanup or ExecutionFailureStage.CacheRecovery);
     }
 
     internal ExecutionFailureContext AfterRecovery(ExecutionCompletion completion, ExecutionRecoveryActions recovery) =>
@@ -127,6 +127,12 @@ internal sealed class ExecutionFailures
     internal bool HasCleanupFailure { get; private set; }
     internal Exception? FirstCleanupFailure { get; private set; }
 
+    internal void RecordCleanupFailure(Exception exception)
+    {
+        HasCleanupFailure = true;
+        FirstCleanupFailure ??= exception;
+    }
+
     internal void Add(Exception exception, ExecutionFailureCause failureCause, ExecutionFailureStage failureStage,
         ExecutionOperationKind failureOperation = ExecutionOperationKind.Unknown)
     {
@@ -141,11 +147,8 @@ internal sealed class ExecutionFailures
     private void AddCore(Exception exception, ExecutionFailureCause failureCause, ExecutionFailureStage failureStage,
         ExecutionOperationKind observedOperation, ExecutionFailureContext? context)
     {
-        if (failureStage == ExecutionFailureStage.Cleanup)
-        {
-            HasCleanupFailure = true;
-            FirstCleanupFailure ??= exception;
-        }
+        if (failureStage is ExecutionFailureStage.Cleanup or ExecutionFailureStage.CacheRecovery)
+            RecordCleanupFailure(exception);
         if (primary is null)
         {
             primary = ExceptionDispatchInfo.Capture(exception);

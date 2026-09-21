@@ -64,7 +64,7 @@ public sealed partial class TransactionMutationFailureTests
         var secondary = phase == "success" ? reports.Skip(1).ToArray()
             : phase == "provider-cleanup" ? new[] { commandCleanup }.Concat(reports).ToArray() : reports;
         await Assert.That(context.SecondaryFailures.Select(item => item.Exception).SequenceEqual(secondary)).IsTrue();
-        await Assert.That(context.SecondaryFailures.Skip(phase == "provider-cleanup" ? 1 : 0).All(item => item.Stage == ExecutionFailureStage.Finalization &&
+        await Assert.That(context.SecondaryFailures.Skip(phase == "provider-cleanup" ? 1 : 0).All(item => item.Stage == ExecutionFailureStage.Notification &&
             item.Cause == ExecutionFailureCause.LocalFinalizationError && item.Operation == ExecutionOperationKind.Save)).IsTrue();
         await Assert.That(context.Operation).IsEqualTo(phase == "cleanup" ? ExecutionOperationKind.Dispose : ExecutionOperationKind.Save);
         await Assert.That(context.TransactionId).IsEqualTo((uint?)transaction.TransactionID);
@@ -104,7 +104,7 @@ public sealed partial class TransactionMutationFailureTests
         var context = ExecutionFailureContexts.Get(failure)!;
         await Assert.That(context.Operation).IsEqualTo(ExecutionOperationKind.Save);
         await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.LocalFinalizationError);
-        await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Finalization);
+        await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Notification);
         await Assert.That(context.Recovery.HasFlag(ExecutionRecoveryActions.Continue)).IsTrue();
         await Assert.That(factory.Commands.Single().Creates).IsEqualTo(0);
         await Assert.That(transaction.IsPoisoned).IsFalse();
