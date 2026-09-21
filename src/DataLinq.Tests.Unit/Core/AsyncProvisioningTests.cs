@@ -14,7 +14,7 @@ using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
-public sealed class AsyncProvisioningTests
+public sealed partial class AsyncProvisioningTests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
     private static int registrationId = 71000;
@@ -467,8 +467,9 @@ public sealed class AsyncProvisioningTests
         internal int Creates { get; private set; }
         internal Exception? ValidationFailure { get; set; }
         internal Exception? CreationFailure { get; set; }
+        internal Func<IAsyncProvisioningSession>? Creating { get; set; }
         public void Validate() { Validations++; if (ValidationFailure is not null) throw ValidationFailure; }
-        public IAsyncProvisioningSession CreateSession() { Creates++; if (CreationFailure is not null) throw CreationFailure; return session; }
+        public IAsyncProvisioningSession CreateSession() { Creates++; if (CreationFailure is not null) throw CreationFailure; return Creating is { } create ? create() : session; }
     }
 
     private sealed class ProvisioningSession(ControlledOwnedCommandFactory owned) : IAsyncProvisioningSession

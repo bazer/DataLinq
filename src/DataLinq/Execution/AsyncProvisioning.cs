@@ -73,10 +73,16 @@ internal static class AsyncProvisioning
         IAsyncProvisioningSession? session = null;
         ExecutionFailures? failures = null;
         var stage = ExecutionFailureStage.Validation;
+        var localCause = ExecutionFailureCause.Unknown;
         var result = 0;
         try
         {
-            session = plan.CreateSession() ?? throw new InvalidOperationException("Provisioning created no execution session.");
+            session = plan.CreateSession();
+            if (session is null)
+            {
+                localCause = ExecutionFailureCause.InvalidOperation;
+                throw new InvalidOperationException("Provisioning created no execution session.");
+            }
             // Capture both collaborators before initialization suspends. The command
             // factory is already bound to the provider's captured script and settings.
             var execution = new OwnedCommandExecution(session.Access, session.CommandFactory);
@@ -94,12 +100,16 @@ internal static class AsyncProvisioning
         {
             (failures ??= new()).AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.Provisioning);
+                    ? ExecutionFailureCause.Cancellation : localCause, ExecutionOperationKind.Provisioning);
         }
         finally
         {
-            try { if (session is not null) await session.DisposeAsync().ConfigureAwait(false); }
-            catch (Exception cleanup) { (failures ??= new()).AddCleanup(cleanup); }
+            if (session is not null)
+            {
+                using var cleanupScope = ExecutionFailureScope.Begin();
+                try { await session.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception cleanup) { (failures ??= new()).AddCleanup(cleanup); }
+            }
         }
         if (failures?.Primary is { } primary)
         {

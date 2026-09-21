@@ -184,6 +184,8 @@ Exit gate:
 
 ### W1: Internal Async And Cancellation Contracts
 
+The subsequent [administrative session diagnostics slice](W1%20Administrative%20Session%20Diagnostics.md) isolates each session-cleanup and availability-classifier occurrence and classifies known missing-session guards without guessing provider causes. Its 32 new cases pass within 4,798 broad local passes. Standalone raw attribution, remaining dispatch-evidence consumers, complete classification/I/O mapping, adapter readiness and measured coordination costs remain open.
+
 The [administrative failure classification follow-through](W1%20Administrative%20Failure%20Classification.md) distinguishes local probe/parser failures, known incomplete-result/command-lifetime violations and scoped logger notifications. Its 26 new cases and six strengthened metadata cases pass within 4,766 broad local passes. Administrative session/preflight attribution, standalone provider/raw paths, complete I/O mapping, adapter readiness and all six final W0 performance lanes remain open.
 
 Execution record and PR-sized slices: [W1 internal execution contracts](W1%20Internal%20Execution%20Contracts.md). The command/reader acquisition foundation is internal and is not wired into production providers. The [transaction ownership and initialization foundation](W1%20Transaction%20Ownership%20and%20Initialization.md) shares leases with the existing synchronous mutation/completion guard, while native initialization, complete transaction/source orchestration and the full W1 exit gate remain open.

@@ -608,7 +608,7 @@ public sealed partial class TransactionMutationFailureTests
         internal MetadataPlan(MetadataHarness harness, MetadataReadSettings settings, string identity)
         { this.harness = harness; harness.Settings = settings; harness.Identity = identity; }
         public void Validate() => harness.Validate(harness.Settings!.CommandTimeoutSeconds);
-        public IAsyncMetadataSession CreateSession() => harness.Session;
+        public IAsyncMetadataSession CreateSession() => harness.Creating is { } create ? create() : harness.Session;
         public Task<Option<DatabaseDefinition, IDLOptionFailure>> ReadAsync(MetadataReadContext context, CancellationToken token)
         {
             harness.Context = context;
@@ -632,6 +632,7 @@ public sealed partial class TransactionMutationFailureTests
         internal Dictionary<string, MetadataQuery> Queries { get; } = [];
         internal List<string> Executed { get; } = [];
         internal MetadataSession Session { get; }
+        internal Func<IAsyncMetadataSession>? Creating { get; set; }
         internal MetadataReadSettings? Settings { get; set; }
         internal string Identity { get; set; } = "destination";
         internal bool SupportsTimeout { get; set; } = true;

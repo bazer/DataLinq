@@ -438,7 +438,7 @@ public sealed partial class TransactionMutationFailureTests
             var create = Creating;
             var local = LocalRead;
             var classify = Classify;
-            IAsyncExistenceProbeSession Create() { Creates++; return create?.Invoke() ?? Session; }
+            IAsyncExistenceProbeSession Create() { Creates++; return create is { } factory ? factory() : Session; }
             bool ClassifyFailure(Exception failure) { Classifications++; return classify(failure); }
             return Shape switch
             {

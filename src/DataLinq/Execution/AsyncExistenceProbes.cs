@@ -111,6 +111,7 @@ internal static class AsyncExistenceProbes
         IAsyncExistenceProbeSession? session = null;
         var failures = new ExecutionFailures();
         var stage = ExecutionFailureStage.Validation;
+        var localCause = ExecutionFailureCause.Unknown;
         var result = false;
         try
         {
@@ -125,7 +126,12 @@ internal static class AsyncExistenceProbes
             {
                 // Construction is I/O-free and transfers ownership only on success.
                 // The creator must clean any partial construction it cannot hand off.
-                session = plan.CreateSession!() ?? throw new InvalidOperationException("Probe capture created no session.");
+                session = plan.CreateSession!();
+                if (session is null)
+                {
+                    localCause = ExecutionFailureCause.InvalidOperation;
+                    throw new InvalidOperationException("Probe capture created no session.");
+                }
                 var execution = new OwnedCommandExecution(session.Access, session.CommandFactory);
                 execution.Validate(plan.CommandKind);
                 token.ThrowIfCancellationRequested();
@@ -156,12 +162,17 @@ internal static class AsyncExistenceProbes
             failures.AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
                     ? ExecutionFailureCause.Cancellation : stage == ExecutionFailureStage.Materialization
-                        ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown, ExecutionOperationKind.ExistenceCheck);
+                        ? ExecutionFailureCause.MaterializationError : localCause, ExecutionOperationKind.ExistenceCheck);
         }
         finally
         {
-            try { if (session is not null) await session.DisposeAsync().ConfigureAwait(false); }
-            catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+            if (session is not null)
+            {
+                // A disposal occurrence cannot inherit a settled command's report.
+                using var cleanupScope = ExecutionFailureScope.Begin();
+                try { await session.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+            }
         }
         if (failures.Primary is null)
         {
@@ -179,6 +190,7 @@ internal static class AsyncExistenceProbes
             context.Stage is ExecutionFailureStage.Initialization or ExecutionFailureStage.CommandExecution or ExecutionFailureStage.RowLoading &&
             !context.HasCleanupFailure && context.SecondaryFailures.Count == 0 && plan.IsExpectedAvailabilityFailure is { } classify)
         {
+            using var classificationScope = ExecutionFailureScope.Begin();
             var expected = false;
             try { expected = classify(primary); }
             catch (Exception classificationFailure)
