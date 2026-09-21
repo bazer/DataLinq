@@ -135,6 +135,7 @@ internal sealed class ControlledAsyncDataReader(int[]? values = null) : IAsyncDa
     internal bool AllowSynchronousCalls { get; set; }
     internal Exception? SyncDisposalFailure { get; set; }
     internal Action? SyncDisposing { get; set; }
+    internal Action? Reading { get; set; }
 
     public async Task<bool> ReadNextRowAsync(CancellationToken cancellationToken)
     {
@@ -142,6 +143,7 @@ internal sealed class ControlledAsyncDataReader(int[]? values = null) : IAsyncDa
         cancellationToken.ThrowIfCancellationRequested();
         AsyncReadCalls++;
         await Advance.ReachAsync(cancellationToken).ConfigureAwait(false);
+        Reading?.Invoke();
         return ++position < rows.Length;
     }
 

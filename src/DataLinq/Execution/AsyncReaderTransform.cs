@@ -31,8 +31,17 @@ internal static class AsyncReaderTransform
         {
             var values = input.Continuation is { } continuation
                 ? await continuation.CompleteAsync(owner, token).ConfigureAwait(false) : rows;
-            token.ThrowIfCancellationRequested();
-            return transform(values, token);
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+            try
+            {
+                token.ThrowIfCancellationRequested();
+                return transform(values, token);
+            }
+            catch (Exception failure)
+            {
+                ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
+                throw;
+            }
         }
         public ReadFailureEvidence GetReadFailureEvidence(Exception failure) =>
             (input.Continuation as IAsyncReadFailureEvidence ?? input.Source as IAsyncReadFailureEvidence)?.GetReadFailureEvidence(failure) ?? new();

@@ -184,7 +184,9 @@ Exit gate:
 
 ### W1: Internal Async And Cancellation Contracts
 
-The [settled failure occurrence follow-through](W1%20Settled%20Failure%20Occurrences.md) isolates post-cleanup conversion, buffered reader cleanup, optional assessment and recovery-policy getters, and preserves initialization diagnostics and stack before cleanup can overwrite a reused exception. Its 40 new cases pass within 4,984 broad local passes. Complete classification/preflight/per-row/I/O mapping, adapter readiness and all six final W0 performance lanes remain open; added successful-path scope costs remain unmeasured.
+The [materialization occurrence follow-through](W1%20Materialization%20Failure%20Occurrences.md) adds report checkpoints between row conversion, buffered completion, nested transforms and post-reader relation completion, and uses captured continuation completion/recovery through late observers. Its 30 new cases pass within 5,014 broad local passes. Checkpoint capture allocates no per-row object in the bounded control; full coordination/failure-reporting costs, classification/preflight/per-model/I/O mapping, adapter readiness and all six final W0 performance lanes remain open.
+
+The preceding [settled failure occurrence follow-through](W1%20Settled%20Failure%20Occurrences.md) isolates post-cleanup conversion, buffered reader cleanup, optional assessment and recovery-policy getters, and preserves initialization diagnostics and stack before cleanup can overwrite a reused exception. Its 40 new cases pass within 4,984 broad local passes. Subsequent row/completion evidence is above; added successful-path scope costs remain unmeasured.
 
 The preceding [no-dispatch recovery restriction follow-through](W1%20No-Dispatch%20Recovery%20Restrictions.md) prevents five async adapters from erasing provider Initialization/Lost evidence and shares its failure-only normalization with synchronous raw execution. All 30 new cases and 4,944 broad local cases pass. Its eager read/relation assessment gap is addressed by the follow-through above.
 

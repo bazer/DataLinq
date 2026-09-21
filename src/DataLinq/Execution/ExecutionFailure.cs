@@ -135,6 +135,7 @@ internal sealed class ExecutionFailures
     private CommandDispatchEvidence? commandDispatch;
     private readonly List<ExecutionSecondaryFailure> secondary = [];
     internal Exception? Primary => primary?.SourceException;
+    internal ExecutionFailureContext? PrimaryContext { get; private set; }
     internal bool HasCleanupFailure { get; private set; }
     internal Exception? FirstCleanupFailure { get; private set; }
 
@@ -163,6 +164,7 @@ internal sealed class ExecutionFailures
         if (primary is null)
         {
             primary = ExceptionDispatchInfo.Capture(exception);
+            PrimaryContext = context;
             cause = failureCause;
             stage = failureStage;
             operation = observedOperation;
@@ -246,17 +248,35 @@ internal sealed class ExecutionFailures
 /// <summary>Direct exception lookup; snapshots contain no live transaction, command or connection.</summary>
 internal static class ExecutionFailureContexts
 {
-    private sealed class Holder { internal ExecutionFailureContext? Value; }
+    private sealed record Report(ExecutionFailureContext Context, long Sequence);
+    private sealed class Holder { internal Report? Value; }
     private static readonly ConditionalWeakTable<Exception, Holder> contexts = new();
+    private static long sequence;
 
     internal static ExecutionFailureContext? Get(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
-        return contexts.TryGetValue(exception, out var holder) ? Volatile.Read(ref holder.Value) : null;
+        return contexts.TryGetValue(exception, out var holder) ? Volatile.Read(ref holder.Value)?.Context : null;
     }
 
     internal static void Attach(Exception exception, ExecutionFailureContext context) =>
-        Volatile.Write(ref contexts.GetValue(exception, static _ => new Holder()).Value, context);
+        Volatile.Write(ref contexts.GetValue(exception, static _ => new Holder()).Value,
+            new(context, Interlocked.Increment(ref sequence)));
+
+    // A row/local-work boundary needs no successful-path allocation or AsyncLocal
+    // write. Sequence is process-local diagnostic provenance, never public identity.
+    internal static long CaptureOccurrence() => Volatile.Read(ref sequence);
+
+    // A new throw without a new report must not expose an earlier occurrence's
+    // attachment to enclosing coordinators. Existing snapshots remain immutable;
+    // compare/exchange cannot remove a concurrently replaced, newer report.
+    internal static void DiscardEarlierReport(Exception exception, long checkpoint)
+    {
+        if (!contexts.TryGetValue(exception, out var holder)) return;
+        var report = Volatile.Read(ref holder.Value);
+        if (report is not null && report.Sequence <= checkpoint)
+            Interlocked.CompareExchange(ref holder.Value, null, report);
+    }
 
     internal static ExecutionFailureContext? GetCurrent(Exception exception) =>
         GetObserved(exception, ExecutionFailureScope.Current);
