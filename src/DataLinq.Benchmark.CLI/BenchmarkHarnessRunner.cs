@@ -36,6 +36,25 @@ internal sealed class BenchmarkHarnessRunner
     internal const string V09MemoryReadCategory = "v0.9-memory-read";
     internal const string AllocationRegressionCategory = "allocation-regression";
     internal const string AllocationStagesCategory = "allocation-stages";
+    internal const string W1CoordinationDiagnosticCategory = "w1-coordination-diagnostic";
+    // Diagnostic-only filter targets. Deliberately absent from ReleaseLaneMethods:
+    // adding measurements must not expand or redefine the frozen W0 target sets.
+    internal static readonly IReadOnlyDictionary<string, int> W1CoordinationOperations = new Dictionary<string, int>(StringComparer.Ordinal)
+    {
+        ["W1 diagnostic scope"] = 256,
+        ["W1 nested diagnostic scopes"] = 256,
+        ["W1 enumerator admission"] = 256,
+        ["W1 transaction admission"] = 256,
+        ["W1 empty helper lifetime"] = 256,
+        ["W1 direct reader one row"] = 1,
+        ["W1 coordinated reader one row"] = 1,
+        ["W1 direct reader sixteen rows"] = 1,
+        ["W1 coordinated reader sixteen rows"] = 1,
+        ["W1 direct reader suspended"] = 1,
+        ["W1 coordinated reader suspended"] = 1,
+        ["W1 coordinated reader shared token"] = 1,
+        ["W1 coordinated reader linked tokens"] = 1
+    };
     internal const string MacroReadWriteCategory = "macro-readwrite";
     internal const string MacroBulkCategory = "macro-bulk";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
@@ -1455,6 +1474,7 @@ internal sealed class BenchmarkHarnessRunner
             "Memory repeated entity identity" => V09MemoryReadCategory,
             "Memory direct-Guid equality count" => V09MemoryReadCategory,
             "Memory typed-ID equality count" => V09MemoryReadCategory,
+            _ when method is not null && W1CoordinationOperations.ContainsKey(method) => W1CoordinationDiagnosticCategory,
             _ => null
         };
 
@@ -1567,6 +1587,7 @@ internal sealed class BenchmarkHarnessRunner
             "CRUD workflow small" => MacroReadWriteCategory,
             "CRUD workflow" => MacroBulkCategory,
             "CRUD workflow batch" => MacroBulkCategory,
+            _ when W1CoordinationOperations.ContainsKey(method) => W1CoordinationDiagnosticCategory,
             _ => "other"
         };
 

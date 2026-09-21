@@ -1788,6 +1788,8 @@ internal static class BenchmarkEvidenceReporter
             return allocationOperations;
         }
 
+        if (BenchmarkHarnessRunner.W1CoordinationOperations.TryGetValue(method, out var coordinationOperations))
+            return coordinationOperations;
         return PublishedEmployeesOperationCounts.TryGetValue(method, out var operations) ? operations : null;
     }
 

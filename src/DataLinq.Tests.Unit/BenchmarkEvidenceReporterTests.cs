@@ -13,6 +13,73 @@ namespace DataLinq.Tests.Unit;
 public sealed class BenchmarkEvidenceReporterTests
 {
     [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task CoordinationDiagnostic_CompleteFilterCannotClaimCanonicalReleaseEvidence(bool releaseIntent)
+    {
+        using var fixture = new BenchmarkFixture();
+        var input = CreateCoordinationInput(fixture, releaseIntent);
+        var artifact = BenchmarkEvidenceReporter.CreateHistory(input);
+
+        await Assert.That(artifact.IsCompleteForInvocation).IsTrue();
+        await Assert.That(artifact.ArtifactsComplete).IsTrue();
+        await Assert.That(artifact.Summary!.InvalidRowCount).IsEqualTo(0);
+        await Assert.That(artifact.ExpectedTargets).IsEmpty();
+        await Assert.That(artifact.ValidForEvidence).IsFalse();
+        await Assert.That(artifact.OverallExitCode).IsEqualTo(releaseIntent ? 1 : 0);
+        await Assert.That(BenchmarkHarnessRunner.ShouldFailRun(artifact, null, releaseIntent)).IsEqualTo(releaseIntent);
+    }
+
+    [Test]
+    [Arguments("operations")]
+    [Arguments("telemetry")]
+    [Arguments("provider")]
+    public async Task CoordinationDiagnostic_MalformedRowsRemainIncomplete(string change)
+    {
+        using var fixture = new BenchmarkFixture();
+        var input = CreateCoordinationInput(fixture, releaseIntent: false);
+        var row = input.Rows[0];
+        row = change switch
+        {
+            "operations" => row with { OperationsPerInvoke = 1, TelemetryDelta = row.TelemetryDelta! with { OperationsPerInvoke = 1 } },
+            "telemetry" => row with { TelemetryDelta = null },
+            _ => row with { TelemetryDelta = row.TelemetryDelta! with { ProviderName = "sqlite-memory" } }
+        };
+        var artifact = BenchmarkEvidenceReporter.CreateHistory(input with { Rows = [row] });
+        await Assert.That(artifact.IsCompleteForInvocation).IsFalse();
+        await Assert.That(artifact.Summary!.InvalidRowCount).IsEqualTo(1);
+        await Assert.That(artifact.ValidForEvidence).IsFalse();
+        await Assert.That(artifact.OverallExitCode).IsEqualTo(1);
+    }
+
+    private static BenchmarkHistoryCreationInput CreateCoordinationInput(BenchmarkFixture fixture, bool releaseIntent)
+    {
+        const string method = "W1 diagnostic scope";
+        const string filter = "*W1CoordinationBenchmarks.DiagnosticScope*";
+        var row = fixture.CreateRow(method, BenchmarkHarnessRunner.GetScenarioCategory(method));
+        row = row with
+        {
+            ProviderName = "controlled", OperationsPerInvoke = 256,
+            TrackingGroup = BenchmarkHarnessRunner.GetTrackingGroup(method),
+            TelemetryDelta = row.TelemetryDelta! with { ProviderName = "controlled", OperationsPerInvoke = 256 }
+        };
+        var input = fixture.CreateInput("coordination", rows: [row], releaseEvidenceIntent: releaseIntent);
+        var invocation = input.Invocation with { SelectedCategory = null, Filter = filter, ConfiguredProviderIds = ["controlled"] };
+        return input with
+        {
+            Invocation = invocation,
+            Metadata = input.Metadata with { Filter = filter },
+            Commands = input.Commands.Select(command => command with
+            {
+                Environment = command.Environment with { ProviderIds = ["controlled"] },
+                Arguments = command.Stage == "benchmark"
+                    ? [invocation.BenchmarkAssemblyPath, "--artifacts", invocation.RunArtifactsDirectory,
+                        "--filter", filter, "--join", "--disableLogFile"] : command.Arguments
+            }).ToArray()
+        };
+    }
+
+    [Test]
     [Arguments(true)]
     [Arguments(false)]
     public async Task CreateHistory_NonNet10RunnerOrRowsCannotBecomeEvidence(bool changeRunner)

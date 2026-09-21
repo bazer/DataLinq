@@ -9,7 +9,7 @@ internal static class BenchmarkTelemetryDeltaWriter
     internal const string RunIdEnvironmentVariable = "DATALINQ_BENCHMARK_RUN_ID";
     internal const string ResultsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_RESULTS_DIR";
 
-    public static void TryWrite(BenchmarkTelemetryDeltaArtifact artifact)
+    public static void TryWrite(BenchmarkTelemetryDeltaArtifact artifact, object? diagnosticEvidence = null)
     {
         var runId = Environment.GetEnvironmentVariable(RunIdEnvironmentVariable);
         var resultsDirectory = Environment.GetEnvironmentVariable(ResultsDirectoryEnvironmentVariable);
@@ -24,10 +24,20 @@ internal static class BenchmarkTelemetryDeltaWriter
             $"{runId}-{Sanitize(artifact.Method)}-{Sanitize(artifact.ProviderName)}-telemetry.json");
 
         var filePath = Path.Combine(resultsDirectory, fileName);
-        var json = JsonSerializer.Serialize(artifact, new JsonSerializerOptions
+        var options = new JsonSerializerOptions
         {
             WriteIndented = true
-        });
+        };
+        var json = JsonSerializer.Serialize(artifact, options);
+        if (diagnosticEvidence is not null)
+        {
+            // Preserve synthetic checks separately from the database telemetry
+            // dimensions. The raw receipt retains this block; no release lane or
+            // normalized baseline schema is changed by diagnostic workloads.
+            var document = JsonSerializer.SerializeToNode(artifact, options)!.AsObject();
+            document["DiagnosticEvidence"] = JsonSerializer.SerializeToNode(diagnosticEvidence, options);
+            json = document.ToJsonString(options);
+        }
 
         File.WriteAllText(filePath, json);
     }
