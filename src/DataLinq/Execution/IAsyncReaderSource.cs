@@ -49,7 +49,7 @@ internal sealed class BorrowedCommandReaderSource : IAsyncReaderSource, IAsyncRe
     public ReadFailureEvidence GetReadFailureEvidence(Exception failure)
     {
         var evidence = access is IAsyncReadFailureEvidence classifier ? classifier.GetReadFailureEvidence(failure) : new();
-        return CommandDispatched ? evidence : evidence with { Effects = ExecutionEffects.NoStatement, Integrity = TransactionIntegrity.Confirmed };
+        return CommandDispatched ? evidence : evidence.WithNoDispatch();
     }
 
     public Task<IAsyncDataReader> OpenReaderAsync(CancellationToken cancellationToken)

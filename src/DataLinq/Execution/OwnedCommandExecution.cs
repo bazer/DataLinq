@@ -148,6 +148,6 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSo
         var evidence = access is IAsyncReadFailureEvidence classifier ? classifier.GetReadFailureEvidence(failure) : new();
         // Command construction/validation cannot perform provider I/O. Cleanup failure
         // still removes Continue when the enclosing reader evaluates this evidence.
-        return dispatched ? evidence : evidence with { Effects = ExecutionEffects.NoStatement, Integrity = TransactionIntegrity.Confirmed };
+        return dispatched ? evidence : evidence.WithNoDispatch();
     }
 }

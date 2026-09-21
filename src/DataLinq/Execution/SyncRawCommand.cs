@@ -147,9 +147,7 @@ internal sealed class SyncRawCommand : ISyncRawModelReaderSource
             : new();
         // No dispatch does not bypass optional assessment or repair lost integrity.
         if (evidence.Effects == ExecutionEffects.Initialization) return evidence;
-        if (!Dispatched)
-            return evidence with { Effects = ExecutionEffects.NoStatement,
-                Integrity = evidence.Integrity == TransactionIntegrity.Lost ? TransactionIntegrity.Lost : TransactionIntegrity.Confirmed };
+        if (!Dispatched) return evidence.WithNoDispatch();
         // Raw results cannot establish read-only effects. Preserve stronger initialization
         // evidence, but never permit the ordinary-read exception after raw dispatch.
         return evidence with { Effects = ExecutionEffects.Unknown };

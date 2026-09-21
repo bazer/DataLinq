@@ -27,7 +27,18 @@ internal sealed record ReadFailureEvidence(
     ExecutionFailureCause Cause = ExecutionFailureCause.Unknown,
     ExecutionEffects Effects = ExecutionEffects.Unknown,
     TransactionIntegrity Integrity = TransactionIntegrity.Unknown,
-    bool RollbackAvailable = false);
+    bool RollbackAvailable = false)
+{
+    // Proven absence of this statement cannot undo initialization or integrity
+    // restrictions supplied by the provider. Keep its rollback and cause facts too.
+    internal ReadFailureEvidence WithNoDispatch(ExecutionFailureCause? cause = null) => this with
+    {
+        Cause = cause ?? Cause,
+        Effects = Effects == ExecutionEffects.Initialization ? Effects : ExecutionEffects.NoStatement,
+        Integrity = Effects == ExecutionEffects.Initialization || Integrity == TransactionIntegrity.Lost
+            ? Integrity : TransactionIntegrity.Confirmed
+    };
+}
 
 /// <summary>Optional, I/O-free classification of settled provider work after reader cleanup.</summary>
 internal interface IAsyncReadFailureEvidence

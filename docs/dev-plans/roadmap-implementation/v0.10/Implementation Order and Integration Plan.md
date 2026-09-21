@@ -184,7 +184,9 @@ Exit gate:
 
 ### W1: Internal Async And Cancellation Contracts
 
-The [raw execution diagnostics slice](W1%20Raw%20Execution%20Diagnostics.md) carries standalone actual/absent provider identity through eager and reader failures, consumes current command-specific synchronous no-dispatch evidence and isolates cleanup/assessment occurrences. Its 116 new cases pass within 4,914 broad local passes. Async no-dispatch restriction normalization, complete classification/preflight/I/O mapping, adapter readiness and all six final W0 performance lanes remain open.
+The [no-dispatch recovery restriction follow-through](W1%20No-Dispatch%20Recovery%20Restrictions.md) prevents five async adapters from erasing provider Initialization/Lost evidence and shares its failure-only normalization with synchronous raw execution. All 30 new cases and 4,944 broad local cases pass. Eager read/relation assessment scopes, complete classification/preflight/I/O mapping, adapter readiness and all six final W0 performance lanes remain open.
+
+The preceding [raw execution diagnostics slice](W1%20Raw%20Execution%20Diagnostics.md) carries standalone actual/absent provider identity through eager and reader failures, consumes current command-specific synchronous no-dispatch evidence and isolates cleanup/assessment occurrences. Its 116 new cases pass within 4,914 broad local passes. Its async no-dispatch restriction gap is addressed by the follow-through above.
 
 The preceding [administrative session diagnostics slice](W1%20Administrative%20Session%20Diagnostics.md) isolates each session-cleanup and availability-classifier occurrence and classifies known missing-session guards without guessing provider causes. Its 32 new cases pass within 4,798 broad local passes. Standalone raw attribution, remaining dispatch-evidence consumers, complete classification/I/O mapping, adapter readiness and measured coordination costs remained open at that checkpoint.
 

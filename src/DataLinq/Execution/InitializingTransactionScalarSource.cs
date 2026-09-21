@@ -38,7 +38,7 @@ internal sealed class InitializingTransactionScalarSource<T>(LazyTransactionReso
         if (resource.State == TransactionInitializationState.Failed) return new(Effects: ExecutionEffects.Initialization);
         var evidence = source is IAsyncReadFailureEvidence classifier ? classifier.GetReadFailureEvidence(failure) : new();
         return !commandStarted && ReferenceEquals(failure, beforeCommandCancellation)
-            ? evidence with { Cause = ExecutionFailureCause.Cancellation, Effects = ExecutionEffects.NoStatement, Integrity = TransactionIntegrity.Confirmed }
+            ? evidence.WithNoDispatch(ExecutionFailureCause.Cancellation)
             : evidence;
     }
 }
