@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Cache;
 using DataLinq.Core.Factories;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -259,6 +260,54 @@ public class InstanceFactoryTests
 
         await Assert.That(exception.Message).Contains("read-source immutable factory returned null");
         await Assert.That(exception.Message).Contains(nameof(FactoryRow));
+    }
+
+
+    [Test]
+    [Arguments("neutral", false)]
+    [Arguments("neutral", true)]
+    [Arguments("fallback", false)]
+    [Arguments("fallback", true)]
+    public async Task ModelFactoryOccurrences_EachFactoryCallOwnsItsReport(string route, bool freshReport)
+    {
+        using var scope = ExecutionFailureScope.Begin();
+        var exception = new Exception("model constructor");
+        ExecutionFailureContext? old = null;
+        ExecutionFailureContext? current = null;
+        var calls = 0;
+        IImmutableInstance Create()
+        {
+            if (++calls == 1)
+            {
+                old = new(ExecutionFailureCause.Timeout, ExecutionFailureStage.RowLoading,
+                    ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose,
+                    null, [], operation: ExecutionOperationKind.Commit);
+                ExecutionFailureContexts.Attach(exception, old);
+                return new TestImmutableInstance();
+            }
+            if (freshReport)
+            {
+                current = new(ExecutionFailureCause.ProviderError, ExecutionFailureStage.RowLoading,
+                    ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Rollback,
+                    null, [], operation: ExecutionOperationKind.KeyLookup);
+                ExecutionFailureContexts.Attach(exception, current);
+            }
+            throw exception;
+        }
+        var rowData = CreateFactoryRowData((_, _) => Create(), route == "neutral" ? (_, _) => Create() : null);
+        var source = new FakeDataSourceAccess(new MetadataOnlyDatabaseProvider(rowData.Table.Database));
+        IImmutableInstance Construct() => route switch
+        {
+            "neutral" => InstanceFactory.NewReadSourceImmutableRow(rowData, new NeutralReadSource(rowData.Table.Database)),
+            _ => InstanceFactory.NewReadSourceImmutableRow(rowData, source)
+        };
+        _ = Construct();
+        var failure = Capture<Exception>(() => Construct());
+        await Assert.That(failure).IsSameReferenceAs(exception);
+        await Assert.That(ExecutionFailureContexts.Get(failure)).IsSameReferenceAs(current);
+        await Assert.That(old!.Cause).IsEqualTo(ExecutionFailureCause.Timeout);
+        await Assert.That(old.Operation).IsEqualTo(ExecutionOperationKind.Commit);
+        await Assert.That(calls).IsEqualTo(2);
     }
 
     private static IRowData CreateFactoryRowData(

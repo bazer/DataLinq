@@ -3,6 +3,8 @@
 
 # W1 Completion Audit
 
+**Current review:** [Functional and I/O audit](W1%20Functional%20and%20IO%20Audit.md) assigns F01–F21 to the requirements below, distinguishes inspected boundaries from mapped-but-pending evidence and groups the remaining review into four finite batches. It records the per-model factory occurrence correction and 5,024 broad local passes. Historical remaining-work statements must be read with their subsequent follow-through; no requirement or performance gate is waived.
+
 **Started:** 2026-09-17. The [implementation order](Implementation%20Order%20and%20Integration%20Plan.md), [accepted API decisions](Async%20Public%20API%20Decisions.md) and [W0 I/O map](W0%20IO%20Execution%20Map.md) define the requirements; the table does not replace or narrow them. W1 means internal orchestration and controllable evidence. Native adapter feasibility belongs to W2, public declarations/consumers to W3 and runtime schema comparison to W5.
 
 Completion requires inspecting current code, tests, their actual results and merged PRs for every row. Historical green results prove their bounded slice only. Missing or indirect evidence remains open. The [limited W1 exception](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception) still does not close W0-F1 or authorize SQLite/native/public release acceptance.
