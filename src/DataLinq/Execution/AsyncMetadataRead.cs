@@ -75,7 +75,8 @@ internal static class AsyncMetadataRead
             context?.CopyFailuresTo(failures);
             failures.AddReported(failure, stage,
                 failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                    ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.MetadataRead);
+                    ? ExecutionFailureCause.Cancellation : stage == ExecutionFailureStage.Materialization
+                        ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown, ExecutionOperationKind.MetadataRead);
         }
         finally
         {
@@ -93,7 +94,7 @@ internal static class AsyncMetadataRead
             }
             catch (Exception failure)
             {
-                failures.Add(failure, failure is OperationCanceledException ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown,
+                failures.Add(failure, failure is OperationCanceledException ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.InvalidOperation,
                     ExecutionFailureStage.Materialization);
             }
         }
