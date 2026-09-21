@@ -102,7 +102,9 @@ internal static class SyncReaderCleanup
         // Keep known reader and command failures separate. Public legacy disposal keeps
         // its AggregateException contract; managed model execution can preserve its primary.
         if (reader is OwnedCommandDataReader owned) return owned.DisposeWithFailures(failures);
-        try { reader?.Dispose(); }
+        if (reader is null) return failures;
+        using var diagnostics = ExecutionFailureScope.Begin();
+        try { reader.Dispose(); }
         catch (Exception cleanup) { (failures ??= new()).AddCleanup(cleanup); }
         return failures;
     }

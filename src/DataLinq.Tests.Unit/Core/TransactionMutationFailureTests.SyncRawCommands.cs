@@ -415,6 +415,9 @@ public sealed partial class TransactionMutationFailureTests
 
     private sealed class SyncRawTestFactory : ISyncRawCommandFactory, ISyncCommandAccess, IAsyncReadFailureEvidence
     {
+        internal ScriptedDatabaseTransaction? Telemetry { get; set; }
+        internal int Assessments { get; private set; }
+        internal Action? Assessing { get; set; }
         internal ISyncCommandInitialization? Initialization { get; set; }
         internal Action? Executing { get; set; }
         internal Action? Converting { get; set; }
@@ -457,10 +460,16 @@ public sealed partial class TransactionMutationFailureTests
             Executing?.Invoke();
             if (ExecutionFailure is not null) throw ExecutionFailure;
         }
-        public IDataLinqDataReader ExecuteReader(IDbCommand command) { Execute(command, SyncCommandKind.Reader); return Reader(); }
-        public object? ExecuteScalar(IDbCommand command) { Execute(command, SyncCommandKind.Scalar); return 7; }
-        public int ExecuteNonQuery(IDbCommand command) { Execute(command, SyncCommandKind.NonQuery); return 7; }
+        private T Report<T>(IDbCommand command, string kind, Func<T> execute) =>
+            Telemetry is { } access ? access.RunCommandTelemetry(command, kind, execute) : execute();
+        public IDataLinqDataReader ExecuteReader(IDbCommand command) => Report(command, "reader", () => { Execute(command, SyncCommandKind.Reader); return Reader(); });
+        public object? ExecuteScalar(IDbCommand command) => Report<object?>(command, "scalar", () => { Execute(command, SyncCommandKind.Scalar); return 7; });
+        public int ExecuteNonQuery(IDbCommand command) => Report(command, "non_query", () => { Execute(command, SyncCommandKind.NonQuery); return 7; });
         public ReadFailureEvidence GetReadFailureEvidence(Exception failure)
-            => EvidenceFailure is { } assessment ? throw assessment : Evidence;
+        {
+            Assessments++;
+            Assessing?.Invoke();
+            return EvidenceFailure is { } assessment ? throw assessment : Evidence;
+        }
     }
 }

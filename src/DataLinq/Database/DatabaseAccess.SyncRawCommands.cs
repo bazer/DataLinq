@@ -28,8 +28,8 @@ public abstract partial class DatabaseAccess
         return ExecuteSyncScalar(invocation.Command, invocation.Convert);
     }
 
-    internal IDataLinqDataReader ExecuteReaderSyncCore(string sql) => SyncRawDataReader.Open(BindSyncRaw(sql), managedTransaction);
-    internal IDataLinqDataReader ExecuteReaderSyncCore(IDbCommand command) => SyncRawDataReader.Open(BindSyncRaw(command), managedTransaction);
+    internal IDataLinqDataReader ExecuteReaderSyncCore(string sql) => SyncRawDataReader.Open(BindSyncRaw(sql), managedTransaction, DiagnosticProviderInstanceId);
+    internal IDataLinqDataReader ExecuteReaderSyncCore(IDbCommand command) => SyncRawDataReader.Open(BindSyncRaw(command), managedTransaction, DiagnosticProviderInstanceId);
 
     internal IEnumerable<IDataLinqDataReader> ReadReaderSyncCore(string sql)
         => new GuardedEnumerable<IDataLinqDataReader>(ReadSyncRows(() => ExecuteReaderSyncCore(sql)));
@@ -44,11 +44,11 @@ public abstract partial class DatabaseAccess
 
     private int ExecuteSyncNonQuery(SyncRawCommand command)
         => SyncRawExecution.Execute(command, SyncCommandKind.NonQuery, managedTransaction,
-            static (invocation, owner) => invocation.ExecuteNonQuery(owner), static value => value);
+            static (invocation, owner) => invocation.ExecuteNonQuery(owner), static value => value, DiagnosticProviderInstanceId);
 
     private T ExecuteSyncScalar<T>(SyncRawCommand command, Func<object?, T> convert)
         => SyncRawExecution.Execute(command, SyncCommandKind.Scalar, managedTransaction,
-            static (invocation, owner) => invocation.ExecuteScalar(owner), convert);
+            static (invocation, owner) => invocation.ExecuteScalar(owner), convert, DiagnosticProviderInstanceId);
 
     private SyncRawCommand BindSyncRaw(string sql)
     {

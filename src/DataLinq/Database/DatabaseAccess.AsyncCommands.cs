@@ -110,24 +110,28 @@ public abstract partial class DatabaseAccess
                 canceled.CancellationToken == token && token.IsCancellationRequested ? ExecutionFailureCause.Cancellation : cause);
             var evidence = new ReadFailureEvidence();
             var assessed = true;
-            try
+            using (ExecutionFailureScope.Begin())
             {
-                evidence = command.GetReadFailureEvidence(failure)
-                    ?? throw new InvalidOperationException("The provider returned no failure evidence.");
-                // Raw scalar/non-query results say nothing about side effects. Even a
-                // provider's OrdinaryRead/NoStatement claim cannot restore raw reuse.
-                if (owner is null && command.Dispatched)
-                    evidence = evidence with { Effects = ExecutionEffects.Unknown };
-            }
-            catch (Exception assessment)
-            {
-                assessed = false;
-                failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery);
+                try
+                {
+                    evidence = command.GetReadFailureEvidence(failure)
+                        ?? throw new InvalidOperationException("The provider returned no failure evidence.");
+                    // Raw scalar/non-query results say nothing about side effects. Even a
+                    // provider's OrdinaryRead/NoStatement claim cannot restore raw reuse.
+                    if (owner is null && command.Dispatched)
+                        evidence = evidence with { Effects = ExecutionEffects.Unknown };
+                }
+                catch (Exception assessment)
+                {
+                    assessed = false;
+                    failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, operationKind);
+                }
             }
             var recovery = transaction is null ? ExecutionRecoveryActions.None
                 : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessed);
             var context = failures.Snapshot(evidence, transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
-                recovery, transaction?.TransactionID, operationKind, transaction?.ExecutionGate.ProviderInstanceId);
+                recovery, transaction?.TransactionID, operationKind, transaction?.ExecutionGate.ProviderInstanceId ?? DiagnosticProviderInstanceId,
+                providerIdentityIsAuthoritative: true);
             if (step is not null) transaction!.RecordAsyncReadFailure(step, context);
             ExecutionFailureContexts.Attach(failure, context);
             ownership?.ReportFailure(failure);

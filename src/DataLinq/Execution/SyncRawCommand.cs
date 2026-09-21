@@ -101,20 +101,39 @@ internal sealed class SyncRawCommand : ISyncRawModelReaderSource
     }
 
     internal IDataLinqDataReader ExecuteReader(TransactionOperationGate.Step? owner)
-        => access.ExecuteReader(Prepare(SyncCommandKind.Reader, owner))
-            ?? throw new InvalidOperationException("Reader acquisition returned no reader.");
+    {
+        var prepared = Prepare(SyncCommandKind.Reader, owner);
+        try { return access.ExecuteReader(prepared) ?? throw new InvalidOperationException("Reader acquisition returned no reader."); }
+        catch (Exception failure) { ObserveDispatch(failure, prepared); throw; }
+    }
 
     internal object? ExecuteScalar(TransactionOperationGate.Step? owner)
-        => access.ExecuteScalar(Prepare(SyncCommandKind.Scalar, owner));
+    {
+        var prepared = Prepare(SyncCommandKind.Scalar, owner);
+        try { return access.ExecuteScalar(prepared); }
+        catch (Exception failure) { ObserveDispatch(failure, prepared); throw; }
+    }
 
     internal int ExecuteNonQuery(TransactionOperationGate.Step? owner)
-        => access.ExecuteNonQuery(Prepare(SyncCommandKind.NonQuery, owner));
+    {
+        var prepared = Prepare(SyncCommandKind.NonQuery, owner);
+        try { return access.ExecuteNonQuery(prepared); }
+        catch (Exception failure) { ObserveDispatch(failure, prepared); throw; }
+    }
+
+    private void ObserveDispatch(Exception failure, IDbCommand prepared)
+    {
+        // Capture facts about this command before cleanup drops the live resource.
+        if (CommandDispatchEvidence.ProvesNoDispatch(failure, prepared)) Dispatched = false;
+    }
 
     internal ExecutionFailures? DisposeOwnedCommand(ExecutionFailures? failures)
     {
         var owned = borrowed is null ? command : null;
         command = null;
-        try { owned?.Dispose(); }
+        if (owned is null) return failures;
+        using var diagnostics = ExecutionFailureScope.Begin();
+        try { owned.Dispose(); }
         catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
         return failures;
     }
@@ -123,14 +142,17 @@ internal sealed class SyncRawCommand : ISyncRawModelReaderSource
     {
         if (initialization?.State == TransactionInitializationState.Failed)
             return new(Effects: ExecutionEffects.Initialization);
-        if (!Dispatched)
-            return new(Effects: ExecutionEffects.NoStatement, Integrity: TransactionIntegrity.Confirmed);
         var evidence = access is IAsyncReadFailureEvidence classifier
             ? classifier.GetReadFailureEvidence(failure) ?? throw new InvalidOperationException("The provider returned no failure evidence.")
             : new();
+        // No dispatch does not bypass optional assessment or repair lost integrity.
+        if (evidence.Effects == ExecutionEffects.Initialization) return evidence;
+        if (!Dispatched)
+            return evidence with { Effects = ExecutionEffects.NoStatement,
+                Integrity = evidence.Integrity == TransactionIntegrity.Lost ? TransactionIntegrity.Lost : TransactionIntegrity.Confirmed };
         // Raw results cannot establish read-only effects. Preserve stronger initialization
         // evidence, but never permit the ordinary-read exception after raw dispatch.
-        return evidence.Effects == ExecutionEffects.Initialization ? evidence : evidence with { Effects = ExecutionEffects.Unknown };
+        return evidence with { Effects = ExecutionEffects.Unknown };
     }
 
     ExecutionFailureStage ISyncRawModelReaderSource.Stage => Stage;

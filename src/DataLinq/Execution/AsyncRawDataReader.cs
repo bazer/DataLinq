@@ -15,6 +15,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
     private const string Operation = "use an asynchronous raw reader";
     private readonly IAsyncReaderSource source;
     private readonly Transaction? transaction;
+    private readonly string? providerInstanceId;
     private readonly EnumeratorCallGate calls = new();
     private TransactionReadScope? ownership;
     private IAsyncDataReader? reader;
@@ -22,13 +23,15 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
     private bool hasCurrent;
     private bool helperDrained;
 
-    private AsyncRawDataReader(IAsyncReaderSource source, Transaction? transaction)
+    private AsyncRawDataReader(IAsyncReaderSource source, Transaction? transaction, string? providerInstanceId)
     {
         this.source = source;
         this.transaction = transaction;
+        this.providerInstanceId = transaction?.ExecutionGate.ProviderInstanceId ?? providerInstanceId;
     }
 
-    internal static async Task<IAsyncDataReader> OpenAsync(IAsyncReaderSource source, Transaction? transaction, CancellationToken token)
+    internal static async Task<IAsyncDataReader> OpenAsync(IAsyncReaderSource source, Transaction? transaction, CancellationToken token,
+        string? providerInstanceId = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(source);
@@ -37,7 +40,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
         if (source is IAsyncTransactionReaderSource && transaction is null)
             throw new InvalidOperationException("This reader requires a managed transaction owner.");
         token.ThrowIfCancellationRequested();
-        var result = new AsyncRawDataReader(source, transaction);
+        var result = new AsyncRawDataReader(source, transaction, providerInstanceId);
         using var call = result.calls.Enter();
         ExecutionFailures failures;
         try
@@ -147,8 +150,15 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
     {
         if (finished) return;
         var owned = TakeReader();
-        try { if (owned is not null) await owned.DisposeAsync().ConfigureAwait(false); }
-        catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+        try
+        {
+            if (owned is not null)
+            {
+                using var diagnostics = ExecutionFailureScope.Begin();
+                try { await owned.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+            }
+        }
         finally { PublishAndRelease(failures); }
     }
 
@@ -156,8 +166,15 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
     {
         if (finished) return;
         var owned = TakeReader();
-        try { owned?.Dispose(); }
-        catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+        try
+        {
+            if (owned is not null)
+            {
+                using var diagnostics = ExecutionFailureScope.Begin();
+                try { owned.Dispose(); }
+                catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+            }
+        }
         finally { PublishAndRelease(failures); }
     }
 
@@ -168,21 +185,25 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
             if (failures.Primary is not { } failure) return;
             var evidence = new ReadFailureEvidence();
             var assessed = true;
-            try
+            if (source is IAsyncReadFailureEvidence classifier)
             {
-                if (source is IAsyncReadFailureEvidence classifier)
+                using var diagnostics = ExecutionFailureScope.Begin();
+                try
+                {
                     evidence = classifier.GetReadFailureEvidence(failure)
                         ?? throw new InvalidOperationException("The provider returned no failure evidence.");
-            }
-            catch (Exception assessment)
-            {
-                assessed = false;
-                failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery);
+                }
+                catch (Exception assessment)
+                {
+                    assessed = false;
+                    failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, ExecutionOperationKind.RawCommand);
+                }
             }
             var recovery = ownership is null ? ExecutionRecoveryActions.None
                 : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessed);
             var context = failures.Snapshot(evidence, transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
-                recovery, transaction?.TransactionID, ExecutionOperationKind.RawCommand, transaction?.ExecutionGate.ProviderInstanceId);
+                recovery, transaction?.TransactionID, ExecutionOperationKind.RawCommand, providerInstanceId,
+                providerIdentityIsAuthoritative: true);
             if (ownership is not null) transaction!.RecordAsyncReadFailure(ownership.Step, context);
             ExecutionFailureContexts.Attach(failure, context);
             ownership?.ReportFailure(failure);

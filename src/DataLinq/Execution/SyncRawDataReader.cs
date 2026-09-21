@@ -12,6 +12,7 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
     private const string Operation = "use a synchronous raw reader";
     private readonly SyncRawCommand command;
     private readonly Transaction? transaction;
+    private readonly string? providerInstanceId;
     private readonly EnumeratorCallGate calls = new();
     private TransactionReadScope? ownership;
     private IDataLinqDataReader? reader;
@@ -20,15 +21,16 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
     private bool helperDrained;
 
     private SyncRawDataReader(SyncRawCommand command, Transaction? transaction,
-        TransactionReadScope? ownership, IDataLinqDataReader reader)
+        TransactionReadScope? ownership, IDataLinqDataReader reader, string? providerInstanceId)
     {
         this.command = command;
         this.transaction = transaction;
+        this.providerInstanceId = transaction?.ExecutionGate.ProviderInstanceId ?? providerInstanceId;
         this.ownership = ownership;
         this.reader = reader;
     }
 
-    internal static IDataLinqDataReader Open(SyncRawCommand command, Transaction? transaction)
+    internal static IDataLinqDataReader Open(SyncRawCommand command, Transaction? transaction, string? providerInstanceId = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         transaction?.EnsureCanRead(Operation, operationKind: ExecutionOperationKind.RawCommand);
@@ -42,17 +44,16 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
             // the acquired reader before returning, so a closing helper can drain it.
             reader = command.ExecuteReader(ownership?.Step);
             SyncRawDataReader result = reader is IDataLinqOwnedBinaryBufferReader binary
-                ? new OwnedBinaryReader(command, transaction, ownership, reader, binary)
-                : new SyncRawDataReader(command, transaction, ownership, reader);
+                ? new OwnedBinaryReader(command, transaction, ownership, reader, binary, providerInstanceId)
+                : new SyncRawDataReader(command, transaction, ownership, reader, providerInstanceId);
             using var call = result.calls.Enter();
             ownership?.RegisterReader(result);
             return result;
         }
         catch (Exception failure) { (failures = new()).AddReported(failure, command.Stage); }
-        try { reader?.Dispose(); }
-        catch (Exception cleanup) { failures.AddCleanup(cleanup); }
+        failures = SyncReaderCleanup.Dispose(reader, failures)!;
         failures = command.DisposeOwnedCommand(failures)!;
-        try { SyncRawExecution.PublishFailure(command, failures, transaction, ownership); }
+        try { SyncRawExecution.PublishFailure(command, failures, transaction, ownership, providerInstanceId); }
         finally { ownership?.Dispose(); }
         failures.ThrowIfAny();
         throw new InvalidOperationException("Failed reader acquisition did not report its failure.");
@@ -97,10 +98,9 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
         hasCurrent = false;
         var owned = reader;
         reader = null;
-        try { owned?.Dispose(); }
-        catch (Exception cleanup) { (failures ??= new()).AddCleanup(cleanup); }
+        failures = SyncReaderCleanup.Dispose(owned, failures);
         failures = command.DisposeOwnedCommand(failures);
-        try { SyncRawExecution.PublishFailure(command, failures, transaction, ownership); }
+        try { SyncRawExecution.PublishFailure(command, failures, transaction, ownership, providerInstanceId); }
         finally
         {
             ownership?.Dispose();
@@ -141,8 +141,8 @@ internal class SyncRawDataReader : IDataLinqDataReader, IHelperTrackedReader
     public bool IsDbNull(int ordinal) { using var call = EnterCurrent(); return reader!.IsDbNull(ordinal); }
 
     private sealed class OwnedBinaryReader(SyncRawCommand command, Transaction? transaction,
-        TransactionReadScope? ownership, IDataLinqDataReader reader, IDataLinqOwnedBinaryBufferReader binary)
-        : SyncRawDataReader(command, transaction, ownership, reader), IDataLinqOwnedBinaryBufferReader
+        TransactionReadScope? ownership, IDataLinqDataReader reader, IDataLinqOwnedBinaryBufferReader binary, string? providerInstanceId)
+        : SyncRawDataReader(command, transaction, ownership, reader, providerInstanceId), IDataLinqOwnedBinaryBufferReader
     {
         public byte[]? TakeOwnedBytes(int ordinal)
         {

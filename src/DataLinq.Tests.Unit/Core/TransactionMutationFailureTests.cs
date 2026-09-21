@@ -1705,7 +1705,7 @@ public sealed partial class TransactionMutationFailureTests
         public override IDbConnection GetDbConnection() => throw new NotSupportedException();
     }
 
-    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory, IAsyncEagerCommandFactory
+    private sealed partial class ScriptedDatabaseAccess(IDatabaseProvider? provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory, IAsyncSqlScalarFactory, IAsyncBorrowedReaderFactory, IAsyncEagerCommandFactory
     {
         private IAsyncEagerCommandFactory Eager => scenario.AsyncCommands ?? throw new NotSupportedException("Scripted async commands were not enabled.");
         public AsyncEagerCommand BindCommand(string sql) => Eager.BindCommand(sql);

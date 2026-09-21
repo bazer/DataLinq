@@ -184,7 +184,9 @@ Exit gate:
 
 ### W1: Internal Async And Cancellation Contracts
 
-The subsequent [administrative session diagnostics slice](W1%20Administrative%20Session%20Diagnostics.md) isolates each session-cleanup and availability-classifier occurrence and classifies known missing-session guards without guessing provider causes. Its 32 new cases pass within 4,798 broad local passes. Standalone raw attribution, remaining dispatch-evidence consumers, complete classification/I/O mapping, adapter readiness and measured coordination costs remain open.
+The [raw execution diagnostics slice](W1%20Raw%20Execution%20Diagnostics.md) carries standalone actual/absent provider identity through eager and reader failures, consumes current command-specific synchronous no-dispatch evidence and isolates cleanup/assessment occurrences. Its 116 new cases pass within 4,914 broad local passes. Async no-dispatch restriction normalization, complete classification/preflight/I/O mapping, adapter readiness and all six final W0 performance lanes remain open.
+
+The preceding [administrative session diagnostics slice](W1%20Administrative%20Session%20Diagnostics.md) isolates each session-cleanup and availability-classifier occurrence and classifies known missing-session guards without guessing provider causes. Its 32 new cases pass within 4,798 broad local passes. Standalone raw attribution, remaining dispatch-evidence consumers, complete classification/I/O mapping, adapter readiness and measured coordination costs remained open at that checkpoint.
 
 The [administrative failure classification follow-through](W1%20Administrative%20Failure%20Classification.md) distinguishes local probe/parser failures, known incomplete-result/command-lifetime violations and scoped logger notifications. Its 26 new cases and six strengthened metadata cases pass within 4,766 broad local passes. Administrative session/preflight attribution, standalone provider/raw paths, complete I/O mapping, adapter readiness and all six final W0 performance lanes remain open.
 

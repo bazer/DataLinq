@@ -66,6 +66,7 @@ internal class OwnedCommandDataReader(IDataLinqDataReader reader, IDbCommand com
     {
         if (Interlocked.Exchange(ref disposed, 1) != 0) return failures;
         failures = SyncReaderCleanup.Dispose(reader, failures);
+        using var diagnostics = ExecutionFailureScope.Begin();
         try { command.Dispose(); }
         catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
         return failures;

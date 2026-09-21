@@ -134,6 +134,7 @@ internal sealed class ControlledAsyncDataReader(int[]? values = null) : IAsyncDa
     internal bool IsDisposed { get; private set; }
     internal bool AllowSynchronousCalls { get; set; }
     internal Exception? SyncDisposalFailure { get; set; }
+    internal Action? SyncDisposing { get; set; }
 
     public async Task<bool> ReadNextRowAsync(CancellationToken cancellationToken)
     {
@@ -157,6 +158,7 @@ internal sealed class ControlledAsyncDataReader(int[]? values = null) : IAsyncDa
     {
         SyncCalls++;
         if (!AllowSynchronousCalls) throw new InvalidOperationException("Unexpected synchronous reader disposal.");
+        SyncDisposing?.Invoke();
         if (SyncDisposalFailure is not null) throw SyncDisposalFailure;
         IsDisposed = true;
     }
