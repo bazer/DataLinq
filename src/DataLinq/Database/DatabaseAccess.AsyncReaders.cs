@@ -11,18 +11,18 @@ namespace DataLinq;
 public abstract partial class DatabaseAccess
 {
     internal Task<IAsyncDataReader> ExecuteReaderAsyncCore(string sql, CancellationToken cancellationToken = default)
-        => AsyncRawDataReader.OpenAsync(CaptureRawReader(sql), managedTransaction, cancellationToken);
+        => AsyncRawDataReader.OpenAsync(CaptureRawReader(sql), managedTransaction, cancellationToken, DiagnosticProviderInstanceId);
 
     internal Task<IAsyncDataReader> ExecuteReaderAsyncCore(IDbCommand command, CancellationToken cancellationToken = default)
-        => AsyncRawDataReader.OpenAsync(CaptureRawReader(command), managedTransaction, cancellationToken);
+        => AsyncRawDataReader.OpenAsync(CaptureRawReader(command), managedTransaction, cancellationToken, DiagnosticProviderInstanceId);
 
     internal IAsyncEnumerable<IDataLinqDataReader> ReadReaderAsyncCore(string sql, CancellationToken cancellationToken = default)
         => new AsyncReaderEnumerable<IDataLinqDataReader>(() => CaptureRawReader(sql), static reader => reader, managedTransaction, cancellationToken,
-            new(ExecutionOperationKind.RawCommand, managedTransaction?.ExecutionGate.ProviderInstanceId));
+            new(ExecutionOperationKind.RawCommand, DiagnosticProviderInstanceId));
 
     internal IAsyncEnumerable<IDataLinqDataReader> ReadReaderAsyncCore(IDbCommand command, CancellationToken cancellationToken = default)
         => new AsyncReaderEnumerable<IDataLinqDataReader>(() => CaptureRawReader(command), static reader => reader, managedTransaction, cancellationToken,
-            new(ExecutionOperationKind.RawCommand, managedTransaction?.ExecutionGate.ProviderInstanceId));
+            new(ExecutionOperationKind.RawCommand, DiagnosticProviderInstanceId));
 
     private void ValidateRawReaderOwner()
     {

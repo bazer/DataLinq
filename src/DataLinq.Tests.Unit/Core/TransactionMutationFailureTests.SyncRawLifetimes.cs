@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Execution;
+using DataLinq.Interfaces;
 using DataLinq.Mutation;
 using DataLinq.Tests.Unit.Fixtures;
 
@@ -265,7 +266,7 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(factory.CommandDisposals).IsEqualTo(1);
     }
 
-    private sealed class SyncRawStandaloneTestAccess(ISyncRawCommandFactory factory) : DatabaseAccess, ISyncRawCommandFactory
+    private sealed class SyncRawStandaloneTestAccess(ISyncRawCommandFactory factory, IDatabaseProvider? provider = null) : DatabaseAccess(provider), ISyncRawCommandFactory
     {
         public override IDataLinqDataReader ExecuteReader(string query) => ExecuteReaderSyncCore(query);
         public override IDataLinqDataReader ExecuteReader(IDbCommand command) => ExecuteReaderSyncCore(command);

@@ -8,6 +8,10 @@ namespace DataLinq.Execution;
 // Diagnostic values only: this grants no admission and retains no live source.
 internal readonly record struct ReadExecutionIdentity(ExecutionOperationKind Operation, string? ProviderInstanceId)
 {
+    // A named boundary supplies its own identity, including explicit absence.
+    // Default identity leaves attribution to a more specific child boundary.
+    internal bool ProviderIdentityIsAuthoritative => Operation != ExecutionOperationKind.Unknown || ProviderInstanceId is not null;
+
     internal static ReadExecutionIdentity Capture(IDataSourceAccess source, ExecutionOperationKind operation,
         TransactionOperationGate.Step? owner = null)
     {

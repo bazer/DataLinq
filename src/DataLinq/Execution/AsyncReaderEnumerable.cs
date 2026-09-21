@@ -327,6 +327,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                 var reported = continuationStarted || !started ? ExecutionFailureContexts.GetCurrent(primary) : null;
                 if (reported is null && started && failureEvidence is { } classifier)
                 {
+                    using var diagnostics = ExecutionFailureScope.Begin();
                     try
                     {
                         evidence = classifier.GetReadFailureEvidence(primary)
@@ -335,14 +336,15 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                     catch (Exception assessment)
                     {
                         assessmentSucceeded = false;
-                        failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery);
+                        failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, identity.Operation);
                     }
                 }
                 var recovery = ownership is null ? ExecutionRecoveryActions.None
                     : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessmentSucceeded);
                 var context = failures.Snapshot(evidence,
                     reported?.Completion ?? (transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted),
-                    reported?.Recovery ?? recovery, transaction?.TransactionID, identity.Operation, identity.ProviderInstanceId);
+                    reported?.Recovery ?? recovery, transaction?.TransactionID, identity.Operation, identity.ProviderInstanceId,
+                    providerIdentityIsAuthoritative: identity.ProviderIdentityIsAuthoritative);
                 // Publish restrictions before releasing admission: another operation must
                 // never observe a free gate with the old, apparently reusable state.
                 if (ownership is not null)
@@ -369,10 +371,12 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
     {
         var ownedReader = reader;
         reader = null;
+        if (ownedReader is null) return;
+        using var diagnostics = ExecutionFailureScope.Begin();
         try
         {
             // Cleanup never inherits a canceled enumeration token or uses sync fallback.
-            if (ownedReader is not null) await ownedReader.DisposeAsync().ConfigureAwait(false);
+            await ownedReader.DisposeAsync().ConfigureAwait(false);
         }
         catch (Exception cleanup) { failures.AddCleanup(cleanup); }
     }

@@ -122,8 +122,8 @@ public abstract partial class DatabaseAccess
         var context = failures.Snapshot(new(),
             transactional ? ExecutionCompletion.NotAttempted : ExecutionCompletion.NotApplicable,
             transactional ? ExecutionRecoveryActions.Dispose : ExecutionRecoveryActions.None,
-            managedTransaction?.TransactionID, fallbackProviderInstanceId:
-                string.IsNullOrEmpty(TelemetryContext.ProviderInstanceId) ? null : TelemetryContext.ProviderInstanceId);
+            managedTransaction?.TransactionID, fallbackProviderInstanceId: DiagnosticProviderInstanceId,
+            providerIdentityIsAuthoritative: true);
         // Override any nested command's evidence with facts about this actual command.
         CommandDispatchEvidence.Attach(primary, context, command, dispatched);
         failures.ThrowIfAny();

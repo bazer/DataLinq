@@ -177,7 +177,12 @@ public sealed partial class TransactionMutationFailureTests
         else await Assert.That(failure).IsSameReferenceAs(expected);
         var context = transaction.AsyncFailureContext!;
         await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Validation);
-        await Assert.That(context.Recovery).IsEqualTo(ExecutionRecoveryActions.Continue | ExecutionRecoveryActions.Dispose);
+        // Reserved invocations now retain the provider's explicit rollback evidence;
+        // rejected capture/admission never asks that provider to assess owned work.
+        var assessed = stage is "create" or "validate-created";
+        await Assert.That(context.Recovery).IsEqualTo(ExecutionRecoveryActions.Continue | ExecutionRecoveryActions.Dispose |
+            (assessed ? ExecutionRecoveryActions.Rollback : ExecutionRecoveryActions.None));
+        await Assert.That(factory.Assessments).IsEqualTo(assessed ? 1 : 0);
         await Assert.That(factory.Executions).IsEmpty();
         await Assert.That(factory.CommandDisposals).IsEqualTo(stage == "validate-created" ? 1 : 0);
         await Assert.That(command.DisposeCalls).IsEqualTo(0);
