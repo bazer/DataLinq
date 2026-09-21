@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using DataLinq.Diagnostics;
 
 namespace DataLinq.Execution;
 
@@ -15,9 +16,13 @@ internal struct SyncQueryExecution(QueryTelemetryContext context, ReadExecutionI
 
     internal bool Start()
     {
+        // Snapshot once: if no listener exists, skip both activity creation and
+        // its callback scope. Metrics and timing still start, and a listener
+        // enabled during execution can observe completion measurements.
+        var createActivity = context.TableName is not null && DataLinqTelemetry.HasActivityListeners;
         var reportingScope = ExecutionFailureScope.Current;
-        using var reporting = ExecutionFailureScope.Begin();
-        try { telemetry.Start(); return true; }
+        using ExecutionFailureScope.Call? reporting = createActivity ? ExecutionFailureScope.Begin() : null;
+        try { telemetry.Start(createActivity); return true; }
         catch (Exception failure)
         {
             ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, identity.Operation);

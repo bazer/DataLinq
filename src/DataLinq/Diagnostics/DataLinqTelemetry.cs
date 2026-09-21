@@ -40,6 +40,8 @@ internal static class DataLinqTelemetry
     private static readonly Meter Meter = new(InstrumentationName, InstrumentationVersion);
     private static readonly ActivitySource ActivitySource = new(InstrumentationName, InstrumentationVersion);
 
+    internal static bool HasActivityListeners => ActivitySource.HasListeners();
+
     private static readonly Counter<long> CommandCounter = Meter.CreateCounter<long>(
         "datalinq.db.commands",
         unit: "{command}",
