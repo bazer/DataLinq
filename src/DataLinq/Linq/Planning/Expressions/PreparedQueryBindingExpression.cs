@@ -84,11 +84,13 @@ internal sealed class PreparedQueryBindingExpression
         if (sequenceElementSelector is null)
             return values;
 
+        // Projected arrays need the same invocation-owned snapshot as direct
+        // sequence elements; copying only the outer source leaves them mutable.
         return values
-            .Select(value => ExpressionLocalValueEvaluator.Evaluate(
+            .Select(value => CopyElement(ExpressionLocalValueEvaluator.Evaluate(
                 sequenceElementSelector,
                 sequenceElementParameter,
-                value))
+                value)))
             .ToArray();
     }
 
@@ -117,10 +119,10 @@ internal sealed class PreparedQueryBindingExpression
                 throw new QueryTranslationException("Prepared-query local sequence selectors require exactly one parameter.");
 
             return sourceValues
-                .Select(value => ExpressionLocalValueEvaluator.Evaluate(
+                .Select(value => CopyElement(ExpressionLocalValueEvaluator.Evaluate(
                     selector.Body,
                     selector.Parameters[0],
-                    value))
+                    value)))
                 .ToArray();
         }
 
