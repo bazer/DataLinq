@@ -25,7 +25,7 @@ internal static class AsyncScalarRead
         using var ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, operation, cancellationToken: token,
             operationKind: identity.Operation);
         var telemetry = new QueryExecutionTelemetry(telemetryContext);
-        var stage = ExecutionFailureStage.Finalization;
+        var stage = ExecutionFailureStage.Notification;
         var cause = ExecutionFailureCause.LocalFinalizationError;
         ExecutionFailures? failures = null;
         T result = default!;

@@ -168,7 +168,7 @@ public partial class Transaction
             {
                 token.ThrowIfCancellationRequested();
                 if (!change.HasSameCapturedMutation()) throw new InvalidOperationException("The captured mutation inputs changed before execution.");
-                stage = ExecutionFailureStage.Finalization;
+                stage = ExecutionFailureStage.Notification;
                 mutationStage = TransactionFailureStage.LifecycleFinalization;
                 telemetry.Start();
                 stage = ExecutionFailureStage.Validation;
@@ -229,7 +229,7 @@ public partial class Transaction
                 failures = new ExecutionFailures();
                 failures.AddReported(executionFailure, stage, executionFailure is OperationCanceledException canceled &&
                     canceled.CancellationToken == token && token.IsCancellationRequested
-                        ? ExecutionFailureCause.Cancellation : stage == ExecutionFailureStage.Finalization
+                        ? ExecutionFailureCause.Cancellation : stage is ExecutionFailureStage.Finalization or ExecutionFailureStage.Notification
                             ? ExecutionFailureCause.LocalFinalizationError : stage == ExecutionFailureStage.Materialization
                                 ? ExecutionFailureCause.MaterializationError : ExecutionFailureCause.Unknown, operationKind);
             }

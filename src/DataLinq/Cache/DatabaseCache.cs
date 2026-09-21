@@ -159,40 +159,46 @@ public class DatabaseCache : IDisposable
         }
     }
 
-    internal IReadOnlyList<Exception> RemoveTransactionBestEffort(Transaction transaction)
+    internal IReadOnlyList<Exception> RemoveTransactionBestEffort(Transaction transaction, Action<Exception>? observeFailure = null)
     {
         List<Exception>? failures = null;
 
         foreach (var table in TableCaches.Values)
         {
-            try
+            using (ExecutionFailureScope.Call? observation = observeFailure is null ? null : ExecutionFailureScope.Begin())
             {
-                if (!table.TryRemoveTransaction(transaction) &&
-                    table.IsTransactionInCache(transaction))
+                try
                 {
-                    (failures ??= []).Add(new InvalidOperationException(
-                        $"Transaction {transaction.TransactionID} remained in cache for table '{table.Table.DbName}' after best-effort removal."));
+                    if (!table.TryRemoveTransaction(transaction) &&
+                        table.IsTransactionInCache(transaction))
+                    {
+                        RecordRecoveryFailure(ref failures, new InvalidOperationException(
+                            $"Transaction {transaction.TransactionID} remained in cache for table '{table.Table.DbName}' after best-effort removal."), observeFailure);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    RecordRecoveryFailure(ref failures, exception, observeFailure);
                 }
             }
-            catch (Exception exception)
-            {
-                (failures ??= []).Add(exception);
-            }
 
-            try
+            using (ExecutionFailureScope.Call? observation = observeFailure is null ? null : ExecutionFailureScope.Begin())
             {
-                table.DiscardTransactionNotifications(transaction);
-            }
-            catch (Exception exception)
-            {
-                (failures ??= []).Add(exception);
+                try
+                {
+                    table.DiscardTransactionNotifications(transaction);
+                }
+                catch (Exception exception)
+                {
+                    RecordRecoveryFailure(ref failures, exception, observeFailure);
+                }
             }
         }
 
         return failures is null ? Array.Empty<Exception>() : failures;
     }
 
-    internal IReadOnlyList<Exception> ClearForRecovery()
+    internal IReadOnlyList<Exception> ClearForRecovery(Action<Exception>? observeFailure = null)
     {
         List<Exception>? failures = null;
         var tables = TableCaches.Values.ToArray();
@@ -202,68 +208,91 @@ public class DatabaseCache : IDisposable
         // to relation callbacks after a commit succeeded or may have reached the database.
         foreach (var table in tables)
         {
-            try
+            using (ExecutionFailureScope.Call? observation = observeFailure is null ? null : ExecutionFailureScope.Begin())
             {
-                table.ClearRowsWithoutNotification();
-            }
-            catch (Exception exception)
-            {
-                (failures ??= []).Add(exception);
+                try
+                {
+                    table.ClearRowsWithoutNotification();
+                }
+                catch (Exception exception)
+                {
+                    RecordRecoveryFailure(ref failures, exception, observeFailure);
+                }
             }
 
-            try
+            using (ExecutionFailureScope.Call? observation = observeFailure is null ? null : ExecutionFailureScope.Begin())
             {
-                table.ClearIndex();
-            }
-            catch (Exception exception)
-            {
-                (failures ??= []).Add(exception);
+                try
+                {
+                    table.ClearIndex();
+                }
+                catch (Exception exception)
+                {
+                    RecordRecoveryFailure(ref failures, exception, observeFailure);
+                }
             }
         }
 
         foreach (var table in tables)
         {
-            try
+            using (ExecutionFailureScope.Call? observation = observeFailure is null ? null : ExecutionFailureScope.Begin())
             {
-                table.NotifyRecoveryClear();
-            }
-            catch (Exception exception)
-            {
-                (failures ??= []).Add(exception);
+                try
+                {
+                    table.NotifyRecoveryClear();
+                }
+                catch (Exception exception)
+                {
+                    RecordRecoveryFailure(ref failures, exception, observeFailure);
+                }
             }
 
             // A recovery notification may itself subscribe more relation objects.
             // Once recovery requires fresh materialization, none of those callbacks
             // are safe to retain for a later clear or provider disposal.
-            try
+            using (ExecutionFailureScope.Call? observation = observeFailure is null ? null : ExecutionFailureScope.Begin())
             {
-                table.DiscardRecoveryNotifications();
-            }
-            catch (Exception exception)
-            {
-                (failures ??= []).Add(exception);
+                try
+                {
+                    table.DiscardRecoveryNotifications();
+                }
+                catch (Exception exception)
+                {
+                    RecordRecoveryFailure(ref failures, exception, observeFailure);
+                }
             }
         }
 
         return failures is null ? Array.Empty<Exception>() : failures;
     }
 
-    internal IReadOnlyList<Exception> DiscardRecoveryNotifications()
+    internal IReadOnlyList<Exception> DiscardRecoveryNotifications(Action<Exception>? observeFailure = null)
     {
         List<Exception>? failures = null;
         foreach (var table in TableCaches.Values)
         {
-            try
+            using (ExecutionFailureScope.Call? observation = observeFailure is null ? null : ExecutionFailureScope.Begin())
             {
-                table.DiscardRecoveryNotifications();
-            }
-            catch (Exception exception)
-            {
-                (failures ??= []).Add(exception);
+                try
+                {
+                    table.DiscardRecoveryNotifications();
+                }
+                catch (Exception exception)
+                {
+                    RecordRecoveryFailure(ref failures, exception, observeFailure);
+                }
             }
         }
 
         return failures is null ? Array.Empty<Exception>() : failures;
+    }
+
+    // The private completion owner captures an occurrence before a subsequent
+    // cache notification can replace the same exception object's direct lookup.
+    private static void RecordRecoveryFailure(ref List<Exception>? failures, Exception exception, Action<Exception>? observeFailure)
+    {
+        (failures ??= []).Add(exception);
+        observeFailure?.Invoke(exception);
     }
 
     public void CleanRelationNotifications()

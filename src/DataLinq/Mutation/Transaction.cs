@@ -573,9 +573,10 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                             var recoveryFailures = FinalizeUncertainCompletionState(
                                 MutableTransactionOutcome.CommitOutcomeUnknown,
                                 MutableInvalidationReason.CommitOutcomeUnknown);
-                            AddManagedCompletionFailureContext(providerFailure, "Commit", MutableInvalidationReason.CommitOutcomeUnknown, recoveryFailures);
+                            AddManagedCompletionFailureContext(providerFailure, "Commit", MutableInvalidationReason.CommitOutcomeUnknown,
+                                recoveryFailures.Select(item => item.Exception).ToArray());
                             foreach (var recoveryFailure in recoveryFailures)
-                                failures.AddReported(recoveryFailure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
+                                failures.AddObserved(recoveryFailure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
                         }
                         telemetry.Complete(failures, ExecutionCompletion.Unknown, ExecutionOperationKind.Commit);
                         var recovery = ExecutionRecoveryActions.Dispose;
@@ -595,14 +596,17 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                     {
                         FinalizeCommittedState();
                         Volatile.Write(ref managedCommitFinalizationState, 2);
-                        PublishDeferredCommittedStatus();
                     }
                     catch (Exception finalizationFailure)
                     {
                         failures.AddReported(finalizationFailure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
-                        if (finalizationFailure is TransactionCommitFinalizationException committed)
-                            foreach (var cleanupFailure in committed.CleanupFailures) failures.AddCleanup(cleanupFailure);
                     }
+                }
+                if (Volatile.Read(ref managedCommitFinalizationState) == 2)
+                {
+                    using var notification = ExecutionFailureScope.Begin();
+                    try { PublishDeferredCommittedStatus(); }
+                    catch (Exception failure) { ExecutionActivity.AddFailure(failures, failure, ExecutionOperationKind.Commit); }
                 }
                 telemetry.Complete(failures, ExecutionCompletion.Committed, ExecutionOperationKind.Commit);
                 PublishSynchronousCompletionFailure(failures, operation, ExecutionOperationKind.Commit, ExecutionCompletion.Committed, ExecutionRecoveryActions.Dispose);
@@ -741,6 +745,9 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
 
     private void ThrowCommittedStateFinalizationFailure(Exception finalizationFailure)
     {
+        var failures = new ExecutionFailures();
+        failures.AddObserved(CaptureLocalCompletionFailure(finalizationFailure, ExecutionFailureStage.Finalization),
+            ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
         MutableOwnership.MarkCommittedStateFinalizationFailed();
         foreach (var touchedMutable in touchedMutables)
         {
@@ -750,42 +757,33 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
 
         touchedMutables.Clear();
 
-        var cleanupFailures = new List<Exception>();
-        CollectCleanupFailures(
+        var cleanupFailures = new List<ObservedExecutionFailure>();
+        CollectCacheRecoveryFailures(
             cleanupFailures,
-            () => Provider.State.Cache.RemoveTransactionBestEffort(this));
-        CollectCleanupFailures(
+            observe => Provider.State.Cache.RemoveTransactionBestEffort(this, observe));
+        CollectCacheRecoveryFailures(
             cleanupFailures,
             Provider.State.Cache.ClearForRecovery);
-        CollectCleanupFailures(
+        CollectCacheRecoveryFailures(
             cleanupFailures,
             Provider.State.Cache.DiscardRecoveryNotifications);
 
-        throw new TransactionCommitFinalizationException(
+        foreach (var cleanup in cleanupFailures)
+            failures.AddObserved(cleanup, ExecutionFailureStage.CacheRecovery, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
+        var exception = new TransactionCommitFinalizationException(
             TransactionID,
             finalizationFailure,
-            cleanupFailures);
+            cleanupFailures.Select(item => item.Exception).ToArray());
+        ExecutionFailureContexts.Attach(exception, failures.Snapshot(new(), ExecutionCompletion.Committed,
+            ExecutionRecoveryActions.Dispose, TransactionID, ExecutionOperationKind.Commit, ExecutionGate.ProviderInstanceId));
+        throw exception;
     }
 
-    private static void CollectCleanupFailures(
-        List<Exception> failures,
-        Func<IReadOnlyList<Exception>> cleanup)
-    {
-        try
-        {
-            failures.AddRange(cleanup());
-        }
-        catch (Exception cleanupFailure)
-        {
-            failures.Add(cleanupFailure);
-        }
-    }
-
-    private IReadOnlyList<Exception> FinalizeUncertainCompletionState(
+    private IReadOnlyList<ObservedExecutionFailure> FinalizeUncertainCompletionState(
         MutableTransactionOutcome outcome,
         MutableInvalidationReason invalidationReason)
     {
-        var recoveryFailures = new List<Exception>();
+        var recoveryFailures = new List<ObservedExecutionFailure>();
 
         try
         {
@@ -793,7 +791,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         }
         catch (Exception exception)
         {
-            recoveryFailures.Add(exception);
+            recoveryFailures.Add(CaptureLocalCompletionFailure(exception, ExecutionFailureStage.Finalization));
         }
 
         foreach (var touchedMutable in touchedMutables)
@@ -804,28 +802,28 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
             }
             catch (Exception exception)
             {
-                recoveryFailures.Add(exception);
+                recoveryFailures.Add(CaptureLocalCompletionFailure(exception, ExecutionFailureStage.Finalization));
             }
         }
 
         touchedMutables.Clear();
-        CollectCleanupFailures(
+        CollectCacheRecoveryFailures(
             recoveryFailures,
-            () => Provider.State.Cache.RemoveTransactionBestEffort(this));
-        CollectCleanupFailures(
+            observe => Provider.State.Cache.RemoveTransactionBestEffort(this, observe));
+        CollectCacheRecoveryFailures(
             recoveryFailures,
             Provider.State.Cache.ClearForRecovery);
-        CollectCleanupFailures(
+        CollectCacheRecoveryFailures(
             recoveryFailures,
             Provider.State.Cache.DiscardRecoveryNotifications);
         return recoveryFailures;
     }
 
-    private IReadOnlyList<Exception> FinalizeUncommittedState(
+    private IReadOnlyList<ObservedExecutionFailure> FinalizeUncommittedState(
         MutableTransactionOutcome outcome,
         MutableInvalidationReason invalidationReason)
     {
-        var cleanupFailures = new List<Exception>();
+        var cleanupFailures = new List<ObservedExecutionFailure>();
 
         try
         {
@@ -833,7 +831,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         }
         catch (Exception exception)
         {
-            cleanupFailures.Add(exception);
+            cleanupFailures.Add(CaptureLocalCompletionFailure(exception, ExecutionFailureStage.Finalization));
         }
 
         foreach (var touchedMutable in touchedMutables)
@@ -844,14 +842,14 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
             }
             catch (Exception exception)
             {
-                cleanupFailures.Add(exception);
+                cleanupFailures.Add(CaptureLocalCompletionFailure(exception, ExecutionFailureStage.Finalization));
             }
         }
 
         touchedMutables.Clear();
-        CollectCleanupFailures(
+        CollectCacheRecoveryFailures(
             cleanupFailures,
-            () => Provider.State.Cache.RemoveTransactionBestEffort(this));
+            observe => Provider.State.Cache.RemoveTransactionBestEffort(this, observe));
         return cleanupFailures;
     }
 
@@ -914,7 +912,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
             failure,
             operation,
             MutableInvalidationReason.ExternalCompletionUnknown,
-            recoveryFailures);
+            recoveryFailures.Select(item => item.Exception).ToArray());
         throw failure;
     }
 
@@ -951,8 +949,9 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         }
     }
 
-    private Exception? CaptureDeferredRolledBackStatusFailure()
+    private ObservedExecutionFailure? CaptureDeferredRolledBackStatusFailure()
     {
+        using var notification = ExecutionFailureScope.Begin();
         try
         {
             PublishDeferredRolledBackStatus();
@@ -960,7 +959,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         }
         catch (Exception exception)
         {
-            return exception;
+            return ObservedExecutionFailure.Capture(exception);
         }
     }
 
@@ -968,8 +967,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         string operation,
         MutableInvalidationReason? invalidationReason,
         Exception? providerFailure,
-        IReadOnlyList<Exception> cleanupFailures,
-        Exception? observerFailure,
+        IReadOnlyList<ObservedExecutionFailure> cleanupFailures,
+        ObservedExecutionFailure? observerFailure,
         TransactionOperationGate.Lease lease,
         ExecutionFailureContext? providerFailureContext,
         DatabaseTransaction.SynchronousTelemetryScope telemetry)
@@ -980,17 +979,17 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
         foreach (var cleanupFailure in cleanupFailures)
         {
             if (primaryFailure is null)
-                primaryFailure = cleanupFailure;
+                primaryFailure = cleanupFailure.Exception;
             else
-                secondaryFailures.Add(cleanupFailure);
+                secondaryFailures.Add(cleanupFailure.Exception);
         }
 
-        if (observerFailure is not null)
+        if (observerFailure is { } observedNotification)
         {
             if (primaryFailure is null)
-                primaryFailure = observerFailure;
+                primaryFailure = observedNotification.Exception;
             else
-                secondaryFailures.Add(observerFailure);
+                secondaryFailures.Add(observedNotification.Exception);
         }
 
         var kind = operation == "Rollback" ? ExecutionOperationKind.Rollback : ExecutionOperationKind.Dispose;
@@ -1000,9 +999,9 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                 kind == ExecutionOperationKind.Rollback ? ExecutionFailureStage.Recovery : ExecutionFailureStage.Cleanup,
                 fallbackOperation: kind);
         foreach (var cleanupFailure in cleanupFailures)
-            failures.AddReported(cleanupFailure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, kind);
-        if (observerFailure is not null)
-            failures.AddObserved(new(observerFailure, null), ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, kind);
+            failures.AddObserved(cleanupFailure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, kind);
+        if (observerFailure is { } notificationFailure)
+            failures.AddObserved(notificationFailure, ExecutionFailureStage.Notification, ExecutionFailureCause.LocalFinalizationError, kind);
         var completion = ExecutionRecoveryPolicy.PreserveCompletion(AsyncFailureContext?.Completion ?? ExecutionCompletion.NotAttempted,
             DatabaseAccess.SynchronousCompletion != ExecutionCompletion.NotAttempted
             ? DatabaseAccess.SynchronousCompletion : MutableOwnership.Outcome switch
@@ -1384,7 +1383,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                     providerFailure = CreateExternalCompletionFailure("dispose");
 
                 using var finalizationDiagnostics = ExecutionFailureScope.Begin();
-                IReadOnlyList<Exception> cleanupFailures;
+                IReadOnlyList<ObservedExecutionFailure> cleanupFailures;
                 MutableInvalidationReason? invalidationReason =
                     MutableOwnership.InvalidationReason;
                 if (finalizeOpenTransaction)
@@ -1409,10 +1408,10 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
                 }
                 else
                 {
-                    var failures = new List<Exception>();
-                    CollectCleanupFailures(
+                    var failures = new List<ObservedExecutionFailure>();
+                    CollectCacheRecoveryFailures(
                         failures,
-                        () => Provider.State.Cache.RemoveTransactionBestEffort(this));
+                        observe => Provider.State.Cache.RemoveTransactionBestEffort(this, observe));
                     cleanupFailures = failures;
                 }
 

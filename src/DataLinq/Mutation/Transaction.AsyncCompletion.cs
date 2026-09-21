@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using DataLinq.Exceptions;
 using DataLinq.Execution;
 using DataLinq.Instances;
 
@@ -150,10 +149,10 @@ public partial class Transaction
                 failures.AddReported(failure, ExecutionFailureStage.Commit, CancellationCause(failure, cancellationToken));
                 foreach (var cleanup in transaction.FinalizeUncertainCompletionState(
                     MutableTransactionOutcome.CommitOutcomeUnknown, MutableInvalidationReason.CommitOutcomeUnknown))
-                    failures.AddReported(cleanup, ExecutionFailureStage.Finalization);
+                    failures.AddObserved(cleanup, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
                 ResetCommitNotification();
                 var recovery = ExecutionRecoveryActions.Dispose;
-                try { recovery = Recovery; }
+                try { if (!failures.HasCleanupFailure) recovery = Recovery; }
                 catch (Exception inspection) { failures.AddReported(inspection, ExecutionFailureStage.Recovery); }
                 transaction.DatabaseAccess.CompleteAsyncTransactionTelemetry(ExecutionCompletion.Unknown, failures, ExecutionOperationKind.Commit);
                 Report(failures, ExecutionCompletion.Unknown, recovery, ExecutionOperationKind.Commit);
@@ -173,10 +172,7 @@ public partial class Transaction
                 try { transaction.FinalizeCommittedState(); }
                 catch (Exception failure)
                 {
-                    failures.AddReported(failure, ExecutionFailureStage.Finalization);
-                    if (failure is TransactionCommitFinalizationException committed)
-                        foreach (var cleanup in committed.CleanupFailures)
-                            failures.AddCleanup(cleanup);
+                    failures.AddReported(failure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Commit);
                 }
                 if (failures.Primary is null)
                 {
@@ -222,7 +218,7 @@ public partial class Transaction
                         ? MutableTransactionOutcome.RolledBack : MutableTransactionOutcome.RollbackOutcomeUnknown,
                     uncertainCommit ? MutableInvalidationReason.CommitOutcomeUnknown : confirmed
                         ? MutableInvalidationReason.RolledBack : MutableInvalidationReason.RollbackOutcomeUnknown))
-                    failures.AddReported(failure, ExecutionFailureStage.Finalization);
+                    failures.AddObserved(failure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Rollback);
                 transaction.UpdateAsyncRecovery(completion, ExecutionRecoveryActions.Dispose);
                 Volatile.Write(ref transaction.managedRollbackFinalizationState, 2);
                 if (confirmed)
@@ -257,8 +253,9 @@ public partial class Transaction
                 var outcome = transaction.MutableOwnership.Outcome;
                 var cleanup = outcome == MutableTransactionOutcome.Unresolved
                     ? transaction.FinalizeUncommittedState(MutableTransactionOutcome.OpenTransactionDisposed, MutableInvalidationReason.OpenTransactionDisposed)
-                    : transaction.Provider.State.Cache.RemoveTransactionBestEffort(transaction);
-                foreach (var failure in cleanup) failures.AddCleanup(failure);
+                    : transaction.CollectDisposedCacheRecoveryFailures();
+                foreach (var failure in cleanup)
+                    failures.AddObserved(failure, ExecutionFailureStage.Finalization, ExecutionFailureCause.LocalFinalizationError, ExecutionOperationKind.Dispose);
             }
             catch (Exception failure) { failures.AddCleanup(failure); }
             transaction.DatabaseAccess.CompleteAsyncTransactionTelemetry(completion, failures, ExecutionOperationKind.Dispose);

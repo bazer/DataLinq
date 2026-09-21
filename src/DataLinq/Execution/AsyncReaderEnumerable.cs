@@ -148,7 +148,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
             var cause = ExecutionFailureCause.Unknown;
             try
             {
-                stage = ExecutionFailureStage.Finalization;
+                stage = ExecutionFailureStage.Notification;
                 cause = ExecutionFailureCause.LocalFinalizationError;
                 telemetry.MakeCurrent();
                 stage = ExecutionFailureStage.Validation;
@@ -164,7 +164,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                         ownership = DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token, operationKind: identity.Operation);
                     ownership?.RegisterReader(this);
                     started = true;
-                    stage = ExecutionFailureStage.Finalization;
+                    stage = ExecutionFailureStage.Notification;
                     cause = ExecutionFailureCause.LocalFinalizationError;
                     telemetry.Start();
                     stage = ExecutionFailureStage.CommandExecution;

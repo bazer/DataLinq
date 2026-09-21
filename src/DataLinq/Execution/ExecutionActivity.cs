@@ -54,7 +54,7 @@ internal static class ExecutionActivity
     }
 
     internal static void AddFailure(ExecutionFailures failures, Exception failure, ExecutionOperationKind operation) =>
-        failures.Add(failure, ExecutionFailureCause.LocalFinalizationError, ExecutionFailureStage.Finalization, operation);
+        failures.AddReported(failure, ExecutionFailureStage.Notification, ExecutionFailureCause.LocalFinalizationError, operation);
 
     internal static void AddFailure(ref ExecutionFailures? failures, Exception failure, ExecutionOperationKind operation) =>
         AddFailure(failures ??= new(), failure, operation);
