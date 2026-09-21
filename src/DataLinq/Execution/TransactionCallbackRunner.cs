@@ -57,10 +57,13 @@ internal static class TransactionCallbackRunner
         if (failures.Primary is null)
         {
             var dispatched = false;
+            // A successful callback does not lend its reports to commit validation.
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
             try
             {
                 stage = ExecutionFailureStage.Validation;
                 resource.ValidateCommit();
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 CheckCancellation(ExecutionOperationKind.Commit);
                 stage = ExecutionFailureStage.Commit;
                 using var step = gate.EnterStep(owner);
@@ -68,10 +71,12 @@ internal static class TransactionCallbackRunner
                 await resource.CommitAsync(step, cancellationToken).ConfigureAwait(false);
                 completion = ExecutionCompletion.Committed;
                 stage = ExecutionFailureStage.Finalization;
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 resource.FinalizeCommit(step); // Short consistency work ignores late cancellation.
             }
             catch (Exception failure)
             {
+                ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
                 if (dispatched && completion != ExecutionCompletion.Committed)
                     completion = ExecutionCompletion.Unknown;
                 failures.AddReported(failure, stage, stage == ExecutionFailureStage.Finalization

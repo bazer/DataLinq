@@ -54,6 +54,8 @@ public partial class Transaction
         }
         if (failures is null)
         {
+            // Retain fresh nested reports, but not reports from earlier settled work.
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
             try
             {
                 if (!unchanged)
@@ -66,6 +68,7 @@ public partial class Transaction
                     {
                         stage = ExecutionFailureStage.Finalization;
                         mutationStage = TransactionFailureStage.PendingCacheApplication;
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         Provider.State.ApplyChanges([change], this);
                         if (!change.HasSameFinalizedMutation())
                             throw new InvalidOperationException("The mutable assignments changed while the transaction-local cache effect was being applied.");
@@ -75,10 +78,12 @@ public partial class Transaction
                 {
                     stage = ExecutionFailureStage.RowLoading;
                     mutationStage = TransactionFailureStage.Hydration;
+                    occurrence = ExecutionFailureContexts.CaptureOccurrence();
                     immutable = LoadAuthoritativeStateChange(change, operation);
                     if (!unchanged)
                     {
                         stage = ExecutionFailureStage.Finalization;
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         if (!change.HasSameFinalizedMutation())
                             throw new InvalidOperationException("The mutable assignments changed during authoritative-row hydration.");
                         change.FinalizeSuccessfulRelationKeys(immutable);
@@ -93,6 +98,7 @@ public partial class Transaction
             }
             catch (Exception failure)
             {
+                ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
                 executionContext = ExecutionFailureContexts.GetCurrent(failure);
                 (failures ??= new(reportingScope)).AddObserved(new(failure, executionContext), stage,
                     stage == ExecutionFailureStage.Finalization ? ExecutionFailureCause.LocalFinalizationError : ExecutionFailureCause.Unknown, kind);

@@ -164,6 +164,7 @@ public partial class Transaction
             ExecutionFailures? failures = null;
             var succeeded = false;
             var affected = 0;
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
             try
             {
                 token.ThrowIfCancellationRequested();
@@ -171,6 +172,7 @@ public partial class Transaction
                 stage = ExecutionFailureStage.Notification;
                 mutationStage = TransactionFailureStage.LifecycleFinalization;
                 telemetry.Start();
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 stage = ExecutionFailureStage.Validation;
                 mutationStage = TransactionFailureStage.ProviderStatement;
                 if (!input.Unchanged)
@@ -185,6 +187,7 @@ public partial class Transaction
                         affected = 1;
                         mutationStage = TransactionFailureStage.Hydration;
                         stage = ExecutionFailureStage.Materialization;
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         change.CompleteAsyncStatement(generated, input.Reservation);
                     }
                     else
@@ -194,13 +197,17 @@ public partial class Transaction
                         lastWrittenModel = change.Model;
                         mutationStage = TransactionFailureStage.Hydration;
                         stage = ExecutionFailureStage.Materialization;
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         change.CompleteAsyncStatement(null, input.Reservation);
                     }
                     mutationStage = TransactionFailureStage.PendingCacheApplication;
+                    stage = ExecutionFailureStage.Finalization;
+                    occurrence = ExecutionFailureContexts.CaptureOccurrence();
                     Provider.State.ApplyChanges([change], this);
                     EnsureFinalizedInput(change);
                 }
 
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 IImmutableInstance? immutable = null;
                 if (input.NeedsHydration)
                 {
@@ -211,6 +218,8 @@ public partial class Transaction
                         ?? throw new ModelLoadFailureException(change.PrimaryKeys);
                 }
                 // No cancellation checkpoints inside the short consistency section.
+                // Settled statement/hydration reports cannot classify later local work.
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 if (!input.Unchanged)
                 {
                     mutationStage = TransactionFailureStage.LifecycleFinalization;
@@ -226,6 +235,7 @@ public partial class Transaction
             }
             catch (Exception executionFailure)
             {
+                ExecutionFailureContexts.DiscardEarlierReport(executionFailure, occurrence);
                 failures = new ExecutionFailures();
                 failures.AddReported(executionFailure, stage, executionFailure is OperationCanceledException canceled &&
                     canceled.CancellationToken == token && token.IsCancellationRequested
