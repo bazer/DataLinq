@@ -1,5 +1,5 @@
 > [!WARNING]
-> Internal 0.10 synchronous mutation integration. W1 is not complete. Native provider adoption, public async APIs, synchronous transaction observer composition and performance acceptance remain separate gates.
+> Internal 0.10 synchronous mutation integration. W1 is not complete. Native async adoption, public async APIs and performance acceptance remain separate gates.
 
 # W1 Synchronous Mutation Telemetry
 
@@ -77,6 +77,6 @@ Every listed JSON has complete counts, invocation and artifacts. Passing capture
 
 ## Remaining work and cost
 
-Synchronous transaction notification/reporting composition and completion kinds are next. Higher local/preflight failures, complete cause/stage/recovery correlation, administrative telemetry, standalone raw-provider attribution, internal adapter readiness and the final cross-family I/O audit remain W1 work. Native provider binding remains W2; public/generated/packed consumers remain W3.
+The subsequent [synchronous transaction slice](W1%20Synchronous%20Transaction%20Telemetry.md) integrates notification/reporting composition and completion kinds, preserving native certainty through cleanup and managed finalization. Higher local/preflight failures, complete cause/stage/recovery correlation, administrative telemetry, standalone raw-provider attribution, internal adapter readiness and the final cross-family I/O audit remain W1 work. Native provider binding remains W2; public/generated/packed consumers remain W3.
 
 This change adds logical-mutation coordination and diagnostic scopes, including on the successful path. Failure collectors remain lazy, but that is not an allocation measurement. The earlier [allocation checkpoint](W1%20Mutation%20Preflight%20Allocation%20Reduction.md) predates this runtime. Attributable cost analysis, reductions or explicit explanations and all six strict .NET 10 W0 lanes are still required for the final integrated candidate. No performance increase, W0-F1 limitation or 0.9.2 compatibility requirement is waived. No packages are published.

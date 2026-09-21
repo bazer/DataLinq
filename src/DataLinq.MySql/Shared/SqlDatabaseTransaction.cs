@@ -10,7 +10,7 @@ namespace DataLinq.MySql;
 /// <summary>
 /// Represents a transaction for a MySQL database, encapsulating the logic to execute commands with transactional support.
 /// </summary>
-public class SqlDatabaseTransaction : DatabaseTransaction
+public class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompletionResource
 {
     private IDbConnection? dbConnection;
     private readonly string databaseName;
@@ -56,6 +56,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction
     {
         get
         {
+            EnsureSynchronousResourceUsable();
             if (Status == DatabaseTransactionStatus.Committed || Status == DatabaseTransactionStatus.RolledBack)
                 throw new Exception("Cannot open a new connection on a committed or rolled back transaction.");
 
@@ -167,66 +168,27 @@ public class SqlDatabaseTransaction : DatabaseTransaction
         return dbTransaction;
     }
 
-    public override void Commit()
+    public override void Commit() => CompleteSynchronousTransaction(this, rollback: false);
+
+    public override void Rollback() => CompleteSynchronousTransaction(this, rollback: true);
+
+    public override void Dispose() => DisposeSynchronousTransaction(this);
+
+    void ISyncTransactionCompletionResource.Complete(bool rollback)
     {
-        try
-        {
-            if (Status == DatabaseTransactionStatus.Open)
-            {
-                GetActiveProviderTransaction("commit").Commit();
-
-                CompleteTransactionTelemetry(DatabaseTransactionStatus.Committed);
-            }
-
-            SetStatus(DatabaseTransactionStatus.Committed);
-            Dispose();
-        }
-        catch (Exception ex)
-        {
-            FailTransactionTelemetry(DatabaseTransactionStatus.Committed, ex);
-            throw;
-        }
+        var native = GetActiveProviderTransaction(rollback ? "roll back" : "commit");
+        if (rollback) native.Rollback();
+        else native.Commit();
     }
 
-    public override void Rollback()
+    bool ISyncTransactionCompletionResource.RollbackForDisposal()
     {
-        try
-        {
-            if (Status == DatabaseTransactionStatus.Open)
-            {
-                GetActiveProviderTransaction("roll back").Rollback();
-
-                CompleteTransactionTelemetry(DatabaseTransactionStatus.RolledBack);
-            }
-
-            SetStatus(DatabaseTransactionStatus.RolledBack);
-            Dispose();
-        }
-        catch (Exception ex)
-        {
-            FailTransactionTelemetry(DatabaseTransactionStatus.RolledBack, ex);
-            throw;
-        }
+        if (DbTransaction?.Connection?.State != ConnectionState.Open) return false;
+        DbTransaction.Rollback();
+        return true;
     }
 
-    private void Close()
-    {
-        if (Status == DatabaseTransactionStatus.Open)
-        {
-            if (DbTransaction?.Connection?.State == ConnectionState.Open)
-                DbTransaction.Rollback();
-
-            CompleteTransactionTelemetry(DatabaseTransactionStatus.RolledBack);
-            SetStatus(DatabaseTransactionStatus.RolledBack);
-        }
-
-        dbConnection?.Close();
-    }
-
-    public override void Dispose()
-    {
-        Close();
-        dbConnection?.Dispose();
-        DbTransaction?.Dispose();
-    }
+    void ISyncTransactionCompletionResource.CloseConnection() => dbConnection?.Close();
+    void ISyncTransactionCompletionResource.DisposeConnection() => dbConnection?.Dispose();
+    void ISyncTransactionCompletionResource.DisposeTransaction() => DbTransaction?.Dispose();
 }

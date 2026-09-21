@@ -1862,6 +1862,7 @@ public sealed partial class TransactionMutationFailureTests
 
         public override void Commit()
         {
+            if (SyncCompletionResourceForTest is { } resource) { CompleteSynchronousTransaction(resource, rollback: false); return; }
             scenario.Commits++;
             if (scenario.CommitFailureBeforeStatus is not null)
                 throw scenario.CommitFailureBeforeStatus;
@@ -1873,6 +1874,7 @@ public sealed partial class TransactionMutationFailureTests
 
         public override void Rollback()
         {
+            if (SyncCompletionResourceForTest is { } resource) { CompleteSynchronousTransaction(resource, rollback: true); return; }
             scenario.Rollbacks++;
             if (scenario.RollbackFailure is not null)
                 throw scenario.RollbackFailure;
@@ -1882,6 +1884,7 @@ public sealed partial class TransactionMutationFailureTests
 
         public override void Dispose()
         {
+            if (SyncCompletionResourceForTest is { } resource) { DisposeSynchronousTransaction(resource); return; }
             scenario.Disposals++;
             if (Status == DatabaseTransactionStatus.Open)
             {
