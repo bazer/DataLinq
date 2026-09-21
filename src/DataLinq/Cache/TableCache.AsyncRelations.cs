@@ -126,6 +126,7 @@ public partial class TableCache
         var key = prepared.Key;
         var index = prepared.Index;
         IAsyncReadFailureEvidence? observed = null;
+        var occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try
         {
             EnsureTransactionRowCache(source, step);
@@ -154,6 +155,7 @@ public partial class TableCache
                 var row = await GetProviderRowAsyncCore(key, source, token, step, prepared.Factory,
                     read => observed = read, single, ExecutionOperationKind.RelationLoad).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 return complete(row is null ? [] : [row]);
             }
             var cacheMembership = source is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None;
@@ -162,6 +164,7 @@ public partial class TableCache
                 var result = await LoadQueryRowsAsync(keys!, source, prepared.Factory, step, read => observed = read, token,
                     ExecutionOperationKind.RelationLoad).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 return complete(result.ToArray());
             }
             var generation = CaptureReadGeneration();
@@ -204,6 +207,7 @@ public partial class TableCache
         }
         catch (Exception failure)
         {
+            ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
             if (source is Transaction transaction && step is not null && ExecutionFailureContexts.GetCurrent(failure) is null)
             {
                 var failures = new ExecutionFailures();

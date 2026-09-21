@@ -146,6 +146,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
             ExecutionFailures? failures = null;
             var stage = ExecutionFailureStage.Validation;
             var cause = ExecutionFailureCause.Unknown;
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
             try
             {
                 stage = ExecutionFailureStage.Notification;
@@ -172,10 +173,13 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                     // Assignment precedes cancellation: a successfully acquired reader must
                     // be cleaned up even if its provider completed despite a cancellation request.
                     if (continuation?.RequiresInitialReader != false)
+                    {
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         reader = await (source is IAsyncTransactionReaderSource ownedSource
                             ? ownedSource.OpenReaderAsync(ownership!.Step, token)
                             : source.OpenReaderAsync(token)).ConfigureAwait(false)
                             ?? throw new InvalidOperationException("Reader acquisition returned no reader.");
+                    }
                 }
 
                 if (buffer is not null || continuation is not null)
@@ -185,11 +189,13 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                         stage = ExecutionFailureStage.RowLoading;
                         cause = ExecutionFailureCause.Unknown;
                         CheckCancellation();
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         var hasRow = await reader!.ReadNextRowAsync(token).ConfigureAwait(false);
                         CheckCancellation();
                         if (!hasRow) break;
                         stage = ExecutionFailureStage.Materialization;
                         cause = ExecutionFailureCause.MaterializationError;
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         if (buffer is not null) buffer.AddRow(reader);
                         else continuation!.AddRow(reader);
                     }
@@ -197,6 +203,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                     cause = ExecutionFailureCause.MaterializationError;
                     if (buffer is not null)
                     {
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         bufferedResults = buffer.Complete(token);
                         buffer = null;
                     }
@@ -208,6 +215,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                         CheckCancellation();
                         continuationStarted = true;
                         failureEvidence = continuation;
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         bufferedResults = await continuation.CompleteAsync(ownership?.Step, token).ConfigureAwait(false);
                         continuation = null;
                         CheckCancellation();
@@ -231,12 +239,14 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                     }
                     else
                     {
+                        occurrence = ExecutionFailureContexts.CaptureOccurrence();
                         var hasRow = await reader!.ReadNextRowAsync(token).ConfigureAwait(false);
                         CheckCancellation();
                         if (hasRow)
                         {
                             stage = ExecutionFailureStage.Materialization;
                             cause = ExecutionFailureCause.MaterializationError;
+                            occurrence = ExecutionFailureContexts.CaptureOccurrence();
                             var value = materialize!(reader);
                             CheckCancellation();
                             current = value;
@@ -248,6 +258,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
             }
             catch (Exception primary)
             {
+                ExecutionFailureContexts.DiscardEarlierReport(primary, occurrence);
                 failures ??= new ExecutionFailures();
                 failures.AddReported(primary, stage, primary is OperationCanceledException canceled &&
                     canceled.CancellationToken == token && token.IsCancellationRequested ? ExecutionFailureCause.Cancellation : cause);
@@ -324,7 +335,9 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                 // Before admission, a gate rejection already describes the active
                 // operation. This enumerator owns no work and must not replace its
                 // FinishActiveOperation policy with a read-cleanup assessment.
-                var reported = continuationStarted || !started ? ExecutionFailureContexts.GetCurrent(primary) : null;
+                // Final reporting may reuse the same exception. Use the snapshot
+                // captured with the primary, before cleanup/observers can replace it.
+                var reported = continuationStarted || !started ? failures.PrimaryContext : null;
                 if (reported is null && started && failureEvidence is { } classifier)
                 {
                     using var diagnostics = ExecutionFailureScope.Begin();

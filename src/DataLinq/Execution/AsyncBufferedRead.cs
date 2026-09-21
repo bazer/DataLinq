@@ -53,6 +53,7 @@ internal sealed class AsyncBufferedRead<TResult>(
         var failures = new ExecutionFailures();
         var stage = ExecutionFailureStage.Validation;
         var cause = ExecutionFailureCause.Unknown;
+        var occurrence = ExecutionFailureContexts.CaptureOccurrence();
         IAsyncDataReader? reader = null;
         T result = default!;
         try
@@ -64,6 +65,7 @@ internal sealed class AsyncBufferedRead<TResult>(
                 if (cached.Found) return cached.Result;
             }
             stage = ExecutionFailureStage.CommandExecution;
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             reader = await (source is IAsyncTransactionReaderSource ownedSource
                 ? ownedSource.OpenReaderAsync(step!, token)
                 : source.OpenReaderAsync(token)).ConfigureAwait(false)
@@ -73,11 +75,13 @@ internal sealed class AsyncBufferedRead<TResult>(
                 stage = ExecutionFailureStage.RowLoading;
                 cause = ExecutionFailureCause.Unknown;
                 token.ThrowIfCancellationRequested();
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 var hasRow = await reader.ReadNextRowAsync(token).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
                 if (!hasRow) break;
                 stage = ExecutionFailureStage.Materialization;
                 cause = ExecutionFailureCause.MaterializationError;
+                occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 addRow(reader);
                 if (firstRowOnly) break;
             }
@@ -99,6 +103,7 @@ internal sealed class AsyncBufferedRead<TResult>(
             using var conversionDiagnostics = ExecutionFailureScope.Begin();
             stage = ExecutionFailureStage.Materialization;
             cause = ExecutionFailureCause.MaterializationError;
+            occurrence = ExecutionFailureContexts.CaptureOccurrence();
             try
             {
                 token.ThrowIfCancellationRequested();
@@ -132,8 +137,12 @@ internal sealed class AsyncBufferedRead<TResult>(
         }
         return result;
 
-        void Record(Exception failure) => failures.AddReported(failure, stage,
-            failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
-                ? ExecutionFailureCause.Cancellation : cause);
+        void Record(Exception failure)
+        {
+            ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
+            failures.AddReported(failure, stage,
+                failure is OperationCanceledException canceled && canceled.CancellationToken == token && token.IsCancellationRequested
+                    ? ExecutionFailureCause.Cancellation : cause);
+        }
     }
 }

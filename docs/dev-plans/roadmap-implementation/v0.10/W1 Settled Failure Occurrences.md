@@ -59,6 +59,8 @@ Reports remain local, unmodified and unuploaded. ValidForEvidence=false denotes 
 
 ## Cost and remaining work
 
+The subsequent [materialization occurrence slice](W1%20Materialization%20Failure%20Occurrences.md) addresses row advancement/conversion, nested transforms and post-reader relation completion using report checkpoints, and retains captured continuation recovery through late observers. Its 30 cases and 5,014 broad local passes extend this checkpoint without closing the full inventory or performance gates.
+
 This change adds successful-path scopes around conversion and actual buffered cleanup, and around recovery-policy evaluation where reached. Async raw conversion also retains a nullable scope through its catch/finally. The resulting allocation and async-state costs are **unmeasured**; this is not a failure-only or zero-cost change. Failure-only assessment/initialization capture does not establish a cost waiver for the successful paths.
 
 The complete local/preflight cause/stage/correlation inventory, remaining per-row and relation completion boundaries, higher synchronous orchestration, cross-family I/O mapping, internal adapter readiness and final requirement-to-code/test/merged-PR audit remain open. All six strict .NET 10 W0 lanes and measured coordination/scope costs remain mandatory.
