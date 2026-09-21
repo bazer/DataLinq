@@ -9,10 +9,12 @@ internal static class AsyncCommandCleanup
         uint? transactionId, ExecutionFailures? failures = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
+        var occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try { if (reader is not null) await reader.DisposeAsync().ConfigureAwait(false); }
-        catch (Exception failure) { Add(ref failures, failure); }
+        catch (Exception failure) { Add(ref failures, failure, occurrence); }
+        occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try { if (command is not null) await command.DisposeAsync().ConfigureAwait(false); }
-        catch (Exception failure) { Add(ref failures, failure); }
+        catch (Exception failure) { Add(ref failures, failure, occurrence); }
         Report(failures, transactionId);
     }
 
@@ -20,15 +22,23 @@ internal static class AsyncCommandCleanup
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         ExecutionFailures? failures = null;
+        var occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try { reader?.Dispose(); }
-        catch (Exception failure) { Add(ref failures, failure); }
+        catch (Exception failure) { Add(ref failures, failure, occurrence); }
+        occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try { command?.Dispose(); }
-        catch (Exception failure) { Add(ref failures, failure); }
+        catch (Exception failure) { Add(ref failures, failure, occurrence); }
         Report(failures, transactionId);
     }
 
-    private static void Add(ref ExecutionFailures? failures, Exception failure) =>
+    private static void Add(ref ExecutionFailures? failures, Exception failure, long occurrence)
+    {
+        // A successfully settled reader can have handled this same exception.
+        // Only a report made during the current resource's disposal may classify
+        // its throw. Previously captured primary/secondary snapshots stay intact.
+        ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
         (failures ??= new()).AddCleanup(failure);
+    }
 
     private static void Report(ExecutionFailures? failures, uint? transactionId)
     {
