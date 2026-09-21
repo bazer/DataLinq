@@ -184,7 +184,7 @@ Exit gate:
 
 ### W1: Internal Async And Cancellation Contracts
 
-The current [functional and I/O audit](W1%20Functional%20and%20IO%20Audit.md) maps all 21 completion requirements to runtime/test evidence and merged history, with explicit reviewed, pending and open states. It also verifies per-model factory failure isolation with ten new cases and 5,024 broad local passes. Remaining work is the four review batches listed there, current coordination-cost profiling and all six strict W0 lanes; W1 is not complete.
+The current [functional and I/O audit](W1%20Functional%20and%20IO%20Audit.md) maps all 21 completion requirements to runtime/test evidence and merged history, with explicit reviewed, pending and open states. Its [first review batch](W1%20Functional%20and%20IO%20Audit.md#lifetime-and-relation-review) records relation prerequisites, initialization, enumeration, recovery and callback draining with 5,095 current local passes. Next are mutation/raw/query/publication review (F09–F12), administrative/root review (F13–F17), and final diagnostics/integration/performance (F19–F21), including all six strict W0 lanes; W1 is not complete.
 
 The [materialization occurrence follow-through](W1%20Materialization%20Failure%20Occurrences.md) adds report checkpoints between row conversion, buffered completion, nested transforms and post-reader relation completion, and uses captured continuation completion/recovery through late observers. Its 30 new cases pass within 5,014 broad local passes. Checkpoint capture allocates no per-row object in the bounded control; full coordination/failure-reporting costs, classification/preflight/per-model/I/O mapping, adapter readiness and all six final W0 performance lanes remain open.
 

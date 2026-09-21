@@ -3,7 +3,7 @@
 
 # W1 Completion Audit
 
-**Current review:** [Functional and I/O audit](W1%20Functional%20and%20IO%20Audit.md) assigns F01–F21 to the requirements below, distinguishes inspected boundaries from mapped-but-pending evidence and groups the remaining review into four finite batches. It records the per-model factory occurrence correction and 5,024 broad local passes. Historical remaining-work statements must be read with their subsequent follow-through; no requirement or performance gate is waived.
+**Current review:** [Functional and I/O audit](W1%20Functional%20and%20IO%20Audit.md) assigns F01–F21 to the requirements below. Its [first review batch](W1%20Functional%20and%20IO%20Audit.md#lifetime-and-relation-review) records inspected F01/F04–F08 relation, initialization, enumeration, recovery and helper contracts with 5,095 current local passes, including generated consumers. Next are F09–F12, then F13–F17 and F19–F21. Historical remaining-work statements must be read with their subsequent follow-through; no requirement or performance gate is waived.
 
 **Started:** 2026-09-17. The [implementation order](Implementation%20Order%20and%20Integration%20Plan.md), [accepted API decisions](Async%20Public%20API%20Decisions.md) and [W0 I/O map](W0%20IO%20Execution%20Map.md) define the requirements; the table does not replace or narrow them. W1 means internal orchestration and controllable evidence. Native adapter feasibility belongs to W2, public declarations/consumers to W3 and runtime schema comparison to W5.
 
