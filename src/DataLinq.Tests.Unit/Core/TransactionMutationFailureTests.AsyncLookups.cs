@@ -237,6 +237,7 @@ public sealed partial class TransactionMutationFailureTests
     }
 
     [Test]
+    [Arguments("success")]
     [Arguments("cancel")]
     [Arguments("capability")]
     [Arguments("busy")]
@@ -244,19 +245,32 @@ public sealed partial class TransactionMutationFailureTests
     {
         using var fixture = new ScriptedFixture(captureSql: true);
         using var transaction = fixture.Database.Transaction();
-        fixture.PrimeCommittedRow(1, "cached");
+        fixture.PrimeCommittedRow(1, "committed");
+        fixture.Scenario.AsyncSqlReaders = new ControlledSqlReaderFactory
+            { CreateAccess = _ => new() { ReaderOverride = new ControlledRowDataReader([1, "transaction"]) } };
+        var key = DataLinqKey.FromValue(1);
+        var expected = await AsyncModelLookup.GetByProviderKeyAsyncCore<TransactionMutationGuardRow>(key, transaction);
+        await Assert.That(expected!.Value).IsEqualTo("transaction");
+        await Assert.That(fixture.RowCache.TryGetMaterializedRow(key, transaction, out var cached)).IsTrue();
+        await Assert.That(cached).IsSameReferenceAs(expected);
         var factory = new ControlledSqlReaderFactory
             { ConfigureCommand = c => { if (mode == "capability") c.ValidationFailure = new NotSupportedException("lookup"); } };
         fixture.Scenario.AsyncSqlReaders = factory;
         using var scope = mode == "busy" ? transaction.ExecutionGate.Enter("other work") : null;
-        var error = await AsyncEnumerationFailureOf(() => AsyncModelLookup.GetByProviderKeyAsyncCore<TransactionMutationGuardRow>(
-            DataLinqKey.FromValue(1), transaction, new(true)));
-        await Assert.That(mode switch
+        if (mode == "success")
+            await Assert.That(await AsyncModelLookup.GetByProviderKeyAsyncCore<TransactionMutationGuardRow>(key, transaction))
+                .IsSameReferenceAs(expected);
+        else
         {
-            "cancel" => error is OperationCanceledException,
-            "capability" => error is NotSupportedException,
-            _ => error is InvalidOperationException
-        }).IsTrue();
+            var error = await AsyncEnumerationFailureOf(() => AsyncModelLookup.GetByProviderKeyAsyncCore<TransactionMutationGuardRow>(
+                key, transaction, new(true)));
+            await Assert.That(mode switch
+            {
+                "cancel" => error is OperationCanceledException,
+                "capability" => error is NotSupportedException,
+                _ => error is InvalidOperationException
+            }).IsTrue();
+        }
         await Assert.That(factory.Commands.Sum(x => x.Creates)).IsEqualTo(0);
     }
 
