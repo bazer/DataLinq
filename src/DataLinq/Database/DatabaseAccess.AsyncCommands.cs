@@ -122,7 +122,9 @@ public abstract partial class DatabaseAccess
                         ?? throw new InvalidOperationException("The provider returned no failure evidence.");
                     // Raw scalar/non-query results say nothing about side effects. Even a
                     // provider's OrdinaryRead/NoStatement claim cannot restore raw reuse.
-                    if (owner is null && command.Dispatched)
+                    // Keep stronger initialization failure evidence: entering an adapter
+                    // cannot turn a disposal-only failure into permission to roll back.
+                    if (owner is null && command.Dispatched && evidence.Effects != ExecutionEffects.Initialization)
                         evidence = evidence with { Effects = ExecutionEffects.Unknown };
                 }
                 catch (Exception assessment)
