@@ -88,10 +88,10 @@ internal sealed class GuardedEnumerable<T> : IEnumerable<T>
 
         public bool MoveNext()
         {
-            using var diagnostics = ExecutionFailureScope.Begin();
             using var call = calls.Enter();
             if (finished)
                 return false;
+            using var diagnostics = ExecutionFailureScope.Begin();
             try
             {
                 if (inner.MoveNext())
@@ -108,10 +108,14 @@ internal sealed class GuardedEnumerable<T> : IEnumerable<T>
 
         public void Dispose()
         {
-            using var diagnostics = ExecutionFailureScope.Begin();
             if (Volatile.Read(ref helperDrained))
                 return;
             using var call = calls.Enter();
+            // DisposeCore marks finished before invoking cleanup. Keep admission
+            // ahead of this check so a concurrent finishing call is still rejected.
+            if (finished)
+                return;
+            using var diagnostics = ExecutionFailureScope.Begin();
             DisposeCore();
         }
 
