@@ -422,6 +422,7 @@ public sealed class NativeAsyncCommandTests
     private static MySqlDataSource CreateSource(ServerSchemaDatabase schema) =>
         new MySqlDataSourceBuilder(new MySqlConnectionStringBuilder(schema.Connection.ConnectionString)
         {
+            Pooling = true,
             MaximumPoolSize = 1,
             ConnectionTimeout = 5
         }.ConnectionString).Build();

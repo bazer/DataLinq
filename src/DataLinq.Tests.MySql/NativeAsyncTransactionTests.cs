@@ -283,7 +283,7 @@ public sealed class NativeAsyncTransactionTests
 
     private static SqlProvider<EmployeesDb> CreateProvider(ServerSchemaDatabase schema, string? databaseName = null)
     {
-        var builder = new MySqlConnectionStringBuilder(schema.Connection.ConnectionString) { MaximumPoolSize = 1, ConnectionTimeout = 5 };
+        var builder = new MySqlConnectionStringBuilder(schema.Connection.ConnectionString) { Pooling = true, MaximumPoolSize = 1, ConnectionTimeout = 5 };
         return schema.Provider.DatabaseType == DatabaseType.MySQL
             ? new MySqlProvider<EmployeesDb>(builder.ConnectionString, databaseName ?? schema.Connection.DataSourceName, DataLinqLoggingConfiguration.NullConfiguration)
             : new MariaDBProvider<EmployeesDb>(builder.ConnectionString, databaseName ?? schema.Connection.DataSourceName, DataLinqLoggingConfiguration.NullConfiguration);
