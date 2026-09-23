@@ -11,7 +11,7 @@ internal enum AsyncCompletionOperation { Commit, Rollback, Dispose }
 /// telemetry, managed finalization or disposal. Failed initialization permits disposal only.
 /// Separate disposal steps await all work, are safe independently and never retry rollback.
 /// The private owner lets resource bundles validate completion/disposal without reacquiring admission.
-/// Production provider binding remains W2; no sync fallback is permitted.
+/// Native adapters must explicitly implement this capability; no sync fallback is permitted.
 /// </summary>
 internal interface IAsyncTransactionCompletion
 {

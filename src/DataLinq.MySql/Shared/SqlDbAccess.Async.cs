@@ -33,7 +33,7 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
     IAsyncReaderSource IAsyncBorrowedReaderFactory.BindBorrowedReader(IDbCommand command) =>
         new BorrowedCommandReaderSource(new NativeCommands(this), command);
 
-    private sealed class NativeCommandFactory(CapturedSql sql) : IAsyncOwnedCommandFactory
+    internal sealed class NativeCommandFactory(CapturedSql sql) : IAsyncOwnedCommandFactory
     {
         private readonly Sql statement = sql.ToSql();
 
@@ -196,7 +196,7 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
         };
     }
 
-    private static void ValidateSql(string sql)
+    internal static void ValidateSql(string sql)
     {
         if (string.IsNullOrWhiteSpace(sql))
             throw new InvalidOperationException("CommandText must be specified.");

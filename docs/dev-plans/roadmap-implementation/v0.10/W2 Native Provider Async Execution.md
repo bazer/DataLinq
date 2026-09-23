@@ -20,9 +20,9 @@ Each cell progresses separately through implementation and verification. A passi
 | Milestone / required behavior | MySQL | MariaDB | SQLite file / memory |
 | --- | --- | --- | --- |
 | W2.1 Native standalone open, scalar/non-query dispatch, reader advancement and owned cleanup; validation/pre-cancellation; borrowed command ownership | Implemented internally; bounded native tests on 8.4/9.7 below | Implemented internally; bounded native tests on 10.11/11.4/11.8/12.3 below | Pending |
-| W2.2 Lazy first-use transaction initialization, sync/async admission, private publication, partial-initialization cleanup and attachment | Pending | Pending | Pending; preserve deferred Serializable begin |
+| W2.2 Lazy first-use transaction initialization, sync/async admission, private publication, partial-initialization cleanup and attachment | Implemented; native initialization checks below | Implemented; native initialization checks below | Pending; preserve deferred Serializable begin |
 | W2.3 Captured query/key/relation/fluent integration, actual row conversion, complete/invalidation-safe cache publication and early reader cleanup | Pending | Pending | Pending |
-| W2.4 Tracked mutations/private hydration, commit/rollback certainty, independent recovery budget, disposal and mixed execution | Pending | Pending | Pending |
+| W2.4 Tracked mutations/private hydration, commit/rollback certainty, independent recovery budget, disposal and mixed execution | Basic native completion/disposal bound; mutation and failure matrix pending | Basic native completion/disposal bound; mutation and failure matrix pending | Pending |
 | W2.5 Metadata parsers, existence/availability, per-command timeout, provisioning, journal mode, keeper and owning-root lifetimes | Pending | Pending | Pending |
 | W2.6 Native interruption, soft/hard cancellation, timeout/connection trust and no-dispatch/cleanup classification; final parity and performance review | Pending | Pending | Pending official fix adoption and affected reruns |
 
@@ -90,4 +90,29 @@ $env:DATALINQ_TEST_DB_HOST = '127.0.0.1'
 
 The direct CLI DLL invocation preserves the test configuration explicitly; the earlier `dotnet run` invocation's summary actually reported Debug. Rebuild the runner for a new clean-candidate receipt; do not relabel these working-source runs or overwrite retained evidence when collecting another checkpoint.
 
-**Remaining:** SQLite native binding/adoption, managed transaction first-use and completion, full query/relation/mutation integration, administrative operations, hard-cancellation/connection-trust and combined-cleanup fault evidence, performance and final W2 acceptance. The next implementation slice is W2.2 native lazy transaction initialization. Passing this standalone slice does not establish transaction reuse after interruption or complete W2.1 for SQLite.
+**Remaining at the standalone checkpoint:** SQLite native binding/adoption, managed transaction first-use and completion, full query/relation/mutation integration, administrative operations, hard-cancellation/connection-trust and combined-cleanup fault evidence, performance and final W2 acceptance. Transaction initialization follows below. Passing the standalone slice does not establish transaction reuse after interruption or complete W2.1 for SQLite.
+
+### W2.2 MySQL/MariaDB Native Transaction Initialization
+
+The [native resource bundle](../../../../src/DataLinq.MySql/Shared/SqlDatabaseTransaction.Resource.cs) binds W1's lazy initialization to direct synchronous and native asynchronous opening, ReadCommitted begin and quoted database selection. Native resources stay private until setup and startup reporting succeed. A failed open/setup/observer path is terminal and settles independent transaction/connection cleanup. Pre-cancellation leaves an unused wrapper reusable; cancellation after opening starts does not permit a new initialization attempt.
+
+[Command dispatch](../../../../src/DataLinq.MySql/Shared/SqlDatabaseTransaction.Commands.cs) shares the managed operation owner across initialization and execution. Public synchronous raw commands and internal owned query/mutation dispatch use distinct admission paths, so a callback cannot borrow the active private owner. Async readers own their reader and any created command, while the transaction retains its connection. Attached native transactions are adopted without another begin, retain their isolation level and preserve consuming ownership. A ready resource can serve either sync or async execution regardless of the first-use mode.
+
+Native commit/rollback and independent disposal now bind the existing managed completion coordinator. Successful native completion returns before managed notifications/finalization. Empty completion/disposal does not open a connection. These bindings establish the basic completion path, **not** the full W2.4 uncertain-outcome/recovery matrix. SQL NULL keeps the existing transaction scalar conversion, which differs from standalone raw scalar behavior.
+
+[Ten TUnit methods](../../../../src/DataLinq.Tests.MySql/NativeAsyncTransactionTests.cs) cover nine server-parameterized scenarios plus targetless unused completion. The final focused run passes **57/57** across all six servers, including repeated targetless cases. It checks mixed first use/completion, validation before cancellation, reader admission through cleanup, connection retention, scalar-null parity, failed USE cleanup, cancellation during a one-connection pool wait, observer reentrancy/failure and attached transaction rollback/ownership. The preceding full provider-specific run passes **848/848** before the final observer-attribution refinement. The final-source compliance run passes **3,728/3,728** across SQLite file/memory and all six servers. Release core/provider builds pass on .NET 8/9/10 without warnings/errors.
+
+| Local summary under `artifacts/` | Scope | SHA-256 |
+| --- | --- | --- |
+| `w2-native-transactions-initial.json` | First focused latest-server probe, 19/19 | `c6c9578d0ca36fa11bf9747f446a1244664285c7f5fb405e3f3710b1db71fb9b` |
+| `w2-native-transactions-mysql-all-initial.json` | Provider regression before final refinement, 848/848 | `f34394da932a5f884f2fcad6178e0ee860b90e411a716e8c6914bc329fdf048d` |
+| `w2-native-transactions-final-focused.json` | Final native initialization cases, 57/57 | `e76893d35c11968dbd1154b56446ee95ea50d305f654f7e849b1fa8223b9190f` |
+| `w2-native-transactions-compliance-all.json` | Final-source compliance, 3,728/3,728 | `8f5d2cd39d5b17e0815443ea300f2c9b130683acb3f919e426ec36d8f1b56592` |
+
+These Release/.NET 10 receipts identify working changes on `8dccdfab`, the same-commit reused Release runner and unchanged checkout status during each run; **ValidForEvidence remains false** because these are working-source development checks. They do not replace clean final W2 acceptance. Initial compile errors in new diagnostic argument names and a TUnit nullability inference were corrected before native test execution. An overlapping unit build encountered Windows locks on the active Testing CLI DLLs. After the runner exited, the serialized Release build succeeded without warnings/errors and the full unit suite passed 3,878/3,878; no source workaround was needed.
+
+Driver-level cleanup limitations remain explicit: [MySqlConnector 2.6.2 transaction disposal](https://github.com/mysql-net/MySqlConnector/blob/2.6.2/src/MySqlConnector/MySqlTransaction.cs) can perform an implicit rollback. DataLinq does not issue a second explicit recovery rollback or infer confirmed rollback from disposal. W2.4/W2.6 must still prove failed-completion cleanup, recovery-budget behavior and connection trust under interruption; an open connection alone is not evidence of safe business-operation reuse. The adapter currently makes no ordinary-read integrity claim after dispatch.
+
+**Next:** captured scalar/query/key/relation integration and tracked mutations/private hydration, followed by the full completion/recovery matrix. SQLite bindings, administrative operations, interruption evidence and final parity/performance acceptance remain in scope.
+
+The full-unit receipt is `artifacts/w2-native-transactions-unit.json`, SHA-256 `d6b74b19deb68806cd67b4d0a95c7ccb51a728a70cf7060321d431491dee3846`. It is another bounded working-source run, with `ValidForEvidence=false`.

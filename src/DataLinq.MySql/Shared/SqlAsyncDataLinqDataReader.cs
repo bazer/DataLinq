@@ -7,8 +7,8 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-/// <summary>Native standalone reader with explicit connection ownership; its command stays borrowed.</summary>
-internal sealed class SqlAsyncDataLinqDataReader(MySqlDataReader native, MySqlConnection connection,
+/// <summary>Native reader; a supplied standalone connection is owned, transaction connections stay borrowed.</summary>
+internal sealed class SqlAsyncDataLinqDataReader(MySqlDataReader native, MySqlConnection? connection,
     DatabaseType? databaseType, string? providerInstanceId) : IAsyncDataReader, IDataLinqOwnedBinaryBufferReader
 {
     private readonly SqlDataLinqDataReader values = new(native, databaseType);
@@ -59,7 +59,7 @@ internal sealed class SqlAsyncDataLinqDataReader(MySqlDataReader native, MySqlCo
         try { native.Dispose(); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         occurrence = ExecutionFailureContexts.CaptureOccurrence();
-        try { connection.Dispose(); }
+        try { connection?.Dispose(); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         Report(failures);
     }
@@ -75,7 +75,7 @@ internal sealed class SqlAsyncDataLinqDataReader(MySqlDataReader native, MySqlCo
         try { await native.DisposeAsync().ConfigureAwait(false); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         occurrence = ExecutionFailureContexts.CaptureOccurrence();
-        try { await connection.DisposeAsync().ConfigureAwait(false); }
+        try { if (connection is not null) await connection.DisposeAsync().ConfigureAwait(false); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         Report(failures);
     }
