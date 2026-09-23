@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.Diagnostics.NETCore.Client"><HintPath>../../src/DataLinq.Benchmark/bin/Release/net10.0/Microsoft.Diagnostics.NETCore.Client.dll</HintPath></Reference>
+    <Reference Include="Microsoft.Diagnostics.Tracing.TraceEvent"><HintPath>../../src/DataLinq.Benchmark/bin/Release/net10.0/Microsoft.Diagnostics.Tracing.TraceEvent.dll</HintPath></Reference>
+    <Reference Include="Microsoft.Diagnostics.FastSerialization"><HintPath>../../src/DataLinq.Benchmark/bin/Release/net10.0/Microsoft.Diagnostics.FastSerialization.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>
