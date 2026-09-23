@@ -10,7 +10,7 @@ using MySqlConnector;
 namespace DataLinq.MySql;
 
 public partial class SqlDatabaseTransaction : IAsyncEagerCommandFactory, IAsyncSqlReaderFactory,
-    IAsyncBorrowedReaderFactory, ISyncRawCommandFactory
+    IAsyncBorrowedReaderFactory, ISyncRawCommandFactory, IAsyncSqlScalarFactory, IAsyncMutationCommandFactory
 {
     AsyncEagerCommand IAsyncEagerCommandFactory.BindCommand(string sql) =>
         new(new NativeCommands(this), new SqlDbAccess.NativeCommandFactory(CapturedSql.Capture(new Sql(sql))), AsyncResource);
@@ -25,6 +25,14 @@ public partial class SqlDatabaseTransaction : IAsyncEagerCommandFactory, IAsyncS
             new OwnedCommandExecution(new NativeCommands(this), new SqlDbAccess.NativeCommandFactory(sql)));
     IAsyncReaderSource IAsyncBorrowedReaderFactory.BindBorrowedReader(IDbCommand command) =>
         new InitializingTransactionReaderSource<NativeTransactionResource>(AsyncResource, new BorrowedCommandReaderSource(new NativeCommands(this), command));
+
+    IAsyncScalarSource IAsyncSqlScalarFactory.BindScalar(CapturedSql sql) =>
+        new InitializingTransactionScalarSource<NativeTransactionResource>(AsyncResource,
+            new OwnedCommandExecution(new NativeCommands(this), new SqlDbAccess.NativeCommandFactory(sql), ManagedTransaction?.TransactionID));
+    AsyncScalarInvocation<T> IAsyncSqlScalarFactory.BindScalar<T>(CapturedSql sql) =>
+        new(((IAsyncSqlScalarFactory)this).BindScalar(sql), static value => (T)(value ?? default(T)!));
+    AsyncEagerCommand IAsyncMutationCommandFactory.BindMutation(CapturedSql sql) =>
+        new(new NativeCommands(this), new SqlDbAccess.NativeCommandFactory(sql), AsyncResource);
 
     SyncRawCommand ISyncRawCommandFactory.BindCommand(string sql) =>
         new(new NativeCommands(this), () => new MySqlCommand(sql), _ => SqlDbAccess.ValidateSql(sql), Resource);

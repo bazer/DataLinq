@@ -9,9 +9,9 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-// W2 standalone native binding. Transaction adapters and the public surface are
-// separate integrations; synchronous access keeps its direct implementation.
-public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFactory, IAsyncBorrowedReaderFactory
+// Internal native binding for standalone raw commands and captured query plans.
+// Synchronous access keeps its direct implementation.
+public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFactory, IAsyncBorrowedReaderFactory, IAsyncSqlScalarFactory
 {
     AsyncEagerCommand IAsyncEagerCommandFactory.BindCommand(string sql) =>
         new(new NativeCommands(this), new NativeCommandFactory(CapturedSql.Capture(new Sql(sql))));
@@ -32,6 +32,12 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
 
     IAsyncReaderSource IAsyncBorrowedReaderFactory.BindBorrowedReader(IDbCommand command) =>
         new BorrowedCommandReaderSource(new NativeCommands(this), command);
+
+    IAsyncScalarSource IAsyncSqlScalarFactory.BindScalar(CapturedSql sql) =>
+        new OwnedCommandExecution(new NativeCommands(this), new NativeCommandFactory(sql));
+
+    AsyncScalarInvocation<T> IAsyncSqlScalarFactory.BindScalar<T>(CapturedSql sql) =>
+        new(((IAsyncSqlScalarFactory)this).BindScalar(sql), static value => (T)(value ?? default(T)!));
 
     internal sealed class NativeCommandFactory(CapturedSql sql) : IAsyncOwnedCommandFactory
     {
