@@ -34,6 +34,46 @@ Use the repo docs in this order:
 - The WebAssembly `WASM0001` warnings that appear outside the sandbox are real. They come from `SQLitePCLRaw.provider.e_sqlite3` exposing varargs native SQLite functions such as `sqlite3_config` and `sqlite3_db_config`; the SDK says those calls are unsupported on WebAssembly and would fail at runtime. Do not blanket-suppress them without proving the affected functions are unreachable or changing the WebAssembly SQLite provider story.
 - For sandboxed server-backed Testing CLI runs on native Windows, set `DATALINQ_TEST_DB_HOST=127.0.0.1` for the command. The sandbox blocks TCP to the Podman VM host, but loopback reaches Podman's `wslrelay` listeners when the matrix ports are free. The matrix uses `13307` through `13312` specifically to avoid common local MySQL/MariaDB services. Server-backed `run` commands refresh `artifacts/testdata/testinfra-state.json` from the actually running containers, so a targeted verification should not leave the state narrowed to one server target. If server-backed sandbox connectivity looks wrong, first check whether the configured port is owned by `wslrelay`.
 
+## Git approvals on native Windows
+
+In this Codex Windows runner, `.git` is read-only inside the sandbox. Git writes need the approved execution path outside it. The runner submits PowerShell command strings that do not reliably match saved bare `git add` and `git commit` prefix rules. Saving an approval for a command containing a particular file list or commit message does not cover the next different command string.
+
+This local checkout uses reusable rules in `C:/Users/sebas/.codex/rules/datalinq-git.rules` for the fixed commands below. They target `D:/git/DataLinq` explicitly. Other checkout locations need their own matching commands and rules. After manually installing or editing rules, restart Codex if the running session has not loaded them.
+
+Prepare changing input data in separate sandboxed calls, then execute the Git command as its own `exec_command` call with the default PowerShell shell, `workdir = D:/git/DataLinq`, and `sandbox_permissions = require_escalated`. The saved rule authorizes that execution path; it does not make `.git` writable inside the sandbox. Keep the Git command text exactly as shown, without preceding assignments, extra flags, or appended commands.
+
+For staging, create `artifacts/codex-git/stage-paths.nul` containing only the intended repository-relative paths, encoded as UTF-8 without a BOM and separated by NUL bytes. For example, in a separate preparation call:
+
+```powershell
+$gitStagePaths = @('src/DataLinq/Example.cs', 'docs/Example Page.md')
+New-Item -ItemType Directory -Path 'D:/git/DataLinq/artifacts/codex-git' -Force | Out-Null
+[System.IO.File]::WriteAllBytes(
+    'D:/git/DataLinq/artifacts/codex-git/stage-paths.nul',
+    [System.Text.UTF8Encoding]::new($false).GetBytes(($gitStagePaths -join [char]0) + [char]0))
+```
+
+Then run this standalone command:
+
+```powershell
+git -C D:/git/DataLinq --literal-pathspecs add --pathspec-from-file=artifacts/codex-git/stage-paths.nul --pathspec-file-nul
+```
+
+The literal path mode and NUL separators preserve spaces and prevent filenames from being interpreted as pathspec patterns or shell code. Listed deletions are staged too. Inspect the resulting staged diff before proceeding.
+
+Only when the user explicitly requests a commit, write the agreed subject and body to `artifacts/codex-git/commit-message.txt` as UTF-8 without a BOM, then run:
+
+```powershell
+git -C D:/git/DataLinq commit --file=artifacts/codex-git/commit-message.txt
+```
+
+The rules also allow this preview, which creates no commit:
+
+```powershell
+git -C D:/git/DataLinq commit --file=artifacts/codex-git/commit-message.txt --dry-run
+```
+
+The input files live under the already-ignored `artifacts/` directory. Remove consumed input files after the operation so a later task cannot accidentally reuse a stale file list or commit message. These local rules add staging, normal commits, and commit previews; they do not add approvals for amend, push, or arbitrary PowerShell. Other existing user rules remain independent.
+
 ## Use the Repo Tools, Not Ad Hoc Commands
 
 If you need to build, restore, or run direct `dotnet test` commands, prefer [`DataLinq.Dev.CLI`](DataLinq.Dev.CLI.md).
