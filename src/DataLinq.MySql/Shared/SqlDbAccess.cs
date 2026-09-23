@@ -5,7 +5,7 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-public class SqlDbAccess : DatabaseAccess
+public partial class SqlDbAccess : DatabaseAccess
 {
     private readonly MySqlDataSource dataSource;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
