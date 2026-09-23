@@ -47,9 +47,12 @@ public partial class Transaction
         var stage = ExecutionFailureStage.Validation;
         var mutationStage = TransactionFailureStage.ProviderStatement;
         IImmutableInstance? immutable = null;
-        using (ExecutionFailureScope.Begin())
+        // Snapshot once so a newly attached listener cannot run outside its
+        // callback scope. Mutation timing and completion metrics always start.
+        var createActivity = DataLinqTelemetry.HasActivityListeners;
+        using (ExecutionFailureScope.Call? reporting = createActivity ? ExecutionFailureScope.Begin() : null)
         {
-            try { telemetry.Start(); }
+            try { telemetry.Start(createActivity); }
             catch (Exception failure) { ExecutionActivity.AddFailure(failures ??= new(reportingScope), failure, kind); }
         }
         if (failures is null)
