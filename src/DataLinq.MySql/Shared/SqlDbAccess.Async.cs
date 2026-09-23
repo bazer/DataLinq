@@ -14,7 +14,7 @@ namespace DataLinq.MySql;
 public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFactory, IAsyncBorrowedReaderFactory, IAsyncSqlScalarFactory
 {
     AsyncEagerCommand IAsyncEagerCommandFactory.BindCommand(string sql) =>
-        new(new NativeCommands(this), new NativeCommandFactory(CapturedSql.Capture(new Sql(sql))));
+        new(new NativeCommands(this), new NativeCommandFactory(CapturedSql.Capture(new Sql(sql)), validateLifecycle));
 
     AsyncEagerCommand IAsyncEagerCommandFactory.BindCommand(IDbCommand command) =>
         new(new NativeCommands(this), command);
@@ -28,23 +28,27 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
     IAsyncSqlReaderFactory IAsyncSqlReaderFactory.CaptureInvocation() => this;
 
     IAsyncReaderSource IAsyncSqlReaderFactory.BindReader(CapturedSql sql) =>
-        new OwnedCommandExecution(new NativeCommands(this), new NativeCommandFactory(sql));
+        new OwnedCommandExecution(new NativeCommands(this), new NativeCommandFactory(sql, validateLifecycle));
 
     IAsyncReaderSource IAsyncBorrowedReaderFactory.BindBorrowedReader(IDbCommand command) =>
         new BorrowedCommandReaderSource(new NativeCommands(this), command);
 
     IAsyncScalarSource IAsyncSqlScalarFactory.BindScalar(CapturedSql sql) =>
-        new OwnedCommandExecution(new NativeCommands(this), new NativeCommandFactory(sql));
+        new OwnedCommandExecution(new NativeCommands(this), new NativeCommandFactory(sql, validateLifecycle));
 
     AsyncScalarInvocation<T> IAsyncSqlScalarFactory.BindScalar<T>(CapturedSql sql) =>
         new(((IAsyncSqlScalarFactory)this).BindScalar(sql), static value => (T)(value ?? default(T)!));
 
-    internal sealed class NativeCommandFactory(CapturedSql sql) : IAsyncOwnedCommandFactory
+    // Administrative sessions own their connection across sequential commands.
+    internal IAsyncDatabaseAccess BindSession(MySqlConnection connection) => new NativeCommands(this, connection);
+
+    internal sealed class NativeCommandFactory(CapturedSql sql, Action? validateLifecycle = null) : IAsyncOwnedCommandFactory
     {
         private readonly Sql statement = sql.ToSql();
 
         public void Validate(AsyncCommandKind kind)
         {
+            validateLifecycle?.Invoke();
             if (kind is not (AsyncCommandKind.Reader or AsyncCommandKind.Scalar or AsyncCommandKind.NonQuery))
                 throw new ArgumentOutOfRangeException(nameof(kind));
             ValidateSql(statement.Text);
@@ -78,10 +82,11 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
         public ValueTask DisposeAsync() => command.DisposeAsync();
     }
 
-    private sealed class NativeCommands(SqlDbAccess owner) : AsyncDatabaseAccess, IAsyncReadFailureEvidence
+    private sealed class NativeCommands(SqlDbAccess owner, MySqlConnection? sessionConnection = null) : AsyncDatabaseAccess, IAsyncReadFailureEvidence
     {
         protected override void ValidateCommand(IDbCommand command, AsyncCommandKind kind)
         {
+            owner.validateLifecycle?.Invoke();
             if (command is not MySqlCommand native)
                 throw new NotSupportedException("MySQL/MariaDB asynchronous execution requires a MySqlConnector command.");
             if (native.Transaction is not null)
@@ -108,7 +113,7 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
             var result = default(T)!;
             try
             {
-                connection = await owner.dataSource.OpenConnectionAsync(token).ConfigureAwait(false);
+                connection = sessionConnection ?? await owner.dataSource.OpenConnectionAsync(token).ConfigureAwait(false);
                 stage = ExecutionFailureStage.Validation;
                 var native = (MySqlCommand)command;
                 native.Connection = connection;
@@ -127,7 +132,7 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
                 failures.AddReported(failure, stage, stage == ExecutionFailureStage.Notification
                     ? ExecutionFailureCause.ApplicationError : Classify(failure, token));
             }
-            await DisposeConnectionAsync(connection, failures, command, dispatched).ConfigureAwait(false);
+            await DisposeConnectionAsync(sessionConnection is null ? connection : null, failures, command, dispatched).ConfigureAwait(false);
             return result;
         }
 
@@ -141,7 +146,7 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
             IAsyncDataReader? result = null;
             try
             {
-                connection = await owner.dataSource.OpenConnectionAsync(token).ConfigureAwait(false);
+                connection = sessionConnection ?? await owner.dataSource.OpenConnectionAsync(token).ConfigureAwait(false);
                 stage = ExecutionFailureStage.Validation;
                 var native = (MySqlCommand)command;
                 native.Connection = connection;
@@ -152,10 +157,10 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
                 {
                     dispatched = true;
                     var reader = await native.ExecuteReaderAsync(token).ConfigureAwait(false);
-                    var owned = new SqlAsyncDataLinqDataReader(reader, connection, owner.databaseType,
+                    var owned = new SqlAsyncDataLinqDataReader(reader, sessionConnection is null ? connection : null, owner.databaseType,
                         owner.DiagnosticProviderInstanceId);
-                    // Reporting now owns the unreturned reader, including its connection.
-                    // If an observer throws, it must finish that cleanup before returning.
+                    // Reporting owns the unreturned reader and any standalone connection.
+                    // A session connection stays with its administrative coordinator.
                     connection = null;
                     return owned;
                 }).ConfigureAwait(false);
@@ -166,7 +171,7 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
                 failures.AddReported(failure, stage, stage == ExecutionFailureStage.Notification
                     ? ExecutionFailureCause.ApplicationError : Classify(failure, token));
             }
-            await DisposeConnectionAsync(connection, failures, command, dispatched).ConfigureAwait(false);
+            await DisposeConnectionAsync(sessionConnection is null ? connection : null, failures, command, dispatched).ConfigureAwait(false);
             return result!;
         }
 
@@ -186,7 +191,7 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
             }
             if (failures?.Primary is not { } primary) return;
             var context = failures.Snapshot(new(Cause: Classify(primary)), ExecutionCompletion.NotApplicable,
-                ExecutionRecoveryActions.None, null, ExecutionOperationKind.RawCommand,
+                ExecutionRecoveryActions.None, null, ExecutionOperationKind.Unknown,
                 owner.DiagnosticProviderInstanceId, providerIdentityIsAuthoritative: true);
             CommandDispatchEvidence.Attach(primary, context, command, dispatched);
             failures.ThrowIfAny();

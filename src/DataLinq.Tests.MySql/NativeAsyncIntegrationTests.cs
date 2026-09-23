@@ -4,15 +4,48 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Instances;
+using DataLinq.Execution;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Mutation;
 using DataLinq.Testing;
 using DataLinq.Tests.Models.Employees;
+using MySqlConnector;
 
 namespace DataLinq.Tests.MySql;
 
 public sealed class NativeAsyncIntegrationTests
 {
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task NativeFailuresRetainRequestedQueryAndMutationIdentity(TestProviderDescriptor descriptor)
+    {
+        using var scope = EmployeesTestDatabase.CreateIsolated(descriptor, nameof(NativeFailuresRetainRequestedQueryAndMutationIdentity), EmployeesFixtureProfile.TinySeeded);
+        var database = scope.Database;
+        var existing = database.Query().Departments.First();
+        var transaction = database.Transaction();
+        try
+        {
+            var failure = await Assert.That(async () => { await transaction.InsertAsyncCore(new MutableDepartment { DeptNo = existing.DeptNo, Name = "Duplicate" }); }).Throws<MySqlException>();
+            var context = ExecutionFailureContexts.Get(failure!)!;
+            await Assert.That(context.Operation).IsEqualTo(ExecutionOperationKind.Insert);
+            await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.ProviderError);
+            await Assert.That(context.TransactionId).IsEqualTo(transaction.TransactionID);
+            await Assert.That(context.ProviderInstanceId).IsEqualTo(database.Provider.TelemetryInstanceId);
+        }
+        finally { await transaction.DisposeAsyncCore(); }
+
+        database.Provider.DatabaseAccess.ExecuteNonQuery("SET FOREIGN_KEY_CHECKS=0; DROP TABLE departments; SET FOREIGN_KEY_CHECKS=1");
+        database.Provider.State.ClearCache();
+        var count = database.PrepareQuery(0, _ => database.Query().Departments.Count());
+        var scalarFailure = await Assert.That(async () => { await count.ExecuteAsyncCore(database, 0); }).Throws<MySqlException>();
+        await Assert.That(ExecutionFailureContexts.Get(scalarFailure!)!.Operation).IsEqualTo(ExecutionOperationKind.Query);
+        await Assert.That(ExecutionFailureContexts.Get(scalarFailure!)!.Cause).IsEqualTo(ExecutionFailureCause.ProviderError);
+        var rowFailure = await Assert.That(async () => { await Rows(AsyncPlan(database.Query().Departments)); }).Throws<MySqlException>();
+        await Assert.That(ExecutionFailureContexts.Get(rowFailure!)!.Operation).IsEqualTo(ExecutionOperationKind.Query);
+        await Assert.That(ExecutionFailureContexts.Get(rowFailure!)!.Cause).IsEqualTo(ExecutionFailureCause.ProviderError);
+    }
+
     [Test]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]

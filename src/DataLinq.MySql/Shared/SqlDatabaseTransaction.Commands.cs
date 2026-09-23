@@ -190,7 +190,7 @@ public partial class SqlDatabaseTransaction : IAsyncEagerCommandFactory, IAsyncS
             failures.AddReported(failure, dispatched ? ExecutionFailureStage.CommandExecution : ExecutionFailureStage.Validation,
                 ClassifyNativeFailure(failure, token));
             CommandDispatchEvidence.Attach(failure, failures.Snapshot(new(), ExecutionCompletion.NotAttempted,
-                ExecutionRecoveryActions.Dispose, owner.ManagedTransaction?.TransactionID, ExecutionOperationKind.RawCommand,
+                ExecutionRecoveryActions.Dispose, owner.ManagedTransaction?.TransactionID, ExecutionOperationKind.Unknown,
                 owner.DiagnosticProviderInstanceId, providerIdentityIsAuthoritative: true), command, dispatched);
         }
     }

@@ -12,7 +12,7 @@ using ThrowAway;
 
 namespace DataLinq.MySql;
 
-public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
+public abstract partial class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
     protected abstract DatabaseType DatabaseType { get; }
     internal DatabaseType ProviderDatabaseType => DatabaseType;

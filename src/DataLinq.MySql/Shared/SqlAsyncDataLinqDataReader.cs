@@ -90,7 +90,7 @@ internal sealed class SqlAsyncDataLinqDataReader(MySqlDataReader native, MySqlCo
     {
         if (failures?.Primary is not { } primary) return;
         ExecutionFailureContexts.Attach(primary, failures.Snapshot(new(), ExecutionCompletion.NotApplicable,
-            ExecutionRecoveryActions.None, null, ExecutionOperationKind.RawCommand,
+            ExecutionRecoveryActions.None, null, ExecutionOperationKind.Unknown,
             providerInstanceId, providerIdentityIsAuthoritative: true));
         failures.ThrowIfAny();
     }

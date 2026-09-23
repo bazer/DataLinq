@@ -1,3 +1,4 @@
+using System;
 using System.Data;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
@@ -10,22 +11,26 @@ public partial class SqlDbAccess : DatabaseAccess
     private readonly MySqlDataSource dataSource;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
     private readonly DatabaseType? databaseType;
+    private readonly Action? validateLifecycle;
 
     public SqlDbAccess(MySqlDataSource dataSource, DataLinqLoggingConfiguration loggingConfiguration)
         : this(null, dataSource, loggingConfiguration)
     {
     }
 
-    internal SqlDbAccess(IDatabaseProvider? databaseProvider, MySqlDataSource dataSource, DataLinqLoggingConfiguration loggingConfiguration)
+    internal SqlDbAccess(IDatabaseProvider? databaseProvider, MySqlDataSource dataSource, DataLinqLoggingConfiguration loggingConfiguration,
+        Action? validateLifecycle = null)
         : base(databaseProvider)
     {
         this.dataSource = dataSource;
         this.loggingConfiguration = loggingConfiguration;
         this.databaseType = databaseProvider?.DatabaseType;
+        this.validateLifecycle = validateLifecycle;
     }
 
     public override int ExecuteNonQuery(IDbCommand command)
     {
+        validateLifecycle?.Invoke();
         using var connection = dataSource.OpenConnection();
         command.Connection = connection;
 
@@ -57,6 +62,7 @@ public partial class SqlDbAccess : DatabaseAccess
 
     public override object? ExecuteScalar(IDbCommand command)
     {
+        validateLifecycle?.Invoke();
         using var connection = dataSource.OpenConnection();
         command.Connection = connection;
 
@@ -67,6 +73,7 @@ public partial class SqlDbAccess : DatabaseAccess
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
+        validateLifecycle?.Invoke();
         var connection = dataSource.OpenConnection();
         try
         {
