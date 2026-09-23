@@ -15,13 +15,15 @@
 
 ## Release Thesis
 
+**Current checkpoint, 2026-09-24:** [W1 is closed](W1%20Closeout.md). The upstream SQLite fix is merged and its issue targets 10.0.13; adoption and W0-F1 evidence remain outstanding. The user has authorized [W2 provider implementation](W2%20Native%20Provider%20Async%20Execution.md) in [one draft PR](Branch%20PR%20and%20Benchmark%20Workflow.md#w2-single-pr-exception), including provider wiring while the official package is pending. Historical W1-only scheduling restrictions above describe the earlier checkpoint; the [W2 continuation](SQLite%20Pool%20Ownership%20Investigation.md#accepted-w2-continuation) is the current development permission.
+
 > Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class database-free testing support.
 
 The release is successful when an ordinary ASP.NET Core or Generic Host application can register DataLinq, perform supported reads and writes through honest async APIs, propagate cancellation to the provider, validate schema at startup under an explicit policy, and test application behavior without constructing invalid runtime mocks or pretending that Memory proves SQL-provider semantics.
 
 ## Scope Policy
 
-Development follows the accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%20Workflow.md): a protected `v0.10` integration branch, small feature PRs and a separately identified development performance line on the website.
+Development follows the accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%20Workflow.md): a protected `v0.10` integration branch, small feature PRs except for the agreed single W2 draft PR, and a separately identified development performance line on the website.
 
 W0-F1 follow-up, 2026-09-17: the [SQLite pool ownership investigation](SQLite%20Pool%20Ownership%20Investigation.md) reproduces the driver race and records the tested correction submitted in [dotnet/efcore#39009](https://github.com/dotnet/efcore/pull/39009). DataLinq's dependency is unchanged. The user's accepted limited exception permits W1 internal contracts and controllable-provider tests while SQLite integration, W0-F1 closeout and release approval remain blocked pending verified package adoption.
 
