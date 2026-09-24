@@ -40,8 +40,8 @@ Two pinned-driver behaviors bound the reader-cleanup claim. [MySqlConnector read
 
 The operation audit finds native bindings for each W2 family. The focused telemetry addition closes a previously missing native parity check. Acceptance remains conditional on:
 
-1. A clean committed final run with individual provider totals and matching CI; the clean `fe70d481` full-plan checkpoint passes **8,531/8,531**, but default two-target batches intentionally fail the receipt's per-target evidence gate. Use `--plan full --batch-size 1` for the final receipt.
-2. Final six-lane performance/telemetry review against frozen W0 and W1, retaining prior cost dispositions and W2's defensive binary-copy cost.
+1. Clean candidate functional evidence is now recorded in the [checkpoint](W2%20Functional%20And%20Performance%20Checkpoint.md): **8,539/8,539**, individual provider totals, matching clean source/runner and **ValidForEvidence=true** on `49176d7a`, with passing CI #623. The earlier paired-batch `fe70d481` receipt remains unchanged.
+2. The six canonical performance lanes are captured and verified, with unchanged operation counts/telemetry. Additional synchronous mutation allocation and unresolved latency observations still need attribution/disposition. Fixed W1/W2 controls find stable Memory comparisons and inconclusive noisy hot-path comparisons; they do not erase the original warnings. The supplemental generated-getter probe quantifies W2's defensive-copy cost.
 3. Adoption of the official SQLite ownership correction through `master` → `v0.10` → W2, followed by affected reruns. The separate [failed-rollback file-pool finding](SQLite%20Failed%20Rollback%20Pool%20Reuse%20Investigation.md) needs its own disposition; the ownership correction is not proof that rollback failure is fixed.
 4. Honest retention of the earlier unexplained automatic-concurrency pool-reset/catalog timeouts and Linux allocation observation. Standard-budget functional/CI passes and the corrected measurement scaffold do not establish the original causes.
 
