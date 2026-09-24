@@ -9,8 +9,9 @@ namespace DataLinq.SQLite;
 
 /// <summary>Native reader; a supplied standalone connection is owned, transaction connections stay borrowed.</summary>
 internal sealed class SQLiteAsyncDataLinqDataReader(SqliteDataReader native, SqliteConnection? connection,
-    SqliteCommand command, string? providerInstanceId) : IAsyncDataReader, IDataLinqOwnedBinaryBufferReader
+    SqliteCommand command, string? providerInstanceId, bool detachBorrowedCommand = false) : IAsyncDataReader, IDataLinqOwnedBinaryBufferReader
 {
+    private readonly SqliteConnection? commandConnection = connection ?? (detachBorrowedCommand ? command.Connection : null);
     private readonly SQLiteDataLinqDataReader values = new(native);
     private readonly EnumeratorCallGate calls = new();
     private bool disposed;
@@ -59,7 +60,7 @@ internal sealed class SQLiteAsyncDataLinqDataReader(SqliteDataReader native, Sql
         try { native.Dispose(); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         occurrence = ExecutionFailureContexts.CaptureOccurrence();
-        try { if (connection is not null && ReferenceEquals(command.Connection, connection)) command.Connection = null; }
+        try { DetachCommand(); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try { connection?.Dispose(); }
@@ -78,12 +79,19 @@ internal sealed class SQLiteAsyncDataLinqDataReader(SqliteDataReader native, Sql
         try { await native.DisposeAsync().ConfigureAwait(false); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         occurrence = ExecutionFailureContexts.CaptureOccurrence();
-        try { if (connection is not null && ReferenceEquals(command.Connection, connection)) command.Connection = null; }
+        try { DetachCommand(); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try { if (connection is not null) await connection.DisposeAsync().ConfigureAwait(false); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         Report(failures);
+    }
+
+    private void DetachCommand()
+    {
+        if (commandConnection is null || !ReferenceEquals(command.Connection, commandConnection)) return;
+        command.Transaction = null;
+        command.Connection = null;
     }
 
     private static void AddCleanup(ref ExecutionFailures? failures, Exception failure, long occurrence)

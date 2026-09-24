@@ -7,9 +7,9 @@ using Microsoft.Data.Sqlite;
 
 namespace DataLinq.SQLite;
 
-public class SQLiteDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompletionResource
+public partial class SQLiteDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompletionResource
 {
-    private IDbConnection dbConnection = null!;
+    private IDbConnection? dbConnection;
     private readonly string? connectionString;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
@@ -51,34 +51,15 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction, ISyncTransactionCo
             if (Status == DatabaseTransactionStatus.Committed || Status == DatabaseTransactionStatus.RolledBack)
                 throw new Exception("Can't open a new connection on a committed or rolled back transaction");
 
-            if (Status == DatabaseTransactionStatus.Closed)
-            {
-                if (connectionString == null)
-                    throw new InvalidOperationException("Attached SQLite transactions cannot be reopened after they are closed because DataLinq does not own their connection string.");
+            InitializeUnmanaged();
 
-                SetStatus(DatabaseTransactionStatus.Open);
-                dbConnection = new SqliteConnection(connectionString);
-                dbConnection.Open();
-                SQLiteConnectionPolicy.ApplyCommittedVisibility(
-                    (SqliteConnection)dbConnection,
-                    command => ExecuteCommandWithTelemetry(
-                        command,
-                        "non_query",
-                        transactional: false,
-                        transactionType: null,
-                        command.ExecuteNonQuery));
-                DbTransaction = ((SqliteConnection)dbConnection).BeginTransaction(
-                    SQLiteConnectionPolicy.OwnedTransactionIsolationLevel,
-                    deferred: true);
-                BeginTransactionTelemetry();
-            }
-
-            return dbConnection;
+            return dbConnection ?? throw new InvalidOperationException("The native transaction connection is unavailable.");
         }
     }
 
     public override int ExecuteNonQuery(IDbCommand command)
     {
+        if (ManagedTransaction is not null) return ExecuteNonQuerySyncCore(command);
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration, command);
@@ -87,27 +68,31 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction, ISyncTransactionCo
 
     public override int ExecuteNonQuery(string query)
     {
+        if (ManagedTransaction is not null) return ExecuteNonQuerySyncCore(query);
         using var command = new SqliteCommand(query);
         return ExecuteNonQuery(command);
     }
 
     public override object ExecuteScalar(string query)
     {
+        if (ManagedTransaction is not null) return ExecuteScalarSyncCore(query)!;
         using var command = new SqliteCommand(query);
         return ExecuteScalar(command)!;
     }
 
     public override T ExecuteScalar<T>(string query)
     {
+        if (ManagedTransaction is not null) return ExecuteScalarSyncCore<T>(query);
         using var command = new SqliteCommand(query);
         return (T)ExecuteScalar(command)!;
     }
 
-    public override T ExecuteScalar<T>(IDbCommand command) =>
-        (T)ExecuteScalar(command)!;
+    public override T ExecuteScalar<T>(IDbCommand command) => ManagedTransaction is not null
+        ? ExecuteScalarSyncCore<T>(command) : (T)ExecuteScalar(command)!;
 
     public override object ExecuteScalar(IDbCommand command)
     {
+        if (ManagedTransaction is not null) return ExecuteScalarSyncCore(command)!;
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration, command);
@@ -116,11 +101,13 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction, ISyncTransactionCo
 
     public override IDataLinqDataReader ExecuteReader(string query)
     {
+        if (ManagedTransaction is not null) return ExecuteReaderSyncCore(query);
         return ExecuteOwnedReader(new SqliteCommand(query));
     }
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
+        if (ManagedTransaction is not null) return ExecuteReaderSyncCore(command);
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration, command);
@@ -184,6 +171,6 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction, ISyncTransactionCo
     }
 
     void ISyncTransactionCompletionResource.CloseConnection() => dbConnection?.Close();
-    void ISyncTransactionCompletionResource.DisposeConnection() => dbConnection?.Dispose();
-    void ISyncTransactionCompletionResource.DisposeTransaction() => DbTransaction?.Dispose();
+    void ISyncTransactionCompletionResource.DisposeConnection() { if (nativeResource is { } resource) resource.DisposeConnection(); else dbConnection?.Dispose(); }
+    void ISyncTransactionCompletionResource.DisposeTransaction() { if (nativeResource is { } resource) resource.DisposeTransaction(); else DbTransaction?.Dispose(); }
 }
