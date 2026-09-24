@@ -1,0 +1,239 @@
+using System;
+using System.Data;
+using System.Threading;
+using System.Threading.Tasks;
+using DataLinq.Execution;
+using DataLinq.Logging;
+using DataLinq.Query;
+using Microsoft.Data.Sqlite;
+
+namespace DataLinq.SQLite;
+
+// Explicit SQLite binding: the driver executes its awaitable APIs synchronously.
+// Tokens are observed at boundaries, not by interrupting an active SQLite call.
+// Synchronous access stays direct; no worker-thread facade is introduced.
+public partial class SQLiteDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFactory, IAsyncBorrowedReaderFactory, IAsyncSqlScalarFactory
+{
+    AsyncEagerCommand IAsyncEagerCommandFactory.BindCommand(string sql) =>
+        new(new NativeCommands(this), new NativeCommandFactory(CapturedSql.Capture(new Sql(sql)), validateLifecycle));
+
+    AsyncEagerCommand IAsyncEagerCommandFactory.BindCommand(IDbCommand command) =>
+        new(new NativeCommands(this), command);
+
+    AsyncEagerScalarInvocation<T> IAsyncEagerCommandFactory.BindScalar<T>(string sql) =>
+        new(((IAsyncEagerCommandFactory)this).BindCommand(sql), static value => (T)value!);
+
+    AsyncEagerScalarInvocation<T> IAsyncEagerCommandFactory.BindScalar<T>(IDbCommand command) =>
+        new(((IAsyncEagerCommandFactory)this).BindCommand(command), static value => (T)value!);
+
+    IAsyncSqlReaderFactory IAsyncSqlReaderFactory.CaptureInvocation() => this;
+
+    IAsyncReaderSource IAsyncSqlReaderFactory.BindReader(CapturedSql sql) =>
+        new OwnedCommandExecution(new NativeCommands(this), new NativeCommandFactory(sql, validateLifecycle));
+
+    IAsyncReaderSource IAsyncBorrowedReaderFactory.BindBorrowedReader(IDbCommand command) =>
+        new BorrowedCommandReaderSource(new NativeCommands(this), command);
+
+    IAsyncScalarSource IAsyncSqlScalarFactory.BindScalar(CapturedSql sql) =>
+        new OwnedCommandExecution(new NativeCommands(this), new NativeCommandFactory(sql, validateLifecycle));
+
+    AsyncScalarInvocation<T> IAsyncSqlScalarFactory.BindScalar<T>(CapturedSql sql) =>
+        new(((IAsyncSqlScalarFactory)this).BindScalar(sql), static value => (T)value!);
+
+    // Administrative sessions own their connection across sequential commands.
+    internal IAsyncDatabaseAccess BindSession(SqliteConnection connection) => new NativeCommands(this, connection);
+
+    private async Task InitializeOwnedConnectionAsync(SqliteConnection connection, CancellationToken token)
+    {
+        // Microsoft.Data.Sqlite inherits synchronous ADO.NET implementations here.
+        // Preserve setup as a distinct command and observe cancellation before it.
+        await connection.OpenAsync(token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        await using var setup = new SqliteCommand(SQLiteConnectionPolicy.CommittedVisibilitySql, connection);
+        await ExecuteCommandWithTelemetryAsync(setup, "non_query", false, null, token,
+            () => setup.ExecuteNonQueryAsync(token)).ConfigureAwait(false);
+    }
+
+    internal sealed class NativeCommandFactory(CapturedSql sql, Action? validateLifecycle = null) : IAsyncOwnedCommandFactory
+    {
+        private readonly Sql statement = sql.ToSql();
+
+        public void Validate(AsyncCommandKind kind)
+        {
+            validateLifecycle?.Invoke();
+            if (kind is not (AsyncCommandKind.Reader or AsyncCommandKind.Scalar or AsyncCommandKind.NonQuery))
+                throw new ArgumentOutOfRangeException(nameof(kind));
+            ValidateSql(statement.Text);
+            foreach (var parameter in statement.Parameters)
+                if (parameter.ProviderParameter is not null and not SqliteParameter)
+                    throw new NotSupportedException("Captured SQLite parameters must be Microsoft.Data.Sqlite parameters.");
+        }
+
+        public IAsyncOwnedCommand Create()
+        {
+            var command = new SqliteCommand(statement.Text);
+            try
+            {
+                foreach (var parameter in statement.Parameters)
+                    command.Parameters.Add(parameter.ProviderParameter ??
+                        new SqliteParameter(parameter.ParameterName, parameter.Value is Guid guid
+                            ? guid.ToString("D") : parameter.Value ?? DBNull.Value));
+                return new NativeOwnedCommand(command);
+            }
+            catch
+            {
+                command.Dispose();
+                throw;
+            }
+        }
+    }
+
+    private sealed class NativeOwnedCommand(SqliteCommand command) : IAsyncOwnedCommand
+    {
+        public IDbCommand Command => command;
+        public void Dispose() => command.Dispose();
+        public ValueTask DisposeAsync() => command.DisposeAsync();
+    }
+
+    private sealed class NativeCommands(SQLiteDbAccess owner, SqliteConnection? sessionConnection = null) : AsyncDatabaseAccess, IAsyncReadFailureEvidence
+    {
+        protected override void ValidateCommand(IDbCommand command, AsyncCommandKind kind)
+        {
+            owner.validateLifecycle?.Invoke();
+            if (command.GetType() != typeof(SqliteCommand))
+                throw new NotSupportedException("SQLite asynchronous execution requires an unmodified Microsoft.Data.Sqlite command.");
+            var native = (SqliteCommand)command;
+            if (native.Transaction is not null)
+                throw new InvalidOperationException("A standalone asynchronous command cannot execute an attached transaction.");
+            ValidateSql(native.CommandText);
+        }
+
+        public ReadFailureEvidence GetReadFailureEvidence(Exception failure) => new(Cause: Classify(failure));
+
+        protected override Task<object?> ExecuteScalarCoreAsync(IDbCommand command, CancellationToken cancellationToken) =>
+            ExecuteEagerAsync(command, "scalar", cancellationToken, static (native, token) => native.ExecuteScalarAsync(token));
+
+        protected override Task<int> ExecuteNonQueryCoreAsync(IDbCommand command, CancellationToken cancellationToken) =>
+            ExecuteEagerAsync(command, "non_query", cancellationToken, static (native, token) => native.ExecuteNonQueryAsync(token));
+
+        private async Task<T> ExecuteEagerAsync<T>(IDbCommand command, string kind, CancellationToken token,
+            Func<SqliteCommand, CancellationToken, Task<T>> execute)
+        {
+            using var diagnostics = ExecutionFailureScope.Begin();
+            SqliteConnection? connection = null;
+            ExecutionFailures? failures = null;
+            var stage = ExecutionFailureStage.Initialization;
+            var dispatched = false;
+            var result = default(T)!;
+            try
+            {
+                connection = sessionConnection ?? new SqliteConnection(owner.connectionString);
+                if (sessionConnection is null) await owner.InitializeOwnedConnectionAsync(connection, token).ConfigureAwait(false);
+                stage = ExecutionFailureStage.Validation;
+                var native = (SqliteCommand)command;
+                native.Connection = connection;
+                stage = ExecutionFailureStage.Notification;
+                using (ExecutionFailureScope.Begin()) Log.SqlCommand(owner.loggingConfiguration, command);
+                stage = ExecutionFailureStage.CommandExecution;
+                result = await owner.ExecuteCommandWithTelemetryAsync(command, kind, false, null, token, () =>
+                {
+                    dispatched = true;
+                    return execute(native, token);
+                }).ConfigureAwait(false);
+            }
+            catch (Exception failure)
+            {
+                failures = new();
+                failures.AddReported(failure, stage, stage == ExecutionFailureStage.Notification
+                    ? ExecutionFailureCause.ApplicationError : Classify(failure, token));
+            }
+            await DisposeConnectionAsync(sessionConnection is null ? connection : null, failures, command, dispatched).ConfigureAwait(false);
+            return result;
+        }
+
+        protected override async Task<IAsyncDataReader> ExecuteReaderCoreAsync(IDbCommand command, CancellationToken token)
+        {
+            using var diagnostics = ExecutionFailureScope.Begin();
+            SqliteConnection? connection = null;
+            ExecutionFailures? failures = null;
+            var stage = ExecutionFailureStage.Initialization;
+            var dispatched = false;
+            IAsyncDataReader? result = null;
+            try
+            {
+                connection = sessionConnection ?? new SqliteConnection(owner.connectionString);
+                if (sessionConnection is null) await owner.InitializeOwnedConnectionAsync(connection, token).ConfigureAwait(false);
+                stage = ExecutionFailureStage.Validation;
+                var native = (SqliteCommand)command;
+                native.Connection = connection;
+                stage = ExecutionFailureStage.Notification;
+                using (ExecutionFailureScope.Begin()) Log.SqlCommand(owner.loggingConfiguration, command);
+                stage = ExecutionFailureStage.CommandExecution;
+                result = await owner.ExecuteReaderWithTelemetryAsync(command, false, null, token, async () =>
+                {
+                    dispatched = true;
+                    var reader = await native.ExecuteReaderAsync(token).ConfigureAwait(false);
+                    var owned = new SQLiteAsyncDataLinqDataReader(reader, sessionConnection is null ? connection : null, native,
+                        owner.DiagnosticProviderInstanceId);
+                    // Reporting owns the unreturned reader and any standalone connection.
+                    // A session connection stays with its administrative coordinator.
+                    connection = null;
+                    return owned;
+                }).ConfigureAwait(false);
+            }
+            catch (Exception failure)
+            {
+                failures = new();
+                failures.AddReported(failure, stage, stage == ExecutionFailureStage.Notification
+                    ? ExecutionFailureCause.ApplicationError : Classify(failure, token));
+            }
+            await DisposeConnectionAsync(sessionConnection is null ? connection : null, failures, command, dispatched).ConfigureAwait(false);
+            return result!;
+        }
+
+        private async ValueTask DisposeConnectionAsync(SqliteConnection? connection, ExecutionFailures? failures,
+            IDbCommand command, bool dispatched)
+        {
+            if (connection is not null)
+            {
+                // SqliteConnection.Close disposes its registered commands. Detach
+                // before releasing our connection; the outer owner controls disposal.
+                using (ExecutionFailureScope.Begin())
+                {
+                    try { if (ReferenceEquals(command.Connection, connection)) command.Connection = null; }
+                    catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
+                }
+                using var cleanup = ExecutionFailureScope.Begin();
+                var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+                try { await connection.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception failure)
+                {
+                    ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
+                    (failures ??= new()).AddCleanup(failure);
+                }
+            }
+            if (failures?.Primary is not { } primary) return;
+            var context = failures.Snapshot(new(Cause: Classify(primary)), ExecutionCompletion.NotApplicable,
+                ExecutionRecoveryActions.None, null, ExecutionOperationKind.Unknown,
+                owner.DiagnosticProviderInstanceId, providerIdentityIsAuthoritative: true);
+            CommandDispatchEvidence.Attach(primary, context, command, dispatched);
+            failures.ThrowIfAny();
+        }
+
+        private static ExecutionFailureCause Classify(Exception failure, CancellationToken token = default) => failure switch
+        {
+            OperationCanceledException canceled when token.IsCancellationRequested && canceled.CancellationToken == token =>
+                ExecutionFailureCause.Cancellation,
+            // BUSY/LOCKED alone does not distinguish timeout from an immediate
+            // locking conflict. Preserve the native code instead of guessing.
+            SqliteException => ExecutionFailureCause.ProviderError,
+            _ => ExecutionFailureCause.Unknown
+        };
+    }
+
+    internal static void ValidateSql(string sql)
+    {
+        if (string.IsNullOrWhiteSpace(sql))
+            throw new InvalidOperationException("CommandText must be specified.");
+    }
+}

@@ -6,6 +6,7 @@ namespace DataLinq.SQLite;
 
 internal static class SQLiteConnectionPolicy
 {
+    internal const string CommittedVisibilitySql = "PRAGMA read_uncommitted = false;";
     internal const IsolationLevel OwnedTransactionIsolationLevel =
         IsolationLevel.Serializable;
 
@@ -23,7 +24,7 @@ internal static class SQLiteConnectionPolicy
         }
 
         using var command = new SqliteCommand(
-            "PRAGMA read_uncommitted = false;",
+            CommittedVisibilitySql,
             connection);
         _ = executeNonQuery(command);
     }
