@@ -3,7 +3,7 @@
 
 # SQLite Failed Rollback Pool Reuse Investigation
 
-**Recorded:** 2026-09-24, Microsoft.Data.Sqlite 10.0.11 and SQLitePCLRaw.bundle_e_sqlite3 3.0.5, Windows x64 / .NET 10.0.12.
+**Recorded:** 2026-09-24, Microsoft.Data.Sqlite 10.0.11 and independently 10.0.12, with SQLitePCLRaw.bundle_e_sqlite3 3.0.5, Windows x64 / .NET 10.0.12.
 
 ## Finding And Boundaries
 
@@ -15,7 +15,7 @@ This differs from the [concurrent pool ownership finding](SQLite%20Pool%20Owners
 
 ## Reproduction
 
-The complete standalone [project](evidence/sqlite-rollback/Probe.csproj) and [program](evidence/sqlite-rollback/Program.cs) pin the published dependencies. From the DataLinq repository root:
+The complete standalone [project](evidence/sqlite-rollback/Probe.csproj) and [program](evidence/sqlite-rollback/Program.cs) default to published 10.0.11. The driver version can be overridden explicitly for servicing checks; this does not change DataLinq's production pin. From the DataLinq repository root:
 
 ```powershell
 .\scripts\dotnet-sandbox.ps1 restore 'docs/dev-plans/roadmap-implementation/v0.10/evidence/sqlite-rollback/Probe.csproj'
@@ -54,8 +54,30 @@ The raw probe is independent of DataLinq runtime source. It ran on a working tre
 | Artifact | SHA-256 |
 | --- | --- |
 | Final eight-row JSONL | `27468335cb0c06608e5488991a701ebde7ddd1123099e5a7d9ca66ef1c7b0ea1` |
-| Tracked Probe.csproj | `a28d90ad7ad13195bfa22fa1af3e763ed48a3bb719272ae1522f4185fc7eb596` |
+| Original Probe.csproj at the 10.0.11 capture, before adding the version override | `a28d90ad7ad13195bfa22fa1af3e763ed48a3bb719272ae1522f4185fc7eb596` |
 | Tracked Program.cs | `0ed01ce4875e91c97e07bf26c72744928a9230287338c3fbcfcdeff702a9afbc` |
 | Published Microsoft.Data.Sqlite.dll | `4abd9c2a61e580eb853e93ca8953a3cef2c05714ae28d2d1859d4dbc5e5700bc` |
 
 The raw output is local only; the standalone source and this report are tracked. No upstream submission or external evidence backup is claimed.
+
+## Published 10.0.12 Confirmation
+
+The same eight cases were run against the published **Microsoft.Data.Sqlite 10.0.12** package. The program is byte-for-byte identical to the original probe. All eight expected results agree with the table above, including both file/deny cases: native rollback error 23, detached transaction wrapper, Closed outer connection, reused handle, autocommit zero, two visible rows and failure to begin a new transaction. Both memory/deny controls physically close the original handle and start a new transaction successfully on the next connection.
+
+The isolated project under `artifacts/w2-sqlite-rollback-10.0.12` restored the official package and built Release with zero warnings/errors. Its initial sandbox NuGet failure is retained in `restore.log`; the same restore succeeded with escalation. No replacement driver binary was used. The tracked project now supports the equivalent commands (restore and build verified):
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 restore 'docs/dev-plans/roadmap-implementation/v0.10/evidence/sqlite-rollback/Probe.csproj' -p:MicrosoftDataSqliteVersion=10.0.12
+.\scripts\dotnet-sandbox.ps1 run --project 'docs/dev-plans/roadmap-implementation/v0.10/evidence/sqlite-rollback/Probe.csproj' -c Release -p:MicrosoftDataSqliteVersion=10.0.12
+```
+
+Local receipt `artifacts/w2-sqlite-rollback-10.0.12/verification.json` verifies eight unique combinations, the expected native findings, identical program source and these artifact hashes:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Eight-row `output.jsonl` | `6e129837b54ca9c91e9100a7aa528c29ea372ecb923f4869b2a0bce887cef73e` |
+| Isolated 10.0.12 Probe.csproj | `6607041990e048bc4ad1df17bd76ac95db7cbefc30cdec21eddf41f3a8220ef2` |
+| Published Microsoft.Data.Sqlite.dll | `b98d957462be432895b00dccca012d3c127e118d3d4262418014b92c7bbd66cf` |
+| Published SQLitePCLRaw.core.dll | `b72c9dfe1479a568d6b84e249eaf949e76c757888f8056fb6ddb9c0480e0dd25` |
+
+The [NuGet version index](https://api.nuget.org/v3-flatcontainer/microsoft.data.sqlite/index.json) listed 10.0.12 and no 10.0.13 when checked on 2026-09-24. The [10.0.12 transaction source](https://github.com/dotnet/efcore/blob/v10.0.12/src/Microsoft.Data.Sqlite.Core/SqliteTransaction.cs) retains the finally/Complete mechanism. This native reproduction confirms the separate rollback defect on that published version; it neither adopts 10.0.12 into DataLinq nor tests the unreleased 10.0.13 ownership fix. The [upstream issue draft](evidence/sqlite-rollback/upstream-issue.md) is ready for review and has not been submitted.

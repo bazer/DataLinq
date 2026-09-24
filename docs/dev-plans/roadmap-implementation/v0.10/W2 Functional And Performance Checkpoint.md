@@ -1,5 +1,7 @@
 # W2 Functional And Performance Checkpoint
 
+The [revised candidate checkpoint](W2%20Revised%20Candidate%20Checkpoint.md) records the later `76781c89` runtime after the lifecycle factory allocation correction. This page preserves the original `49176d7a` evidence.
+
 > [!WARNING]
 > W2 remains in progress. This checkpoint records passing native functional evidence and measured costs; it is not SQLite acceptance, performance approval or public async API availability.
 

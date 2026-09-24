@@ -17,7 +17,7 @@ The [native provider audit](W2%20Native%20Provider%20Audit.md) reconciles each o
 
 The [clean functional and performance checkpoint](W2%20Functional%20And%20Performance%20Checkpoint.md) records candidate `49176d7a`, passing individual-provider verification, all 90 canonical benchmark rows, bounded timing controls and the remaining performance questions.
 
-The [performance cost follow-up](W2%20Performance%20Cost%20Disposition.md) attributes the mutation allocation families, preserves fixed-order timing controls and removes repeated lifecycle factory allocation. Revised-candidate performance review remains open.
+The [performance cost follow-up](W2%20Performance%20Cost%20Disposition.md) attributes the mutation allocation families, preserves fixed-order timing controls and removes repeated lifecycle factory allocation. The [revised candidate checkpoint](W2%20Revised%20Candidate%20Checkpoint.md) records clean runtime `76781c89`: 8,539 passing tests, passing CI #625 and all 90 canonical rows. Implementation and planned captures are complete; final acceptance remains open for SQLite and the documented performance costs/uncertainty.
 
 ## Milestones And Evidence Matrix
 

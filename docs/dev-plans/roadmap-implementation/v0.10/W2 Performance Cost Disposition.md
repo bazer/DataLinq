@@ -1,6 +1,6 @@
 # W2 Performance Cost Disposition
 
-This follows the [clean functional and performance checkpoint](W2%20Functional%20And%20Performance%20Checkpoint.md). Runtime identities remain W1 `a435d0b428937040bfd02210e67eb1219c9ed6f7` and W2 `49176d7a50d51a4de1848b501652e82215793b98`. The later checkpoint commit changes documentation and a standalone evidence probe only. This is an internal W2 cost review, not final release approval or corrected-SQLite acceptance.
+This follows the [clean functional and performance checkpoint](W2%20Functional%20And%20Performance%20Checkpoint.md). The paired controls below measure W1 `a435d0b428937040bfd02210e67eb1219c9ed6f7` and W2 `49176d7a50d51a4de1848b501652e82215793b98`. The [revised candidate checkpoint](W2%20Revised%20Candidate%20Checkpoint.md) records the subsequent clean `76781c89` runtime, its full matrix and all six canonical lanes. This is an internal W2 cost review, not final release approval or corrected-SQLite acceptance.
 
 ## Mutation Allocation Attribution
 
@@ -84,7 +84,7 @@ Release builds of the benchmark harness, unit suite, server suite and all three 
 
 Passing unit receipt `artifacts/w2-lifecycle-fastpath-sqlite-verified.json` (run `20260924T054320356Z-b0fbff6340e14b7ea4518abdcf5b0467`) has SHA-256 `111e8bdc14fc1f693a3b5bcdd97914b7188189f009d6fd34ba83b76eb429bc1a`. Passing server receipt `artifacts/w2-lifecycle-fastpath-servers.json` (run `20260924T054406215Z-5792ad1d1ac84aa6a599ca671a1e4ca0`) has SHA-256 `ecc1254d9c9c3ad75f68e7aedac39358e2245310e6f725943422eae537b77491`.
 
-This removes one identified allocation source without weakening the lifecycle contract. It does **not** establish that the cold-query latency increases are solved, or eliminate the native coordination costs described above. A clean candidate and affected performance follow-up remain required before the W2 performance gate can close. Neither SQLite acceptance gate is changed.
+This removes one identified allocation source without weakening the lifecycle contract. It does **not** establish that the cold-query latency increases are solved, or eliminate the native coordination costs described above. The [subsequent clean candidate capture](W2%20Revised%20Candidate%20Checkpoint.md) verifies the same zero-allocation getter result, 8,539 passing tests and 90 canonical rows. Performance acceptance remains open with the measured costs and timing uncertainty explicit. Neither SQLite acceptance gate is changed.
 
 The same allocation profiler was also run once for each mutation workload against the working build. Updates measure 20,318.08 B/op, small CRUD 86,173.99 and batch CRUD 86,476.36, compared with 20,317.70 / 86,332.66 / 86,220.21 before. Checksums, operations and normalized telemetry still match. This does **not** show a consistent end-to-end mutation allocation reduction; the isolated getter improvement must not be advertised as one. The required native coordination cost remains. Raw JSON/traces are `artifacts/w2-mutation-fastpath-<update|crud-small|crud-batch>.*`; `artifacts/w2-mutation-fastpath-verification.json` retains the six hashes and runtime checks.
 
