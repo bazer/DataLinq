@@ -83,10 +83,31 @@ public partial class SqlDatabaseTransaction : IAsyncTransactionCompletion
     }
 
     async Task IAsyncTransactionCompletion.CommitAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken)
-        => await RequireNativeTransaction(owner).CommitAsync(cancellationToken).ConfigureAwait(false);
+    {
+        using var diagnostics = ExecutionFailureScope.Begin();
+        try { await RequireNativeTransaction(owner).CommitAsync(cancellationToken).ConfigureAwait(false); }
+        catch (Exception failure) { ReportNativeCompletion(failure, cancellationToken, commit: true); throw; }
+    }
 
     async Task IAsyncTransactionCompletion.RollbackAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken)
-        => await RequireNativeTransaction(owner).RollbackAsync(cancellationToken).ConfigureAwait(false);
+    {
+        using var diagnostics = ExecutionFailureScope.Begin();
+        try { await RequireNativeTransaction(owner).RollbackAsync(cancellationToken).ConfigureAwait(false); }
+        catch (Exception failure) { ReportNativeCompletion(failure, cancellationToken, commit: false); throw; }
+    }
+
+    private void ReportNativeCompletion(Exception failure, CancellationToken token, bool commit)
+    {
+        var operation = commit ? ExecutionOperationKind.Commit : ExecutionOperationKind.Rollback;
+        var failures = new ExecutionFailures();
+        failures.AddReported(failure, commit ? ExecutionFailureStage.Commit : ExecutionFailureStage.Recovery,
+            ClassifyNativeFailure(failure, token), operation);
+        // The managed owner determines permitted recovery and preserves any prior
+        // uncertain commit. Native failure alone cannot establish a database outcome.
+        ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(), ExecutionCompletion.Unknown,
+            ExecutionRecoveryActions.Dispose, ManagedTransaction?.TransactionID, operation,
+            DiagnosticProviderInstanceId, providerIdentityIsAuthoritative: true));
+    }
 
     async ValueTask IAsyncTransactionCompletion.DisposeTransactionAsync(TransactionOperationGate.Step owner)
     {
