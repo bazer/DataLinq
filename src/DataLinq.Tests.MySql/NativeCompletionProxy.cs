@@ -10,35 +10,39 @@ using System.Threading.Tasks;
 namespace DataLinq.Tests.MySql;
 
 // Test-only, plaintext/uncompressed classic-protocol relay. It forwards complete
-// packets unchanged, except for one explicitly armed COMMIT acknowledgement.
+// packets unchanged, except for one explicitly armed completion acknowledgement.
 // It does not emulate a transaction, command result or driver exception.
-internal sealed class CommitAcknowledgementProxy : IAsyncDisposable
+internal sealed class NativeCompletionProxy : IAsyncDisposable
 {
     private readonly TcpListener listener = new(IPAddress.Loopback, 0);
     private readonly CancellationTokenSource stop = new();
     private readonly ConcurrentBag<Task> connections = [];
     private readonly TaskCompletionSource responseHeld = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly TaskCompletionSource dropResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> releaseResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly string server;
     private readonly int port;
+    private readonly string completionCommand;
     private readonly Task accepting;
     private int armed;
-    private int commitCommands;
+    private int completionCommands;
 
-    internal CommitAcknowledgementProxy(string server, int port)
+    internal NativeCompletionProxy(string server, int port, string completionCommand = "commit")
     {
+        if (completionCommand is not ("commit" or "rollback")) throw new ArgumentOutOfRangeException(nameof(completionCommand));
         this.server = server;
         this.port = port;
+        this.completionCommand = completionCommand;
         listener.Start();
         Port = ((IPEndPoint)listener.LocalEndpoint).Port;
         accepting = AcceptAsync();
     }
 
     internal int Port { get; }
-    internal int CommitCommands => Volatile.Read(ref commitCommands);
+    internal int CompletionCommands => Volatile.Read(ref completionCommands);
     internal void Arm() => Interlocked.Exchange(ref armed, 1);
     internal Task WaitForSuccessfulResponseAsync() => responseHeld.Task.WaitAsync(TimeSpan.FromSeconds(20));
-    internal void LoseResponse() => dropResponse.TrySetResult();
+    internal void LoseResponse() => releaseResponse.TrySetResult(true);
+    internal void ForwardResponse() => releaseResponse.TrySetResult(false);
 
     private async Task AcceptAsync()
     {
@@ -67,30 +71,30 @@ internal sealed class CommitAcknowledgementProxy : IAsyncDisposable
                 await upstream.ConnectAsync(server, port, lifetime.Token);
                 var downstreamStream = client.GetStream();
                 var upstreamStream = upstream.GetStream();
-                var awaitingCommitResponse = 0;
+                var awaitingCompletionResponse = 0;
                 requests = ForwardAsync(downstreamStream, upstreamStream, false);
                 responses = ForwardAsync(upstreamStream, downstreamStream, true);
-                await await Task.WhenAny(requests, responses);
+                var firstFinished = await Task.WhenAny(requests, responses);
+                await firstFinished;
 
                 async Task ForwardAsync(NetworkStream input, NetworkStream output, bool fromServer)
                 {
                     while (await ReadPacketAsync(input, lifetime.Token) is { } packet)
                     {
-                        if (!fromServer && IsCommit(packet))
+                        if (!fromServer && IsCompletion(packet))
                         {
-                            Interlocked.Increment(ref commitCommands);
+                            Interlocked.Increment(ref completionCommands);
                             if (Interlocked.Exchange(ref armed, 0) == 1)
-                                Volatile.Write(ref awaitingCommitResponse, 1);
+                                Volatile.Write(ref awaitingCompletionResponse, 1);
                         }
-                        if (fromServer && Interlocked.Exchange(ref awaitingCommitResponse, 0) == 1)
+                        if (fromServer && Interlocked.Exchange(ref awaitingCompletionResponse, 0) == 1)
                         {
-                            // COMMIT must return a successful OK packet. An ERR
-                            // packet cannot establish post-commit acknowledgement loss.
+                            // Require the real successful completion response.
                             if (packet.Length < 5 || packet[4] != 0x00)
-                                throw new InvalidDataException("The armed COMMIT did not return an OK packet.");
+                                throw new InvalidDataException("The armed completion did not return an OK packet.");
                             responseHeld.TrySetResult();
-                            await dropResponse.Task.WaitAsync(lifetime.Token);
-                            return; // Close both sockets without forwarding the OK.
+                            if (await releaseResponse.Task.WaitAsync(lifetime.Token))
+                                return; // Close both sockets without forwarding the OK.
                         }
                         await output.WriteAsync(packet, lifetime.Token);
                     }
@@ -120,15 +124,15 @@ internal sealed class CommitAcknowledgementProxy : IAsyncDisposable
         }
     }
 
-    private static bool IsCommit(byte[] packet)
+    private bool IsCompletion(byte[] packet)
     {
         if (packet.Length < 6 || packet[3] != 0 || packet[4] != 0x03) return false;
         var offset = 5;
         // CLIENT_QUERY_ATTRIBUTES adds zero parameters and one parameter set to
-        // this attribute-free COMMIT. MariaDB uses the original command layout.
+        // this attribute-free command. MariaDB uses the original command layout.
         if (packet.Length > 7 && packet[5] == 0 && packet[6] == 1) offset = 7;
         return string.Equals(Encoding.UTF8.GetString(packet, offset, packet.Length - offset).Trim().TrimEnd(';'),
-            "commit", StringComparison.OrdinalIgnoreCase);
+            completionCommand, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<byte[]?> ReadPacketAsync(NetworkStream stream, CancellationToken token)

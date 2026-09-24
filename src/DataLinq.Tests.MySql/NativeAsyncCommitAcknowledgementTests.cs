@@ -22,7 +22,7 @@ public sealed class NativeAsyncCommitAcknowledgementTests
             "CREATE TABLE departments (dept_no CHAR(4) PRIMARY KEY, dept_name VARCHAR(40) NOT NULL) ENGINE=InnoDB",
             "INSERT INTO departments VALUES ('w212', 'before commit')");
         var builder = new MySqlConnectionStringBuilder(schema.Connection.ConnectionString);
-        await using var relay = new CommitAcknowledgementProxy(builder.Server, checked((int)builder.Port));
+        await using var relay = new NativeCompletionProxy(builder.Server, checked((int)builder.Port));
         builder.Server = "127.0.0.1";
         builder.Port = checked((uint)relay.Port);
         builder.Pooling = true;
@@ -85,6 +85,6 @@ public sealed class NativeAsyncCommitAcknowledgementTests
         var fresh = (await AsyncModelLookup.GetByModelKeyAsyncCore<Department>(["w212"], provider.ReadOnlyAccess))!;
         await Assert.That(fresh).IsNotSameReferenceAs(original);
         await Assert.That(fresh.Name).IsEqualTo("committed without acknowledgement");
-        await Assert.That(relay.CommitCommands).IsEqualTo(1);
+        await Assert.That(relay.CompletionCommands).IsEqualTo(1);
     }
 }
