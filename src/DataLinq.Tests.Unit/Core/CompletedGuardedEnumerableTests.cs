@@ -26,10 +26,8 @@ public sealed class CompletedGuardedEnumerableTests
             await Assert.That(rows.MoveNext()).IsFalse();
         }
         var moveCalls = inner.MoveCalls;
-        RepeatFinishedCalls(rows, 1000);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        var unexpectedRows = RepeatFinishedCalls(rows, 10000);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        _ = MeasureFinishedCalls(rows, 1000);
+        var (allocated, unexpectedRows) = MeasureFinishedCalls(rows, 10000);
 
         await Assert.That(unexpectedRows).IsEqualTo(0);
         await Assert.That(allocated).IsEqualTo(0L);
@@ -61,6 +59,17 @@ public sealed class CompletedGuardedEnumerableTests
         var allocating = new AllocatingDisposable();
         _ = MeasureDisposals(allocating, 1000);
         await Assert.That(MeasureDisposals(allocating, 10000)).IsGreaterThanOrEqualTo(640000L);
+        GC.KeepAlive(allocating);
+    }
+
+    [Test]
+    public async Task FinishedCallAllocationMeasurement_DetectsAllocatingImplementation()
+    {
+        using var allocating = new AllocatingEnumerator();
+        _ = MeasureFinishedCalls(allocating, 1000);
+        var (allocated, unexpectedRows) = MeasureFinishedCalls(allocating, 10000);
+        await Assert.That(allocated).IsGreaterThanOrEqualTo(640000L);
+        await Assert.That(unexpectedRows).IsEqualTo(0);
         GC.KeepAlive(allocating);
     }
 
@@ -144,15 +153,17 @@ public sealed class CompletedGuardedEnumerableTests
     private static IEnumerator<int> Wrap(ProbeEnumerator inner) =>
         new GuardedEnumerable<int>(new ProbeEnumerable(inner)).GetEnumerator();
 
-    private static int RepeatFinishedCalls(IEnumerator<int> rows, int count)
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+    private static (long Allocated, int UnexpectedRows) MeasureFinishedCalls(IEnumerator<int> rows, int count)
     {
         var unexpectedRows = 0;
+        var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < count; i++)
         {
             if (rows.MoveNext()) unexpectedRows++;
             rows.Dispose();
         }
-        return unexpectedRows;
+        return (GC.GetAllocatedBytesForCurrentThread() - before, unexpectedRows);
     }
 
     // Warm and measure exactly the same call site outside the async test state
@@ -171,6 +182,17 @@ public sealed class CompletedGuardedEnumerableTests
         private byte[]? allocated;
         [MethodImpl(MethodImplOptions.NoInlining)]
         public void Dispose() => allocated = new byte[64];
+    }
+
+    private sealed class AllocatingEnumerator : IEnumerator<int>
+    {
+        private byte[]? allocated;
+        public int Current => 0;
+        object IEnumerator.Current => Current;
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public bool MoveNext() { allocated = new byte[64]; return false; }
+        public void Dispose() { }
+        public void Reset() => throw new NotSupportedException();
     }
 
     private static Exception? Capture(Action action)

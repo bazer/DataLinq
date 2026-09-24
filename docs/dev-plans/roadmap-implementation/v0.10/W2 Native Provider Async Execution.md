@@ -446,3 +446,17 @@ Final provider run: `20260924T030519761Z-0884d58ab35f4ae681ba8e17a7d3c61e`; fina
 | `w2-native-read-cleanup-final-compliance.json` | Final source, all-target compliance, 3,832/3,832 | `efcf0e48bdea53ce324d27c8d5b88f8316c5cf733c33e278154beb81d8c2943c` |
 
 Remaining work includes SQLite native cleanup-failure/certainty checks, final per-operation reconciliation, the unexplained broad-run timeout observations, corrected official SQLite adoption and affected reruns, and final parity/performance/telemetry and clean-candidate acceptance. Native server evidence does not substitute for those requirements.
+
+### Finished-Iterator Allocation Measurement After CI #620
+
+[CI run #620](https://github.com/bazer/DataLinq/actions/runs/35948572848) on recovery-budget commit `77428dd2` passes every provider lane but fails the unit lane. The unchanged `CompletedGuardedEnumerableTests.FinishedCalls_DoNotAllocateDiagnosticScopes(false)` observes **5,856 bytes**, expected zero. The original [job](https://github.com/bazer/DataLinq/actions/runs/35948572848/job/107471939043) artifact is retained as `artifacts/w2-recovery-budget-ci-unit-failure.zip`, SHA-256 `93133a61e54ff0663c477cf39cdc4adf1bc9ec7071981dd9db60df1a6d53c4e1`. Its unchanged local class control passes **7/7**. That control does not identify or dismiss the CI allocation.
+
+The [measurement](../../../../src/DataLinq.Tests.Unit/Core/CompletedGuardedEnumerableTests.cs) now warms and measures the same synchronous helper entirely outside the async test state machine. As with the earlier helper-drained disposal measurement, NoInlining/NoOptimization applies only to the scaffold; [runtime tiering eligibility](https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/vm/method.cpp#L2672-L2705) excludes that helper. Production iterator/gate code and compilation are unchanged. Both exhausted and never-started disposed iterators still require **zero bytes across all 10,000 move/dispose pairs**, alongside unchanged call counts, scope restoration and overlap rejection. A new intentionally allocating iterator must produce at least its 640,000 payload bytes through the same helper. There is no minimum-of-retries measurement or relaxed threshold. The exact source of the original Linux allocation remains unproven; the next CI run must verify this changed scaffold there.
+
+The full Release unit suite passes **3,957/3,957**, zero failures/skips, including all eight finished-iterator cases. Final run `20260924T030427716Z-dec98c511143403fbeb1e772eaed35ca` includes the final native-cleanup collector refinement from the preceding section; the earlier full run preceded that refinement. Both use stable working changes on `77428dd2` and matching dirty-source runners, **ValidForEvidence=false**. These checks do not replace final W2 performance evidence.
+
+| Local summary under `artifacts/` | Scope | SHA-256 |
+| --- | --- | --- |
+| `w2-finished-calls-allocation-control.json` | Unchanged class control, 7/7 | `68c9d26c69503673c412d6d694b3d1fadead79bf12ced97b2063c5bfe54b9352` |
+| `w2-native-read-cleanup-unit.json` | Isolated scaffold and allocating control, 3,957/3,957 | `bd2b6482d6e5586265a2bd2f8f62d5ba84cee24885bb48d809fe471d9cbde55c` |
+| `w2-native-read-cleanup-final-unit.json` | Final working product/test source, 3,957/3,957 | `531a00b168970a6a5fe462318005bfa8b95d19f9fba9e9b567971a5f6ad38bc6` |
