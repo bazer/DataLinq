@@ -147,7 +147,7 @@ public partial class SQLiteDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReader
                 failures.AddReported(failure, stage, stage == ExecutionFailureStage.Notification
                     ? ExecutionFailureCause.ApplicationError : Classify(failure, token));
             }
-            await DisposeConnectionAsync(sessionConnection is null ? connection : null, failures, command, dispatched).ConfigureAwait(false);
+            await DisposeConnectionAsync(sessionConnection is null ? connection : null, failures, command, dispatched, sessionConnection).ConfigureAwait(false);
             return result;
         }
 
@@ -174,7 +174,7 @@ public partial class SQLiteDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReader
                     dispatched = true;
                     var reader = await native.ExecuteReaderAsync(token).ConfigureAwait(false);
                     var owned = new SQLiteAsyncDataLinqDataReader(reader, sessionConnection is null ? connection : null, native,
-                        owner.DiagnosticProviderInstanceId);
+                        owner.DiagnosticProviderInstanceId, detachBorrowedCommand: sessionConnection is not null);
                     // Reporting owns the unreturned reader and any standalone connection.
                     // A session connection stays with its administrative coordinator.
                     connection = null;
@@ -187,22 +187,26 @@ public partial class SQLiteDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReader
                 failures.AddReported(failure, stage, stage == ExecutionFailureStage.Notification
                     ? ExecutionFailureCause.ApplicationError : Classify(failure, token));
             }
-            await DisposeConnectionAsync(sessionConnection is null ? connection : null, failures, command, dispatched).ConfigureAwait(false);
+            await DisposeConnectionAsync(sessionConnection is null ? connection : null, failures, command, dispatched,
+                failures is null ? null : sessionConnection).ConfigureAwait(false);
             return result!;
         }
 
         private async ValueTask DisposeConnectionAsync(SqliteConnection? connection, ExecutionFailures? failures,
-            IDbCommand command, bool dispatched)
+            IDbCommand command, bool dispatched, SqliteConnection? borrowedConnection = null)
         {
-            if (connection is not null)
+            if ((connection ?? borrowedConnection) is { } commandConnection)
             {
                 // SqliteConnection.Close disposes its registered commands. Detach
                 // before releasing our connection; the outer owner controls disposal.
                 using (ExecutionFailureScope.Begin())
                 {
-                    try { if (ReferenceEquals(command.Connection, connection)) command.Connection = null; }
+                    try { if (ReferenceEquals(command.Connection, commandConnection)) command.Connection = null; }
                     catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
                 }
+            }
+            if (connection is not null)
+            {
                 using var cleanup = ExecutionFailureScope.Begin();
                 var occurrence = ExecutionFailureContexts.CaptureOccurrence();
                 try { await connection.DisposeAsync().ConfigureAwait(false); }
