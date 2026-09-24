@@ -361,3 +361,20 @@ The final full Release suites pass **3,956/3,956 unit** and **3,824/3,824 compli
 | `w2-native-values-cache-compliance.json` | Final source, all-target compliance, 3,824/3,824 | `0c8d7c59a8fb3a6c53464781d655fd4a2655834ec4d34f6e14ef1f96f4250850` |
 
 Remaining W2 work includes ordinary-read interruption/integrity evidence, post-commit acknowledgement loss, cooperative recovery-budget expiry and native cleanup-failure combinations, forced MySQL view-fallback evidence, corrected SQLite dependency adoption, and final cross-provider parity/performance/telemetry and clean-candidate acceptance. This checkpoint does not close those requirements.
+
+[CI run #617](https://github.com/bazer/DataLinq/actions/runs/35946294104) on values/cache commit `02559d89` passed.
+
+### W2.5 Forced Native View Fallback
+
+The [fallback fixture](../../../../src/DataLinq.Tests.MySql/NativeAsyncMetadataFallbackTests.cs) now exercises MySQL 8.4/9.7 and MariaDB 10.11/11.4/11.8/12.3. A test access decorator changes only the catalog projection to `NULL AS VIEW_DEFINITION`; that query still runs natively, and the subsequent `SHOW CREATE VIEW` statement is unchanged. This deliberately forces the branch. It is not evidence of a naturally occurring permission arrangement that hides the catalog definition while permitting SHOW CREATE VIEW.
+
+Each target covers successful frozen metadata/digest parity, a server failure after another connection drops the actual view before fallback dispatch, and cancellation at the fallback driver's entry. The view name contains an embedded backtick; exact qualified identifier quoting and the rounded two-second command timeout are verified. Native exceptions retain identity and metadata diagnostics, cancellation retains its token, and failed reads do not return partial metadata. Each owned session settles before a fresh complete read reuses its one-slot pool. No production implementation change or synthetic reader/error substitute was needed.
+
+Focused fallback cases pass **6/6** (three modes per target). The final full Release provider-specific suite passes **1,001/1,001**, zero failures/skips, also covering the generated getter correction from the prior checkpoint. Run `20260924T021656730Z-1f3d5147ba464f9f87ce0a3f5ba75648` uses stable working changes on `02559d89` and a matching dirty-source runner; **ValidForEvidence=false**. The earlier focused run used the older `b0ffd4fd` runner.
+
+| Local summary under `artifacts/` | Scope | SHA-256 |
+| --- | --- | --- |
+| `w2-native-metadata-fallback.json` | Forced native fallback, 6/6 | `beed979a3d89cba4ec69e8f720377ab526ca64d75fff42bd421af6fb41a98db6` |
+| `w2-native-metadata-fallback-mysql.json` | Full provider-specific suite, 1,001/1,001 | `4c6dbdf5fd7f154c205feafcebb33176fe497e338eba1b5edafb99df343e988b` |
+
+The forced fallback evidence gap is now covered. Ordinary-read interruption/integrity, post-commit acknowledgement loss, recovery-budget expiry, native cleanup-failure combinations, corrected SQLite adoption and final parity/performance/telemetry and clean-candidate acceptance remain open.
