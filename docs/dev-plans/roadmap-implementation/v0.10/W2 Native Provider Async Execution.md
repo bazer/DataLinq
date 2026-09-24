@@ -184,3 +184,20 @@ Before adding the derived-factory guard, the full provider-specific Release suit
 | `w2-native-metadata-final-focused.json` | Final metadata source, 48/48 | `2717e5f40d9009116da533a9d9060e0d4615b67b34ea2a5a38c0dd4c8de6f511` |
 
 The full provider run is `20260924T000504921Z-146c516d9ada42ec8cc842d2b3f6e14f`; the final focused run is `20260924T001244237Z-21b735c93e824ccba225ee58b5db6a85`. The failed timeout probe already obtained the expected native timeout; removing the incorrect lower-layer operation assertion changed no production classification. Owning-coordinator metadata operation and logger attribution have separate passing tests. SQLite bindings, full query/conversion/cache-race coverage, interrupted mutation/completion/recovery and final parity/performance acceptance remain required.
+
+### Allocation Measurement Isolation After Recurrence
+
+The unchanged helper-drained iterator class passed a fresh local **6/6** control after run #610. A separate one-case JIT-disassembly probe showed that .NET 10.0.12 on Windows compiles the already-drained `Dispose` branch to a field read, branch and return, with no calls or allocation. This narrows the local product path; it does **not** establish which component allocated on Linux CI. In particular, the exact source of the observed 992 or 65,304 bytes remains unproven.
+
+The [allocation test](../../../../src/DataLinq.Tests.Unit/Core/CompletedGuardedEnumerableTests.cs) now warms and measures the same synchronous helper outside the async test state machine. `NoInlining | NoOptimization` applies only to that measurement helper. The [.NET 10 runtime's tiering eligibility check](https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/vm/method.cpp#L2672-L2705) excludes methods marked NoOptimization, so this removes tiering transitions in the measurement scaffold without changing production compilation. It is a controlled measurement change, not a demonstrated diagnosis of the prior CI allocation.
+
+The assertion still requires **zero allocated bytes over all 10,000 disposals**, with no retry, minimum-of-runs or relaxed threshold. A new negative control disposes an intentionally allocating implementation through the same helper and requires at least its 640,000 payload bytes to be detected. Product `GuardedEnumerable` behavior and the finished-operation gate test are unchanged. The full Release unit suite passes **3,879/3,879** with this change; the new CI run must still establish its behavior on Linux.
+
+| Local artifact under `artifacts/` | Scope | SHA-256 |
+| --- | --- | --- |
+| `w2-allocation-recurrence-control.json` | Unchanged class, 6/6 | `322cec303cf8b556b9cb1d33b09d12e5a33dab73146497236ca350ff6740c2f2` |
+| `w2-allocation-jit-control.json` | Unchanged helper-drained case with local JIT output, 1/1 | `a3018aa2b8276236a453c0e764d4a1dcb12d0a8d7f605bcd1d2e801ce1ab5240` |
+| `w2-guarded-disposal-jit.txt` | Windows native code for the product Dispose method | `cf3978cfe2a7e8c4438fe7cbb0a49729db0ec968e43d1c5735e7977103f7739c` |
+| `w2-metadata-allocation-unit.json` | Full unit suite with isolated measurement and allocating control, 3,879/3,879 | `4c2400ba1763bc06b56f87ea5c2ffae7383276e33db659d932f8aa60a6cb7612` |
+
+The full unit run is `20260924T000731577Z-8422b228b7b94457835ad9fc04411368`, using working changes on `495d45e9` and the same dirty-source runner. **ValidForEvidence=false**; none of these controls replaces the original failed CI artifacts or final W2 performance evidence.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Execution;
@@ -45,15 +46,22 @@ public sealed class CompletedGuardedEnumerableTests
         using var rows = Wrap(inner);
         var helper = (IHelperTrackedReader)rows;
         await helper.DrainAsync();
-        for (var i = 0; i < 1000; i++) rows.Dispose();
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 10000; i++) rows.Dispose();
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        _ = MeasureDisposals(rows, 1000);
+        var allocated = MeasureDisposals(rows, 10000);
 
         await Assert.That(allocated).IsEqualTo(0L);
         await Assert.That(inner.MoveCalls).IsEqualTo(0);
         await Assert.That(inner.DisposeCalls).IsEqualTo(1);
         await Assert.That(Capture(() => rows.MoveNext())).IsTypeOf<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task DisposalAllocationMeasurement_DetectsAllocatingImplementation()
+    {
+        var allocating = new AllocatingDisposable();
+        _ = MeasureDisposals(allocating, 1000);
+        await Assert.That(MeasureDisposals(allocating, 10000)).IsGreaterThanOrEqualTo(640000L);
+        GC.KeepAlive(allocating);
     }
 
     [Test]
@@ -145,6 +153,24 @@ public sealed class CompletedGuardedEnumerableTests
             rows.Dispose();
         }
         return unexpectedRows;
+    }
+
+    // Warm and measure exactly the same call site outside the async test state
+    // machine. Disable tiering/OSR in this scaffold, not in the production Dispose
+    // method; the assertion still requires zero bytes for all 10,000 calls.
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+    private static long MeasureDisposals(IDisposable disposable, int count)
+    {
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < count; i++) disposable.Dispose();
+        return GC.GetAllocatedBytesForCurrentThread() - before;
+    }
+
+    private sealed class AllocatingDisposable : IDisposable
+    {
+        private byte[]? allocated;
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void Dispose() => allocated = new byte[64];
     }
 
     private static Exception? Capture(Action action)
