@@ -274,3 +274,17 @@ The full unit run passed **3,922/3,923**, with all new SQLite cases passing. Its
 | `w2-query-allocation-control.json` | Unchanged query-validation class, 34/34 | `25224c1f514645d7c71a522ebb9d9812c193bcc9be4be47db56ab073c95d95ea` |
 
 SQLite native metadata/provisioning/probes/journal/owning-root binding and corrected-package adoption remain open. Completion uncertainty, interruption/recovery-budget/cleanup combinations, the broader query/mutation matrix and final parity/performance acceptance remain required across W2.
+
+### Query And Key Allocation Measurement Follow-Up
+
+After isolating the query-validation measurement scaffold, the next full unit run passed **3,923/3,924**. The query checks and new deliberately allocating control passed; a separate unchanged `KeyFactoryAndEqualityTests.SimpleKeyValueReads_DoNotAllocateSnapshotArrays` observed 4,544 bytes. Its product key implementation is unchanged from the W2 base. A fresh unchanged focused class control passed 27/27. Neither focused control identifies the origin of the earlier full-run allocations, and neither replaces the retained failures.
+
+The [query-validation helper](../../../../src/DataLinq.Tests.Unit/Linq/QueryPlanCapabilityValidationTests.cs) and [key-read helper](../../../../src/DataLinq.Tests.Unit/Core/KeyFactoryAndEqualityTests.cs) now disable inlining/optimization only in the measurement scaffold, using the same isolation rationale as the helper-drained test above. Product getters and validators keep their normal JIT policy. Key tests warm the same scaffold before measuring. Query checks still require zero in the maximum of all five samples; key checks still require zero across all 10,000 reads. No threshold, minimum sample, production fallback or retry was introduced. Negative controls require detection of deliberately allocated arrays and the binary key getter's required defensive copies. This removes tiering/OSR transitions in the scaffold; it does not prove those transitions caused the exact 8,176- or 4,544-byte observations.
+
+The resulting full Release unit run passes **3,925/3,925**, zero failures/skips, including all 44 SQLite standalone/transaction cases and both new allocation controls. The ten SQLite integration cases remain covered by the 933/933 compliance receipt above. Final core/SQLite provider builds pass on .NET 8/9/10 with zero warnings/errors. The combined working-source receipt is `20260924T010544869Z-10df970e95b74a3e9bb0abe5d08076ff` on `d47de4d1` with its dirty-source runner; **ValidForEvidence=false**. The receipt records the development tree containing both the transaction and measurement commits, not a clean final W2 candidate.
+
+| Local summary under `artifacts/` | Scope | SHA-256 |
+| --- | --- | --- |
+| `w2-sqlite-transactions-allocation-unit.json` | Query isolation/control included; 3,923 passed / 1 unchanged key-allocation failure | `b25d4f43cad0997e0d2f69da9f27840a6bd5ffa44af95cf75854fb26ec9d0143` |
+| `w2-key-allocation-control.json` | Unchanged key class, 27/27 | `369436be197a2187e9b3a9a5427bf69bfc2f34e3fc24d00fa5fad0eb3e63b2a5` |
+| `w2-sqlite-transactions-final-unit.json` | Final combined source, 3,925/3,925 | `aea6e29948f705d4e51db5d9488b732ac8c3b1139bf62aef46ea1d184c4f21dd` |
