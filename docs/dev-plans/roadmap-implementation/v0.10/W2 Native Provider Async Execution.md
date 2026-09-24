@@ -378,3 +378,23 @@ Focused fallback cases pass **6/6** (three modes per target). The final full Rel
 | `w2-native-metadata-fallback-mysql.json` | Full provider-specific suite, 1,001/1,001 | `4c6dbdf5fd7f154c205feafcebb33176fe497e338eba1b5edafb99df343e988b` |
 
 The forced fallback evidence gap is now covered. Ordinary-read interruption/integrity, post-commit acknowledgement loss, recovery-budget expiry, native cleanup-failure combinations, corrected SQLite adoption and final parity/performance/telemetry and clean-candidate acceptance remain open.
+
+[CI run #618](https://github.com/bazer/DataLinq/actions/runs/35946763255) on fallback commit `4996e013` passed.
+
+### W2.4 Native Commit Acknowledgement Loss
+
+A [test-only TCP relay](../../../../src/DataLinq.Tests.MySql/CommitAcknowledgementProxy.cs) now intercepts the real successful server response to one explicitly armed COMMIT. It forwards all other classic-protocol packets unchanged, including connection/authentication and command execution. The fixture uses local plaintext, uncompressed connections and handles the attribute-free COM_QUERY layouts exercised by MySqlConnector 2.6.2; it is not a general MySQL proxy or TLS/compression test. Packet framing and query/OK markers follow the [MySQL protocol specification](https://dev.mysql.com/doc/dev/mysql-server/8.4.9/page_protocol_basic_packets.html), and the tested [connector commit implementation](https://github.com/mysql-net/MySqlConnector/blob/2.6.2/src/MySqlConnector/MySqlTransaction.cs) sends COMMIT and waits for its native result.
+
+The [managed transaction regression](../../../../src/DataLinq.Tests.MySql/NativeAsyncCommitAcknowledgementTests.cs) performs an actual tracked update, holds the server's OK before the driver receives it, and verifies the persisted value through an independent direct connection while managed commit is still pending. The relay then closes the sockets without forwarding the acknowledgement. No provider wrapper manufactures success or an exception. All six servers produce the expected native failure and `Completion.Unknown`; the transaction denies business reuse/commit, invalidates the mutable baseline, preserves uncertainty after disposal and evicts the old cached value. A new one-slot-pool lookup reads the actual committed value, with exactly one observed COMMIT and no replay.
+
+Focused acknowledgement-loss tests pass **6/6**. The full provider-specific run passes **1,005/1,007**, including all six new cases, with two failures in the unchanged `NativeAsyncTransactionTests.FirstUseAndCompletionCanSwitchBetweenSyncAndAsync` on MySQL 8.4/9.7. Both failures occur during pooled-session reauthentication in `TryResetConnectionAsync` / `SwitchAuthenticationAsync` and exhaust the existing five-second connection budget. The unchanged transaction class then passes **19/19** in isolation on those targets. This is a diagnostic control, not a replacement for the failed broad run or proof of its cause. No connection timeout, pooling setting, product behavior or assertion was changed to dismiss it. The broad failure remains open for investigation and final-candidate verification.
+
+The full run is `20260924T022513641Z-83888ef72b6e448db470ea28073b105f`; the focused transaction control is `20260924T022713033Z-16706a6b506847008a6c6d99dd7f7a9c`. Both use stable working changes on `4996e013` and a matching dirty-source runner; **ValidForEvidence=false**. The earlier six-case acknowledgement run used the older `02559d89` runner. The new fixture builds with zero warnings/errors and changes no production implementation.
+
+| Local summary under `artifacts/` | Scope | SHA-256 |
+| --- | --- | --- |
+| `w2-native-commit-acknowledgement.json` | Native post-commit acknowledgement loss, 6/6 | `2aa16e34e6e1886a235f1c6efa4e6a25b2c72fc6a3fd5f8028d2c8516079eff7` |
+| `w2-native-commit-acknowledgement-mysql.json` | Full provider suite, 1,005 passed / 2 existing MySQL reauthentication timeouts | `926a95525d1d9acdd55e9f870d52f7c0e6d4dc2686503341ae0ebe606142d833` |
+| `w2-native-commit-acknowledgement-transaction-control.json` | Unchanged transaction class on MySQL 8.4/9.7, 19/19 | `7cbb1318fb6817986185353bf16b9e7505a5acdd57dd414daa4ff0cbb7ee8888` |
+
+Native server post-commit acknowledgement loss now has direct evidence. Ordinary-read interruption/integrity, recovery-budget expiry, native cleanup-failure combinations, the two broad-run reauthentication failures, corrected SQLite adoption and final parity/performance/telemetry and clean-candidate acceptance remain open.
