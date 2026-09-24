@@ -7,7 +7,7 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-public abstract partial class SqlProvider<T> : IAsyncExistenceProbeSource, IAsyncRootDisposal
+public abstract partial class SqlProvider<T> : IAsyncExistenceProbeSource, IAsyncRootDisposal, IAsyncProviderMetadataSource
 {
     private OwnedRootDisposal? rootDisposal;
     private OwnedRootDisposal RootDisposal => LazyInitializer.EnsureInitialized(ref rootDisposal, () => new(
@@ -15,6 +15,17 @@ public abstract partial class SqlProvider<T> : IAsyncExistenceProbeSource, IAsyn
             RootCleanupStep.Resource(dataSource.Dispose, dataSource.DisposeAsync)], TelemetryInstanceId));
 
     ValueTask IAsyncRootDisposal.DisposeAsyncCore() => RootDisposal.DisposeAsync();
+
+    IAsyncMetadataReadPlan IAsyncProviderMetadataSource.CaptureValidationMetadata(MetadataReadSettings settings)
+    {
+        RootDisposal.EnsureUsable();
+        var request = new MetadataImportRequest(Metadata.Name, Metadata.CsType.Name, Metadata.CsType.Namespace,
+            NormalizeMetadataSchemaName(DatabaseName) ?? throw new InvalidOperationException("DatabaseName not defined."),
+            dataSource.ConnectionString, settings);
+        return MetadataFromSqlFactory.CaptureNativeRead(DatabaseType, request,
+            () => new SqlAdministrativeSession(dataSource.CreateConnection(), dbAccess,
+                CapturedSql.Capture(new Sql("SELECT 1")), ExecutionOperationKind.MetadataRead), RootDisposal.EnsureUsable);
+    }
 
     ExistenceProbePlan IAsyncExistenceProbeSource.CaptureExistenceProbe(ExistenceProbeRequest request)
     {

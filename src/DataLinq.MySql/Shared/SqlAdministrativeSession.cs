@@ -8,7 +8,7 @@ using MySqlConnector;
 namespace DataLinq.MySql;
 
 // Owns execution resources only. Disposal never drops a provisioned database.
-internal sealed class SqlAdministrativeSession : IAsyncExistenceProbeSession, IAsyncProvisioningSession
+internal sealed class SqlAdministrativeSession : IAsyncExistenceProbeSession, IAsyncProvisioningSession, IAsyncMetadataSession
 {
     private readonly MySqlConnection connection;
     private readonly MySqlDataSource? ownedSource;
@@ -27,7 +27,8 @@ internal sealed class SqlAdministrativeSession : IAsyncExistenceProbeSession, IA
         CommandFactory = new SqlDbAccess.NativeCommandFactory(sql);
     }
 
-    internal static SqlAdministrativeSession CreateOwned(string connectionString, CapturedSql sql)
+    internal static SqlAdministrativeSession CreateOwned(string connectionString, CapturedSql sql,
+        ExecutionOperationKind operationKind = ExecutionOperationKind.Provisioning)
     {
         var source = new MySqlDataSourceBuilder(connectionString).Build();
         MySqlConnection? connection = null;
@@ -35,7 +36,7 @@ internal sealed class SqlAdministrativeSession : IAsyncExistenceProbeSession, IA
         {
             connection = source.CreateConnection();
             return new(connection, new SqlDbAccess(source, DataLinqLoggingConfiguration.NullConfiguration),
-                sql, ExecutionOperationKind.Provisioning, source);
+                sql, operationKind, source);
         }
         catch
         {
@@ -47,7 +48,17 @@ internal sealed class SqlAdministrativeSession : IAsyncExistenceProbeSession, IA
 
     public IAsyncDatabaseAccess Access { get; }
     public IAsyncOwnedCommandFactory CommandFactory { get; }
+    public IAsyncMetadataCommands Commands { get; } = new MetadataCommands();
     public Task InitializeAsync(CancellationToken cancellationToken) => OpenAsync(cancellationToken);
+
+    private sealed class MetadataCommands : IAsyncMetadataCommands
+    {
+        public void Validate(int? commandTimeoutSeconds)
+        {
+            if (commandTimeoutSeconds < 0) throw new ArgumentOutOfRangeException(nameof(commandTimeoutSeconds));
+        }
+        public IAsyncOwnedCommandFactory Capture(CapturedSql query) => new SqlDbAccess.NativeCommandFactory(query);
+    }
 
     public async Task OpenAsync(CancellationToken token)
     {
