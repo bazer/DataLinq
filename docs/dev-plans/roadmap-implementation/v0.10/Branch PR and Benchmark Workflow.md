@@ -15,6 +15,18 @@
 - Fix defects affecting current consumers on master, then merge the fixes forward into the development branch rather than independently recreating them.
 - Require PRs and the existing Latest required gate on the development branch, and disallow force pushes/deletion. A sole-maintainer workflow must not require an unavailable second GitHub approver; human review remains part of the working process.
 
+## W2 Single-PR Exception
+
+**Accepted by the user, 2026-09-24:** implement W2 on `codex/0.10-w2` in one draft PR, **Implement W2: native provider async execution**, targeting `v0.10`. This replaces the separate-slice PR policy for W2 only.
+
+- Keep small, coherent implementation commits with their relevant tests. Review completed milestones as work proceeds and keep the PR description/checklist current, distinguishing implementation, verification and blocked acceptance.
+- Preserve meaningful W2 commits with a merge commit at final integration instead of the ordinary feature-PR squash. Keep the branch history stable; incorporate necessary integration-branch changes without rewriting recorded evidence commits.
+- Run focused checks during development, broader provider checks at milestones and complete W2 evidence against the final candidate. Earlier checkpoint results retain their actual source identities.
+- Keep the PR in draft while implementation or acceptance gates remain open. Opening and updating this PR does not authorize merging it or publishing packages.
+- The user authorizes continuing W2 provider development while the official SQLite 10.0.13 fix is pending. Corrected official dependency adoption, affected evidence reruns, W0-F1 closure and SQLite acceptance remain explicit gates. Dependency fixes still land on `master`, merge forward to `v0.10`, then enter the W2 branch.
+
+The [W2 implementation plan](W2%20Native%20Provider%20Async%20Execution.md) owns the operation/provider checklist and milestone evidence. Public API verification remains W3; this workflow changes no release scope.
+
 ## CI, Publication And Release Evidence
 
 - PR CI and post-merge checks cover the development branch.

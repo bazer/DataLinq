@@ -16,7 +16,7 @@ using ThrowAway.Extensions;
 
 namespace DataLinq.MySql;
 
-public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
+public abstract partial class MetadataFromSqlFactory : IMetadataFromSqlFactory
 {
     private readonly MetadataFromDatabaseFactoryOptions options;
     private readonly DatabaseType databaseType;

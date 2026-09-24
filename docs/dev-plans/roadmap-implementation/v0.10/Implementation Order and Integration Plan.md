@@ -234,6 +234,8 @@ Exit gate:
 
 ### W2: Native Provider Async Execution
 
+Execution record: [W2 Native Provider Async Execution](W2%20Native%20Provider%20Async%20Execution.md). The user accepted one draft PR with incremental commits/reviews and continued provider development pending official SQLite 10.0.13 adoption on 2026-09-24. This scheduling decision preserves W0-F1, SQLite acceptance and release gates.
+
 Required work:
 
 - implement SQLite provider async paths and document driver-level synchronous behavior or cancellation limits explicitly

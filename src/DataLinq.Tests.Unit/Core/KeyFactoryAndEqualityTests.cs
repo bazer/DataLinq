@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using DataLinq.Instances;
 
@@ -217,7 +218,7 @@ public class KeyFactoryAndEqualityTests
     public async Task SimpleKeyValueReads_DoNotAllocateSnapshotArrays()
     {
         var key = KeyFactory.CreateKeyFromValue("employee-1");
-
+        _ = MeasureKeyReads(key, 1000);
         var allocatedBytes = MeasureKeyReads(key);
 
         await Assert.That(allocatedBytes).IsEqualTo(0);
@@ -227,7 +228,7 @@ public class KeyFactoryAndEqualityTests
     public async Task DataLinqKeyCompositeValueReads_DoNotAllocateSnapshotArrays()
     {
         var key = KeyFactory.CreateKeyFromValues(new object?[] { "employee-1", "dept-1" });
-
+        _ = MeasureKeyReads(key, 1000);
         var allocatedBytes = MeasureKeyReads(key);
 
         await Assert.That(allocatedBytes).IsEqualTo(0);
@@ -257,13 +258,24 @@ public class KeyFactoryAndEqualityTests
         yield return () => new SimpleKeyCase(123.45m, 123.45m, 678.90m);
     }
 
-    private static long MeasureKeyReads(DataLinqKey key)
+    [Test]
+    public async Task KeyReadAllocationMeasurement_DetectsRequiredBinaryCopies()
+    {
+        var key = KeyFactory.CreateKeyFromValue(new byte[64]);
+        _ = MeasureKeyReads(key, 1000);
+        await Assert.That(MeasureKeyReads(key)).IsGreaterThanOrEqualTo(640000L);
+    }
+
+    // Warm and measure this same non-tiered scaffold. The product key getters
+    // retain normal optimization, and all 10,000 measured reads must be zero.
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+    private static long MeasureKeyReads(DataLinqKey key, int count = 10000)
     {
         _ = key.ValueCount;
         _ = key.GetValue(0);
 
         var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 10_000; i++)
+        for (var i = 0; i < count; i++)
         {
             _ = key.ValueCount;
             _ = key.GetValue(0);

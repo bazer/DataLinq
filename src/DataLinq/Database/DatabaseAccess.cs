@@ -21,7 +21,7 @@ public abstract partial class DatabaseAccess : IDatabaseAccess
     }
 
     private protected DataLinqTelemetryContext TelemetryContext { get; }
-    private string? DiagnosticProviderInstanceId =>
+    internal string? DiagnosticProviderInstanceId =>
         string.IsNullOrEmpty(TelemetryContext.ProviderInstanceId) ? null : TelemetryContext.ProviderInstanceId;
 
     public abstract IDataLinqDataReader ExecuteReader(IDbCommand command);

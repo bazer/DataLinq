@@ -10,7 +10,7 @@ namespace DataLinq.MySql;
 /// <summary>
 /// Represents a transaction for a MySQL database, encapsulating the logic to execute commands with transactional support.
 /// </summary>
-public class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompletionResource
+public partial class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompletionResource
 {
     private IDbConnection? dbConnection;
     private readonly string databaseName;
@@ -60,19 +60,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompl
             if (Status == DatabaseTransactionStatus.Committed || Status == DatabaseTransactionStatus.RolledBack)
                 throw new Exception("Cannot open a new connection on a committed or rolled back transaction.");
 
-            if (Status == DatabaseTransactionStatus.Closed)
-            {
-                if (dataSource == null)
-                    throw new Exception("The data source is null");
-
-                SetStatus(DatabaseTransactionStatus.Open);
-                dbConnection = dataSource.OpenConnection();
-                DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
-                BeginTransactionTelemetry();
-
-                if (databaseName != null)
-                    ExecuteNonQuery($"USE {DataLinq.Query.SqlIdentifier.Quote(databaseName, "`")};");
-            }
+            InitializeUnmanaged();
 
             if (dbConnection == null)
                 throw new Exception("The database connection is null");
@@ -83,6 +71,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompl
 
     public override int ExecuteNonQuery(IDbCommand command)
     {
+        if (ManagedTransaction is not null) return ExecuteNonQuerySyncCore(command);
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration, command);
@@ -91,27 +80,31 @@ public class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompl
 
     public override int ExecuteNonQuery(string query)
     {
+        if (ManagedTransaction is not null) return ExecuteNonQuerySyncCore(query);
         using var command = new MySqlCommand(query);
         return ExecuteNonQuery(command);
     }
 
     public override object? ExecuteScalar(string query)
     {
+        if (ManagedTransaction is not null) return ExecuteScalarSyncCore(query);
         using var command = new MySqlCommand(query);
         return ExecuteScalar(command);
     }
 
     public override T ExecuteScalar<T>(string query)
     {
+        if (ManagedTransaction is not null) return ExecuteScalarSyncCore<T>(query);
         using var command = new MySqlCommand(query);
         return ExecuteScalar<T>(command);
     }
 
-    public override T ExecuteScalar<T>(IDbCommand command) =>
-        (T)(ExecuteScalar(command) ?? default(T)!);
+    public override T ExecuteScalar<T>(IDbCommand command) => ManagedTransaction is not null
+        ? ExecuteScalarSyncCore<T>(command) : (T)(ExecuteScalar(command) ?? default(T)!);
 
     public override object? ExecuteScalar(IDbCommand command)
     {
+        if (ManagedTransaction is not null) return ExecuteScalarSyncCore(command);
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration, command);
@@ -121,11 +114,13 @@ public class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompl
 
     public override IDataLinqDataReader ExecuteReader(string query)
     {
+        if (ManagedTransaction is not null) return ExecuteReaderSyncCore(query);
         return ExecuteOwnedReader(new MySqlCommand(query));
     }
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
+        if (ManagedTransaction is not null) return ExecuteReaderSyncCore(command);
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration, command);
@@ -189,6 +184,6 @@ public class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransactionCompl
     }
 
     void ISyncTransactionCompletionResource.CloseConnection() => dbConnection?.Close();
-    void ISyncTransactionCompletionResource.DisposeConnection() => dbConnection?.Dispose();
-    void ISyncTransactionCompletionResource.DisposeTransaction() => DbTransaction?.Dispose();
+    void ISyncTransactionCompletionResource.DisposeConnection() { if (nativeResource is { } resource) resource.DisposeConnection(); else dbConnection?.Dispose(); }
+    void ISyncTransactionCompletionResource.DisposeTransaction() { if (nativeResource is { } resource) resource.DisposeTransaction(); else DbTransaction?.Dispose(); }
 }

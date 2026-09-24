@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Execution;
@@ -25,10 +26,8 @@ public sealed class CompletedGuardedEnumerableTests
             await Assert.That(rows.MoveNext()).IsFalse();
         }
         var moveCalls = inner.MoveCalls;
-        RepeatFinishedCalls(rows, 1000);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        var unexpectedRows = RepeatFinishedCalls(rows, 10000);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        _ = MeasureFinishedCalls(rows, 1000);
+        var (allocated, unexpectedRows) = MeasureFinishedCalls(rows, 10000);
 
         await Assert.That(unexpectedRows).IsEqualTo(0);
         await Assert.That(allocated).IsEqualTo(0L);
@@ -45,15 +44,33 @@ public sealed class CompletedGuardedEnumerableTests
         using var rows = Wrap(inner);
         var helper = (IHelperTrackedReader)rows;
         await helper.DrainAsync();
-        for (var i = 0; i < 1000; i++) rows.Dispose();
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 10000; i++) rows.Dispose();
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        _ = MeasureDisposals(rows, 1000);
+        var allocated = MeasureDisposals(rows, 10000);
 
         await Assert.That(allocated).IsEqualTo(0L);
         await Assert.That(inner.MoveCalls).IsEqualTo(0);
         await Assert.That(inner.DisposeCalls).IsEqualTo(1);
         await Assert.That(Capture(() => rows.MoveNext())).IsTypeOf<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task DisposalAllocationMeasurement_DetectsAllocatingImplementation()
+    {
+        var allocating = new AllocatingDisposable();
+        _ = MeasureDisposals(allocating, 1000);
+        await Assert.That(MeasureDisposals(allocating, 10000)).IsGreaterThanOrEqualTo(640000L);
+        GC.KeepAlive(allocating);
+    }
+
+    [Test]
+    public async Task FinishedCallAllocationMeasurement_DetectsAllocatingImplementation()
+    {
+        using var allocating = new AllocatingEnumerator();
+        _ = MeasureFinishedCalls(allocating, 1000);
+        var (allocated, unexpectedRows) = MeasureFinishedCalls(allocating, 10000);
+        await Assert.That(allocated).IsGreaterThanOrEqualTo(640000L);
+        await Assert.That(unexpectedRows).IsEqualTo(0);
+        GC.KeepAlive(allocating);
     }
 
     [Test]
@@ -136,15 +153,46 @@ public sealed class CompletedGuardedEnumerableTests
     private static IEnumerator<int> Wrap(ProbeEnumerator inner) =>
         new GuardedEnumerable<int>(new ProbeEnumerable(inner)).GetEnumerator();
 
-    private static int RepeatFinishedCalls(IEnumerator<int> rows, int count)
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+    private static (long Allocated, int UnexpectedRows) MeasureFinishedCalls(IEnumerator<int> rows, int count)
     {
         var unexpectedRows = 0;
+        var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < count; i++)
         {
             if (rows.MoveNext()) unexpectedRows++;
             rows.Dispose();
         }
-        return unexpectedRows;
+        return (GC.GetAllocatedBytesForCurrentThread() - before, unexpectedRows);
+    }
+
+    // Warm and measure exactly the same call site outside the async test state
+    // machine. Disable tiering/OSR in this scaffold, not in the production Dispose
+    // method; the assertion still requires zero bytes for all 10,000 calls.
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+    private static long MeasureDisposals(IDisposable disposable, int count)
+    {
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < count; i++) disposable.Dispose();
+        return GC.GetAllocatedBytesForCurrentThread() - before;
+    }
+
+    private sealed class AllocatingDisposable : IDisposable
+    {
+        private byte[]? allocated;
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void Dispose() => allocated = new byte[64];
+    }
+
+    private sealed class AllocatingEnumerator : IEnumerator<int>
+    {
+        private byte[]? allocated;
+        public int Current => 0;
+        object IEnumerator.Current => Current;
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public bool MoveNext() { allocated = new byte[64]; return false; }
+        public void Dispose() { }
+        public void Reset() => throw new NotSupportedException();
     }
 
     private static Exception? Capture(Action action)

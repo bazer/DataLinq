@@ -24,6 +24,12 @@ the capability. SQLite intentionally does not, because its ADO reader caches the
 Empty arrays are values and remain distinct from database `NULL`. SQL readers return an exact empty
 array for a non-null zero-length blob and `null` only for database `NULL`.
 
+W2's native integration matrix also checks generated immutable properties. It exposed a gap beyond
+the earlier `RowData` access tests: generated getters memoized the first detached array, allowing a
+caller to mutate the cached model's subsequent property reads. Binary getters now call the defensive
+row accessor on each access. Nullable/non-null payloads and binary keys are covered across SQLite,
+MySQL and MariaDB. This restores the public-access contract above and retains its required copy cost.
+
 ## Copy accounting
 
 The table counts payload bytes copied for an identity-mapped binary cell. Array headers and row/control

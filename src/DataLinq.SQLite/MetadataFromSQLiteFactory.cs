@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -22,7 +22,7 @@ public class MetadataFromSQLiteFactoryCreator : IMetadataFromDatabaseFactoryCrea
     }
 }
 
-public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
+public partial class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 {
     private readonly MetadataFromDatabaseFactoryOptions options;
 
@@ -92,76 +92,10 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private void ParseIndices(SQLiteProviderDatabaseDraft database, DatabaseAccess dbAccess)
     {
-        foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
-        {
-            foreach (var indexReader in dbAccess.ReadReader($"SELECT name, origin, \"unique\", partial FROM pragma_index_list({QuoteSqlLiteral(tableModel.Table.DbName)})"))
-            {
-                var rawIndexName = indexReader.GetString(0);
-                var origin = indexReader.GetString(1);
-                var indexCharacteristic = indexReader.GetInt32(2) == 1
-                    ? IndexCharacteristic.Unique
-                    : IndexCharacteristic.Simple;
-                var isPartial = indexReader.GetInt32(3) == 1;
-
-                if (origin == "pk")
-                    continue;
-
-                if (isPartial)
-                {
-                    options.Log?.Invoke($"Warning: Skipping unsupported SQLite partial index '{rawIndexName}' on table '{tableModel.Table.DbName}'.");
-                    continue;
-                }
-
-                var indexColumns = new List<SQLiteProviderValuePropertyDraft>();
-                var skipIndex = false;
-
-                foreach (var columnReader in dbAccess.ReadReader($"SELECT seqno, cid, name, \"desc\", \"key\" FROM pragma_index_xinfo({QuoteSqlLiteral(rawIndexName)}) WHERE \"key\" = 1 ORDER BY seqno"))
-                {
-                    var cid = columnReader.GetInt32(1);
-                    var isDescending = columnReader.GetInt32(3) == 1;
-
-                    if (cid < 0 || columnReader.IsDbNull(2))
-                    {
-                        options.Log?.Invoke($"Warning: Skipping unsupported SQLite expression index '{rawIndexName}' on table '{tableModel.Table.DbName}'.");
-                        skipIndex = true;
-                        break;
-                    }
-
-                    if (isDescending)
-                    {
-                        options.Log?.Invoke($"Warning: Skipping unsupported SQLite descending index '{rawIndexName}' on table '{tableModel.Table.DbName}'.");
-                        skipIndex = true;
-                        break;
-                    }
-
-                    var columnName = columnReader.GetString(2);
-                    var column = tableModel
-                        .Table.Columns.SingleOrDefault(x => x.Column.DbName == columnName);
-
-                    if (column == null)
-                    {
-                        options.Log?.Invoke($"Warning: Skipping SQLite index '{rawIndexName}' on table '{tableModel.Table.DbName}' because column '{columnName}' was not imported.");
-                        skipIndex = true;
-                        break;
-                    }
-
-                    indexColumns.Add(column);
-                }
-
-                if (skipIndex || indexColumns.Count == 0)
-                    continue;
-
-                var name = rawIndexName.StartsWith("sqlite_autoindex", StringComparison.Ordinal)
-                    ? GetAutoIndexName(tableModel.Table, indexColumns, indexCharacteristic)
-                    : rawIndexName;
-
-                var columnNames = indexColumns.Select(x => x.Column.DbName).ToArray();
-                foreach (var column in indexColumns)
-                {
-                    column.Attributes.Add(new IndexAttribute(name, indexCharacteristic, IndexType.BTREE, columnNames));
-                }
-            }
-        }
+        foreach (var table in database.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.Table))
+            foreach (var index in dbAccess.ReadReader(IndexListSql(table.DbName)).Select(CatalogIndex.Read))
+                if (ShouldReadIndexColumns(table, index))
+                    ParseIndexColumns(table, index, dbAccess.ReadReader(IndexColumnsSql(index.Name)).Select(CatalogIndexColumn.Read));
     }
 
     private static string GetAutoIndexName(SQLiteProviderTableDraft table, IReadOnlyList<SQLiteProviderValuePropertyDraft> columns, IndexCharacteristic characteristic)
@@ -181,73 +115,10 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     private Option<bool, IDLOptionFailure> ParseRelations(SQLiteProviderDatabaseDraft database, DatabaseAccess dbAccess)
     {
         var failures = new List<IDLOptionFailure>();
-
-        foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
-        {
-            foreach (var reader in dbAccess.ReadReader($"SELECT id, seq, \"table\", \"from\", \"to\", on_update, on_delete FROM pragma_foreign_key_list({QuoteSqlLiteral(tableModel.Table.DbName)})"))
-            {
-                var keyName = reader.GetString(0);
-                var ordinal = reader.GetInt32(1);
-                var tableName = reader.IsDbNull(2) ? null : reader.GetString(2);
-                var fromColumnName = reader.IsDbNull(3) ? null : reader.GetString(3);
-                var toColumnName = reader.IsDbNull(4) ? null : reader.GetString(4);
-                var onUpdate = ParseReferentialAction(reader.GetString(5));
-                var onDelete = ParseReferentialAction(reader.GetString(6));
-
-                if (string.IsNullOrWhiteSpace(tableName) || string.IsNullOrWhiteSpace(fromColumnName))
-                {
-                    failures.Add(DLOptionFailure.Fail(
-                            DLFailureType.InvalidModel,
-                            $"Malformed SQLite foreign-key metadata row in table '{tableModel.Table.DbName}': referenced table and source column are required."));
-                    continue;
-                }
-
-                var foreignKeyColumn = tableModel
-                    .Table.Columns.SingleOrDefault(x => x.Column.DbName == fromColumnName);
-
-                if (foreignKeyColumn == null)
-                    continue;
-
-                var candidateTable = database
-                    .TableModels.SingleOrDefault(x => x.Table.DbName == tableName)?
-                    .Table;
-
-                if (candidateTable == null)
-                {
-                    options.Log?.Invoke($"Warning: Skipping foreign key '{keyName}' on table '{tableModel.Table.DbName}' because referenced table '{tableName}' was not imported.");
-                    continue;
-                }
-
-                if (string.IsNullOrWhiteSpace(toColumnName))
-                {
-                    var primaryKeyColumns = candidateTable.Columns.Where(x => x.Column.PrimaryKey).ToArray();
-                    if (primaryKeyColumns.Length != 1)
-                    {
-                        failures.Add(DLOptionFailure.Fail(
-                                DLFailureType.InvalidModel,
-                                $"SQLite foreign key '{keyName}' on table '{tableModel.Table.DbName}' omits the referenced column, but referenced table '{tableName}' does not have exactly one imported primary-key column."));
-                        continue;
-                    }
-
-                    toColumnName = primaryKeyColumns[0].Column.DbName;
-                }
-
-                var candidateColumn = candidateTable.Columns.SingleOrDefault(x => x.Column.DbName == toColumnName);
-                if (candidateColumn == null)
-                {
-                    options.Log?.Invoke($"Warning: Skipping foreign key '{keyName}' on table '{tableModel.Table.DbName}' because referenced column '{tableName}.{toColumnName}' was not imported.");
-                    continue;
-                }
-
-                // The only job of this method is to mark the column and add the attribute.
-                foreignKeyColumn.Column.ForeignKey = true;
-                foreignKeyColumn.Attributes.Add(new ForeignKeyAttribute(tableName, toColumnName, keyName, ordinal, onUpdate, onDelete));
-            }
-        }
-
-        return failures.Count == 0
-            ? true
-            : SingleOrAggregate(failures);
+        foreach (var table in database.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.Table))
+            foreach (var relation in dbAccess.ReadReader(RelationsSql(table.DbName)).Select(CatalogRelation.Read))
+                ParseRelation(database, table, relation, failures);
+        return failures.Count == 0 ? true : SingleOrAggregate(failures);
     }
 
     private static ReferentialAction ParseReferentialAction(string? value)
@@ -295,9 +166,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private static string ParseViewDefinition(string definition)
     {
-        definition = definition
-            .ReplaceLineEndings(" ")
-            .Replace("\"", @"\""");
+        // Metadata contains SQL, not a C# literal. Model-source generation owns
+        // escaping; pre-escaping quotes here corrupts CREATE VIEW roundtrips.
+        definition = definition.ReplaceLineEndings(" ");
 
         var selectIndex = definition.IndexOf("SELECT ", StringComparison.OrdinalIgnoreCase);
 
@@ -308,6 +179,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     }
 
     private Option<SQLiteProviderValuePropertyDraft, IDLOptionFailure> ParseColumn(SQLiteProviderTableDraft table, IDataLinqDataReader reader, DatabaseAccess dbAccess)
+        => ParseColumn(table, reader, dbAccess.ExecuteScalar<string>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = {QuoteSqlLiteral(table.DbName)}"));
+
+    private Option<SQLiteProviderValuePropertyDraft, IDLOptionFailure> ParseColumn(SQLiteProviderTableDraft table, IDataLinqDataReader reader, string? createStatement)
     {
         var dbTypeName = reader.GetString(2).ToLower();
 
@@ -318,7 +192,6 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         var dbName = reader.GetString(1);
 
-        var createStatement = dbAccess.ExecuteScalar<string>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = {QuoteSqlLiteral(table.DbName)}");
         var hasAutoIncrement = false;
 
         if (createStatement != null)
