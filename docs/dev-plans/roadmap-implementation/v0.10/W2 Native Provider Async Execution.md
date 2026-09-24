@@ -13,6 +13,8 @@ Bind W1's internal capabilities to the native providers, retain direct synchrono
 
 The [W1 I/O handoff](W1%20Closeout.md#f21-requirement-and-io-reconciliation), [W0 I/O map](W0%20IO%20Execution%20Map.md), [AAPI decisions](Async%20Public%20API%20Decisions.md) and [W2 exit gate](Implementation%20Order%20and%20Integration%20Plan.md#w2-native-provider-async-execution) remain authoritative. This plan breaks down that scope without reopening accepted policies.
 
+The [native provider audit](W2%20Native%20Provider%20Audit.md) reconciles each operation and failure boundary against the implementation, identifies the driver limits and keeps the remaining acceptance gates explicit.
+
 ## Milestones And Evidence Matrix
 
 Each cell progresses separately through implementation and verification. A passing test with a controllable adapter cannot be recorded as native-provider proof.
@@ -483,3 +485,23 @@ Local test receipts identify stable working changes on `9dea07a2`, matching dirt
 | `w2-sqlite-native-recovery-compliance.json` | File/memory compliance, 949/949 | `834fe7250ba9baa128d32795844b2e7c5d46b331790d554a333d7c4721adb107` |
 
 Final per-operation reconciliation, the retained unexplained broad-run timeouts, failed-rollback file-pool integrity, official dependency adoption and affected reruns, clean-candidate parity, performance and telemetry review remain open. Native cleanup diagnostics are verified within this bounded fault model; W2 is not complete.
+
+### Operation Audit And Native Telemetry Parity
+
+[CI #622](https://github.com/bazer/DataLinq/actions/runs/35951770320) passes all lanes on `fe70d481`. A clean local Release `run --plan full` passes **8,531/8,531**, zero failures/skips: generators 71, unit 3,961, Memory 221, compliance 3,403 and server-specific 875. Named-plan provider affinity runs invariant cases only in the anchor batch, so these counts differ from earlier ad hoc runs that repeated invariant cases. All eight targets are present, checkout/runner assemblies match `fe70d481`, and the checkout stays clean. **ValidForEvidence=false** remains explicit: default batch size two does not satisfy the report's individual-provider-total gate. The final receipt must use `--plan full --batch-size 1`, preserving the standard per-suite worker budgets.
+
+The [operation audit](W2%20Native%20Provider%20Audit.md) accounts for each W0/W1 native handoff. It distinguishes actual driver failures from controllable W1 combinations, calls out native reader-drain error suppression, and retains the separate SQLite failed-rollback integrity gate. It does not close public/generated W3 work or corrected-package acceptance.
+
+The new [native telemetry parity test](../../../../src/DataLinq.Tests.Compliance/Query/NativeAsyncTelemetryParityTests.cs) passes **8/8** across all targets. Identical sync/async workloads compare actual rows and cached identity, command/query/transaction/mutation/cache snapshot deltas, ten counter/histogram instruments and activity kinds/status/tags. The workload includes committed and rolled-back updates, convenience insert/delete and a real native SQL error. Explicit nonempty counts prevent two absent instrumentation paths from passing. Unique traces and database names isolate parallel observers without clearing global metrics; elapsed durations and unique database-name values are the only normalized differences.
+
+Both focused probes pass 8/8. The final version explicitly starts a unique trace rather than inheriting a possibly shared test-runner trace. Its run is `20260924T034858386Z-7b7b6d0cc7ac449fae711d1331168c7f`; it uses stable working test changes on `fe70d481` and the reused same-commit clean runner, **ValidForEvidence=false**. Release compliance builds pass without warnings/errors. No production code changes are required by this parity check.
+
+| Local summary under `artifacts/` | Scope | SHA-256 |
+| --- | --- | --- |
+| `w2-fe70d481-full-release.json` | Clean full plan, 8,531/8,531; paired provider batches | `2849b2d601207bba1ee5fc8ab31f2f3c999f45d843dbfb3561d115129b6ae7de` |
+| `w2-native-telemetry-parity-initial.json` | Initial telemetry parity, 8/8 | `4548e5474beea36f759d72c6dbba746f411a9b7c6694aa36c76b15f432bda08e` |
+| `w2-native-telemetry-parity-final.json` | Final isolated-trace parity, 8/8 | `23e9562677615d086c05dc8101f534ed8e6b23c41bbc6305a027bdca6cf2d513` |
+
+Reproduction: build `src/DataLinq.Tests.Compliance/DataLinq.Tests.Compliance.csproj -c Release`, then use the compiled Release Testing CLI with `run --suite compliance --alias all --configuration Release --no-build --maximum-parallel-tests 8 --filter '/*/*/NativeAsyncTelemetryParityTests/*' --output failures --summary-json <fresh-artifact-path>`. Set `DATALINQ_TEST_DB_HOST=127.0.0.1` for sandboxed server execution.
+
+Operation reconciliation and representative native telemetry parity are now recorded. Clean final candidate evidence, six-lane performance review, the retained unexplained observations, official SQLite ownership-fix adoption/reruns and the distinct failed-rollback pool-integrity disposition remain open.
