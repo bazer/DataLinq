@@ -10,9 +10,10 @@ using MySqlConnector;
 
 namespace DataLinq.Tests.Compliance;
 
-// The standard scope provisions and removes the isolated schema. Execution uses
-// an explicitly pooled native root; it does not inherit the setup fixture's
-// Pooling=false setting or mutate global provider registration/logging options.
+// The standard scope provisions and removes the isolated schema. Execution
+// explicitly enables pooling instead of inheriting the setup fixture's false
+// setting. Microsoft.Data.Sqlite itself excludes memory mode from pooling.
+// No global provider registration/logging options are changed.
 internal sealed class NativeAsyncTestDatabase<T> : IDisposable where T : class, IDatabaseModel<T>
 {
     private readonly TemporaryModelTestDatabase<T> setup;

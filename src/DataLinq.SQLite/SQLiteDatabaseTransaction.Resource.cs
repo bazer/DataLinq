@@ -204,22 +204,48 @@ public partial class SQLiteDatabaseTransaction : IAsyncTransactionCompletion
 
         internal void DisposeTransaction()
         {
-            if (Interlocked.Exchange(ref transactionDisposed, 1) == 0) Transaction?.Dispose();
+            if (Interlocked.Exchange(ref transactionDisposed, 1) != 0) return;
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+            try { Transaction?.Dispose(); }
+            catch (Exception failure) { ReportCleanup(failure, occurrence); throw; }
         }
         internal void DisposeConnection()
         {
-            if (Interlocked.Exchange(ref connectionDisposed, 1) == 0) Connection?.Dispose();
+            if (Interlocked.Exchange(ref connectionDisposed, 1) != 0) return;
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+            try { Connection?.Dispose(); }
+            catch (Exception failure) { ReportCleanup(failure, occurrence); throw; }
         }
         internal async ValueTask DisposeTransactionAsync()
         {
             if (Interlocked.Exchange(ref transactionDisposed, 1) != 0) return;
-            if (Transaction is SqliteTransaction native) await native.DisposeAsync().ConfigureAwait(false);
-            else Transaction?.Dispose();
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+            try
+            {
+                if (Transaction is SqliteTransaction native) await native.DisposeAsync().ConfigureAwait(false);
+                else Transaction?.Dispose();
+            }
+            catch (Exception failure) { ReportCleanup(failure, occurrence); throw; }
         }
         private async ValueTask DisposeConnectionAsync()
         {
-            if (Interlocked.Exchange(ref connectionDisposed, 1) == 0 && Connection is not null)
-                await Connection.DisposeAsync().ConfigureAwait(false);
+            if (Interlocked.Exchange(ref connectionDisposed, 1) != 0 || Connection is null) return;
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+            try { await Connection.DisposeAsync().ConfigureAwait(false); }
+            catch (Exception failure) { ReportCleanup(failure, occurrence); throw; }
+        }
+
+        private void ReportCleanup(Exception failure, long occurrence)
+        {
+            // Native cleanup owns classification, not completion certainty. Keep
+            // current nested reports and let the outer coordinator retain its
+            // primary error and established transaction outcome.
+            ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
+            var failures = new ExecutionFailures();
+            failures.AddCleanup(failure);
+            ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(Cause: ClassifyNativeFailure(failure)), ExecutionCompletion.NotAttempted,
+                ExecutionRecoveryActions.Dispose, owner.ManagedTransaction?.TransactionID, ExecutionOperationKind.Dispose,
+                owner.DiagnosticProviderInstanceId, providerIdentityIsAuthoritative: true));
         }
         public void Dispose()
         {
