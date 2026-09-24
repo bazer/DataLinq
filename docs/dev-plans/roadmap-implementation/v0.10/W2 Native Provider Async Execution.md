@@ -17,6 +17,8 @@ The [native provider audit](W2%20Native%20Provider%20Audit.md) reconciles each o
 
 The [clean functional and performance checkpoint](W2%20Functional%20And%20Performance%20Checkpoint.md) records candidate `49176d7a`, passing individual-provider verification, all 90 canonical benchmark rows, bounded timing controls and the remaining performance questions.
 
+The [performance cost follow-up](W2%20Performance%20Cost%20Disposition.md) attributes the mutation allocation families, preserves fixed-order timing controls and removes repeated lifecycle factory allocation. Revised-candidate performance review remains open.
+
 ## Milestones And Evidence Matrix
 
 Each cell progresses separately through implementation and verification. A passing test with a controllable adapter cannot be recorded as native-provider proof.

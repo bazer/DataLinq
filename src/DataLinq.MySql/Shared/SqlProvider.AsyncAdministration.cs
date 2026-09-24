@@ -10,7 +10,9 @@ namespace DataLinq.MySql;
 public abstract partial class SqlProvider<T> : IAsyncExistenceProbeSource, IAsyncRootDisposal, IAsyncProviderMetadataSource
 {
     private OwnedRootDisposal? rootDisposal;
-    private OwnedRootDisposal RootDisposal => LazyInitializer.EnsureInitialized(ref rootDisposal, () => new(
+    // Avoid allocating the capturing factory on every check after publication.
+    private OwnedRootDisposal RootDisposal => Volatile.Read(ref rootDisposal) ??
+        LazyInitializer.EnsureInitialized(ref rootDisposal, () => new(
         () => [RootCleanupStep.Resource(State.Dispose, State.DisposeAsyncCore, State.ValidateDisposal),
             RootCleanupStep.Resource(dataSource.Dispose, dataSource.DisposeAsync)], TelemetryInstanceId));
 

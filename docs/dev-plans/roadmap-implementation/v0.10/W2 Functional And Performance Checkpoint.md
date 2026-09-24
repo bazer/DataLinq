@@ -5,6 +5,8 @@
 
 **Runtime candidate:** `49176d7a50d51a4de1848b501652e82215793b98`, 2026-09-24. The [native operation audit](W2%20Native%20Provider%20Audit.md) maps the bindings and test boundaries; the [execution record](W2%20Native%20Provider%20Async%20Execution.md) retains earlier failures and development receipts.
 
+The subsequent [cost attribution and lifecycle fast-path follow-up](W2%20Performance%20Cost%20Disposition.md) preserves these original results, explains the mutation allocation families and removes an avoidable 64-byte factory allocation from repeated provider access. Its working-source checks do not replace this clean-candidate record or close the remaining cold-query timing review.
+
 ## Clean Functional Evidence
 
 The explicit Release full plan with `--batch-size 1` passes **8,539/8,539**, zero failures/skips. It includes generators 71, unit 3,961, Memory 221, compliance 3,411 and server-specific tests 875. All eight SQL targets have individual result rows. Invariant tests run only in their named-plan anchor shard.
