@@ -8,7 +8,8 @@ using Microsoft.Data.Sqlite;
 
 namespace DataLinq.SQLite;
 
-public partial class SQLiteProvider<T> : IAsyncExistenceProbeSource, IAsyncJournalModeSource<SQLiteJournalMode>, IAsyncRootDisposal
+public partial class SQLiteProvider<T> : IAsyncExistenceProbeSource, IAsyncJournalModeSource<SQLiteJournalMode>, IAsyncRootDisposal,
+    IAsyncProviderMetadataSource
 {
     private OwnedRootDisposal? rootDisposal;
     private OwnedRootDisposal RootDisposal => LazyInitializer.EnsureInitialized(ref rootDisposal, () => new(() =>
@@ -19,6 +20,19 @@ public partial class SQLiteProvider<T> : IAsyncExistenceProbeSource, IAsyncJourn
         TelemetryInstanceId));
 
     ValueTask IAsyncRootDisposal.DisposeAsyncCore() => RootDisposal.DisposeAsync();
+
+    IAsyncMetadataReadPlan IAsyncProviderMetadataSource.CaptureValidationMetadata(MetadataReadSettings settings)
+    {
+        RootDisposal.EnsureUsable();
+        var request = new MetadataImportRequest(Metadata.Name, Metadata.CsType.Name, Metadata.CsType.Namespace,
+            DatabaseName ?? throw new InvalidOperationException("DatabaseName not defined."), ConnectionString, settings);
+        // ConnectionString already carries the provider's effective memory name.
+        // Do not normalize it again using model metadata or construct another root.
+        var connectionString = MetadataFromSQLiteFactory.ReadOnlyConnectionString(ConnectionString);
+        return MetadataFromSQLiteFactory.CaptureNativeRead(request,
+            () => new SQLiteAdministrativeSession(connectionString, dbAccess, CapturedSql.Capture(new Sql("SELECT 1")),
+                ExecutionOperationKind.MetadataRead, applyVisibility: false), RootDisposal.EnsureUsable);
+    }
 
     ExistenceProbePlan IAsyncExistenceProbeSource.CaptureExistenceProbe(ExistenceProbeRequest request)
     {
