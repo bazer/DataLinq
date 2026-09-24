@@ -207,22 +207,48 @@ public partial class SqlDatabaseTransaction : IAsyncTransactionCompletion
 
         internal void DisposeTransaction()
         {
-            if (Interlocked.Exchange(ref transactionDisposed, 1) == 0) Transaction?.Dispose();
+            if (Interlocked.Exchange(ref transactionDisposed, 1) != 0) return;
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+            try { Transaction?.Dispose(); }
+            catch (Exception failure) { ReportCleanup(failure, occurrence); throw; }
         }
         internal void DisposeConnection()
         {
-            if (Interlocked.Exchange(ref connectionDisposed, 1) == 0) Connection?.Dispose();
+            if (Interlocked.Exchange(ref connectionDisposed, 1) != 0) return;
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+            try { Connection?.Dispose(); }
+            catch (Exception failure) { ReportCleanup(failure, occurrence); throw; }
         }
         internal async ValueTask DisposeTransactionAsync()
         {
             if (Interlocked.Exchange(ref transactionDisposed, 1) != 0) return;
-            if (Transaction is MySqlTransaction native) await native.DisposeAsync().ConfigureAwait(false);
-            else Transaction?.Dispose();
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+            try
+            {
+                if (Transaction is MySqlTransaction native) await native.DisposeAsync().ConfigureAwait(false);
+                else Transaction?.Dispose();
+            }
+            catch (Exception failure) { ReportCleanup(failure, occurrence); throw; }
         }
         private async ValueTask DisposeConnectionAsync()
         {
-            if (Interlocked.Exchange(ref connectionDisposed, 1) == 0 && Connection is not null)
-                await Connection.DisposeAsync().ConfigureAwait(false);
+            if (Interlocked.Exchange(ref connectionDisposed, 1) != 0 || Connection is null) return;
+            var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+            try { await Connection.DisposeAsync().ConfigureAwait(false); }
+            catch (Exception failure) { ReportCleanup(failure, occurrence); throw; }
+        }
+
+        private void ReportCleanup(Exception failure, long occurrence)
+        {
+            // A disposal occurrence must not borrow an earlier command's report.
+            // Classification belongs at the native boundary; outer coordinators
+            // preserve their primary failure and established completion outcome.
+            ExecutionFailureContexts.DiscardEarlierReport(failure, occurrence);
+            var failures = new ExecutionFailures();
+            failures.AddCleanup(failure);
+            ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(Cause: ClassifyNativeFailure(failure)), ExecutionCompletion.NotAttempted,
+                ExecutionRecoveryActions.Dispose, owner.ManagedTransaction?.TransactionID, ExecutionOperationKind.Dispose,
+                owner.DiagnosticProviderInstanceId, providerIdentityIsAuthoritative: true));
         }
         public void Dispose()
         {
