@@ -1,6 +1,6 @@
 # W2 Review Handoff
 
-**Status, 2026-09-28:** the full review identified four correctness/compatibility findings on `e4720b61`. All four are addressed in `7b6607b69b9249b70ba362173f1fb221bcd40b7c`, with focused regressions and clean full Debug and Release matrices. The fixes are ready for reviewer confirmation; integration approval remains separate. This is not a merge, public API freeze or release approval.
+**Status, 2026-09-28:** the full review identified four correctness/compatibility findings on `e4720b61`. All four are addressed in `7b6607b69b9249b70ba362173f1fb221bcd40b7c`, with focused regressions and clean full Debug and Release matrices. The [follow-up review](https://github.com/bazer/DataLinq/pull/229#issuecomment-5870998052) confirms all four resolved with no new actionable issues. The user then authorized [W2 closure and merge-commit integration](W2%20Closeout.md). Public API freeze and release approval remain separate.
 
 **PR:** [#229, Implement W2: native provider async execution](https://github.com/bazer/DataLinq/pull/229), `codex/0.10-w2` → `v0.10`. Preserve the accepted single-PR/merge-commit workflow. Public/generated async APIs remain W3 work.
 
@@ -51,4 +51,4 @@ The existing performance captures describe `76781c89`, before these corrections.
 
 ## Completion Boundaries
 
-The four reported findings are fixed and verified, ready for reviewer confirmation and a subsequent integration decision. Official SQLite package adoption and affected verification continue when packages become available. Performance investigation, optimization and acceptance resume after all 0.10 features are implemented, followed by the [frozen-candidate release evidence](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md). These scheduling decisions do not mark 0.10 released or authorize merging/publishing it.
+The four reported findings are fixed, verified and confirmed by the reviewer. The user authorized W2 closure and merge-commit integration; [W2 Closeout](W2%20Closeout.md) records completion and the carried-forward work. Official SQLite package adoption and affected verification continue when packages become available. Performance investigation, optimization and acceptance resume after all 0.10 features are implemented, followed by the [frozen-candidate release evidence](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md). W2 integration does not mark 0.10 released or authorize publishing it.

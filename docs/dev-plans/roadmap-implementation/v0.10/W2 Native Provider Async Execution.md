@@ -1,5 +1,5 @@
 > [!WARNING]
-> W2 review corrections are ready for reviewer confirmation. Internal native-provider implementation is not public async support, W0-F1 closure or release approval.
+> W2 is closed after review and the user has authorized integration into v0.10. Internal native-provider implementation is not public async support, W0-F1 closure or release approval.
 
 # W2 Native Provider Async Execution
 
@@ -7,7 +7,7 @@
 
 **Workflow:** one branch, `codex/0.10-w2`, and [PR #229, Implement W2: native provider async execution](https://github.com/bazer/DataLinq/pull/229), targeting `v0.10`. The [accepted workflow exception](Branch%20PR%20and%20Benchmark%20Workflow.md#w2-single-pr-exception) preserves coherent commits, incremental reviews and final merge-commit integration. No merge or publication is authorized by opening the PR.
 
-**Current decision, 2026-09-28:** [W2's four reported review findings are fixed and verified](W2%20Review%20Handoff.md) in `7b6607b6`, ready for reviewer confirmation. Clean Debug and Release matrices each pass 8,558/8,558 tests. All further performance work is deferred until all 0.10 features are implemented, followed by focused optimization and acceptance before the frozen candidate. SQLite adoption and affected verification continue when suitable official packages become available. These decisions supersede earlier review-blocking performance language in the dated execution history below; they preserve the measurements, original failures and final release obligations.
+**Current decision, 2026-09-28:** [W2 is closed](W2%20Closeout.md): the reviewer confirmed all four fixes in `7b6607b6` and no new actionable findings, and the user explicitly authorized merging PR #229 into `v0.10`. Clean Debug and Release matrices each pass 8,558/8,558 tests. All further performance work is deferred until all 0.10 features are implemented, followed by focused optimization and acceptance before the frozen candidate. SQLite adoption and affected verification continue when suitable official packages become available. These decisions supersede earlier review-blocking performance language in the dated execution history below; they preserve the measurements, original failures and final release obligations.
 
 ## Scope And Acceptance
 
@@ -534,4 +534,10 @@ The finalized regression tests first fail in all 5 SQLite cases and all 6 MySQL 
 
 Clean full Debug and Release matrices each pass 8,558/8,558, zero failures/skips, on `7b6607b69b9249b70ba362173f1fb221bcd40b7c`, with matching unchanged source/runner identities and `ValidForEvidence=true`. The first invocation unexpectedly selected Debug because `dotnet run` consumed the Release option; its receipt is retained under its actual configuration. The corrected invocation uses the compiled Release Testing CLI directly. All five Release test-project builds have zero warnings/errors. Independent review of 17 TRX files confirms every pass and all eight native telemetry parity cases; the handoff records run IDs, summary hashes and the 69-artifact verification receipt.
 
-These are functional correctness fixes. Performance captures remain associated with their original runtimes; performance work stays deferred until the end of 0.10. Official SQLite package adoption continues under the accepted policy. Reviewer confirmation and integration approval remain outstanding.
+These are functional correctness fixes. Performance captures remain associated with their original runtimes; performance work stays deferred until the end of 0.10. Official SQLite package adoption continues under the accepted policy. At this correction checkpoint, reviewer confirmation and integration approval remained outstanding; the closeout below records the subsequent decision.
+
+### W2 Closeout, 2026-09-28
+
+The [follow-up review](https://github.com/bazer/DataLinq/pull/229#issuecomment-5870998052) confirms all four findings resolved and no additional actionable correctness or compatibility issues on `cf65b29c`. Independent verification passes 84 SQLite native tests, 342 server native tests across all six server versions, and the original 5 unit/12 server reproducers. The reviewer verifies the 69 Release hashes and all 8,558 passing results across 17 TRX reports; this is artifact verification, not a second full-matrix execution. CI #629 passes all 12 jobs, including the required gate.
+
+The user explicitly authorized closing W2 and merging PR #229 into `v0.10`. [W2 Closeout](W2%20Closeout.md) records completion, evidence and carried-forward performance/SQLite obligations. The PR's final body records the checked final head, merge commit and tree comparison. W3 is next; public API freeze and release publication remain separate decisions.
