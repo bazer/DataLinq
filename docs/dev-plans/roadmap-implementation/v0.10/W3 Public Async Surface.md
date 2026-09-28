@@ -176,3 +176,15 @@ Verification:
 - Public callback diagnostic assertions pass 4/4 across SQLite file/memory, MySQL 9.7 and MariaDB 12.3 in `20260928T160435338Z-fac1c91a4a344c5e92a33b7198359344`.
 
 Summaries: `artifacts/w3-diagnostics-mapping-summary.json` and `artifacts/w3-diagnostics-providers-summary.json`. These are development-working-tree checks. Full emitted/packed/old-binary evidence remains W3.7. Generator/navigation/mutation emission (W3.4), lower-level/admin APIs (W3.5) and final contract/documentation closeout (W3.7) remain open; no W5 validation behavior was added.
+
+## W3.4a Generated Typed Key Lookup Checkpoint
+
+Implemented K02: generated static GetAsync helpers for IDataSourceAccess, typed Database and typed Transaction. They preserve existing model-side key types, parameter names/order and canonical-key construction, append the optional cancellation token, and return ValueTask with a nullable model result. Converted keys normalize exactly once before entering the shared async lookup. Composite provider-key fast paths remain intact.
+
+Verification:
+
+- All generator tests pass, 79/79, including eight new nullable-enabled/disabled scalar/composite/converted consumer compilation and emitted-symbol cases. Run 20260928T161714722Z-68cd6564c59a461ebbb79d4eb144ccc9.
+- Generated public lookup tests pass 8/8 across SQLite file/memory, MySQL 9.7 and MariaDB 12.3. Run 20260928T161803579Z-9d52dd1b04f441299204bf62eb50a54c. Cases cover all three sources, cold/warm keys, converted auto-increment IDs, missing/null keys, cancellation and subsequent transaction reuse.
+- Initial provider-test compilation incorrectly passed nullable auto-increment IDs to the existing non-null typed-key signature. Corrected the tests to preserve the accepted synchronous signature. A subsequent test wrongly expected reference identity for a fixture without UseCache; corrected it to verify key equality. Cached employee fixtures still assert identity. These were test assumptions, not product fixes.
+
+Summaries are artifacts/w3-generated-keys-all-generators-summary.json and artifacts/w3-generated-keys-providers-summary.json. Checks remain development-working-tree evidence, not packed/frozen receipts. W3.4 navigation/DLG004 and generated mutations remain open, along with W3.5 and W3.7.

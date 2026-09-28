@@ -1132,6 +1132,10 @@ public class GeneratorFileFactory
                     yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.GetByProviderKey(new {keyTypeName}({keyValues}), transaction);";
                 }
 
+                foreach (var line in WriteAsyncKeyLookups(model, keyString,
+                    primaryKeys.Count == 1 ? keyValues : $"new {keyTypeName}({keyValues})"))
+                    yield return line;
+
                 yield return $"";
             }
 
@@ -1157,6 +1161,8 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, IDataSourceAccess dataSource) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, dataSource);";
                 yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, database.Provider.ReadOnlyAccess);";
                 yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, transaction);";
+                foreach (var line in WriteAsyncKeyLookups(model, keyString, normalizedKeyExpression))
+                    yield return line;
                 yield return "";
             }
 
@@ -1189,6 +1195,18 @@ public class GeneratorFileFactory
 
         yield return namespaceTab + "}";
         yield return "";
+    }
+
+    private IEnumerable<string> WriteAsyncKeyLookups(ModelDefinition model, string keyParameters, string providerKey)
+    {
+        var result = $"global::System.Threading.Tasks.ValueTask<{model.CsType.Name}{GetUseNullableReferenceTypes()}>";
+        var token = "global::System.Threading.CancellationToken cancellationToken = default";
+        yield return $"{namespaceTab}{tab}/// <summary>Asynchronously looks up a model by its typed primary key; returns null when no row exists.</summary>";
+        yield return $"{namespaceTab}{tab}public static {result} GetAsync({keyParameters}, IDataSourceAccess dataSource, {token}) => IImmutable<{model.CsType.Name}>.GetByProviderKeyAsync({providerKey}, dataSource, cancellationToken);";
+        yield return $"{namespaceTab}{tab}/// <summary>Asynchronously looks up a model using the database read-only source.</summary>";
+        yield return $"{namespaceTab}{tab}public static {result} GetAsync({keyParameters}, Database<{model.Database.CsType.Name}> database, {token}) => IImmutable<{model.CsType.Name}>.GetByProviderKeyAsync({providerKey}, database.Provider.ReadOnlyAccess, cancellationToken);";
+        yield return $"{namespaceTab}{tab}/// <summary>Asynchronously looks up a model using the caller-owned transaction.</summary>";
+        yield return $"{namespaceTab}{tab}public static {result} GetAsync({keyParameters}, Transaction<{model.Database.CsType.Name}> transaction, {token}) => IImmutable<{model.CsType.Name}>.GetByProviderKeyAsync({providerKey}, transaction, cancellationToken);";
     }
 
     private IEnumerable<string> ImmutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
