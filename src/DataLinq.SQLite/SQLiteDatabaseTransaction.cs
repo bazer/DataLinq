@@ -97,7 +97,7 @@ public partial class SQLiteDatabaseTransaction : DatabaseTransaction, ISyncTrans
     public override IDataLinqDataReader ExecuteReader(string query)
     {
         if (ManagedTransaction is not null) return ExecuteReaderSyncCore(query);
-        return ExecuteStandaloneReader(new SqliteCommand(query), ownsCommand: true);
+        return ExecuteOwnedReader(new SqliteCommand(query));
     }
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command) => ManagedTransaction is not null

@@ -107,7 +107,7 @@ public partial class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransact
     public override IDataLinqDataReader ExecuteReader(string query)
     {
         if (ManagedTransaction is not null) return ExecuteReaderSyncCore(query);
-        return ExecuteStandaloneReader(new MySqlCommand(query), ownsCommand: true);
+        return ExecuteOwnedReader(new MySqlCommand(query));
     }
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command) => ManagedTransaction is not null

@@ -162,6 +162,8 @@ public abstract partial class DatabaseTransaction
 internal sealed class StandaloneTransactionOperation : IDisposable
 {
     private readonly TransactionOperationGate.Lease lease;
+    private int references = 1;
+    private int disposed;
     internal TransactionOperationGate.Step Step { get; }
 
     internal StandaloneTransactionOperation(TransactionOperationGate gate, ExecutionOperationKind kind)
@@ -172,7 +174,25 @@ internal sealed class StandaloneTransactionOperation : IDisposable
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref disposed, 1) == 0) Release();
+    }
+
+    internal IDisposable RetainThroughCommandCleanup()
+    {
+        Interlocked.Increment(ref references);
+        return new CleanupHold(this);
+    }
+
+    private void Release()
+    {
+        if (Interlocked.Decrement(ref references) != 0) return;
         Step.Dispose();
         lease.Dispose();
+    }
+
+    private sealed class CleanupHold(StandaloneTransactionOperation owner) : IDisposable
+    {
+        private int released;
+        public void Dispose() { if (Interlocked.Exchange(ref released, 1) == 0) owner.Release(); }
     }
 }

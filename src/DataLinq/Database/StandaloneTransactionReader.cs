@@ -19,6 +19,7 @@ internal class StandaloneTransactionReader(IDataLinqDataReader reader, Standalon
         try
         {
             operation = transaction.BeginStandaloneCommand();
+            OwnedCommandLifetime.Retain(command, operation);
             var reader = open(operation.Step);
             // The command must be disposed before the transaction slot is released.
             if (ownsCommand) reader = OwnedCommandDataReader.Create(reader, command);

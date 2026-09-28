@@ -188,3 +188,11 @@ Verification:
 - Initial provider-test compilation incorrectly passed nullable auto-increment IDs to the existing non-null typed-key signature. Corrected the tests to preserve the accepted synchronous signature. A subsequent test wrongly expected reference identity for a fixture without UseCache; corrected it to verify key equality. Cached employee fixtures still assert identity. These were test assumptions, not product fixes.
 
 Summaries are artifacts/w3-generated-keys-all-generators-summary.json and artifacts/w3-generated-keys-providers-summary.json. Checks remain development-working-tree evidence, not packed/frozen receipts. W3.4 navigation/DLG004 and generated mutations remain open, along with W3.5 and W3.7.
+
+## Standalone Reader Virtual Dispatch Correction
+
+CI on generated-key head b0b40cc9 exposed a regression in the earlier standalone reader change: string-reader execution bypassed the virtual IDbCommand overload. CommandOwnershipTests failed on all four CI compliance targets in run 36450157177. The local navigation quick run 20260928T162658588Z-4897d2732c1d40bcb719934315dbcd27 reproduced it (99 generators, 4,024 unit and 223 Memory cases passed; SQLite compliance was 561/562).
+
+Restored virtual dispatch. Explicit owned-command identity retains the standalone operation through command cleanup, including opening failure and custom reader decorators, without ambient execution permission. Reader and command cleanup each release their share only once. Caller-supplied commands retain their previous ownership.
+
+Verification: all ten focused provider-transaction tests pass in 20260928T163357377Z-e38c22ed539943f09a7fecc525e5cd7f, including four new success/failure/decorator cases. Existing CommandOwnershipTests pass 4/4 across SQLite file/memory, MySQL 9.7 and MariaDB 12.3 in 20260928T163522261Z-a456a9d768d9476bb2ed6e532a2f7366. Summaries are artifacts/w3-reader-dispatch-unit-summary.json and artifacts/w3-reader-dispatch-providers-summary.json. These are development checks; the failed CI result remains part of the record and must be superseded by checks on a corrected head.

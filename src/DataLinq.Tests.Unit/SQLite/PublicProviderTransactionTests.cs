@@ -1,4 +1,5 @@
 using System;
+using System.Data;
 using System.Threading.Tasks;
 using DataLinq.Execution;
 using DataLinq.Logging;
@@ -11,6 +12,45 @@ namespace DataLinq.Tests.Unit.SQLite;
 
 public sealed class PublicProviderTransactionTests
 {
+    [Test]
+    [Arguments(false, false)]
+    [Arguments(false, true)]
+    [Arguments(true, false)]
+    [Arguments(true, true)]
+    public async Task StringReaderPreservesVirtualDispatchAndRetainsAdmissionThroughSuccessfulOrFailedCleanup(bool fail, bool decorate)
+    {
+        await using var transaction = new ObservedReaderTransaction(decorate);
+        if (fail)
+            await Assert.That(() => transaction.ExecuteReader("INVALID SQL")).Throws<SqliteException>();
+        else
+        {
+            using var reader = transaction.ExecuteReader("SELECT 1");
+            await Assert.That(reader.ReadNextRow()).IsTrue();
+        }
+        await Assert.That(transaction.ReaderCalls).IsEqualTo(1);
+        await Assert.That(transaction.CleanupCommitRejected).IsTrue();
+        await transaction.RollbackAsync();
+    }
+
+    private sealed class ObservedReaderTransaction(bool decorate)
+        : SQLiteDatabaseTransaction("Data Source=:memory:", TransactionType.ReadAndWrite, DataLinqLoggingConfiguration.NullConfiguration)
+    {
+        internal int ReaderCalls;
+        internal bool CleanupCommitRejected;
+        public override IDataLinqDataReader ExecuteReader(IDbCommand command)
+        {
+            ReaderCalls++;
+            ((SqliteCommand)command).Disposed += (_, _) =>
+            {
+                try { Commit(); }
+                catch (InvalidOperationException) { CleanupCommitRejected = true; }
+            };
+            var reader = base.ExecuteReader(command);
+            // A custom decorator must not hide the native reader's cleanup reservation.
+            return decorate ? OwnedCommandDataReader.Create(reader, new SqliteCommand()) : reader;
+        }
+    }
+
     [Test]
     public async Task StandaloneOwnedReaderRetainsAdmissionThroughCommandCleanup()
     {
