@@ -42,13 +42,13 @@ internal sealed class AsyncReaderEnumerable<T> : IAsyncEnumerable<T>
         if ((invocation.Materialize is null ? 0 : 1) + (invocation.Buffer is null ? 0 : 1) + (invocation.Continuation is null ? 0 : 1) != 1)
             throw new InvalidOperationException("A reader invocation requires exactly one row materializer, buffer or continuation.");
         return new AsyncReaderEnumerator<T>(invocation.Source, invocation.Materialize, invocation.Transaction, methodToken, cancellationToken,
-            invocation.Buffer, invocation.Continuation, invocation.Identity, invocation.Telemetry);
+            invocation.Buffer, invocation.Continuation, invocation.Identity, invocation.Telemetry, invocation.BorrowCurrentRow);
     }
 }
 
 internal sealed record AsyncReaderInvocation<T>(IAsyncReaderSource Source, Func<IAsyncDataReader, T>? Materialize,
     Transaction? Transaction = null, IAsyncReaderBuffer<T>? Buffer = null, IAsyncReaderContinuation<T>? Continuation = null,
-    ReadExecutionIdentity Identity = default, QueryTelemetryContext Telemetry = default);
+    ReadExecutionIdentity Identity = default, QueryTelemetryContext Telemetry = default, bool BorrowCurrentRow = false);
 
 /// <summary>Invocation-local aggregation. No result is visible until all rows and cleanup succeed.</summary>
 internal interface IAsyncReaderBuffer<T>
@@ -92,6 +92,8 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
     private bool helperDrained;
     private bool hasCurrent;
     private T current = default!;
+    private readonly bool borrowCurrentRow;
+    private long rowVersion;
 
     internal AsyncEnumerationFailure? Failure { get; private set; }
 
@@ -99,10 +101,11 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
         IAsyncReaderSource source, Func<IAsyncDataReader, T>? materialize, Transaction? transaction,
         CancellationToken methodToken, CancellationToken enumeratorToken, IAsyncReaderBuffer<T>? buffer = null,
         IAsyncReaderContinuation<T>? continuation = null, ReadExecutionIdentity identity = default,
-        QueryTelemetryContext telemetryContext = default)
+        QueryTelemetryContext telemetryContext = default, bool borrowCurrentRow = false)
     {
         this.source = source;
         this.materialize = materialize;
+        this.borrowCurrentRow = borrowCurrentRow;
         this.buffer = buffer;
         this.continuation = continuation;
         failureEvidence = source as IAsyncReadFailureEvidence;
@@ -143,6 +146,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                 return false;
             hasCurrent = false;
             current = default!;
+            rowVersion++;
             ExecutionFailures? failures = null;
             var stage = ExecutionFailureStage.Validation;
             var cause = ExecutionFailureCause.Unknown;
@@ -247,7 +251,9 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                             stage = ExecutionFailureStage.Materialization;
                             cause = ExecutionFailureCause.MaterializationError;
                             occurrence = ExecutionFailureContexts.CaptureOccurrence();
-                            var value = materialize!(reader);
+                            var version = rowVersion;
+                            var value = materialize!(borrowCurrentRow
+                                ? new BorrowedAsyncDataReader(reader, () => EnterBorrowedRow(version)) : reader);
                             CheckCancellation();
                             current = value;
                             hasCurrent = true;
@@ -378,6 +384,19 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                 linkedTokens = null;
             }
         }
+    }
+
+    private IDisposable EnterBorrowedRow(long version)
+    {
+        var call = calls.Enter();
+        try
+        {
+            if (finished || !hasCurrent || version != rowVersion)
+                throw new InvalidOperationException("This borrowed row is no longer current.");
+            transaction?.EnsureCanRead(Operation, ownership?.Step, identity.Operation);
+            return call;
+        }
+        catch { call.Dispose(); throw; }
     }
 
     private async ValueTask DisposeReaderAsync(ExecutionFailures failures)

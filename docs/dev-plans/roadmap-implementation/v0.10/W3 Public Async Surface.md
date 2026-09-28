@@ -243,3 +243,21 @@ Verification:
 - CI on the preceding administration commit ce84ff3a passed all twelve checks in run 36454430490. This does not certify the new generated mutation commit.
 
 Summaries: artifacts/w3-generated-mutations-{generator,unit,quick,providers}-summary.json. These are development-working-tree checks, not frozen or packed-consumer receipts. W3.4 implementation is complete; its packed/generated compatibility evidence remains W3.7. Lower-level L01-L17 and the rest of W3.7 remain open; W5 validation and deferred benchmarks are unchanged.
+
+## W3.5b Public Fluent And Raw Model Reads Checkpoint
+
+Implemented L06-L17: the public async reader companion, every accepted Select<T> read/model/scalar method, SqlQuery<T>.SelectAsync, and virtual raw model reads with built-in ReadOnlyAccess/Transaction overrides. Legacy DataSourceAccess subclasses retain explicit unsupported defaults. Generic model casts retain unconstrained signatures and execute inside the owned materialization/failure boundary; they do not add DTO mapping.
+
+Fluent reader sequences now expose guarded borrowed current-row views. Consumers cannot advance or dispose them, and old views expire at the next move or disposal. Getter calls share the enumerator call gate. Internal row/model materialization continues to receive its native reader capabilities. Builder capture remains at enumerator construction, with terminal capture before suspension and owned cleanup before terminal success.
+
+Verification:
+
+- Core and non-friend source consumers build on net8.0/net9.0/net10.0 with zero warnings/errors. Consumers execute successfully on actual runtimes 8.0.31, 9.0.20 and 10.0.12, including exact fluent return/argument bindings and legacy raw-source rejection with throwing synchronous methods.
+- Focused borrowed-view and model-cast failure tests: 2/2, run 20260928T174541415Z-8251031cf64640d1a6885175f0a53a8a.
+- Existing controlled capture, key, scalar and raw-model suites now call the public methods. Full quick run: 4,930/4,930 (101 generators, 4,039 unit, 223 Memory, 567 SQLite-file compliance), run 20260928T174809757Z-1c5e534ef0d146f6815c216528435da5.
+- Public fluent/raw-model provider cases: 8/8 across SQLite file/memory, MySQL 9.7 and MariaDB 12.3, run 20260928T185830370Z-6f78faf58f0b497a82cb95060aecb445. Covers every public fluent family, borrowed commands reused twice, raw reordered columns, caller transaction ownership and cancellation.
+- The initial quick attempt failed to compile the new compliance fixture because it referenced the model assembly's internal metadata handle and omitted the index-enum namespace. Corrected the test to use public provider metadata and the proper import before the passing run. The old internal cursor-identity assertion was updated for guarded per-row public views.
+
+Summaries: artifacts/w3-public-fluent-{unit,quick,providers}-summary.json. These remain development checks, not packed/frozen evidence. L01-L05 direct commands/readers and standalone async command ownership remain open, as does W3.7 compatibility/documentation closeout.
+
+CI on preceding generated-mutation head 3646c6b5 passed all provider and generator lanes but failed one existing unit allocation assertion: QueryPlanCapabilityValidationTests.ExecutionCapabilityValidation_AllocatesNothingForSupportedInvocation reported 2,000 bytes (4,036/4,037 unit cases passed), run 36459739922. The measured validation path and strict test were unchanged; the local full quick runs pass. A failed-jobs rerun at that same commit was requested to distinguish repeatable behavior before changing either code or the assertion. Its outcome remains to be checked; the original failure is retained.

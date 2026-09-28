@@ -9,7 +9,7 @@ using DataLinq.Query;
 
 namespace DataLinq.Mutation;
 
-public class ReadOnlyAccess : DataSourceAccess
+public partial class ReadOnlyAccess : DataSourceAccess
 {
     public override DatabaseAccess DatabaseAccess => Provider.DatabaseAccess;
 

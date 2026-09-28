@@ -12,24 +12,24 @@ namespace DataLinq.Mutation;
 
 public abstract partial class DataSourceAccess
 {
-    internal IAsyncEnumerable<T> GetFromQueryAsyncCore<T>(string sql, CancellationToken token = default) where T : IModel =>
+    internal IAsyncEnumerable<T> GetFromQueryAsyncCore<T>(string query, CancellationToken token = default) where T : IModel =>
         new AsyncReaderEnumerable<T>(() =>
         {
-            ArgumentNullException.ThrowIfNull(sql);
+            ArgumentNullException.ThrowIfNull(query);
             EnsureReadAllowed(this, "read models from asynchronous SQL", operationKind: ExecutionOperationKind.RawCommand);
             var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
             var factory = IAsyncSqlReaderFactory.Require(DatabaseAccess);
-            return CaptureRawModels<T>(table, factory.BindReader(CapturedSql.Capture(new Sql(sql))), "raw-query");
+            return CaptureRawModels<T>(table, factory.BindReader(CapturedSql.Capture(new Sql(query))), "raw-query");
         }, token);
 
-    internal IAsyncEnumerable<T> GetFromCommandAsyncCore<T>(IDbCommand command, CancellationToken token = default) where T : IModel =>
+    internal IAsyncEnumerable<T> GetFromCommandAsyncCore<T>(IDbCommand dbCommand, CancellationToken token = default) where T : IModel =>
         new AsyncReaderEnumerable<T>(() =>
         {
-            ArgumentNullException.ThrowIfNull(command);
+            ArgumentNullException.ThrowIfNull(dbCommand);
             EnsureReadAllowed(this, "read models from an asynchronous borrowed command", operationKind: ExecutionOperationKind.RawCommand);
             var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
             var factory = IAsyncBorrowedReaderFactory.Require(DatabaseAccess);
-            return CaptureRawModels<T>(table, factory.BindBorrowedReader(command), "raw-command");
+            return CaptureRawModels<T>(table, factory.BindBorrowedReader(dbCommand), "raw-command");
         }, token);
 
     private AsyncReaderInvocation<T> CaptureRawModels<T>(TableDefinition table, IAsyncReaderSource source, string kind) where T : IModel

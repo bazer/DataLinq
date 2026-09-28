@@ -22,7 +22,7 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncSqlReaders = factory;
         var query = transaction.From<TransactionMutationGuardRow>();
         var select = query.SelectQuery();
-        var sequence = select.ReadRowsAsyncCore();
+        var sequence = select.ReadRowsAsync();
         await Assert.That(factory.Inputs).IsEmpty();
         select.What("value");
         factory.CreateAccess = _ => new() { ReaderOverride = new ControlledRowDataReader(["first"]) };
@@ -59,7 +59,7 @@ public sealed partial class TransactionMutationFailureTests
         var query = transaction.From<TransactionMutationGuardBinaryRow>();
         query.Where("payload").EqualTo(argument);
         var select = query.SelectQuery().What("id");
-        var sequence = select.ReadRowsAsyncCore();
+        var sequence = select.ReadRowsAsync();
         argument[0] = 3;
         await using var rows = sequence.GetAsyncEnumerator();
         argument[0] = 4;
@@ -96,7 +96,7 @@ public sealed partial class TransactionMutationFailureTests
         };
         fixture.Scenario.AsyncSqlReaders = factory;
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery().What("id");
-        var pending = select.ReadFirstRowAsyncCore();
+        var pending = select.ReadFirstRowAsync();
         await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         select.What("value");
         access.Dispatch.Release();
@@ -164,7 +164,7 @@ public sealed partial class TransactionMutationFailureTests
         };
         fixture.Scenario.AsyncSqlReaders = factory;
         var select = fixture.Database.From<TransactionMutationGuardRow>().SelectQuery().What("id", "99 AS ignored", "value");
-        var row = await select.ReadFirstRowAsyncCore();
+        var row = await select.ReadFirstRowAsync();
         await Assert.That(row![fixture.RowTable.GetColumnByDbName("id")]).IsEqualTo(5);
         await Assert.That(row[fixture.RowTable.GetColumnByDbName("value")]).IsEqualTo("last");
         await Assert.That(factory.Inputs[0].Text).Contains("99 AS ignored");
@@ -177,15 +177,15 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledSqlReaderFactory { CreateAccess = _ => new() { ReaderOverride = new ControlledRowDataReader([1], [2]) } };
         fixture.Scenario.AsyncSqlReaders = factory;
         var select = fixture.Database.From<TransactionMutationGuardRow>().SelectQuery().What("id");
-        await using var rows = select.ReadReaderAsyncCore().GetAsyncEnumerator();
+        await using var rows = select.ReadReaderAsync().GetAsyncEnumerator();
         await Assert.That(await rows.MoveNextAsync()).IsTrue();
         var first = rows.Current;
         await Assert.That(first.GetInt32(0)).IsEqualTo(1);
         await Assert.That(await rows.MoveNextAsync()).IsTrue();
-        await Assert.That(rows.Current).IsSameReferenceAs(first);
-        await Assert.That(first.GetInt32(0)).IsEqualTo(2);
+        await Assert.That(rows.Current.GetInt32(0)).IsEqualTo(2);
+        _ = Capture<InvalidOperationException>(() => first.GetInt32(0));
         await rows.DisposeAsync();
-        _ = Capture<ObjectDisposedException>(() => first.GetInt32(0));
+        _ = Capture<InvalidOperationException>(() => first.GetInt32(0));
     }
 
     [Test]
@@ -196,8 +196,8 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledSqlReaderFactory();
         fixture.Scenario.AsyncSqlReaders = factory;
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery();
-        await using (var unused = select.ReadRowsAsyncCore().GetAsyncEnumerator()) { }
-        await using var canceled = select.ReadRowsAsyncCore(new(true)).GetAsyncEnumerator();
+        await using (var unused = select.ReadRowsAsync().GetAsyncEnumerator()) { }
+        await using var canceled = select.ReadRowsAsync(new(true)).GetAsyncEnumerator();
         await Assert.That(await AsyncEnumerationFailureOf(() => canceled.MoveNextAsync().AsTask()) is OperationCanceledException).IsTrue();
         await Assert.That(factory.Commands.All(x => x.Creates == 0)).IsTrue();
         await Assert.That(transaction.AsyncFailureContext).IsNull();
@@ -212,7 +212,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledSqlReaderFactory();
         fixture.Scenario.AsyncSqlReaders = factory;
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery();
-        await using var rows = select.ReadRowsAsyncCore(new(true)).GetAsyncEnumerator();
+        await using var rows = select.ReadRowsAsync(new(true)).GetAsyncEnumerator();
         transaction.Commit();
         await Assert.That(await AsyncEnumerationFailureOf(() => rows.MoveNextAsync().AsTask())).IsTypeOf<InvalidOperationException>();
         await Assert.That(factory.Commands[0].Creates).IsEqualTo(0);
@@ -229,7 +229,7 @@ public sealed partial class TransactionMutationFailureTests
             ConfigureCommand = command => command.Resource.Disposing = () => bytes[0] = 9
         };
         fixture.Scenario.AsyncSqlReaders = factory;
-        var row = await fixture.Database.From<TransactionMutationGuardBinaryRow>().SelectQuery().What("id").ReadFirstRowAsyncCore();
+        var row = await fixture.Database.From<TransactionMutationGuardBinaryRow>().SelectQuery().What("id").ReadFirstRowAsync();
         var value = (byte[])row![fixture.BinaryTable.GetColumnByDbName("id")]!;
         await Assert.That(value).IsNotSameReferenceAs(bytes);
         await Assert.That(value[0]).IsEqualTo((byte)1);
@@ -243,7 +243,7 @@ public sealed partial class TransactionMutationFailureTests
         var reader = new ControlledRowDataReader();
         var factory = new ControlledSqlReaderFactory { CreateAccess = _ => new() { ReaderOverride = reader } };
         fixture.Scenario.AsyncSqlReaders = factory;
-        var row = await fixture.Database.From<TransactionMutationGuardRow>().SelectQuery().ReadFirstRowAsyncCore();
+        var row = await fixture.Database.From<TransactionMutationGuardRow>().SelectQuery().ReadFirstRowAsync();
         await Assert.That(row).IsNull();
         await Assert.That(reader.Disposals).IsEqualTo(1);
         await Assert.That(factory.Commands[0].Resource.AsyncDisposals).IsEqualTo(1);
@@ -264,7 +264,7 @@ public sealed partial class TransactionMutationFailureTests
         };
         fixture.Scenario.AsyncSqlReaders = factory;
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery().What("id");
-        var error = await AsyncEnumerationFailureOf(() => buffered ? select.ReadRowsBufferedAsyncCore() : (Task)select.ReadFirstRowAsyncCore());
+        var error = await AsyncEnumerationFailureOf(() => buffered ? select.ReadRowsBufferedAsyncCore() : (Task)select.ReadFirstRowAsync());
         await Assert.That(error).IsSameReferenceAs(expected);
         await Assert.That(transaction.AsyncFailureContext!.Recovery).IsEqualTo(ExecutionRecoveryActions.Dispose);
         await Assert.That(factory.Commands[0].Resource.AsyncDisposals).IsEqualTo(1);
@@ -276,9 +276,9 @@ public sealed partial class TransactionMutationFailureTests
         using var fixture = new ScriptedFixture(captureSql: true);
         using var transaction = fixture.Database.Transaction();
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery();
-        var sequence = select.ReadRowsAsyncCore(new(true));
+        var sequence = select.ReadRowsAsync(new(true));
         _ = Capture<NotSupportedException>(() => sequence.GetAsyncEnumerator());
-        _ = Capture<NotSupportedException>(() => select.ReadFirstRowAsyncCore(new(true)));
+        _ = Capture<NotSupportedException>(() => select.ReadFirstRowAsync(new(true)));
         await Assert.That(transaction.AsyncFailureContext).IsNull();
         _ = transaction.Query();
     }
@@ -293,7 +293,7 @@ public sealed partial class TransactionMutationFailureTests
         };
         fixture.Scenario.AsyncSqlReaders = factory;
         var row = await fixture.Database.From<TransactionMutationGuardBinaryRow>().SelectQuery()
-            .What("id", "payload", "id").ReadFirstRowAsyncCore();
+            .What("id", "payload", "id").ReadFirstRowAsync();
         await Assert.That(((byte[])row![fixture.BinaryTable.GetColumnByDbName("id")]!)[0]).IsEqualTo((byte)2);
         await Assert.That(row[fixture.BinaryTable.GetColumnByDbName("payload")]).IsNull();
         await Assert.That(row.IsColumnPresent(fixture.BinaryTable.GetColumnByDbName("payload").Index)).IsTrue();
@@ -308,7 +308,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledSqlReaderFactory { CreateAccess = _ => new() { ReaderOverride = reader } };
         fixture.Scenario.AsyncSqlReaders = factory;
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery().What("id");
-        await using var rows = select.ReadRowsAsyncCore().GetAsyncEnumerator();
+        await using var rows = select.ReadRowsAsync().GetAsyncEnumerator();
         var error = await AsyncEnumerationFailureOf(() => rows.MoveNextAsync().AsTask());
         await Assert.That(ExecutionFailureContexts.Get(error)!.Stage).IsEqualTo(ExecutionFailureStage.Materialization);
         _ = Capture<InvalidOperationException>(() => _ = rows.Current);
