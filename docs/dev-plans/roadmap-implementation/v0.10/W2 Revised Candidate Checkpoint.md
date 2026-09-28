@@ -2,7 +2,7 @@
 
 **Runtime:** `76781c890d3486316de00d4c3cffd5dc1e4f6680`, captured 2026-09-24. The only product change since the [original checkpoint](W2%20Functional%20And%20Performance%20Checkpoint.md) is the published-coordinator fast path in the SQLite and shared MySQL/MariaDB `RootDisposal` getters. This report and the SQLite reproduction project do not change that runtime.
 
-W2's internal native bindings and planned verification captures are complete. **Final W2 acceptance remains open.** The official SQLite ownership correction is still pending package adoption and affected reruns; the separate failed-rollback pool defect needs a disposition; performance results retain real costs and unresolved timing attribution. Public/generated async APIs remain W3 work.
+W2's internal native bindings and planned verification captures are complete. **W2 is ready for full review under the user's 2026-09-28 decision.** The user will arrange another agent for that review. Further performance investigation, optimization and acceptance move to the end of 0.10 after feature implementation; the measured costs and unresolved timing attribution remain recorded. Official SQLite package adoption and affected reruns continue when suitable versions become available. The [review handoff](W2%20Review%20Handoff.md) distinguishes review readiness from these deferred follow-ups and release approval. Public/generated async APIs remain W3 work.
 
 ## Functional Verification
 
@@ -38,7 +38,7 @@ The environment is Windows x64, .NET 10.0.12, SDK 10.0.401 and BenchmarkDotNet 0
 
 The current totals are **13 allocation warnings, 19 latency warnings and 9 noisy latency rows**. The previous totals were 13/20/12; fewer flags alone are not proof of improvement. The full table below retains every row, including unfavorable, noisy and unchanged-source observations. Thresholds and assertions are unchanged.
 
-**Disposition:** the planned capture and cost review are complete. Retain the attributed allocation costs and every latency observation. The evidence does not justify a claim of performance parity, and the performance acceptance gate remains open. Repeating this same local capture until it turns green would not resolve attribution. A further optimization pass needs a concrete hypothesis and bounded workload; final acceptance must explicitly decide how these measured costs fit the release policy. Documentation-only follow-ups do not invalidate this runtime's receipts or require another full matrix/capture.
+**Disposition, updated by the user on 2026-09-28:** the planned capture and initial cost review are complete. Retain the attributed allocation costs and every latency observation. All further performance work is deferred until all 0.10 features are implemented, followed by focused optimization and an explicit acceptance decision before freezing the final candidate. Performance is no longer a W2 review prerequisite. The evidence does not justify a claim of performance parity. Repeating this same local capture until it turns green would not resolve attribution; the later optimization effort needs concrete hypotheses and bounded workloads. Documentation-only follow-ups do not invalidate this runtime's receipts or require another full matrix/capture.
 
 ## SQLite Acceptance
 

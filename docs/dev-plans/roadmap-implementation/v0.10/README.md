@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-17.
+**Last reviewed:** 2026-09-28.
 
 **Prerequisite:** DataLinq 0.9.2 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -15,7 +15,7 @@
 
 ## Release Thesis
 
-**Current checkpoint, 2026-09-24:** [W1 is closed](W1%20Closeout.md). The upstream SQLite fix is merged and its issue targets 10.0.13; adoption and W0-F1 evidence remain outstanding. The user has authorized [W2 provider implementation](W2%20Native%20Provider%20Async%20Execution.md) in [one draft PR](Branch%20PR%20and%20Benchmark%20Workflow.md#w2-single-pr-exception), including provider wiring while the official package is pending. Historical W1-only scheduling restrictions above describe the earlier checkpoint; the [W2 continuation](SQLite%20Pool%20Ownership%20Investigation.md#accepted-w2-continuation) is the current development permission.
+**Current checkpoint, 2026-09-28:** [W1 is closed](W1%20Closeout.md) and [W2 is ready for full review](W2%20Review%20Handoff.md) in [PR #229](https://github.com/bazer/DataLinq/pull/229). The user will arrange another agent for that review. All further performance work is deferred until all 0.10 features are implemented, followed by a focused optimization and acceptance effort before the final candidate freeze. Both SQLite fixes are merged upstream; official-package adoption and affected reruns continue when suitable versions become available. The ownership fix targets 10.0.13, while the separate rollback issue targets 12.0-preview1 without a confirmed 10.0.x backport. W0-F1 and corrected-package/release acceptance remain open. The earlier W1-only and W2-development checkpoints are historical; the review handoff records the current scheduling decisions.
 
 > Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class database-free testing support.
 
@@ -23,7 +23,7 @@ The release is successful when an ordinary ASP.NET Core or Generic Host applicat
 
 ## Scope Policy
 
-Development follows the accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%20Workflow.md): a protected `v0.10` integration branch, small feature PRs except for the agreed single W2 draft PR, and a separately identified development performance line on the website.
+Development follows the accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%20Workflow.md): a protected `v0.10` integration branch, small feature PRs except for the agreed single W2 PR, and a separately identified development performance line on the website. The 2026-09-28 decision moves further performance investigation, optimization and acceptance to the end of feature implementation; it preserves existing evidence and required correctness/CI checks.
 
 W0-F1 follow-up, 2026-09-17: the [SQLite pool ownership investigation](SQLite%20Pool%20Ownership%20Investigation.md) reproduces the driver race and records the tested correction submitted in [dotnet/efcore#39009](https://github.com/dotnet/efcore/pull/39009). DataLinq's dependency is unchanged. The user's accepted limited exception permits W1 internal contracts and controllable-provider tests while SQLite integration, W0-F1 closeout and release approval remain blocked pending verified package adoption.
 

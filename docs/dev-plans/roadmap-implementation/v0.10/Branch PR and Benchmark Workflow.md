@@ -22,12 +22,22 @@
 - Keep small, coherent implementation commits with their relevant tests. Review completed milestones as work proceeds and keep the PR description/checklist current, distinguishing implementation, verification and blocked acceptance.
 - Preserve meaningful W2 commits with a merge commit at final integration instead of the ordinary feature-PR squash. Keep the branch history stable; incorporate necessary integration-branch changes without rewriting recorded evidence commits.
 - Run focused checks during development, broader provider checks at milestones and complete W2 evidence against the final candidate. Earlier checkpoint results retain their actual source identities.
-- Keep the PR in draft while implementation or acceptance gates remain open. Opening and updating this PR does not authorize merging it or publishing packages.
+- Keep the PR in draft during implementation. The user's 2026-09-28 decision below permits ready-for-review status while the explicitly deferred performance and external SQLite follow-ups remain open. Opening, updating or marking this PR ready does not authorize merging it or publishing packages.
 - The user authorizes continuing W2 provider development while the official SQLite 10.0.13 fix is pending. Corrected official dependency adoption, affected evidence reruns, W0-F1 closure and SQLite acceptance remain explicit gates. Dependency fixes still land on `master`, merge forward to `v0.10`, then enter the W2 branch.
 
 The [W2 implementation plan](W2%20Native%20Provider%20Async%20Execution.md) owns the operation/provider checklist and milestone evidence. Public API verification remains W3; this workflow changes no release scope.
 
 ## CI, Publication And Release Evidence
+
+### Accepted Review And Performance Scheduling, 2026-09-28
+
+The user declares [W2 ready for full review](W2%20Review%20Handoff.md) and will arrange another agent to perform it. Mark PR #229 ready for review; do not treat that status as review completion or merge approval.
+
+All further performance investigation, optimization and acceptance work is deferred until all 0.10 features are implemented. Carry the existing W0/W1/W2 evidence, warnings and measured costs into one focused final integration effort before the W9 candidate freeze. Earlier per-wave performance acceptance expectations no longer block W2 review. Existing required CI and functional/telemetry correctness checks remain unchanged; automated trend data does not replace final release evidence.
+
+SQLite continues under the existing official-package policy: adopt suitable corrected versions when available, merge forward, and rerun affected evidence. Waiting for those packages does not prevent the W2 review. Corrected-package acceptance, W0-F1 closure and release approval remain distinct follow-ups.
+
+### Existing CI And Release Policy
 
 - PR CI and post-merge checks cover the development branch.
 - Default-branch scheduling explicitly runs the full matrix and benchmark workflow against the configured development branch; merely adding cron to a nondefault branch does not schedule it.
