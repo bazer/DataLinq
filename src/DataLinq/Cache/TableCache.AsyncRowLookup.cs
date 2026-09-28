@@ -10,6 +10,14 @@ namespace DataLinq.Cache;
 
 public partial class TableCache
 {
+    /// <summary>Asynchronously looks up a row using canonical provider-key components.</summary>
+    /// <remarks>A null source uses this cache's read-only source, matching synchronous lookup.</remarks>
+    public ValueTask<IImmutableInstance?> GetRowAsync<TKey>(
+        TKey primaryKey, IDataSourceAccess dataSource, CancellationToken cancellationToken = default)
+        where TKey : notnull =>
+        new(GetProviderRowAsyncCore(ProviderKeyComponents.ToDataLinqKey(primaryKey),
+            dataSource ?? DatabaseCache.Database.ReadOnlyAccess, cancellationToken));
+
     /// <summary>
     /// Strict neutral-key entry point for source-loader integration. General model lookups
     /// use GetProviderRowAsyncCore, which also preserves provider-sensitive matching.

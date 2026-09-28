@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Interfaces;
+using DataLinq.Instances;
 using DataLinq.Linq;
 using QueryAsync = DataLinq.Linq.DataLinqAsyncQueryableExtensions;
 
@@ -19,6 +20,14 @@ await Reject<double>(() => foreign.AverageAsync(value => value));
 await Reject<int?>(() => foreign.MinAsync(value => (int?)value));
 await Reject<string?>(() => foreign.MaxAsync(value => value.ToString()));
 await Reject<int>(() => foreign.SingleOrDefaultAsync());
+var relation = new ImmutableRelationMock<IImmutableInstance>([]);
+IImmutableRelation<IImmutableInstance> relationInterface = relation;
+if (await relation.CountAsync() != 0 || await relationInterface.CountAsync() != 0 ||
+    await relation.SumAsync(_ => 1) != 0 || (await relation.KeysAsync()).Length != 0 ||
+    await relation.GetAsync(DataLinqKey.Null) is not null)
+    throw new InvalidOperationException("Concrete/interface async relation defaults disagree.");
+if (await relation.AsAsyncEnumerable().AnyAsync())
+    throw new InvalidOperationException("The empty relation produced a row.");
 Console.WriteLine("Public async query consumer passed on " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
 
 static async Task Reject<T>(Func<ValueTask<T>> action)
@@ -48,4 +57,23 @@ internal static class PreparedBinding
         PreparedSequenceQuery<D, TArgument, TElement> query, IDataSourceAccess<D> source, TArgument argument)
         where D : class, IDatabaseModel<D> =>
         query.ExecuteAsync(source, argument, cancellationToken: default);
+}
+
+internal static class LookupBinding
+{
+    internal static ValueTask<T?> Database<D, T>(DataLinq.Database<D> database, DataLinqKey key)
+        where D : class, IDatabaseModel<D> where T : IImmutableInstance =>
+        database.GetAsync<T>(key, cancellationToken: default);
+
+    internal static ValueTask<T?> Transaction<D, T>(DataLinq.Mutation.Transaction<D> transaction, DataLinqKey key)
+        where D : class, IDatabaseModel<D> where T : IImmutableInstance =>
+        transaction.GetAsync<T>(key, cancellationToken: default);
+
+    internal static ValueTask<T?> Canonical<T>(IDataSourceAccess source, DataLinqKey key)
+        where T : IImmutableInstance =>
+        IImmutable<T>.GetByProviderKeyAsync(key, source, cancellationToken: default);
+
+    internal static ValueTask<T?> Reference<T>(IAsyncImmutableForeignKey<T> reference)
+        where T : IImmutableInstance =>
+        reference.GetAsync(cancellationToken: default);
 }

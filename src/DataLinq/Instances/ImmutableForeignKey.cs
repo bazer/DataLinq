@@ -23,7 +23,7 @@ public class ImmutableForeignKey<T>(DataLinqKey foreignKey, IDataSourceAccess da
     public static implicit operator T?(ImmutableForeignKey<T> foreignKey) => foreignKey.Value;
 }
 
-public partial class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableForeignKey<T>
+public partial class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IAsyncImmutableForeignKey<T>
     where T : IImmutableInstance
     where TKey : notnull
 {

@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Execution;
+using DataLinq.Interfaces;
 using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
@@ -17,19 +18,21 @@ public partial class ImmutableRelation<T, TKey>
     internal async Task<FrozenDictionary<DataLinqKey, T>> GetInstancesAsyncCore(CancellationToken token = default)
         => (await GetSnapshotAsync(token, buildDictionary: true).ConfigureAwait(false)).GetInstances();
 
-    private async Task<RelationSnapshot> GetSnapshotAsync(CancellationToken token, bool buildDictionary = false)
+    private async Task<RelationSnapshot> GetSnapshotAsync(CancellationToken token, bool buildDictionary = false,
+        IDataSourceAccess? capturedSource = null, DataLinqKey? capturedKey = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         // Admission precedes waiting, so same-transaction overlap never becomes
         // implicit queuing behind this relation's owner.
-        var source = GetDataSource();
+        var source = capturedSource ?? GetDataSource();
         var identity = ReadExecutionIdentity.Capture(source, ExecutionOperationKind.RelationLoad);
         using var read = DataSourceAccess.BeginRead(source, "load asynchronous relation values", operationKind: identity.Operation);
         var stage = ExecutionFailureStage.Validation;
         try
         {
             var table = GetTableCache(source);
-            var prepared = table.PrepareRelationRowsAsyncCore(foreignKey, property, source, read?.Step);
+            var key = capturedKey ?? ProviderKeyComponents.ToDataLinqKey(foreignKey);
+            var prepared = table.PrepareRelationRowsAsyncCore(key, property, source, read?.Step);
             stage = ExecutionFailureStage.Materialization;
             token.ThrowIfCancellationRequested();
             var current = Volatile.Read(ref snapshot);

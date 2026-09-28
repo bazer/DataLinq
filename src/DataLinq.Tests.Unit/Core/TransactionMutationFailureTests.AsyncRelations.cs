@@ -18,6 +18,30 @@ namespace DataLinq.Tests.Unit.Core;
 public sealed partial class TransactionMutationFailureTests
 {
     [Test]
+    public async Task PublicAsyncRelation_EnumeratorCapturesKeyWithoutStartingIo()
+    {
+        using var fixture = new AsyncRelationFixture();
+        fixture.SetRows(empty: true);
+        var key = new MutableRelationProviderKey { Value = 1 };
+        var property = fixture.Provider.Metadata.GetTableModel(typeof(AsyncRelationParent)).Model.RelationProperties[nameof(AsyncRelationParent.Children)];
+        var relation = new ImmutableRelation<AsyncRelationChild, MutableRelationProviderKey>(key, fixture.Provider.ReadOnlyAccess, property);
+        var sequence = relation.AsAsyncEnumerable();
+        await using (var iterator = sequence.GetAsyncEnumerator())
+        {
+            await Assert.That(fixture.Factory.Inputs).IsEmpty();
+            key.Value = 2;
+            await Assert.That(await iterator.MoveNextAsync()).IsFalse();
+            await Assert.That(fixture.Factory.Inputs[0].ToSql().Parameters.Single().Value).IsEqualTo(1);
+        }
+        relation.Clear();
+        fixture.SetRows(empty: true);
+        await using var next = sequence.GetAsyncEnumerator();
+        await Assert.That(await next.MoveNextAsync()).IsFalse();
+        await Assert.That(fixture.Factory.Inputs[1].ToSql().Parameters.Single().Value).IsEqualTo(2);
+        await Assert.That(fixture.Scenario.ReaderExecutions).IsEqualTo(0);
+    }
+
+    [Test]
     [Arguments(false)]
     [Arguments(true)]
     public async Task AsyncRelation_WaiterCancellationDoesNotCancelOwner(bool reference)
@@ -647,14 +671,14 @@ public sealed partial class TransactionMutationFailureTests
             {
                 var property = Provider.Metadata.GetTableModel(typeof(AsyncRelationChild)).Model.RelationProperties[nameof(AsyncRelationChild.Parent)];
                 var holder = new ImmutableForeignKey<AsyncRelationParent, int>(1, source, property);
-                return new(async token => (await holder.GetValueAsyncCore(token)) is { } row ? [row.Id] : [],
+                return new(async token => (await holder.GetAsync(token)) is { } row ? [row.Id] : [],
                     () => holder.Value is { } row ? [row.Id] : [], holder.Clear);
             }
             else
             {
                 var property = Provider.Metadata.GetTableModel(typeof(AsyncRelationParent)).Model.RelationProperties[nameof(AsyncRelationParent.Children)];
                 var holder = new ImmutableRelation<AsyncRelationChild, int>(1, source, property);
-                return new(async token => (await holder.GetValuesAsyncCore(token)).Select(row => row.Id).ToArray(),
+                return new(async token => (await holder.ValuesAsync(token)).Select(row => row.Id).ToArray(),
                     () => holder.Values.Select(row => row.Id).ToArray(), holder.Clear);
             }
         }

@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using System.Threading.Tasks;
 using DataLinq.Exceptions;
 using DataLinq.Execution;
 using DataLinq.Instances;
@@ -1559,6 +1560,12 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
 
         return (M?)Provider.GetTableCache(tableModel.Table).GetRow(key, this);
     }
+
+    /// <summary>Looks up a model by canonical provider key within this transaction.</summary>
+    /// <returns>The row, or null when absent.</returns>
+    public ValueTask<M?> GetAsync<M>(DataLinqKey key, CancellationToken cancellationToken = default)
+        where M : IImmutableInstance =>
+        new(AsyncModelLookup.GetByProviderKeyAsyncCore<M>(key, this, cancellationToken));
 
     /// <summary>
     /// Retrieves a model from the database using the specified provider key.

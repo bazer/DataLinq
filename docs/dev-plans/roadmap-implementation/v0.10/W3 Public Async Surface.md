@@ -12,6 +12,8 @@ The [API decisions](Async%20Public%20API%20Decisions.md) and [signature inventor
 
 Further performance investigation, optimization and acceptance remain deferred to W8 after feature implementation. Preserve W0/W1/W2 evidence. Continue functional, telemetry and required CI checks. Official SQLite package adoption and affected verification remain tracked follow-ups; W3 does not change package pins or pooling policy by implication.
 
+**Continuation instruction, 2026-09-28:** complete the remaining W3 work and continue committing/pushing to PR #230. Local MySQL/MariaDB checks use only the latest LTS target for each family: currently `mysql-9.7` and `mariadb-12.3` in `test-infra/podman/matrix.json`. Other server versions are left to CI. The earlier W3.1 all-version local run is historical; do not repeat it under this instruction. Benchmarks remain deferred until the end of 0.10 after all feature waves.
+
 ## Opening Source Reconciliation
 
 The checkout at the W2 merge provides the following implementation paths. This maps the accepted families to existing machinery; it is not an emitted public API manifest or a compatibility pass.
@@ -105,3 +107,21 @@ var captured = byKey.ExecuteAsync(database, "d001", cancellationToken);
 ```
 
 These APIs are implemented on the W3 development branch; 0.10 is not released. W3.2-W3.7 remain open, including generated APIs, remaining public families, emitted full-contract/ApiCompat and packed/old/custom consumer evidence. The next implementation slice is lookup and relations.
+
+## W3.2 Lookup And Relation Implementation Checkpoint
+
+Implemented K01/K03-K05 and R01-R11. Database/transaction canonical lookup, the static provider-key helper, public TableCache lookup with its read-only-source fallback, and bounded Memory FindAsync delegate to existing async execution. The new invariant `IAsyncImmutableForeignKey<T>` capability preserves the old synchronous covariance and shared reference state.
+
+`IImmutableRelation<T>` now has one unsupported-by-default async row primitive and the complete accepted collection/terminal/reduction family. Shared defaults are acyclic: row view to values, values to keyed snapshot, keyed snapshot to key access. Built-in relations and the public mock expose virtual concrete methods. Defaults honor overrides and never call synchronous database getters. Built-in async views capture source/key at enumerator construction, load on first move, and honor method/enumerator cancellation during buffered iteration. Dictionary construction rejects duplicate keys consistently instead of silently choosing a row. Typed generated key helpers remain W3.4.
+
+Verification:
+
+- Core and non-friend consumer build for .NET 8/9/10 with zero warnings/errors; consumer execution passes on actual 8.0.31, 9.0.20 and 10.0.12, including concrete/interface relation defaults.
+- Six focused custom/default/mock tests pass, covering every numeric overload, extrema/default/cardinality behavior, override dispatch, cancellation, cleanup and explicit unsupported capability.
+- Quick run `20260928T152235365Z-455f657f21794a7791d98771bcf8d542`: generators 71/71, unit 3,977/3,977 and SQLite-file compliance 554/554 pass. Memory initially passes 222/223 because its frozen public-surface allowlist expected only Find/Query/Seed. Updated that contract to include the authorized FindAsync declaration and verify its return/token shape; a nullable reflection assertion initially needed correction before compiling. Memory rerun `20260928T152513859Z-6cc2a05ef15d40ae92e26d62f0ec1352` passes 223/223. The failed initial run is retained, not rewritten as green.
+- Public relation/lookup provider run `20260928T152535819Z-f8074593fd4849d18b264f915582fd33` passes 12/12 across SQLite file/memory, MySQL 9.7 and MariaDB 12.3. No older server versions were run locally.
+- Existing controlled relation coordination and Memory lookup tests now call public entry points. An added controlled enumerator case verifies I/O-free construction and captured keys. Provider cases cover relation membership, warm identity, null/missing lookups, reference covariance, cancellation and post-commit relation source transitions.
+
+Summaries are `artifacts/w3-relations-quick-summary.json`, `artifacts/w3-relations-memory-summary.json` and `artifacts/w3-relations-providers-summary.json`. These are development-working-tree checks with `ValidForEvidence=false`; packed and old-binary acceptance remain open. The initial relation build caught and corrected generic type-argument forwarding for shared Min/Max defaults.
+
+W3.3-W3.7 remain open. The next work is public mutations, transaction callbacks/completion and disposal, with execution-options prerequisites integrated before declaring their configuration contract complete.
