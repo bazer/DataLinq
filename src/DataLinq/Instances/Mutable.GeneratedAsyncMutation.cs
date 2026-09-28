@@ -15,6 +15,13 @@ public partial class Mutable<T>
     /// transaction completion and cleanup. A null change type selects insert or update from
     /// the mutable lifecycle; only insert and update are otherwise supported.
     /// </remarks>
+    /// <typeparam name="TMutable">The generated mutable type for this model.</typeparam>
+    /// <param name="provider">The provider that owns the new transaction.</param>
+    /// <param name="model">The mutable reserved until the owned operation and cleanup settle.</param>
+    /// <param name="changes">Synchronous local edits; do not pass an async lambda.</param>
+    /// <param name="changeType">Insert, Update, or null to select from the edited mutable lifecycle.</param>
+    /// <param name="cancellationToken">The caller's execution token; recovery has its own budget.</param>
+    /// <returns>The resulting immutable model after successful completion and cleanup.</returns>
     protected static Task<T> ExecuteGeneratedMutationAsync<TMutable>(IDatabaseProvider provider,
         TMutable model, Action<TMutable> changes, TransactionChangeType? changeType,
         CancellationToken cancellationToken) where TMutable : Mutable<T>

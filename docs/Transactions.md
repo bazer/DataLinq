@@ -9,6 +9,8 @@ The managed `Transaction` wrapper is also the cache and mutable-lifecycle author
 
 The default transaction type is `TransactionType.ReadAndWrite`. There are also `ReadOnly` and `WriteOnly` modes when you want to be explicit about intent.
 
+On the unreleased 0.10 branch, async mutations, transaction callbacks and completion follow the ownership rules below. See [Async Execution](Async%20Execution.md#mutations-and-transaction-ownership) for awaited examples, operation overlap and recovery budgets.
+
 ## Implicit Transactions
 
 Single-operation write helpers open and complete the transaction for you.

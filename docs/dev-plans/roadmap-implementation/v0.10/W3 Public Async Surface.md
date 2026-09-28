@@ -288,3 +288,11 @@ Added dedicated exact-package consumers and an output verifier that checks resto
 Clean candidate 0.10.0-w3.78d1b3c4 passes package inspection and isolated standard package smoke. The strict ApiCompat report remains failed with thirteen retained diagnostics: eleven describe the approved relation rename, and two flag the accepted static key lookup. Actual old-implementer execution and emitted-method reflection support the latter's narrowly scoped tool-classification disposition. No blanket suppression or new API decision was introduced. All 36 metadata snapshots are retained for the remaining declaration reconciliation.
 
 CI on 78d1b3c4 passed all twelve checks in run 36472158688. W3.7 remains open: full family/manifest reconciliation, broader generated and constructor evidence, product/XML documentation and final head verification are still required. W5 and benchmarking scope is unchanged.
+
+## W3.7b User Documentation Checkpoint
+
+Audited the existing query, transaction and relation entry pages against the implemented public methods. Added an explicitly unreleased 0.10 async guide covering provider query imports and EF aliases, capture/sequence lifetime, relation-local execution, generated navigation, owned versus borrowed mutations, synchronous editing callbacks, reader views, cancellation/failure certainty, recovery budgets, disposal and native provider limitations. Updated relation migration wording and linked the guide from Usage navigation and the existing entry pages. Added parameter/return XML documentation for the explicitly approved protected generator bridge.
+
+DocFX build passes with zero warnings/errors. Generated _site output includes the new Usage entry, correct links/anchors and unreleased scope text. A source cross-check corrected an initial draft's overstatement about direct reader sync calls: inherited synchronous advancement/disposal remain available when deliberately selected; the async path never chooses them as fallback. W5 runtime validation/hosting is explicitly excluded.
+
+The emitted/generated manifest reconciliation, broader generated/constructor consumer coverage and final W3 verification remain open.
