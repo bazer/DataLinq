@@ -31,7 +31,7 @@ The [W2 implementation plan](W2%20Native%20Provider%20Async%20Execution.md) owns
 
 ### Accepted Review And Performance Scheduling, 2026-09-28
 
-The user declares [W2 ready for full review](W2%20Review%20Handoff.md) and will arrange another agent to perform it. Mark PR #229 ready for review; do not treat that status as review completion or merge approval.
+The user declared W2 ready for full review and arranged another agent to perform it. The [review handoff](W2%20Review%20Handoff.md) now records four findings fixed in `7b6607b6` and the fresh functional evidence. Keep PR #229 ready for reviewer confirmation; that status is not merge approval.
 
 All further performance investigation, optimization and acceptance work is deferred until all 0.10 features are implemented. Carry the existing W0/W1/W2 evidence, warnings and measured costs into one focused final integration effort before the W9 candidate freeze. Earlier per-wave performance acceptance expectations no longer block W2 review. Existing required CI and functional/telemetry correctness checks remain unchanged; automated trend data does not replace final release evidence.
 

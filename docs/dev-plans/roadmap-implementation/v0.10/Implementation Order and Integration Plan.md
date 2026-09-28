@@ -236,7 +236,7 @@ Exit gate:
 
 Execution record: [W2 Native Provider Async Execution](W2%20Native%20Provider%20Async%20Execution.md). The user accepted one draft PR with incremental commits/reviews and continued provider development pending official SQLite 10.0.13 adoption on 2026-09-24. This scheduling decision preserves W0-F1, SQLite acceptance and release gates.
 
-**Review handoff, accepted 2026-09-28:** [W2 is ready for full review](W2%20Review%20Handoff.md), which the user will arrange with another agent. Implementation and planned captures are complete. All further performance work moves to the post-feature W8 effort below; SQLite adoption and affected reruns continue when suitable official versions become available. Neither follow-up blocks starting the full review, and neither is silently declared complete.
+**Review handoff, accepted 2026-09-28:** [W2's four review findings are fixed and ready for confirmation](W2%20Review%20Handoff.md) in `7b6607b6`. Clean full Debug and Release matrices each pass 8,558/8,558 tests; the earlier performance captures retain their original runtime identity. All further performance work moves to the post-feature W8 effort below; SQLite adoption and affected reruns continue when suitable official versions become available. Neither follow-up blocks starting the full review, and neither is silently declared complete.
 
 Required work:
 

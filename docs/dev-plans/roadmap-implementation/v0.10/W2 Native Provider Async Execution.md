@@ -1,5 +1,5 @@
 > [!WARNING]
-> W2 is ready for full review. Internal native-provider implementation is not public async support, W0-F1 closure or release approval.
+> W2 review corrections are ready for reviewer confirmation. Internal native-provider implementation is not public async support, W0-F1 closure or release approval.
 
 # W2 Native Provider Async Execution
 
@@ -7,7 +7,7 @@
 
 **Workflow:** one branch, `codex/0.10-w2`, and [PR #229, Implement W2: native provider async execution](https://github.com/bazer/DataLinq/pull/229), targeting `v0.10`. The [accepted workflow exception](Branch%20PR%20and%20Benchmark%20Workflow.md#w2-single-pr-exception) preserves coherent commits, incremental reviews and final merge-commit integration. No merge or publication is authorized by opening the PR.
 
-**Current decision, 2026-09-28:** [W2 is ready for full review](W2%20Review%20Handoff.md), to be arranged by the user with another agent. All further performance work is deferred until all 0.10 features are implemented, followed by focused optimization and acceptance before the frozen candidate. SQLite adoption and affected verification continue when suitable official packages become available. These decisions supersede earlier review-blocking performance language in the dated execution history below; they preserve the measurements, original failures and final release obligations.
+**Current decision, 2026-09-28:** [W2's four reported review findings are fixed and verified](W2%20Review%20Handoff.md) in `7b6607b6`, ready for reviewer confirmation. Clean Debug and Release matrices each pass 8,558/8,558 tests. All further performance work is deferred until all 0.10 features are implemented, followed by focused optimization and acceptance before the frozen candidate. SQLite adoption and affected verification continue when suitable official packages become available. These decisions supersede earlier review-blocking performance language in the dated execution history below; they preserve the measurements, original failures and final release obligations.
 
 ## Scope And Acceptance
 
@@ -19,7 +19,7 @@ The [native provider audit](W2%20Native%20Provider%20Audit.md) reconciles each o
 
 The [clean functional and performance checkpoint](W2%20Functional%20And%20Performance%20Checkpoint.md) records candidate `49176d7a`, passing individual-provider verification, all 90 canonical benchmark rows, bounded timing controls and the remaining performance questions.
 
-The [performance cost follow-up](W2%20Performance%20Cost%20Disposition.md) attributes the mutation allocation families, preserves fixed-order timing controls and removes repeated lifecycle factory allocation. The [revised candidate checkpoint](W2%20Revised%20Candidate%20Checkpoint.md) records clean runtime `76781c89`: 8,539 passing tests, passing CI #625 and all 90 canonical rows. Implementation and planned captures are complete and ready for review. SQLite adoption remains a package-availability follow-up; performance acceptance moves to the final 0.10 effort.
+The [performance cost follow-up](W2%20Performance%20Cost%20Disposition.md) attributes the mutation allocation families, preserves fixed-order timing controls and removes repeated lifecycle factory allocation. The [revised candidate checkpoint](W2%20Revised%20Candidate%20Checkpoint.md) records clean runtime `76781c89`: 8,539 passing tests, passing CI #625 and all 90 canonical rows. The later review corrections and current functional evidence are recorded in the review handoff. These performance captures remain specific to `76781c89`. SQLite adoption remains a package-availability follow-up; performance acceptance moves to the final 0.10 effort.
 
 ## Milestones And Evidence Matrix
 
@@ -525,3 +525,13 @@ A fixed four-run timing control adds **30 rows and 54 verified raw receipts**, u
 The [standalone generated-getter probe](evidence/binary-getter/Program.cs) confirms the binary ownership correction's cost: 56, 4,120 and 65,560 bytes per read for nonempty 32-, 4,096- and 65,536-byte payloads. W1's warmed getter allocated zero by exposing the same mutable array; W2 returns independent arrays and preserves subsequent values after caller edits. This is supplemental thread-allocation evidence, not a canonical latency claim.
 
 The [checkpoint](W2%20Functional%20And%20Performance%20Checkpoint.md) preserves every original row, hashes, controls, measurement limits and reproduction commands. **W2 remains in progress:** performance attribution/disposition, official SQLite ownership-fix adoption and affected reruns, the separate failed-rollback file-pool finding and retained unexplained native/CI observations remain explicit.
+
+### Full Review Corrections, 2026-09-28
+
+The review of `e4720b61` reported four correctness/compatibility gaps: direct completion after failed lazy initialization, stale MySQL/MariaDB borrowed-command bindings, synchronous SQLite command subclass rejection, and retained SQLite access bypassing root disposal. Commit `7b6607b6` fixes all four; the [review handoff](W2%20Review%20Handoff.md#review-corrections-and-current-functional-evidence) maps each correction to its regression coverage and records the current evidence.
+
+The finalized regression tests first fail in all 5 SQLite cases and all 6 MySQL 8.4/MariaDB 11.8 cases against the reviewed implementation. After correction the native SQLite suite passes 84/84. The first broader server run passes 112/114: one existing root-disposal assertion per server still dereferences the now-detached command connection. It now inspects the retained native transaction connection, preserving the open-through-root-disposal/closed-after-transaction-disposal checks and asserting command detachment. The rerun passes 114/114.
+
+Clean full Debug and Release matrices each pass 8,558/8,558, zero failures/skips, on `7b6607b69b9249b70ba362173f1fb221bcd40b7c`, with matching unchanged source/runner identities and `ValidForEvidence=true`. The first invocation unexpectedly selected Debug because `dotnet run` consumed the Release option; its receipt is retained under its actual configuration. The corrected invocation uses the compiled Release Testing CLI directly. All five Release test-project builds have zero warnings/errors. Independent review of 17 TRX files confirms every pass and all eight native telemetry parity cases; the handoff records run IDs, summary hashes and the 69-artifact verification receipt.
+
+These are functional correctness fixes. Performance captures remain associated with their original runtimes; performance work stays deferred until the end of 0.10. Official SQLite package adoption continues under the accepted policy. Reviewer confirmation and integration approval remain outstanding.
