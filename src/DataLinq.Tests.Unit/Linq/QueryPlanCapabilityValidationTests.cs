@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -2261,13 +2262,23 @@ public class QueryPlanCapabilityValidationTests
         throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
     }
 
+    [Test]
+    public async Task SteadyStateAllocationMeasurement_DetectsAllocatingOperation()
+    {
+        var allocated = MeasureMaximumSteadyStateAllocatedBytes(static () => GC.KeepAlive(new byte[64]));
+        await Assert.That(allocated).IsGreaterThanOrEqualTo(6400L);
+    }
+
+    // Keep tiering/OSR out of the measurement scaffold. Production validation
+    // keeps its normal JIT policy; all five measured samples must remain zero.
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static long MeasureMaximumSteadyStateAllocatedBytes(Action operation)
     {
         const int warmupSamples = 10;
         const int measuredSamples = 5;
         const int operationsPerSample = 100;
 
-        // Keep tiered JIT/PGO bookkeeping outside the verified steady-state samples.
+        // Warm the same delegate call site used by the measured samples.
         for (var sample = 0; sample < warmupSamples; sample++)
         {
             for (var iteration = 0; iteration < operationsPerSample; iteration++)

@@ -72,6 +72,12 @@ public abstract partial class DatabaseTransaction : DatabaseAccess, IDisposable
         OnStatusChanged?.Invoke(this, new DatabaseTransactionStatusChangeEventArgs { Status = status });
     }
 
+    internal void RecordFailedInitialization()
+    {
+        Status = DatabaseTransactionStatus.Closed;
+        DbTransaction = null;
+    }
+
     // Native completion is recorded before any fallible observer. The synchronous
     // built-in coordinator uses this same status publication boundary.
     internal void RecordConfirmedAsyncCompletion(ExecutionCompletion completion) =>

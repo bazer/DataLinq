@@ -10,6 +10,7 @@ namespace DataLinq;
 // provider contract; the legacy protected telemetry signatures remain available.
 internal interface ISyncTransactionCompletionResource
 {
+    void ValidateCompletion();
     void Complete(bool rollback);
     bool RollbackForDisposal();
     void CloseConnection();
@@ -94,6 +95,7 @@ public abstract partial class DatabaseTransaction
         var outcome = rollback ? DatabaseTransactionStatus.RolledBack : DatabaseTransactionStatus.Committed;
         if (Volatile.Read(ref synchronousDisposed) != 0 && Status == outcome) return;
         EnsureSynchronousResourceUsable();
+        resource.ValidateCompletion();
         var operation = CompletionKind(outcome);
         if (Status is DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack)
             throw new InvalidOperationException("The transaction has already completed.");

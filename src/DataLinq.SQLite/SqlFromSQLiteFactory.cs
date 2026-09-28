@@ -13,7 +13,7 @@ using ThrowAway;
 
 namespace DataLinq.SQLite;
 
-public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
+public partial class SqlFromSQLiteFactory : ISqlFromMetadataFactory
 {
     public Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {

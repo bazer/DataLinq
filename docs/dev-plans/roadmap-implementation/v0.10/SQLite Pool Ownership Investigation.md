@@ -1,5 +1,5 @@
 > [!WARNING]
-> This is diagnostic evidence for W0-F1. The correction is tested locally in Microsoft.Data.Sqlite, but DataLinq still references the unchanged published driver. W0-F1 is not closed. The accepted limited exception below permits W1 internal contracts and controllable-provider tests; SQLite integration and release approval remain blocked.
+> This is diagnostic evidence for W0-F1. The upstream fix is merged and issue #39008 targets 10.0.13, but DataLinq still references the unchanged published driver. W0-F1 is not closed. The W2 continuation decision below permits provider development; SQLite acceptance and release approval still require corrected official dependency adoption and affected evidence reruns.
 
 # SQLite Pool Ownership Investigation
 
@@ -7,7 +7,13 @@
 
 **Finding:** Microsoft.Data.Sqlite can lend one pooled internal connection to two distinct, still-open outer connections. Starting independent transactions then produces SQLite error 1, `cannot start a transaction within a transaction`, matching the W0 failure.
 
-**Disposition:** submitted [upstream issue #39008](https://github.com/dotnet/efcore/issues/39008) and [fix PR #39009](https://github.com/dotnet/efcore/pull/39009) on 2026-09-17 with the user's authorization, including a request to consider 10.0 servicing. The user has posted CLA acceptance; upstream acceptance, a corrected official package and DataLinq adoption remain pending. No dependency replacement, lock, retry, or pooling configuration change is included here.
+**Disposition, updated 2026-09-24:** [fix PR #39009](https://github.com/dotnet/efcore/pull/39009) merged on 2026-09-17 at 22:16:08 UTC. The PR's milestone is `12.0-preview1`; [issue #39008](https://github.com/dotnet/efcore/issues/39008) remains open with milestone `10.0.13`. These GitHub states were verified on 2026-09-23 after the user's update. This records the planned servicing release, not availability or DataLinq adoption of a corrected package. DataLinq still pins Microsoft.Data.Sqlite 10.0.11. No dependency replacement, lock, retry, or pooling configuration change is included here.
+
+## Accepted W2 Continuation
+
+**Accepted by the user, 2026-09-24:** continue W2 provider implementation while awaiting the official 10.0.13 package, using the [single draft PR workflow](Branch%20PR%20and%20Benchmark%20Workflow.md#w2-single-pr-exception) and [W2 plan](W2%20Native%20Provider%20Async%20Execution.md). This expands the earlier W1-only development permission to W2 production provider wiring and native tests.
+
+W0-F1, SQLite integration acceptance, final provider feasibility/public API freeze and release approval still require adoption of the corrected official dependency and rerunning affected evidence. Keep any observations made with 10.0.11 identified as such. No pooling workaround, unofficial driver distribution, automatic retry, package publication or W2 merge is authorized by this continuation. The dependency correction still follows `master` to `v0.10` to the W2 branch.
 
 ## Accepted Limited W1 Exception
 
@@ -19,7 +25,7 @@
 - Preserve the original frozen baseline and failed runs. New W1 results identify their actual commit and scope; a test double is orchestration evidence, not native-driver evidence. The original 0.9.2 compatibility baseline and .NET 10 performance policy are unchanged.
 - No temporary pooling policy, retry workaround, unofficial driver distribution or package publication is authorized by this exception. A corrected dependency still lands on `master` and merges forward.
 
-The exception allows scoped W1 progress only. It does not automatically remove other wave dependencies or approve unrelated provider/runtime work.
+The original exception allowed scoped W1 progress only. The subsequent W2 continuation above expands development permission explicitly; it does not remove acceptance or release gates.
 
 ## Root Cause And Correction
 
@@ -94,10 +100,10 @@ The sealed archive predates upstream submission and retains the original draft w
 
 ## Remaining Integration Work
 
-1. Follow up on submitted issue #39008 and PR #39009 for maintainer review and 10.0 servicing consideration. The user has posted CLA acceptance. Submission is complete; approval, CI acceptance and a release are not implied.
+1. Track official 10.0.13 servicing delivery for issue #39008 after the merged upstream fix. A milestone is not proof that a corrected package has been released.
 2. Obtain and pin a corrected official package. Record the actual version, upstream fix and package hashes; do not assume that the next version contains the correction.
 3. Make the DataLinq dependency update on `master`, test it, then merge it forward into `v0.10` under the accepted branch workflow. Preserve the published 0.9.2 compatibility baseline and original pre-async evidence.
 4. Rerun the published-package ownership/transaction reproducer, focused parallel transaction coverage, quick plan and full supported provider matrix. Rebuild and recapture affected package/consumer/performance evidence against a clean frozen candidate with the new dependency. Record the new dependency graph and exact evidence target rather than relabeling W0's old results.
-5. Close W0-F1 only when the dependency actually used by DataLinq is corrected and the required evidence passes. Only the scoped W1 work authorized above may proceed in the meantime.
+5. Close W0-F1 only when the dependency actually used by DataLinq is corrected and the required evidence passes. The accepted W2 continuation above permits provider development in the meantime without closing these gates.
 
 A DataLinq-only checkout lock would not protect raw Microsoft.Data.Sqlite callers sharing the same pool. Disabling pooling globally would change connection behavior and performance. Neither is silently introduced as a substitute for the driver fix. A temporary mitigation would require a separately reviewed implementation and measured consequences.

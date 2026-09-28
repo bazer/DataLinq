@@ -46,7 +46,7 @@ public class SQLiteProviderConstants : IDatabaseProviderConstants
     public string DefaultValuesInsertClause { get; } = "DEFAULT VALUES";
 }
 
-public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
+public partial class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel<T>
 {
     private readonly SqliteConnectionStringBuilder connectionStringBuilder;
@@ -54,7 +54,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     private readonly SQLiteDataLinqDataWriter dataWriter = new(new SqlFromSQLiteFactory());
     private readonly SQLiteDbAccess dbAccess;
     public override IDatabaseProviderConstants Constants { get; } = new SQLiteProviderConstants();
-    public override DatabaseAccess DatabaseAccess => dbAccess;
+    public override DatabaseAccess DatabaseAccess { get { RootDisposal.EnsureUsable(); return dbAccess; } }
 
     static SQLiteProvider()
     {
@@ -78,7 +78,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     {
         connectionStringBuilder = new SqliteConnectionStringBuilder(ConnectionString);
         keepAliveConnection = SQLiteConnectionStringFactory.AcquireKeepAliveConnectionIfInMemory(connectionStringBuilder.ConnectionString);
-        dbAccess = new SQLiteDbAccess(this, ConnectionString, LoggingConfiguration);
+        dbAccess = new SQLiteDbAccess(this, ConnectionString, LoggingConfiguration, () => RootDisposal.EnsureUsable());
         SetJournalMode(SQLiteJournalMode.WAL);
 
     }
@@ -137,6 +137,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public void SetJournalMode(SQLiteJournalMode journalMode)
     {
+        RootDisposal.EnsureUsable();
         switch (journalMode)
         {
             case SQLiteJournalMode.OFF:
@@ -162,11 +163,13 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
+        RootDisposal.EnsureUsable();
         return new SQLiteDatabaseTransaction(this, ConnectionString, type, LoggingConfiguration);
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
+        RootDisposal.EnsureUsable();
         return new SQLiteDatabaseTransaction(this, dbTransaction, type, LoggingConfiguration);
     }
 
@@ -379,6 +382,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override bool FileOrServerExists()
     {
+        RootDisposal.EnsureUsable();
         if (SQLiteConnectionStringFactory.IsInMemory(connectionStringBuilder))
             return true;
 
@@ -393,12 +397,9 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override IDbConnection GetDbConnection()
     {
+        RootDisposal.EnsureUsable();
         return new SqliteConnection(connectionStringBuilder.ConnectionString);
     }
 
-    public override void Dispose()
-    {
-        base.Dispose();
-        keepAliveConnection?.Dispose();
-    }
+    public override void Dispose() => RootDisposal.Dispose();
 }

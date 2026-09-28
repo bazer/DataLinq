@@ -1221,12 +1221,20 @@ public class GeneratorFileFactory
         {
             var c = valueProperty.Column;
 
-            yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetImmutableFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
+            // RowData detaches binary values on access. Memoizing that public
+            // copy would let callers mutate the cached immutable model through
+            // later getter calls, even though RowData itself remains unchanged.
+            var binaryValue = valueProperty.CsType.Type == typeof(byte[]) ||
+                valueProperty.CsType.Name is "byte[]" or "System.Byte[]" ||
+                (valueProperty.CsType.Namespace == "System" && valueProperty.CsType.Name == "Byte[]");
+            if (!binaryValue)
+                yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetImmutableFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
 
             foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(c.ValueProperty.Attributes), $"{namespaceTab}{tab}"))
                 yield return row;
 
-            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= ({GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}){(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}({GetGeneratedColumnIndexName(valueProperty)});";
+            var memoize = binaryValue ? "" : $"_{c.ValueProperty.PropertyName} ??= ";
+            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => {memoize}({GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}){(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}({GetGeneratedColumnIndexName(valueProperty)});";
             yield return $"";
         }
 

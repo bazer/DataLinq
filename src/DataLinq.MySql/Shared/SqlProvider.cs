@@ -20,7 +20,7 @@ public class SqlProviderConstants : IDatabaseProviderConstants
     public string DefaultValuesInsertClause { get; } = "() VALUES ()";
 }
 
-public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
+public abstract partial class SqlProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel<T>
 {
     private readonly SqlDataLinqDataWriter dataWriter;
@@ -29,7 +29,7 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
     private readonly SqlFromMetadataFactory sqlFromMetadataFactory;
 
     public override IDatabaseProviderConstants Constants { get; } = new SqlProviderConstants();
-    public override DatabaseAccess DatabaseAccess => dbAccess;
+    public override DatabaseAccess DatabaseAccess { get { RootDisposal.EnsureUsable(); return dbAccess; } }
 
     public SqlProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration) : this(connectionString, databaseType, loggingConfiguration, null)
     {
@@ -60,19 +60,20 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
             .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
             .Build();
 
-        dbAccess = new SqlDbAccess(this, dataSource, LoggingConfiguration);
+        dbAccess = new SqlDbAccess(this, dataSource, LoggingConfiguration, () => RootDisposal.EnsureUsable());
         sqlFromMetadataFactory = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DatabaseType);
         dataWriter = new SqlDataLinqDataWriter(sqlFromMetadataFactory);
     }
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
-
+        RootDisposal.EnsureUsable();
         return new SqlDatabaseTransaction(this, dataSource, type, DatabaseName, LoggingConfiguration);
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
+        RootDisposal.EnsureUsable();
         return new SqlDatabaseTransaction(this, dbTransaction, type, DatabaseName, LoggingConfiguration);
     }
 
@@ -310,18 +311,9 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override IDbConnection GetDbConnection()
     {
+        RootDisposal.EnsureUsable();
         return new MySqlConnection(dataSource.ConnectionString);
     }
 
-    public override void Dispose()
-    {
-        try
-        {
-            base.Dispose();
-        }
-        finally
-        {
-            dataSource.Dispose();
-        }
-    }
+    public override void Dispose() => RootDisposal.Dispose();
 }

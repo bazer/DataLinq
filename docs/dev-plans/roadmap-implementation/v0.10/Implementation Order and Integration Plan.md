@@ -234,6 +234,10 @@ Exit gate:
 
 ### W2: Native Provider Async Execution
 
+Execution record: [W2 Native Provider Async Execution](W2%20Native%20Provider%20Async%20Execution.md). The user accepted one draft PR with incremental commits/reviews and continued provider development pending official SQLite 10.0.13 adoption on 2026-09-24. This scheduling decision preserves W0-F1, SQLite acceptance and release gates.
+
+**Closed, 2026-09-28:** [W2 closeout](W2%20Closeout.md) records reviewer confirmation of all four fixes in `7b6607b6`, no additional actionable findings, and the user's explicit authorization to merge PR #229 into `v0.10`. Clean full Debug and Release matrices each pass 8,558/8,558 tests; the earlier performance captures retain their original runtime identity. All further performance work moves to the post-feature W8 effort below; SQLite adoption and affected reruns continue when suitable official versions become available. These accepted follow-ups carry forward without being declared complete. W3 is the next implementation wave.
+
 Required work:
 
 - implement SQLite provider async paths and document driver-level synchronous behavior or cancellation limits explicitly
@@ -345,12 +349,14 @@ Exit gate: all acceptance criteria in [issue #93](https://github.com/bazer/DataL
 
 ### W8: Provisional Integration Evidence
 
+**Performance scheduling, accepted by the user on 2026-09-28:** after all 0.10 features are implemented, perform one focused effort to investigate and optimize performance, then make the explicit acceptance decision. Further per-wave performance work, including W2's remaining allocation/latency investigation, is deferred to this phase. Preserve the existing W0/W1/W2 baselines, profiles, warnings and timing uncertainty. Optimize against attributed costs without weakening correctness, complete affected verification after changes, and only then freeze the W9 candidate. Existing functional/telemetry correctness and required CI checks continue during feature development.
+
 Required work:
 
 - full quick and provider matrices
 - API/package/consumer-smoke checks
 - affected compatibility and browser graphs
-- benchmark comparison and telemetry review
+- focused post-feature performance investigation, justified optimization, benchmark comparison and explicit performance/telemetry disposition
 - DocFX and link validation
 - public documentation draft based on implemented behavior only
 

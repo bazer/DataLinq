@@ -1,3 +1,4 @@
+using System;
 using System.Data;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
@@ -5,25 +6,29 @@ using Microsoft.Data.Sqlite;
 
 namespace DataLinq.SQLite;
 
-public class SQLiteDbAccess : DatabaseAccess
+public partial class SQLiteDbAccess : DatabaseAccess
 {
     private readonly string connectionString;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
+    private readonly Action? validateLifecycle;
 
     public SQLiteDbAccess(string connectionString, DataLinqLoggingConfiguration loggingConfiguration)
         : this(null, connectionString, loggingConfiguration)
     {
     }
 
-    internal SQLiteDbAccess(IDatabaseProvider? databaseProvider, string connectionString, DataLinqLoggingConfiguration loggingConfiguration)
+    internal SQLiteDbAccess(IDatabaseProvider? databaseProvider, string connectionString, DataLinqLoggingConfiguration loggingConfiguration,
+        Action? validateLifecycle = null)
         : base(databaseProvider)
     {
         this.connectionString = connectionString;
         this.loggingConfiguration = loggingConfiguration;
+        this.validateLifecycle = validateLifecycle;
     }
 
     private SqliteConnection OpenOwnedConnection()
     {
+        validateLifecycle?.Invoke();
         var connection = new SqliteConnection(connectionString);
         try
         {

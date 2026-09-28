@@ -571,6 +571,7 @@ public sealed partial class TransactionMutationFailureTests
         public override void Commit() => CompleteSynchronousTransaction(this, rollback: false);
         public override void Rollback() => CompleteSynchronousTransaction(this, rollback: true);
         public override void Dispose() => DisposeSynchronousTransaction(this);
+        void ISyncTransactionCompletionResource.ValidateCompletion() => resource.ValidateCompletion();
         void ISyncTransactionCompletionResource.Complete(bool rollback) => resource.Complete(rollback);
         bool ISyncTransactionCompletionResource.RollbackForDisposal() => resource.RollbackForDisposal();
         void ISyncTransactionCompletionResource.CloseConnection() => resource.CloseConnection();
@@ -588,6 +589,7 @@ public sealed partial class TransactionMutationFailureTests
 
     private sealed class SyncCompletionProbe : ISyncTransactionCompletionResource
     {
+        public void ValidateCompletion() { }
         internal List<string> Calls { get; } = [];
         internal Exception? NativeFailure { get; set; }
         internal Exception? CloseFailure { get; set; }

@@ -8,7 +8,7 @@ namespace DataLinq.Execution;
 /// Internal first-use resource bundle. Construction does no I/O. Initialization owns all
 /// partial resources until opening, configuration and begin have succeeded. Implementations
 /// provide direct sync and explicit async paths, including cleanup of partial initialization.
-/// This is not yet implemented by the production providers.
+/// Native adapters and controllable test resources share this ownership contract.
 /// </summary>
 internal interface ITransactionResource : IDisposable, IAsyncDisposable
 {

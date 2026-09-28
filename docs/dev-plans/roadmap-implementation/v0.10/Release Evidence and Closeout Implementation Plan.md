@@ -339,6 +339,8 @@ Acceptance:
 
 ## RE10-5: Performance And Telemetry
 
+**Scheduling decision, 2026-09-28:** the user defers all further performance work until all 0.10 features are implemented. Perform focused investigation and optimization during final integration, before freezing the W9 candidate, then run this release evidence against the actual final runtime. [W2 is closed after review](W2%20Closeout.md) without another performance pass; final-release performance acceptance remains required. Preserve every existing baseline, receipt, warning and unresolved observation; this changes timing, not the final performance contract or the requirement to disposition material regressions. Functional/telemetry correctness and existing required CI checks remain active during implementation.
+
 Required comparison:
 
 - .NET 10 for both baseline and candidate in all new runs; historical .NET 8 evidence retains its identity and is not a comparable .NET 10 before-state

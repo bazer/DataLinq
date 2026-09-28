@@ -11,7 +11,7 @@ internal sealed record TransactionInitializationFailure(Exception Cause, Excepti
 /// <summary>
 /// First-use publication under an existing operation lease. Provider resources are private
 /// until the entire initialization succeeds. A started failure is terminal, not retryable.
-/// W2 will bind this contract to native resources; public diagnostics remain W3.
+/// Native adapters bind this contract to their resource bundle; public diagnostics remain W3.
 /// </summary>
 internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, ISyncCommandInitialization where T : class, ITransactionResource
 {
@@ -29,6 +29,14 @@ internal sealed class LazyTransactionResource<T> : IAsyncCommandInitialization, 
         ArgumentNullException.ThrowIfNull(create);
         this.gate = gate;
         this.create = create;
+    }
+
+    // Attachment consumes an already active native bundle; it must never begin again.
+    internal LazyTransactionResource(TransactionOperationGate gate, T initialized)
+        : this(gate, () => throw new InvalidOperationException("An attached transaction cannot be initialized again."))
+    {
+        owned = initialized ?? throw new ArgumentNullException(nameof(initialized));
+        snapshot = new(TransactionInitializationState.Ready, initialized);
     }
 
     internal TransactionInitializationState State => Volatile.Read(ref snapshot).State;
