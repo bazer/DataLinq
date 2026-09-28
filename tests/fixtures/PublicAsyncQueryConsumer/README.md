@@ -6,6 +6,8 @@ It also compiles lookup/reference calls, executes concrete/interface relation de
 
 It references the source project. It is **not** packed-consumer, old-binary, EF Core coexistence or full W3 compatibility evidence; those remain separate checks.
 
+The separate [W3 consumers](../W3%20Consumers.md) reuse these sources with exact package references and add old-binary, EF coexistence and Memory-only probes.
+
 From the repository root:
 
 ```powershell

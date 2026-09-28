@@ -280,3 +280,11 @@ Verification:
 Summaries: artifacts/w3-public-raw-unit-summary.json, artifacts/w3-public-commands-{quick,providers,native-server}-summary.json. These remain development checks. W3.5 implementation is complete; W3.7 emitted/API compatibility, packed and old-binary consumers and documentation remain open.
 
 CI on preceding fluent-read head 04aca522 passed all twelve checks in run 36469409229. The requested failed-jobs rerun of 36459739922 was cancelled; it does not establish a root cause for the earlier allocation failure. The strict assertion remains unchanged and passed on the subsequent head.
+
+## W3.7a Packed And Old-Binary Compatibility Checkpoint
+
+Added dedicated exact-package consumers and an output verifier that checks restored/candidate hashes, framework-specific async LINQ graphs, Memory dependency boundaries and unchanged 0.9.2 DLLs. All nine positive fixture/runtime executions pass on actual .NET 8.0.31/9.0.20/10.0.12. The separate EF import-negative fixture produces only expected CS0121 errors on all three TFMs. Detailed provenance, fixture corrections, limitations and ApiCompat dispositions are recorded in [W3 Compatibility Evidence](W3%20Compatibility%20Evidence.md).
+
+Clean candidate 0.10.0-w3.78d1b3c4 passes package inspection and isolated standard package smoke. The strict ApiCompat report remains failed with thirteen retained diagnostics: eleven describe the approved relation rename, and two flag the accepted static key lookup. Actual old-implementer execution and emitted-method reflection support the latter's narrowly scoped tool-classification disposition. No blanket suppression or new API decision was introduced. All 36 metadata snapshots are retained for the remaining declaration reconciliation.
+
+CI on 78d1b3c4 passed all twelve checks in run 36472158688. W3.7 remains open: full family/manifest reconciliation, broader generated and constructor evidence, product/XML documentation and final head verification are still required. W5 and benchmarking scope is unchanged.

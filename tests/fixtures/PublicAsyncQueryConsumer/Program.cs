@@ -69,6 +69,9 @@ if (DataLinqFailure.GetContext(new Exception("unreported")) is not null ||
     (int)DataLinqFailureCause.ApplicationError != 4 || (int)DataLinqCompletionOutcome.Committed != 3)
     throw new InvalidOperationException("Public diagnostic contract changed.");
 Console.WriteLine("Public async query consumer passed on " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
+#if PACKED_ASYNC_CONSUMER
+await PackedChecks.RunAsync(args);
+#endif
 
 static async Task RejectTask(Func<Task> action)
 {
