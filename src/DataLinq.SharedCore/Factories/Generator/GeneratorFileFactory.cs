@@ -1257,13 +1257,34 @@ public class GeneratorFileFactory
                 valueProperty.CsType.Name is "byte[]" or "System.Byte[]" ||
                 (valueProperty.CsType.Namespace == "System" && valueProperty.CsType.Name == "Byte[]");
             if (!binaryValue)
-                yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetImmutableFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
+                yield return $"{namespaceTab}{tab}private object{GetUseNullableReferenceTypes()} _{c.ValueProperty.PropertyName};";
 
             foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(c.ValueProperty.Attributes), $"{namespaceTab}{tab}"))
                 yield return row;
 
-            var memoize = binaryValue ? "" : $"_{c.ValueProperty.PropertyName} ??= ";
-            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => {memoize}({GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}){(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}({GetGeneratedColumnIndexName(valueProperty)});";
+            var propertyType = $"{GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}";
+            var readValue = $"{(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}({GetGeneratedColumnIndexName(valueProperty)})";
+            if (binaryValue)
+                yield return $"{namespaceTab}{tab}public override {propertyType} {c.ValueProperty.PropertyName} => ({propertyType}){readValue};";
+            else
+            {
+                // Nullable<T> writes can tear even for an int property. Publish the
+                // already-boxed row value as one reference, with acquire/release ordering.
+                // Racing initializers must all use the published winner.
+                yield return $"{namespaceTab}{tab}public override {propertyType} {c.ValueProperty.PropertyName}";
+                yield return $"{namespaceTab}{tab}{{";
+                yield return $"{namespaceTab}{tab}{tab}get";
+                yield return $"{namespaceTab}{tab}{tab}{{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}var value = global::System.Threading.Volatile.Read(ref _{c.ValueProperty.PropertyName});";
+                yield return $"{namespaceTab}{tab}{tab}{tab}if (value is null)";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}value = {readValue};";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}value = global::System.Threading.Interlocked.CompareExchange(ref _{c.ValueProperty.PropertyName}, value, null) ?? value;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}}}";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return ({propertyType})value!;";
+                yield return $"{namespaceTab}{tab}{tab}}}";
+                yield return $"{namespaceTab}{tab}}}";
+            }
             yield return $"";
         }
 
@@ -1690,11 +1711,6 @@ public class GeneratorFileFactory
         return IsMutablePropertyRequired(property) ? "required " : "";
     }
 
-    private string GetImmutableFieldNullable(ValueProperty property)
-    {
-        return IsImmutableFieldNullable(property) ? "?" : "";
-    }
-
     private string GetUseNullableReferenceTypes()
     {
         return Options.UseNullableReferenceTypes ? "?" : "";
@@ -1730,15 +1746,6 @@ public class GeneratorFileFactory
     private bool IsImmutableGetterNullable(ValueProperty property)
     {
         return !Options.UseNullableReferenceTypes || IsImmutablePropertyNullable(property);
-    }
-
-    private bool IsImmutableFieldNullable(ValueProperty property)
-    {
-        return Options.UseNullableReferenceTypes
-            || property.CsNullable
-            || property.EnumProperty.HasValue
-            || MetadataTypeConverter.IsCsTypeNullable(property.CsType.Name)
-            || !MetadataTypeConverter.IsKnownCsType(property.CsType.Name);
     }
 
     private static string? GetDocumentationComment(IEnumerable<Attribute> attributes)
