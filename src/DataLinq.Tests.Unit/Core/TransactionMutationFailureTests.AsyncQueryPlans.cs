@@ -18,7 +18,7 @@ namespace DataLinq.Tests.Unit.Core;
 public sealed partial class TransactionMutationFailureTests
 {
     private static IAsyncEnumerable<T> AsyncPlan<T>(IQueryable<T> query, CancellationToken token = default) =>
-        ((ExpressionQueryPlanProvider)query.Provider).ExecuteEnumerableAsyncCore<T>(query.Expression, token);
+        query.AsAsyncEnumerable(token);
 
     private static Task<T> AsyncPlanTerminal<T>(IQueryable<T> query, string terminal, CancellationToken token = default) =>
         ((ExpressionQueryPlanProvider)query.Provider).ExecuteAsyncCore<T>(
@@ -43,7 +43,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledSqlReaderFactory
             { CreateAccess = _ => new() { ReaderOverride = new ControlledRowDataReader([7]) { ColumnNames = ["value"] } } };
         fixture.Scenario.AsyncSqlReaders = factory;
-        var sequence = prepared ? plan.ExecuteAsyncCore(fixture.Database, ids) : AsyncPlan(query);
+        var sequence = prepared ? plan.ExecuteAsync(fixture.Database, ids) : AsyncPlan(query);
         ids[0] = 3;
         await Assert.That(factory.Inputs).IsEmpty();
         await using (var first = sequence.GetAsyncEnumerator())
@@ -62,13 +62,15 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(string.Join(",", factory.Inputs[1].ToSql().Parameters.Select(x => x.Value))).IsEqualTo(prepared ? "1,2" : "9,2");
         if (prepared)
         {
-            _ = await PlanRows(plan.ExecuteAsyncCore(fixture.Database, ids));
+            _ = await PlanRows(plan.ExecuteAsync(fixture.Database, ids));
             await Assert.That(string.Join(",", factory.Inputs[2].ToSql().Parameters.Select(x => x.Value))).IsEqualTo("9,2");
         }
     }
 
     [Test]
-    public async Task AsyncQueryPlan_ListTerminalCapturesBeforeFirstSuspensionAndNeverReturnsPartialResults()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task AsyncQueryPlan_ListTerminalCapturesBeforeFirstSuspensionAndNeverReturnsPartialResults(bool array)
     {
         using var fixture = new ScriptedFixture(captureSql: true);
         using var transaction = fixture.Database.Transaction();
@@ -78,7 +80,7 @@ public sealed partial class TransactionMutationFailureTests
         var access = new ControlledAsyncDatabaseAccess(new(paused: true)) { ReaderOverride = reader, FailureEvidence = TrustedScalarRead };
         var factory = new ControlledSqlReaderFactory { CreateAccess = _ => access };
         fixture.Scenario.AsyncSqlReaders = factory;
-        var pending = ((ExpressionQueryPlanProvider)query.Provider).ExecuteListAsyncCore<int>(query.Expression);
+        Task pending = array ? query.ToArrayAsync().AsTask() : query.ToListAsync().AsTask();
         await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         id = 99;
         access.Dispatch.Release();
@@ -151,7 +153,7 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncSqlReaders = factory;
         fixture.Scenario.AsyncSqlScalars = factory;
         var ids = new[] { 7 };
-        var pending = plan.ExecuteAsyncCore(transaction, ids);
+        var pending = plan.ExecuteAsync(transaction, ids);
         await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         ids[0] = 99;
         access.Dispatch.Release();
@@ -199,7 +201,7 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncSqlScalars = factory;
         var query = transaction.Query().Rows.Select(row => row.Id);
         var error = scalar
-            ? await AsyncEnumerationFailureOf(() => fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Count()).ExecuteAsyncCore(transaction, 0, new(true)))
+            ? await AsyncEnumerationFailureOf(() => fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Count()).ExecuteAsync(transaction, 0, new(true)))
             : await AsyncEnumerationFailureOf(async () => { await using var rows = AsyncPlan(query, new(true)).GetAsyncEnumerator(); await rows.MoveNextAsync(); });
         await Assert.That(error).IsTypeOf<NotSupportedException>();
         await Assert.That(factory.Commands.Sum(x => x.Creates)).IsEqualTo(0);
@@ -387,7 +389,7 @@ public sealed partial class TransactionMutationFailureTests
         {
             var helper = transaction.RunCallbackAsyncCore(_ =>
             {
-                rows = prepared.ExecuteAsyncCore(transaction, 0).GetAsyncEnumerator();
+                rows = prepared.ExecuteAsync(transaction, 0).GetAsyncEnumerator();
                 move = rows.MoveNextAsync().AsTask();
                 return Task.FromResult(42);
             }, new());
@@ -401,7 +403,7 @@ public sealed partial class TransactionMutationFailureTests
         else
         {
             using var cancellation = new CancellationTokenSource();
-            rows = prepared.ExecuteAsyncCore(transaction, 0).GetAsyncEnumerator(cancellation.Token);
+            rows = prepared.ExecuteAsync(transaction, 0).GetAsyncEnumerator(cancellation.Token);
             move = rows.MoveNextAsync().AsTask();
             await rowReader.Cleanup.Entered.WaitAsync(TimeSpan.FromSeconds(10));
             rowReader.Cleanup.Release();
@@ -433,15 +435,15 @@ public sealed partial class TransactionMutationFailureTests
             FailureEvidence = TrustedScalarRead
         } };
         fixture.Scenario.AsyncSqlScalars = factory;
-        if (kind == "any") await Assert.That(await fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Any()).ExecuteAsyncCore(transaction, 0)).IsTrue();
-        else if (kind == "sum") await Assert.That(await fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Sum(row => row.Id)).ExecuteAsyncCore(transaction, 0)).IsEqualTo(0);
-        else if (kind == "nullable-minimum") await Assert.That(await fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Min(row => (int?)row.Id)).ExecuteAsyncCore(transaction, 0)).IsNull();
-        else if (kind == "average") await Assert.That(await fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Average(row => row.Id)).ExecuteAsyncCore(transaction, 0)).IsEqualTo(2.5);
+        if (kind == "any") await Assert.That(await fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Any()).ExecuteAsync(transaction, 0)).IsTrue();
+        else if (kind == "sum") await Assert.That(await fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Sum(row => row.Id)).ExecuteAsync(transaction, 0)).IsEqualTo(0);
+        else if (kind == "nullable-minimum") await Assert.That(await fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Min(row => (int?)row.Id)).ExecuteAsync(transaction, 0)).IsNull();
+        else if (kind == "average") await Assert.That(await fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Average(row => row.Id)).ExecuteAsync(transaction, 0)).IsEqualTo(2.5);
         else
         {
             var pending = kind == "overflow"
-                ? fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Count()).ExecuteAsyncCore(transaction, 0)
-                : fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Min(row => row.Id)).ExecuteAsyncCore(transaction, 0);
+                ? fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Count()).ExecuteAsync(transaction, 0)
+                : fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Min(row => row.Id)).ExecuteAsync(transaction, 0);
             var error = await AsyncEnumerationFailureOf(() => pending);
             await Assert.That(kind == "overflow" ? error is OverflowException : error is InvalidOperationException).IsTrue();
             await Assert.That(transaction.AsyncFailureContext!.Stage).IsEqualTo(ExecutionFailureStage.Materialization);
@@ -495,7 +497,7 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncSqlReaders = factory;
         fixture.Scenario.AsyncSqlScalars = factory;
         Task pending = scalar
-            ? fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Count()).ExecuteAsyncCore(transaction, 0)
+            ? fixture.Database.PrepareQuery(0, _ => fixture.Database.Query().Rows.Count()).ExecuteAsync(transaction, 0)
             : PlanRows(AsyncPlan(transaction.Query().Rows.Select(row => row.Id)));
         await resource.Open.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         var expected = new Exception("query plan initialization");

@@ -27,6 +27,15 @@
 
 The [W2 implementation plan](W2%20Native%20Provider%20Async%20Execution.md) owns the operation/provider checklist and milestone evidence. Public API verification remains W3; this workflow changes no release scope.
 
+## W3 Single-PR Exception
+
+**Accepted by the user, 2026-09-28:** implement W3 using the same single-PR structure as W2. [PR #230, Implement W3: public async surface](https://github.com/bazer/DataLinq/pull/230), is a draft from `codex/0.10-w3` to `v0.10`. The user authorizes implementation commits and pushes to this branch as needed.
+
+- Collect coherent implementation/test commits in that PR and keep its description and [execution record](W3%20Public%20Async%20Surface.md) current.
+- Preserve the W2-style milestone review and stable commit history, with merge-commit integration after completion/review and separate merge authorization.
+- Keep runtime schema validation in W5 and hosting in W4. Further performance work remains deferred to the post-feature W8 effort.
+- Opening and updating the PR do not authorize merging, tagging or publishing packages.
+
 ## CI, Publication And Release Evidence
 
 ### Accepted Review And Performance Scheduling, 2026-09-28

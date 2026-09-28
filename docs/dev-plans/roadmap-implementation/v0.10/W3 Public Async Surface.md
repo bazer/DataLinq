@@ -2,6 +2,8 @@
 
 **Status, 2026-09-28:** implementation started from W2 merge `69a2b2ee40b25862590fa5206901a51aabfbed80`. The user authorized one draft PR from `codex/0.10-w3` to `v0.10`, with incremental commits and pushes collected there. W3 completion, review and merge remain separate checkpoints.
 
+**PR:** [#230, Implement W3: public async surface](https://github.com/bazer/DataLinq/pull/230).
+
 ## Scope And Accepted Boundaries
 
 The [API decisions](Async%20Public%20API%20Decisions.md) and [signature inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md) remain the contract. W3 exposes the W1/W2 execution machinery, adds public/generated documentation and verifies real consumer compatibility. Existing synchronous APIs remain supported subject to the already approved keyed-enumeration rename and required-reference correction.
@@ -44,4 +46,62 @@ Each slice updates this record with actual changes, commands, results and remain
 - Generated source and positive/negative compilation evidence, including overload binding and DLG004.
 - XML/API documentation, concrete usage and migration examples, required CI and review of the single W3 PR.
 
-The initial planning commit contains no new public APIs and does not claim any exit gate complete.
+The initial planning commit `a25106ea` contains no new public APIs and does not claim any exit gate complete.
+
+## W3.1 Query Implementation Checkpoint
+
+Implemented Q01-Q12: 41 public query extension declarations on `DataLinq.Linq.DataLinqAsyncQueryableExtensions`, plus scalar/row and sequence prepared `ExecuteAsync` entry points. The numeric family has ten Sum and ten Average overloads and unconstrained generic selector Min/Max. Predicates remain expressions; no additional terminal family or backend translation is introduced.
+
+The wrappers call the existing W1/W2 execution paths. They validate the actual provider, including a public DataLinq query wrapper around a foreign provider, and preserve invocation/enumerator capture and cleanup boundaries. Ordinary sequences capture per enumerator; prepared sequences capture at ExecuteAsync; list/array materializers capture before suspension and return only after owned cleanup succeeds. Public XML comments describe buffering, token combination, disposal, SQLite limits and deliberate imports.
+
+Core now references the centrally pinned `System.Linq.AsyncEnumerable 10.0.12` transitively for .NET 8/9 only. .NET 10 uses the framework implementation. A separate [consumer fixture](../../../../tests/fixtures/PublicAsyncQueryConsumer/README.md), without friend access, compiles and executes extension/static/alias calls and standard local async LINQ. It references source projects, so it is not B14 packed-consumer completion.
+
+### Verification
+
+These are development-working-tree checks, not frozen-candidate release evidence. The provider summary deliberately reports `ValidForEvidence=false` for the development checkout/runner identity; passing case counts are not relabeled as a clean release receipt.
+
+| Check | Result |
+| --- | --- |
+| Core and separate consumer build, Debug, .NET 8/9/10 | Passed, zero warnings/errors |
+| Focused unit query cases, `/*/*/*/*AsyncQuery*` | 92/92 passed |
+| Quick plan | 4,815/4,815 passed: generators 71, unit 3,970, Memory 223, SQLite-file compliance 551; zero failures/skips |
+| Public query compliance across all eight SQL targets | 32/32 passed: four cases each on SQLite file/memory, MySQL 8.4/9.7 and MariaDB 10.11/11.4/11.8/12.3 |
+| Separate consumer execution | Passed on actual .NET 8.0.31, 9.0.20 and 10.0.12 runtimes |
+| Whitespace/error check | `git diff --check` passed |
+
+Focused run: `20260928T143914936Z-199edd9de8d644ea946a82311f18d553`. Quick run: `20260928T144024905Z-a6d69210b220483492a798869b24f2c3`. Provider run: `20260928T144219232Z-abf64c09ec3b47c99ff3e8e5a07fca3f`, summary `artifacts/w3-query-provider-summary.json`. TRX/raw output remains under `artifacts/test-results/<run-id>/`.
+
+The initial .NET 9 consumer launch failed because the machine had no 9.x runtime. Installed only a workspace-local runtime under `artifacts/runtimes/dotnet9-9.0.20` from Microsoft's official 9.0 release metadata, checking the archive's SHA-512 against that metadata before extraction. Executing the net9.0 DLL with that runtime passed; no major-version roll-forward is counted as .NET 9 evidence.
+
+Reproduction from the repository root:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 build src/DataLinq/DataLinq.csproj -c Debug -v minimal
+.\scripts\dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/*/*AsyncQuery*" --output failures
+.\scripts\dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI --no-build -- run --plan quick --output failures
+$env:DATALINQ_TEST_DB_HOST = '127.0.0.1'
+.\scripts\dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI --no-build -- run --suite compliance --alias all --filter "/*/*/PublicAsyncQueryTests/*" --output failures --summary-json artifacts/w3-query-provider-summary.json
+```
+
+The consumer README contains its build/run commands. New tests cover public predicate and numeric binding, null argument names, foreign-provider rejection, entity/scalar/anonymous projections, empty/default/cardinality results, supported Memory terminals and explicit rejection, buffered cancellation and unchanged transaction usability. Existing controlled query tests now exercise public ordinary/prepared entry points; list and array materializers both cover capture before suspension and cleanup failure without partial success.
+
+### Usage In The Development Surface
+
+```csharp
+using DataLinq.Linq;
+
+var query = database.Query().Departments.OrderBy(row => row.DeptNo);
+var rows = await query.ToListAsync(cancellationToken);
+var exists = await query.AnyAsync(row => row.DeptNo == "d001", cancellationToken);
+
+await foreach (var row in query.AsAsyncEnumerable(cancellationToken))
+{
+    Console.WriteLine(row.Name);
+}
+
+var byKey = database.PrepareSequenceQuery(
+    "d001", key => database.Query().Departments.Where(row => row.DeptNo == key));
+var captured = byKey.ExecuteAsync(database, "d001", cancellationToken);
+```
+
+These APIs are implemented on the W3 development branch; 0.10 is not released. W3.2-W3.7 remain open, including generated APIs, remaining public families, emitted full-contract/ApiCompat and packed/old/custom consumer evidence. The next implementation slice is lookup and relations.

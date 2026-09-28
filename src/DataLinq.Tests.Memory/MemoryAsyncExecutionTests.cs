@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
+using DataLinq.Linq;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Memory;
 
@@ -25,14 +26,14 @@ public sealed partial class MemoryAsyncExecutionTests
             [First, Second, Second, null], [Second, First, First, First]);
 
     private static IAsyncEnumerable<T> Rows<T>(IQueryable<T> query, CancellationToken token = default) =>
-        ((ExpressionQueryPlanProvider)query.Provider).ExecuteEnumerableAsyncCore<T>(query.Expression, token);
+        query.AsAsyncEnumerable(token);
 
     private static Task<TResult> Terminal<T, TResult>(IQueryable<T> query, string method, CancellationToken token = default) =>
         ((ExpressionQueryPlanProvider)query.Provider).ExecuteAsyncCore<TResult>(
             Expression.Call(typeof(System.Linq.Queryable), method, [typeof(T)], query.Expression), token);
 
     private static Task<List<T>> List<T>(IQueryable<T> query, CancellationToken token = default) =>
-        ((ExpressionQueryPlanProvider)query.Provider).ExecuteListAsyncCore<T>(query.Expression, token);
+        query.ToListAsync(token).AsTask();
 
     private static async Task<List<T>> Drain<T>(IAsyncEnumerable<T> source)
     {

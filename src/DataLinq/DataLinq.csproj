@@ -41,6 +41,7 @@
 		<!-- Runtime Package References for DataLinq.dll -->
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="ThrowAway" />
+		<PackageReference Include="System.Linq.AsyncEnumerable" Condition="'$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0'" />
 
 		<!-- Build/Dev time packages -->
 		<PackageReference Include="Microsoft.SourceLink.GitHub">
