@@ -4,6 +4,8 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Execution;
+using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
@@ -12,11 +14,13 @@ public partial class ImmutableRelation<T, TKey> where T : IImmutableInstance whe
     /// <summary>Creates an async row view, capturing its source and key at enumerator construction.</summary>
     /// <remarks>Execution may load the complete relation on the first move; every move observes cancellation.</remarks>
     public virtual IAsyncEnumerable<T> AsAsyncEnumerable(CancellationToken cancellationToken = default) =>
-        new DeferredRelationSnapshot<T>(() =>
+        new AsyncReaderEnumerable<T>(() =>
         {
             var source = ResolveDataSource(validateRead: false);
             var key = ProviderKeyComponents.ToDataLinqKey(foreignKey);
-            return async token => (await GetSnapshotAsync(token, capturedSource: source, capturedKey: key).ConfigureAwait(false)).Values;
+            var read = new RelationSnapshotRead(this, source, key);
+            return new(read, null, source as Transaction, Continuation: read,
+                Identity: ReadExecutionIdentity.Capture(source, ExecutionOperationKind.RelationLoad));
         }, cancellationToken);
 
     /// <inheritdoc />

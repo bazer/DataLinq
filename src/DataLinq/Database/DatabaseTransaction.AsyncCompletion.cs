@@ -122,7 +122,7 @@ public abstract partial class DatabaseTransaction
                 catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Recovery, fallbackOperation: kind); }
             }
         }
-        PublishSynchronousFailure(failures, SynchronousCompletion, recovery, kind);
+        PublishSynchronousFailure(failures, SynchronousCompletion, recovery, kind, standaloneOwner: operation.Step);
         failures.ThrowIfAny();
     }
 
@@ -163,7 +163,8 @@ public abstract partial class DatabaseTransaction
         }
         await DisposeStandaloneResourcesAsync(resource, operation.Step, failures).ConfigureAwait(false);
         CompleteAsyncTransactionTelemetry(SynchronousCompletion, failures, ExecutionOperationKind.Dispose);
-        PublishSynchronousFailure(failures, SynchronousCompletion, ExecutionRecoveryActions.None, ExecutionOperationKind.Dispose);
+        PublishSynchronousFailure(failures, SynchronousCompletion, ExecutionRecoveryActions.None, ExecutionOperationKind.Dispose,
+            standaloneOwner: operation.Step);
         failures.ThrowIfAny();
     }
 

@@ -13,6 +13,44 @@ namespace DataLinq.Tests.Unit.Core;
 public sealed class StandaloneCompletionTests
 {
     [Test]
+    [Arguments(false, false)]
+    [Arguments(false, true)]
+    [Arguments(true, false)]
+    [Arguments(true, true)]
+    public async Task DisposalOnlyCommitFailureRestrictsSubsequentSyncAndAsyncRecovery(bool inspectionFails, bool syncDispose)
+    {
+        var inspectionFailure = new Exception("recovery inspection");
+        var completion = new ControlledCompletionProvider
+        {
+            Commit = new(paused: true),
+            RecoveryActions = ExecutionRecoveryActions.Dispose,
+            RecoveryFailure = inspectionFails ? inspectionFailure : null
+        };
+        var expected = new Exception("lost commit confirmation");
+        completion.Commit.Fail(expected);
+        var transaction = new Probe(completion);
+        var failure = await Assert.That(() => transaction.CommitAsync()).Throws<Exception>();
+        await Assert.That(failure).IsSameReferenceAs(expected);
+        var context = DataLinqFailure.GetContext(expected)!;
+        await Assert.That(context.RecoveryActions).IsEqualTo(DataLinqRecoveryActions.Dispose);
+        if (inspectionFails)
+            await Assert.That(context.SecondaryFailures.Single().Exception).IsSameReferenceAs(inspectionFailure);
+        // Even if the provider later advertises rollback, the settled restriction remains.
+        completion.RecoveryFailure = null;
+        completion.RecoveryActions = ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose;
+        await Assert.That(() => transaction.RollbackAsync()).Throws<InvalidOperationException>();
+        await Assert.That(transaction.Rollback).Throws<InvalidOperationException>();
+        await Assert.That(() => transaction.CommitAsync()).Throws<InvalidOperationException>();
+        await Assert.That(transaction.Commit).Throws<InvalidOperationException>();
+        if (syncDispose) transaction.Dispose();
+        else await transaction.DisposeAsync();
+        await Assert.That(completion.RecoveryReads).IsEqualTo(1);
+        await Assert.That(completion.Calls.Contains("rollback")).IsFalse();
+        await Assert.That(transaction.SyncCalls).IsEqualTo(syncDispose ? 3 : 0);
+        await transaction.DisposeAsync();
+    }
+
+    [Test]
     public async Task SuspendedCommitAndCleanupRejectAllCompetingCompletion()
     {
         var completion = new ControlledCompletionProvider { Commit = new(paused: true), ConnectionCleanup = new(paused: true) };

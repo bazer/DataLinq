@@ -130,7 +130,8 @@ public abstract partial class DatabaseTransaction
             CompleteAsyncTransactionTelemetry(confirmed ? CompletionOutcome(outcome) : ExecutionCompletion.Unknown, failures, operation);
         ExecutionActivity.RestoreCurrent(caller, ref failures, operation);
         PublishSynchronousFailure(failures!, SynchronousCompletion,
-            !confirmed && !rollback ? ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose : ExecutionRecoveryActions.Dispose, operation);
+            !confirmed && !rollback ? ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose : ExecutionRecoveryActions.Dispose, operation,
+            standaloneOwner: standalone?.Step);
         failures!.ThrowIfAny();
     }
 
@@ -165,7 +166,8 @@ public abstract partial class DatabaseTransaction
         if (!synchronousTelemetryDeferred)
             CompleteAsyncTransactionTelemetry(confirmed ? ExecutionCompletion.RolledBack : SynchronousCompletion, failures, ExecutionOperationKind.Dispose);
         ExecutionActivity.RestoreCurrent(caller, ref failures, ExecutionOperationKind.Dispose);
-        PublishSynchronousFailure(failures!, SynchronousCompletion, ExecutionRecoveryActions.None, ExecutionOperationKind.Dispose);
+        PublishSynchronousFailure(failures!, SynchronousCompletion, ExecutionRecoveryActions.None, ExecutionOperationKind.Dispose,
+            standaloneOwner: standalone?.Step);
         failures!.ThrowIfAny();
     }
 
@@ -193,12 +195,15 @@ public abstract partial class DatabaseTransaction
         ? transactionActivity?.Parent : Activity.Current;
 
     private void PublishSynchronousFailure(ExecutionFailures failures, ExecutionCompletion completion,
-        ExecutionRecoveryActions recovery, ExecutionOperationKind operation, bool initialization = false)
+        ExecutionRecoveryActions recovery, ExecutionOperationKind operation, bool initialization = false,
+        TransactionOperationGate.Step? standaloneOwner = null)
     {
         if (failures.Primary is not { } failure) return;
-        ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(Effects: initialization ? ExecutionEffects.Initialization : ExecutionEffects.Unknown),
+        var context = failures.Snapshot(new(Effects: initialization ? ExecutionEffects.Initialization : ExecutionEffects.Unknown),
             completion, recovery, ManagedTransaction?.TransactionID, operation,
-            string.IsNullOrEmpty(TelemetryContext.ProviderInstanceId) ? null : TelemetryContext.ProviderInstanceId));
+            string.IsNullOrEmpty(TelemetryContext.ProviderInstanceId) ? null : TelemetryContext.ProviderInstanceId);
+        if (standaloneOwner is not null) RecordStandaloneFailure(standaloneOwner, context);
+        ExecutionFailureContexts.Attach(failure, context);
     }
 
     internal SynchronousTelemetryScope DeferSynchronousTransactionTelemetry(TransactionOperationGate.Step owner)

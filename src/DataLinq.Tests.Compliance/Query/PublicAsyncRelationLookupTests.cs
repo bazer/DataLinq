@@ -88,6 +88,13 @@ public sealed class PublicAsyncRelationLookupTests
         var property = database.Provider.Metadata.GetTableModel(typeof(Department)).Model.RelationProperties[nameof(Department.DepartmentEmployees)];
         var relation = new ImmutableRelation<Dept_emp, string>(child.dept_no, transaction, property);
         var before = await relation.ValuesAsync();
+        await using (var iterator = relation.AsAsyncEnumerable().GetAsyncEnumerator())
+        {
+            await Assert.That(await iterator.MoveNextAsync()).IsTrue();
+            await Assert.That(transaction.Commit).Throws<InvalidOperationException>();
+            await Assert.That(() => transaction.CommitAsync()).Throws<InvalidOperationException>();
+            await Assert.That(async () => { await relation.ValuesAsync(); }).Throws<InvalidOperationException>();
+        }
         transaction.Commit();
         var after = await relation.ToArrayAsync();
         await Assert.That(after.Select(value => value.PrimaryKeys()).ToArray()).IsEquivalentTo(before.Select(value => value.PrimaryKeys()).ToArray());
