@@ -89,7 +89,7 @@ public sealed class NativeAsyncMetadataTests
         effective.ExecuteNonQuery($"DROP DATABASE {SqlIdentifier.Quote(effective.Connection.DataSourceName, "`")}");
         var missing = await provider.ReadValidationMetadataAsyncCore();
         await Assert.That(missing.TryUnwrap(out _, out _)).IsFalse();
-        await Assert.That(await provider.DatabaseExistsAsyncCore()).IsFalse();
+        await Assert.That(await provider.DatabaseExistsAsync()).IsFalse();
     }
 
     [Test]
@@ -206,7 +206,7 @@ public sealed class NativeAsyncMetadataTests
         await Assert.That((await provider.ReadValidationMetadataAsyncCore()).ValueOrException().TableModels.Length).IsEqualTo(3);
         var invalid = new MySqlConnectionStringBuilder(schema.Connection.ConnectionString) { UserID = "w2_metadata_missing_user", Password = "invalid" };
         var factory = MetadataFromSqlFactory.GetSqlFactory(new(), descriptor.DatabaseType);
-        var auth = Failure(await factory.ParseDatabaseAsyncCore("MetadataDb", "MetadataDb", "Tests", schema.Connection.DataSourceName, invalid.ConnectionString));
+        var auth = Failure(await factory.ParseDatabaseAsync("MetadataDb", "MetadataDb", "Tests", schema.Connection.DataSourceName, invalid.ConnectionString));
         await Assert.That(auth).IsTypeOf<MySqlException>();
         await Assert.That(ExecutionFailureContexts.Get(auth)!.Cause).IsEqualTo(ExecutionFailureCause.ProviderError);
         await Assert.That(ExecutionFailureContexts.Get(auth)!.Stage).IsEqualTo(ExecutionFailureStage.Initialization);
@@ -226,7 +226,7 @@ public sealed class NativeAsyncMetadataTests
     public async Task DerivedImportFactoryIsRejectedBeforeCancellationOrConnectionParsing()
     {
         foreach (IMetadataFromSqlFactory factory in new IMetadataFromSqlFactory[] { new CustomMySqlFactory(), new CustomMariaDbFactory() })
-            await Assert.That(async () => { await factory.ParseDatabaseAsyncCore("Db", "Db", "Tests", "db", "invalid connection string", new(true)); })
+            await Assert.That(async () => { await factory.ParseDatabaseAsync("Db", "Db", "Tests", "db", "invalid connection string", new(true)); })
                 .Throws<NotSupportedException>();
     }
 
@@ -243,7 +243,7 @@ public sealed class NativeAsyncMetadataTests
     }
 
     private static Task<Option<DatabaseDefinition, IDLOptionFailure>> Import(IMetadataFromSqlFactory factory, ServerSchemaDatabase schema) =>
-        factory.ParseDatabaseAsyncCore("MetadataDb", "MetadataDb", "Tests", schema.Connection.DataSourceName, schema.Connection.ConnectionString);
+        factory.ParseDatabaseAsync("MetadataDb", "MetadataDb", "Tests", schema.Connection.DataSourceName, schema.Connection.ConnectionString);
     private static Exception Failure(Option<DatabaseDefinition, IDLOptionFailure> result) =>
         !result.TryUnwrap(out _, out var failure) && failure.FailureValue is Exception exception ? exception : throw new InvalidOperationException("Expected an operational failure.");
     private static SqlProvider<EmployeesDb> Provider(TestProviderDescriptor descriptor, string connectionString, string database) => descriptor.DatabaseType == DatabaseType.MySQL

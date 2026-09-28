@@ -211,3 +211,19 @@ Verification:
 - One intermediate quick attempt refused a stale prebuilt generator-test graph after core reader changes. A non-incremental generator-test/core build corrected the artifact ordering before the final complete quick pass; the refusal is not counted as product evidence.
 
 Summaries: artifacts/w3-generated-navigation-quick-summary.json and artifacts/w3-generated-navigation-providers-summary.json. These remain development-working-tree checks. Generated mutations remain W3.4 work; a narrowly scoped protected generator bridge has been proposed for explicit API review because the accepted public calls cannot preserve an owned edited mutation's reservation through commit/cleanup. W3.5 and W3.7 also remain open. No W5 runtime-validation APIs were added.
+
+## W3.5a Public Administration Checkpoint
+
+Implemented A01-A04 and A08-A11: database/provider availability probes, metadata import, SQLite journal-mode configuration, SQL factory provisioning and registered SQL/metadata forwarding. Existing internal execution remains responsible for capture, cancellation, cleanup and provider-specific behavior. Legacy interface defaults reject missing async capability without synchronous I/O. Registered provisioning now dispatches the public factory contract, including a custom async implementation with no internal capability; it retains the same captured registration across local SQL generation.
+
+Verification:
+
+- Core and external source consumer build for .NET 8/9/10 without warnings/errors. The consumer runs on actual 8.0.31/9.0.20/10.0.12 and verifies legacy provider/factory defaults with throwing synchronous methods.
+- Public SQLite administration: 17/17, run 20260928T164443284Z-54ecde5e466b47a99f741ab4c8a2b621. Public SQLite import/native metadata: 14/14, run 20260928T164726093Z-c2dbc668c9d44064bf429fa1207f8de5.
+- Controlled provisioning: 50/50, run 20260928T164633984Z-dd34f7f970d2400088cf7d2140f0fc63. Existing capture, registration, partial-effect, cancellation and ordered-failure cases now exercise public forwarding/factory dispatch, including a new external-style override test.
+- MySQL 9.7/MariaDB 12.3 public administration: 15/15, run 20260928T164737271Z-7946b900d6e04c228fb6a91a1f25a276. Metadata: 16/16, run 20260928T164834453Z-1373c5654941429b938663f21eb3819e.
+- New root/provider/factory compliance case: 4/4 across the latest four local targets, run 20260928T164845672Z-55d841441f724bb684b904bb9fe792dc. The initial SQLite-file case reached fixture disposal but failed to delete its pooled read-only database handle. Added fixture-owned read-only pool cleanup; no runtime pooling change.
+
+Summaries use artifacts/w3-administration-*, artifacts/w3-public-provisioning-summary.json and artifacts/w3-public-metadata-*. These remain development checks. A05-A07 and their supporting runtime-validation behavior stay in W5. Lower-level L01-L17 and W3.7 remain open.
+
+The user explicitly approved the proposed narrow protected generator helper on Mutable<T> on 2026-09-28. Implement and document that addition with M10; the earlier pending API question is resolved. It must preserve owned edited-mutation input reservations through commit and cleanup rather than relying on a transaction mutation's shorter reservation.

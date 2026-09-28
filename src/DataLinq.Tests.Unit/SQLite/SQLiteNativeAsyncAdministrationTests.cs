@@ -24,16 +24,16 @@ public sealed class SQLiteNativeAsyncAdministrationTests
         using var fixture = new Fixture(memory);
         var provider = fixture.Provider;
         provider.DatabaseAccess.ExecuteNonQuery("CREATE TABLE \"odd'name\" (id INTEGER); CREATE VIEW a_view AS SELECT * FROM \"odd'name\"");
-        await Assert.That(await provider.FileOrServerExistsAsyncCore()).IsEqualTo(provider.FileOrServerExists());
-        await Assert.That(await provider.DatabaseExistsAsyncCore("ignored_identity")).IsEqualTo(provider.DatabaseExists("ignored_identity"));
-        await Assert.That(await provider.TableExistsAsyncCore("odd'name", "ignored_identity")).IsTrue();
-        await Assert.That(await provider.TableExistsAsyncCore("' OR 1=1 --")).IsFalse();
-        await Assert.That(await provider.TableExistsAsyncCore("a_view")).IsFalse();
-        await Assert.That(await provider.TableExistsAsyncCore("created_later")).IsFalse();
+        await Assert.That(await provider.FileOrServerExistsAsync()).IsEqualTo(provider.FileOrServerExists());
+        await Assert.That(await provider.DatabaseExistsAsync("ignored_identity")).IsEqualTo(provider.DatabaseExists("ignored_identity"));
+        await Assert.That(await provider.TableExistsAsync("odd'name", "ignored_identity")).IsTrue();
+        await Assert.That(await provider.TableExistsAsync("' OR 1=1 --")).IsFalse();
+        await Assert.That(await provider.TableExistsAsync("a_view")).IsFalse();
+        await Assert.That(await provider.TableExistsAsync("created_later")).IsFalse();
         provider.DatabaseAccess.ExecuteNonQuery("CREATE TABLE created_later(id INTEGER)");
-        await Assert.That(await provider.TableExistsAsyncCore("created_later")).IsTrue();
+        await Assert.That(await provider.TableExistsAsync("created_later")).IsTrue();
         provider.DatabaseAccess.ExecuteNonQuery("DROP TABLE created_later");
-        await Assert.That(await provider.TableExistsAsyncCore("created_later")).IsFalse();
+        await Assert.That(await provider.TableExistsAsync("created_later")).IsFalse();
     }
 
     [Test]
@@ -42,9 +42,9 @@ public sealed class SQLiteNativeAsyncAdministrationTests
         using var fixture = new Fixture(false);
         fixture.ClearPool();
         File.Delete(fixture.Path!);
-        await Assert.That(await fixture.Provider.FileOrServerExistsAsyncCore()).IsFalse();
-        await Assert.That(await fixture.Provider.DatabaseExistsAsyncCore()).IsFalse();
-        var failure = await Assert.That(async () => { await fixture.Provider.TableExistsAsyncCore("items"); }).Throws<SqliteException>();
+        await Assert.That(await fixture.Provider.FileOrServerExistsAsync()).IsFalse();
+        await Assert.That(await fixture.Provider.DatabaseExistsAsync()).IsFalse();
+        var failure = await Assert.That(async () => { await fixture.Provider.TableExistsAsync("items"); }).Throws<SqliteException>();
         await Assert.That(ExecutionFailureContexts.Get(failure!)!.Operation).IsEqualTo(ExecutionOperationKind.ExistenceCheck);
         await Assert.That(ExecutionFailureContexts.Get(failure!)!.Stage).IsEqualTo(ExecutionFailureStage.Initialization);
         await Assert.That(File.Exists(fixture.Path)).IsFalse();
@@ -58,14 +58,14 @@ public sealed class SQLiteNativeAsyncAdministrationTests
         using var fixture = new Fixture(memory);
         var provider = fixture.Provider;
         var access = provider.DatabaseAccess;
-        await Assert.That(async () => { await provider.TableExistsAsyncCore("", token: new(true)); }).Throws<ArgumentNullException>();
-        await Assert.That(async () => { await provider.SetJournalModeAsyncCore((SQLiteJournalMode)999, new(true)); }).Throws<ArgumentOutOfRangeException>();
-        await Assert.That(async () => { await provider.DatabaseExistsAsyncCore(token: new(true)); }).Throws<OperationCanceledException>();
+        await Assert.That(async () => { await provider.TableExistsAsync("", cancellationToken: new(true)); }).Throws<ArgumentNullException>();
+        await Assert.That(async () => { await provider.SetJournalModeAsync((SQLiteJournalMode)999, new(true)); }).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(async () => { await provider.DatabaseExistsAsync(cancellationToken: new(true)); }).Throws<OperationCanceledException>();
         await ((IAsyncRootDisposal)provider).DisposeAsyncCore();
         provider.Dispose();
         await ((IAsyncRootDisposal)provider).DisposeAsyncCore();
-        await Assert.That(async () => { await provider.DatabaseExistsAsyncCore(token: new(true)); }).Throws<ObjectDisposedException>();
-        await Assert.That(async () => { await provider.SetJournalModeAsyncCore(SQLiteJournalMode.WAL, new(true)); }).Throws<ObjectDisposedException>();
+        await Assert.That(async () => { await provider.DatabaseExistsAsync(cancellationToken: new(true)); }).Throws<ObjectDisposedException>();
+        await Assert.That(async () => { await provider.SetJournalModeAsync(SQLiteJournalMode.WAL, new(true)); }).Throws<ObjectDisposedException>();
         await Assert.That(() => access.ExecuteScalarAsyncCore("SELECT 1", new(true))).Throws<ObjectDisposedException>();
         await Assert.That(() => provider.GetNewDatabaseTransaction(TransactionType.ReadAndWrite)).Throws<ObjectDisposedException>();
     }
@@ -79,11 +79,11 @@ public sealed class SQLiteNativeAsyncAdministrationTests
         var provider = fixture.Provider;
         foreach (var mode in new[] { SQLiteJournalMode.DELETE, SQLiteJournalMode.WAL })
         {
-            await provider.SetJournalModeAsyncCore(mode);
+            await provider.SetJournalModeAsync(mode);
             var actual = provider.DatabaseAccess.ExecuteScalar<string>("PRAGMA journal_mode");
             await Assert.That(actual).IsEqualTo(memory ? "memory" : mode.ToString().ToLowerInvariant());
         }
-        await Assert.That(async () => { await provider.SetJournalModeAsyncCore(SQLiteJournalMode.DELETE, new(true)); }).Throws<OperationCanceledException>();
+        await Assert.That(async () => { await provider.SetJournalModeAsync(SQLiteJournalMode.DELETE, new(true)); }).Throws<OperationCanceledException>();
         await Assert.That(provider.DatabaseAccess.ExecuteScalar<string>("PRAGMA journal_mode")).IsEqualTo(memory ? "memory" : "wal");
     }
 
@@ -96,16 +96,16 @@ public sealed class SQLiteNativeAsyncAdministrationTests
         using var fixture = new Fixture(memory, new(logger));
         var expected = new InvalidOperationException("Administrative logger failed.");
         logger.Callback = _ => throw expected;
-        var probe = await Assert.That(async () => { await fixture.Provider.TableExistsAsyncCore("items"); }).Throws<InvalidOperationException>();
+        var probe = await Assert.That(async () => { await fixture.Provider.TableExistsAsync("items"); }).Throws<InvalidOperationException>();
         await Assert.That(probe).IsSameReferenceAs(expected);
         await Assert.That(ExecutionFailureContexts.Get(probe!)!.Operation).IsEqualTo(ExecutionOperationKind.ExistenceCheck);
         await Assert.That(ExecutionFailureContexts.Get(probe!)!.Stage).IsEqualTo(ExecutionFailureStage.Notification);
-        var setter = await Assert.That(async () => { await fixture.Provider.SetJournalModeAsyncCore(SQLiteJournalMode.WAL); }).Throws<InvalidOperationException>();
+        var setter = await Assert.That(async () => { await fixture.Provider.SetJournalModeAsync(SQLiteJournalMode.WAL); }).Throws<InvalidOperationException>();
         await Assert.That(setter).IsSameReferenceAs(expected);
         await Assert.That(ExecutionFailureContexts.Get(setter!)!.Operation).IsEqualTo(ExecutionOperationKind.ProviderConfiguration);
         logger.Callback = null;
-        await Assert.That(await fixture.Provider.TableExistsAsyncCore("items")).IsTrue();
-        await fixture.Provider.SetJournalModeAsyncCore(SQLiteJournalMode.WAL);
+        await Assert.That(await fixture.Provider.TableExistsAsync("items")).IsTrue();
+        await fixture.Provider.SetJournalModeAsync(SQLiteJournalMode.WAL);
     }
 
     [Test]
@@ -177,7 +177,7 @@ public sealed class SQLiteNativeAsyncAdministrationTests
         var sql = new Sql("CREATE TABLE created(id INTEGER); INSERT INTO created VALUES(1)");
         try
         {
-            await Assert.That(async () => { await factory.CreateDatabaseAsyncCore(sql, name, options.ConnectionString, true, new(true)); }).Throws<OperationCanceledException>();
+            await Assert.That(async () => { await factory.CreateDatabaseAsync(sql, name, options.ConnectionString, true, new(true)); }).Throws<OperationCanceledException>();
             await Assert.That(File.Exists(path)).IsFalse();
             var plan = ((IAsyncSqlProvisioningFactory)factory).CaptureProvisioning(new(sql.Text, name, options.ConnectionString, true));
             sql.AddText("; INVALID SQL");
@@ -190,16 +190,16 @@ public sealed class SQLiteNativeAsyncAdministrationTests
             // With no provider yet, successful memory provisioning must retain a
             // fallback keeper until a real owning root adopts that lifetime.
             using var provider = new SQLiteProvider<EmployeesDb>(options.ConnectionString, name);
-            await Assert.That(await provider.TableExistsAsyncCore("created")).IsTrue();
+            await Assert.That(await provider.TableExistsAsync("created")).IsTrue();
             await Assert.That(provider.DatabaseAccess.ExecuteScalar<long>("SELECT COUNT(*) FROM created")).IsEqualTo(1L);
             var failure = await Assert.That(async () =>
             {
-                await factory.CreateDatabaseAsyncCore(new Sql("CREATE TABLE kept_prefix(id INTEGER); INSERT INTO missing VALUES(1); CREATE TABLE skipped_suffix(id INTEGER)"),
+                await factory.CreateDatabaseAsync(new Sql("CREATE TABLE kept_prefix(id INTEGER); INSERT INTO missing VALUES(1); CREATE TABLE skipped_suffix(id INTEGER)"),
                     name, options.ConnectionString, true);
             }).Throws<SqliteException>();
             await Assert.That(ExecutionFailureContexts.Get(failure!)!.Operation).IsEqualTo(ExecutionOperationKind.Provisioning);
-            await Assert.That(await provider.TableExistsAsyncCore("kept_prefix")).IsTrue();
-            await Assert.That(await provider.TableExistsAsyncCore("skipped_suffix")).IsFalse();
+            await Assert.That(await provider.TableExistsAsync("kept_prefix")).IsTrue();
+            await Assert.That(await provider.TableExistsAsync("skipped_suffix")).IsFalse();
             await ((IAsyncRootDisposal)provider).DisposeAsyncCore();
             using var pool = new SqliteConnection(options.ConnectionString);
             SqliteConnection.ClearPool(pool);
@@ -224,7 +224,7 @@ public sealed class SQLiteNativeAsyncAdministrationTests
         using var second = new SQLiteProvider<EmployeesDb>(fixture.Provider.ConnectionString);
         await ((IAsyncRootDisposal)fixture.Provider).DisposeAsyncCore();
         fixture.ClearPool();
-        await Assert.That(await second.TableExistsAsyncCore("items")).IsTrue();
+        await Assert.That(await second.TableExistsAsync("items")).IsTrue();
         second.Dispose();
         await ((IAsyncRootDisposal)second).DisposeAsyncCore();
         fixture.ClearPool();
@@ -255,7 +255,7 @@ public sealed class SQLiteNativeAsyncAdministrationTests
             await release;
             second.DatabaseAccess.ExecuteNonQuery("CREATE TABLE marker(id INTEGER)");
             ClearExecutionPools(options.ConnectionString);
-            await Assert.That(await second.TableExistsAsyncCore("marker")).IsTrue();
+            await Assert.That(await second.TableExistsAsync("marker")).IsTrue();
             await ((IAsyncRootDisposal)second).DisposeAsyncCore();
             ClearExecutionPools(options.ConnectionString);
             using var probe = new SqliteConnection(options.ConnectionString);

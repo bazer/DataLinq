@@ -27,6 +27,13 @@ public partial class SQLiteProvider<T> : IAsyncExistenceProbeSource, IAsyncJourn
     /// <summary>Releases this provider's owned resources asynchronously after active work has ended.</summary>
     public override ValueTask DisposeAsync() => RootDisposal.DisposeAsync();
 
+    /// <summary>Requests SQLite journal mode asynchronously; completion does not guarantee the effective mode.</summary>
+    public Task SetJournalModeAsync(SQLiteJournalMode journalMode, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(journalMode)) throw new ArgumentOutOfRangeException(nameof(journalMode));
+        return this.SetJournalModeAsyncCore(journalMode, cancellationToken);
+    }
+
     IAsyncMetadataReadPlan IAsyncProviderMetadataSource.CaptureValidationMetadata(MetadataReadSettings settings)
     {
         RootDisposal.EnsureUsable();

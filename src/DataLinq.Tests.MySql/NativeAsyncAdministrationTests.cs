@@ -24,15 +24,15 @@ public sealed class NativeAsyncAdministrationTests
         using var provider = new MySqlProvider<EmployeesDb>("Server=127.0.0.1;Port=1;User ID=unused;Pooling=false", "unused");
         var access = provider.DatabaseAccess;
         var token = new CancellationToken(true);
-        await Assert.That(async () => { await provider.TableExistsAsyncCore("", token: token); }).Throws<ArgumentNullException>();
-        await Assert.That(async () => { await provider.DatabaseExistsAsyncCore(token: token); }).Throws<OperationCanceledException>();
+        await Assert.That(async () => { await provider.TableExistsAsync("", cancellationToken: token); }).Throws<ArgumentNullException>();
+        await Assert.That(async () => { await provider.DatabaseExistsAsync(cancellationToken: token); }).Throws<OperationCanceledException>();
         var factory = new SqlFromMySqlFactory();
-        await Assert.That(async () => { await factory.CreateDatabaseAsyncCore(new Sql(""), "unused", "Not a connection string", true, token); }).Throws<ArgumentException>();
-        await Assert.That(async () => { await factory.CreateDatabaseAsyncCore(new Sql(""), "unused", provider.ConnectionString, true, token); }).Throws<OperationCanceledException>();
+        await Assert.That(async () => { await factory.CreateDatabaseAsync(new Sql(""), "unused", "Not a connection string", true, token); }).Throws<ArgumentException>();
+        await Assert.That(async () => { await factory.CreateDatabaseAsync(new Sql(""), "unused", provider.ConnectionString, true, token); }).Throws<OperationCanceledException>();
         await ((IAsyncRootDisposal)provider).DisposeAsyncCore();
         provider.Dispose();
         await ((IAsyncRootDisposal)provider).DisposeAsyncCore();
-        await Assert.That(async () => { await provider.DatabaseExistsAsyncCore(token: token); }).Throws<ObjectDisposedException>();
+        await Assert.That(async () => { await provider.DatabaseExistsAsync(cancellationToken: token); }).Throws<ObjectDisposedException>();
         await Assert.That(async () => { await access.ExecuteScalarAsyncCore("SELECT 1", token); }).Throws<ObjectDisposedException>();
     }
 
@@ -43,18 +43,18 @@ public sealed class NativeAsyncAdministrationTests
     {
         using var schema = ServerSchemaDatabase.Create(descriptor, nameof(ProbesPreserveNamesAndObserveFreshState), "CREATE TABLE `odd'name` (id INT PRIMARY KEY)");
         using var provider = CreateProvider(schema);
-        await Assert.That(await provider.FileOrServerExistsAsyncCore()).IsTrue();
-        await Assert.That(await provider.DatabaseExistsAsyncCore()).IsEqualTo(provider.DatabaseExists());
-        await Assert.That(await provider.TableExistsAsyncCore("odd'name")).IsEqualTo(provider.TableExists("odd'name"));
-        await Assert.That(await provider.TableExistsAsyncCore("' OR 1=1 --")).IsFalse();
-        await Assert.That(await provider.DatabaseExistsAsyncCore("no_such_database_' OR 1=1")).IsFalse();
-        await Assert.That(await provider.DatabaseExistsAsyncCore("INFORMATION_SCHEMA")).IsTrue();
-        await Assert.That(await provider.TableExistsAsyncCore("tables", "INFORMATION_SCHEMA")).IsTrue();
-        await Assert.That(await provider.TableExistsAsyncCore("created_later")).IsFalse();
+        await Assert.That(await provider.FileOrServerExistsAsync()).IsTrue();
+        await Assert.That(await provider.DatabaseExistsAsync()).IsEqualTo(provider.DatabaseExists());
+        await Assert.That(await provider.TableExistsAsync("odd'name")).IsEqualTo(provider.TableExists("odd'name"));
+        await Assert.That(await provider.TableExistsAsync("' OR 1=1 --")).IsFalse();
+        await Assert.That(await provider.DatabaseExistsAsync("no_such_database_' OR 1=1")).IsFalse();
+        await Assert.That(await provider.DatabaseExistsAsync("INFORMATION_SCHEMA")).IsTrue();
+        await Assert.That(await provider.TableExistsAsync("tables", "INFORMATION_SCHEMA")).IsTrue();
+        await Assert.That(await provider.TableExistsAsync("created_later")).IsFalse();
         schema.ExecuteNonQuery("CREATE TABLE created_later (id INT PRIMARY KEY)");
-        await Assert.That(await provider.TableExistsAsyncCore("created_later")).IsTrue();
+        await Assert.That(await provider.TableExistsAsync("created_later")).IsTrue();
         schema.ExecuteNonQuery("DROP TABLE created_later");
-        await Assert.That(await provider.TableExistsAsyncCore("created_later")).IsFalse();
+        await Assert.That(await provider.TableExistsAsync("created_later")).IsFalse();
     }
 
     [Test]
@@ -65,12 +65,12 @@ public sealed class NativeAsyncAdministrationTests
         using var schema = ServerSchemaDatabase.Create(descriptor, nameof(OnlyAvailabilityMapsAuthenticationFailureToFalse));
         var connection = new MySqlConnectionStringBuilder(schema.Connection.ConnectionString) { UserID = "w2_nonexistent_user", Password = "invalid", ConnectionTimeout = 2 };
         using var provider = CreateProvider(schema, connection.ConnectionString);
-        await Assert.That(await provider.FileOrServerExistsAsyncCore()).IsFalse();
-        var failure = await Assert.That(async () => { await provider.DatabaseExistsAsyncCore(); }).Throws<MySqlException>();
+        await Assert.That(await provider.FileOrServerExistsAsync()).IsFalse();
+        var failure = await Assert.That(async () => { await provider.DatabaseExistsAsync(); }).Throws<MySqlException>();
         await Assert.That(ExecutionFailureContexts.Get(failure!)!.Cause).IsEqualTo(ExecutionFailureCause.ProviderError);
         await Assert.That(ExecutionFailureContexts.Get(failure!)!.Operation).IsEqualTo(ExecutionOperationKind.ExistenceCheck);
-        await Assert.That(async () => { await provider.TableExistsAsyncCore("items"); }).Throws<MySqlException>();
-        await Assert.That(async () => { await provider.FileOrServerExistsAsyncCore(new(true)); }).Throws<OperationCanceledException>();
+        await Assert.That(async () => { await provider.TableExistsAsync("items"); }).Throws<MySqlException>();
+        await Assert.That(async () => { await provider.FileOrServerExistsAsync(new(true)); }).Throws<OperationCanceledException>();
     }
 
     [Test]
@@ -83,14 +83,14 @@ public sealed class NativeAsyncAdministrationTests
         using var provider = CreateProvider(schema, logging: new(logger));
         logger.Enabled = true;
         Exception? failure;
-        try { failure = await Assert.That(async () => { await provider.FileOrServerExistsAsyncCore(); }).Throws<InvalidOperationException>(); }
+        try { failure = await Assert.That(async () => { await provider.FileOrServerExistsAsync(); }).Throws<InvalidOperationException>(); }
         finally { logger.Enabled = false; }
         await Assert.That(failure).IsSameReferenceAs(logger.Failure);
         var context = ExecutionFailureContexts.Get(failure!)!;
         await Assert.That(context.Operation).IsEqualTo(ExecutionOperationKind.ExistenceCheck);
         await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Notification);
         await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.ApplicationError);
-        await Assert.That(await provider.FileOrServerExistsAsyncCore()).IsTrue();
+        await Assert.That(await provider.FileOrServerExistsAsync()).IsTrue();
     }
 
     [Test]
@@ -104,15 +104,15 @@ public sealed class NativeAsyncAdministrationTests
         try
         {
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            var pending = provider.FileOrServerExistsAsyncCore(cancellation.Token);
+            var pending = provider.FileOrServerExistsAsync(cancellation.Token);
             await Assert.That(pending.IsCompleted).IsFalse();
             cancellation.Cancel();
             await Assert.That(async () => { await pending; }).Throws<OperationCanceledException>();
             await Assert.That(await reader.ReadNextRowAsync(default)).IsTrue();
         }
         finally { await reader.DisposeAsync(); }
-        await Assert.That(await provider.FileOrServerExistsAsyncCore()).IsTrue();
-        await Assert.That(await provider.DatabaseExistsAsyncCore()).IsTrue();
+        await Assert.That(await provider.FileOrServerExistsAsync()).IsTrue();
+        await Assert.That(await provider.DatabaseExistsAsync()).IsTrue();
     }
 
     [Test]
@@ -127,20 +127,20 @@ public sealed class NativeAsyncAdministrationTests
         using var provider = CreateProvider(schema, connection.ConnectionString);
         var factory = SqlFromMetadataFactory.GetFactoryFromDatabaseType(descriptor.DatabaseType);
         var sql = new Sql("CREATE TABLE created (id INT PRIMARY KEY); INSERT INTO created VALUES (1)");
-        await Assert.That(async () => { await factory.CreateDatabaseAsyncCore(sql, name, connection.ConnectionString, true, new(true)); }).Throws<OperationCanceledException>();
-        await Assert.That(await provider.DatabaseExistsAsyncCore()).IsFalse();
-        var pending = factory.CreateDatabaseAsyncCore(sql, name, connection.ConnectionString, true);
+        await Assert.That(async () => { await factory.CreateDatabaseAsync(sql, name, connection.ConnectionString, true, new(true)); }).Throws<OperationCanceledException>();
+        await Assert.That(await provider.DatabaseExistsAsync()).IsFalse();
+        var pending = factory.CreateDatabaseAsync(sql, name, connection.ConnectionString, true);
         sql.AddText("; INVALID SQL THAT MUST NOT BE CAPTURED LATE");
         _ = (await pending).ValueOrException();
-        await Assert.That(await provider.DatabaseExistsAsyncCore()).IsTrue();
-        await Assert.That(await provider.TableExistsAsyncCore("created")).IsTrue();
+        await Assert.That(await provider.DatabaseExistsAsync()).IsTrue();
+        await Assert.That(await provider.TableExistsAsync("created")).IsTrue();
         var prefix = new Sql("CREATE TABLE kept_prefix (id INT PRIMARY KEY); INSERT INTO missing_table VALUES (1); CREATE TABLE skipped_suffix (id INT)");
-        var failure = await Assert.That(async () => { await factory.CreateDatabaseAsyncCore(prefix, name, connection.ConnectionString, true); }).Throws<MySqlException>();
+        var failure = await Assert.That(async () => { await factory.CreateDatabaseAsync(prefix, name, connection.ConnectionString, true); }).Throws<MySqlException>();
         await Assert.That(ExecutionFailureContexts.Get(failure!)!.Operation).IsEqualTo(ExecutionOperationKind.Provisioning);
         await Assert.That(ExecutionFailureContexts.Get(failure!)!.Completion).IsEqualTo(ExecutionCompletion.NotApplicable);
-        await Assert.That(await provider.TableExistsAsyncCore("kept_prefix")).IsTrue();
-        await Assert.That(await provider.TableExistsAsyncCore("skipped_suffix")).IsFalse();
-        await Assert.That(await provider.TableExistsAsyncCore("created")).IsTrue();
+        await Assert.That(await provider.TableExistsAsync("kept_prefix")).IsTrue();
+        await Assert.That(await provider.TableExistsAsync("skipped_suffix")).IsFalse();
+        await Assert.That(await provider.TableExistsAsync("created")).IsTrue();
     }
 
     [Test]
@@ -169,7 +169,7 @@ public sealed class NativeAsyncAdministrationTests
         finally { await session.DisposeAsync(); }
         await session.DisposeAsync();
         await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
-        await Assert.That(await provider.FileOrServerExistsAsyncCore()).IsTrue();
+        await Assert.That(await provider.FileOrServerExistsAsync()).IsTrue();
     }
 
     [Test]
@@ -197,7 +197,7 @@ public sealed class NativeAsyncAdministrationTests
                 await Assert.That(command.Connection).IsNull();
                 await Assert.That(command.Transaction).IsNull();
                 await Assert.That(transactionConnection!.State).IsEqualTo(ConnectionState.Open);
-                await Assert.That(async () => { await provider.DatabaseExistsAsyncCore(); }).Throws<ObjectDisposedException>();
+                await Assert.That(async () => { await provider.DatabaseExistsAsync(); }).Throws<ObjectDisposedException>();
             }
             finally { await transaction.DisposeAsyncCore(); }
             await Assert.That(transactionConnection!.State).IsEqualTo(ConnectionState.Closed);

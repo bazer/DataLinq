@@ -21,6 +21,27 @@ public sealed partial class AsyncProvisioningTests
     private static DatabaseDefinition Metadata() => new("destination", new("Database", "Tests", ModelCsType.Class));
 
     [Test]
+    public async Task PublicRegistrationDispatchHonorsAnExternalStyleAsyncFactoryOverride()
+    {
+        var factory = new PublicAsyncFactory();
+        var type = Register(factory);
+        await Assert.That((await type.CreateDatabaseFromSqlAsync(new Sql("script"), "database", "connection", false)).ValueOrException()).IsEqualTo(41);
+        await Assert.That((await type.CreateDatabaseFromMetadataAsync(Metadata(), "database", "connection", true)).ValueOrException()).IsEqualTo(41);
+        await Assert.That(factory.AsyncCalls).IsEqualTo(2);
+        await Assert.That(factory.SyncCreates).IsEqualTo(0);
+    }
+
+    // This implementation has no internal execution capability; dispatch must use
+    // the public factory contract rather than bypassing it for an internal adapter.
+    private sealed class PublicAsyncFactory : LegacyFactory, ISqlFromMetadataFactory
+    {
+        internal int AsyncCalls;
+        public Task<Option<int, IDLOptionFailure>> CreateDatabaseAsync(Sql sql, string databaseName, string connectionString,
+            bool foreignKeyRestrict, CancellationToken cancellationToken = default)
+        { AsyncCalls++; return Task.FromResult<Option<int, IDLOptionFailure>>(41); }
+    }
+
+    [Test]
     [Arguments(false)]
     [Arguments(true)]
     public async Task NontransactionalCorrelation_ProvisioningDoesNotInventOrImportProviderIdentity(bool reused)
@@ -76,8 +97,8 @@ public sealed partial class AsyncProvisioningTests
         var factory = new LegacyFactory();
         var type = Register(factory);
         var failure = await Fails(() => registered
-            ? type.CreateDatabaseFromSqlAsyncCore(new Sql("script"), "database", "connection", false, new(true))
-            : factory.CreateDatabaseAsyncCore(new Sql("script"), "database", "connection", false, new(true)));
+            ? type.CreateDatabaseFromSqlAsync(new Sql("script"), "database", "connection", false, new(true))
+            : ((ISqlFromMetadataFactory)factory).CreateDatabaseAsync(new Sql("script"), "database", "connection", false, new(true)));
         await Assert.That(failure).IsTypeOf<NotSupportedException>();
         await Assert.That(factory.SyncCreates).IsEqualTo(0);
     }
@@ -89,8 +110,8 @@ public sealed partial class AsyncProvisioningTests
     {
         var type = (DatabaseType)Interlocked.Increment(ref registrationId);
         var result = await (metadata
-            ? type.CreateDatabaseFromMetadataAsyncCore(Metadata(), "database", "connection", false, new(true))
-            : type.CreateDatabaseFromSqlAsyncCore(new Sql("script"), "database", "connection", false, new(true)));
+            ? type.CreateDatabaseFromMetadataAsync(Metadata(), "database", "connection", false, new(true))
+            : type.CreateDatabaseFromSqlAsync(new Sql("script"), "database", "connection", false, new(true)));
         await Assert.That(result.HasFailed).IsTrue();
     }
 
@@ -99,7 +120,7 @@ public sealed partial class AsyncProvisioningTests
     {
         var expected = DLOptionFailure.Fail(DLFailureType.InvalidModel, "invalid generation input");
         var factory = new ProvisioningFactory { GenerationFailure = expected };
-        var result = await Register(factory).CreateDatabaseFromMetadataAsyncCore(Metadata(), "database", "connection", true, new(true));
+        var result = await Register(factory).CreateDatabaseFromMetadataAsync(Metadata(), "database", "connection", true, new(true));
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure).IsSameReferenceAs(expected);
         await Assert.That(factory.Generations).IsEqualTo(1);
@@ -114,7 +135,7 @@ public sealed partial class AsyncProvisioningTests
         var replacement = new ProvisioningFactory();
         var type = Register(original);
         original.Generating = () => Replace(type, replacement);
-        var result = await type.CreateDatabaseFromMetadataAsyncCore(Metadata(), "database", "connection", true);
+        var result = await type.CreateDatabaseFromMetadataAsync(Metadata(), "database", "connection", true);
         await Assert.That(result.Value).IsEqualTo(7);
         await Assert.That(original.Generations).IsEqualTo(1);
         await Assert.That(original.Captures).IsEqualTo(1);
@@ -137,8 +158,8 @@ public sealed partial class AsyncProvisioningTests
         // would silently turn this into a different, parameterized script API.
         sql.AddParameter("unused", new byte[] { 1 });
         var pending = metadata
-            ? type.CreateDatabaseFromMetadataAsyncCore(Metadata(), "database", "connection", true)
-            : type.CreateDatabaseFromSqlAsyncCore(sql, "database", "connection", true);
+            ? type.CreateDatabaseFromMetadataAsync(Metadata(), "database", "connection", true)
+            : type.CreateDatabaseFromSqlAsync(sql, "database", "connection", true);
         await original.Session.Initialization.Entered.WaitAsync(Timeout);
         var replacement = new ProvisioningFactory();
         Replace(type, replacement);
@@ -173,7 +194,7 @@ public sealed partial class AsyncProvisioningTests
         var factory = new ProvisioningFactory();
         var expected = new NotSupportedException("unsupported provisioning cleanup");
         if (invalid) factory.Plan.ValidationFailure = expected;
-        var failure = await Fails(() => factory.CreateDatabaseAsyncCore(new Sql("script"), "database", "connection", false, new(true)));
+        var failure = await Fails(() => ((ISqlFromMetadataFactory)factory).CreateDatabaseAsync(new Sql("script"), "database", "connection", false, new(true)));
         if (invalid) await Assert.That(failure).IsSameReferenceAs(expected);
         else await Assert.That(failure is OperationCanceledException).IsTrue();
         await Assert.That(factory.Plan.Validations).IsEqualTo(1);
@@ -302,9 +323,9 @@ public sealed partial class AsyncProvisioningTests
         var factory = new ProvisioningFactory();
         var type = Register(factory);
         var failure = await Fails(() => metadata
-            ? type.CreateDatabaseFromMetadataAsyncCore(argument == "input" ? null! : Metadata(),
+            ? type.CreateDatabaseFromMetadataAsync(argument == "input" ? null! : Metadata(),
                 argument == "database" ? null! : "database", argument == "connection" ? null! : "connection", false, new(true))
-            : type.CreateDatabaseFromSqlAsyncCore(argument == "input" ? null! : new Sql("script"),
+            : type.CreateDatabaseFromSqlAsync(argument == "input" ? null! : new Sql("script"),
                 argument == "database" ? null! : "database", argument == "connection" ? null! : "connection", false, new(true)));
         await Assert.That(failure).IsTypeOf<ArgumentNullException>();
         await Assert.That(factory.Generations).IsEqualTo(0);
@@ -405,7 +426,7 @@ public sealed partial class AsyncProvisioningTests
     }
 
     private static Task<Option<int, IDLOptionFailure>> Create(ProvisioningFactory factory, CancellationToken token = default) =>
-        factory.CreateDatabaseAsyncCore(new Sql("script"), "database", "connection", true, token);
+        ((ISqlFromMetadataFactory)factory).CreateDatabaseAsync(new Sql("script"), "database", "connection", true, token);
 
     private static async Task<Exception> Fails(Func<Task> action)
     {
