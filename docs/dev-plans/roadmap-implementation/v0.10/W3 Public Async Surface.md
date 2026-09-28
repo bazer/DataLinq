@@ -227,3 +227,19 @@ Verification:
 Summaries use artifacts/w3-administration-*, artifacts/w3-public-provisioning-summary.json and artifacts/w3-public-metadata-*. These remain development checks. A05-A07 and their supporting runtime-validation behavior stay in W5. Lower-level L01-L17 and W3.7 remain open.
 
 The user explicitly approved the proposed narrow protected generator helper on Mutable<T> on 2026-09-28. Implement and document that addition with M10; the earlier pending API question is resolved. It must preserve owned edited-mutation input reservations through commit and cleanup rather than relying on a transaction mutation's shorter reservation.
+
+## W3.4c Generated Mutation Checkpoint
+
+Implemented all nineteen M10 InsertAsync/UpdateAsync/SaveAsync receiver shapes. Typed local editing callbacks execute before suspension after input and cancellation validation. Explicit-transaction helpers leave completion to their caller. Database/source-derived helpers own a separate transaction, and immutable Save remains an Update alias.
+
+AAPI-112 records the user-approved protected Mutable<T>.ExecuteGeneratedMutationAsync bridge and its exact signature. An internal generated forwarding method reaches that bridge without adding a public generated support member. The shared owned mutation runner captures after edits and retains reservations until commit and both cleanup attempts finish. Invalid operation kinds are rejected before provider capability checks or transaction creation.
+
+Verification:
+
+- Generated signature/consumer cases pass with nullable annotations enabled and disabled, covering every receiver, named arguments, optional tokens, parameter names, Task<Model> results and internal forwarding accessibility. Focused run 20260928T165936585Z-a1275fe5bb404f6eb22e2e6dba5e3166: 2/2.
+- Eight controlled runtime cases pass, including paused commit/transaction cleanup/connection cleanup, conflicting setters/reset/other transaction writes, pre-cancellation and lifecycle validation before edits, editing failure identity/cleanup and invalid protected bridge operation. Run 20260928T170027345Z-04f164c676f5460ab6cec56737d7d2c3.
+- Full quick run passes 4,926/4,926 (101 generators, 4,037 unit, 223 Memory, 565 SQLite-file compliance). Run 20260928T170130979Z-2b621bb169304b9fb3d6ccdc408b0642.
+- Generated mutation provider cases pass 8/8 across SQLite file/memory, MySQL 9.7 and MariaDB 12.3, covering all nineteen receiver families, persisted results, explicit transaction ownership/rollback, cancellation and immutable-null Save rejection. Run 20260928T170331851Z-5dc76632ae4746c28223a37117d2acd4. An earlier CLI invocation omitted PowerShell quotes around the comma-separated target list and failed target selection before any tests; the quoted invocation is the recorded run.
+- CI on the preceding administration commit ce84ff3a passed all twelve checks in run 36454430490. This does not certify the new generated mutation commit.
+
+Summaries: artifacts/w3-generated-mutations-{generator,unit,quick,providers}-summary.json. These are development-working-tree checks, not frozen or packed-consumer receipts. W3.4 implementation is complete; its packed/generated compatibility evidence remains W3.7. Lower-level L01-L17 and the rest of W3.7 remain open; W5 validation and deferred benchmarks are unchanged.

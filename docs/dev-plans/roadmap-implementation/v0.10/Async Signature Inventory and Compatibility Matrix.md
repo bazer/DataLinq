@@ -169,6 +169,8 @@ Callbacks execute once; helpers own completion and return results after finaliza
 
 M10 covers the existing generated extension templates; retain their emitted namespace and argument names. `M` is the generated public model and `MM` its generated mutable type. Every row returns `Task<M>` and appends `ct`. Multiple entries in a cell are separate overloads; no implicit Cartesian product is intended.
 
+**Explicit support API addition, accepted 2026-09-28 (AAPI-112):** `Mutable<T>` adds `protected static Task<T> ExecuteGeneratedMutationAsync<TMutable>(IDatabaseProvider provider, TMutable model, Action<TMutable> changes, TransactionChangeType? changeType, CancellationToken cancellationToken) where TMutable : Mutable<T>`. All arguments are required, and the enclosing `T : class, IImmutableInstance` constraint is retained. Only Insert, Update or null (Save) is supported. The generated forwarding member is internal. The bridge owns the transaction and retains captured input reservations through completion and cleanup; explicit-transaction M10 overloads remain borrowed. Include this protected signature in emitted manifests and consumer compatibility review.
+
 | Member | Receiver and remaining existing arguments |
 | --- | --- |
 | `InsertAsync` | `this MM model, Database<D> database` |

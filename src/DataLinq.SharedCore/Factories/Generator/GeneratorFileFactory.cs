@@ -1383,6 +1383,9 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}public partial class Mutable{model.CsType.Name} : Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}";
         yield return namespaceTab + "{";
 
+        yield return $"{namespaceTab}{tab}internal static global::System.Threading.Tasks.Task<{model.CsType.Name}> ExecuteOwnedMutationAsync(global::DataLinq.Interfaces.IDatabaseProvider provider, Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, TransactionChangeType? changeType, global::System.Threading.CancellationToken cancellationToken) =>";
+        yield return $"{namespaceTab}{tab}{tab}ExecuteGeneratedMutationAsync(provider, model, changes, changeType, cancellationToken);";
+
         var defaultProps = GetDefaultValueProperties(model);
 
         // Parameterless constructor for users who prefer setting properties via setters.
@@ -1565,7 +1568,49 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Transaction transaction, Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Save(changes, transaction);";
 
+        foreach (var row in AsyncMutationExtensionMethods(model))
+            yield return row;
+
         yield return namespaceTab + "}";
+    }
+
+    private IEnumerable<string> AsyncMutationExtensionMethods(ModelDefinition model)
+    {
+        var name = model.CsType.Name;
+        var mutable = $"Mutable{name}";
+        var action = $"Action<{mutable}> changes";
+        var token = "global::System.Threading.CancellationToken cancellationToken = default";
+        var methods = new (string Name, string Parameters, string Body)[]
+        {
+            ("InsertAsync<T>", $"this {mutable} model, Database<T> database", "database.InsertAsync(model, cancellationToken: cancellationToken)"),
+            ("InsertAsync", $"this {mutable} model, {action}, Transaction transaction", $"transaction.InsertAsync<{name}, {mutable}>(model, changes, cancellationToken)"),
+            ("InsertAsync<T>", $"this {mutable} model, {action}, Database<T> database", $"{mutable}.ExecuteOwnedMutationAsync(database.Provider, model, changes, TransactionChangeType.Insert, cancellationToken)"),
+            ("InsertAsync", $"this Transaction transaction, {mutable} model, {action}", $"transaction.InsertAsync<{name}, {mutable}>(model, changes, cancellationToken)"),
+            ("UpdateAsync", $"this {name} model, {action}", $"{mutable}.ExecuteOwnedMutationAsync(model.GetDataSource().Provider, model.Mutate(), changes, TransactionChangeType.Update, cancellationToken)"),
+            ("UpdateAsync", $"this {name} model, {action}, Transaction transaction", $"transaction.UpdateAsync<{name}, {mutable}>(model.Mutate(), changes, cancellationToken)"),
+            ("UpdateAsync<T>", $"this Database<T> database, {name} model, {action}", $"{mutable}.ExecuteOwnedMutationAsync(database.Provider, model.Mutate(), changes, TransactionChangeType.Update, cancellationToken)"),
+            ("UpdateAsync", $"this Transaction transaction, {name} model, {action}", $"transaction.UpdateAsync<{name}, {mutable}>(model.Mutate(), changes, cancellationToken)"),
+            ("UpdateAsync<T>", $"this {mutable} model, Database<T> database", "database.UpdateAsync(model, cancellationToken: cancellationToken)"),
+            // Immutable Save deliberately remains an Update alias, including its null behavior.
+            ("SaveAsync", $"this {name} model, {action}", "model.UpdateAsync(changes, cancellationToken)"),
+            ("SaveAsync", $"this {name} model, {action}, Transaction transaction", "model.UpdateAsync(changes, transaction, cancellationToken)"),
+            ("SaveAsync<T>", $"this Database<T> database, {name} model, {action}", $"{name}Extensions.UpdateAsync(database, model, changes, cancellationToken)"),
+            ("SaveAsync", $"this Transaction transaction, {name} model, {action}", "model.UpdateAsync(changes, transaction, cancellationToken)"),
+            ("SaveAsync<T>", $"this {name} model, {action}, Database<T> database", $"{name}Extensions.UpdateAsync(database, model, changes, cancellationToken)"),
+            ("SaveAsync<T>", $"this {mutable} model, Database<T> database", "database.SaveAsync(model, cancellationToken: cancellationToken)"),
+            ("SaveAsync", $"this {mutable} model, {action}, Transaction transaction", $"transaction.SaveAsync<{name}, {mutable}>(model, changes, cancellationToken)"),
+            ("SaveAsync<T>", $"this {mutable} model, {action}, Database<T> database", $"{mutable}.ExecuteOwnedMutationAsync(database.Provider, model, changes, null, cancellationToken)"),
+            ("SaveAsync", $"this {mutable} model, Transaction transaction", "transaction.SaveAsync(model, cancellationToken)"),
+            ("SaveAsync", $"this Transaction transaction, {mutable} model, {action}", $"transaction.SaveAsync<{name}, {mutable}>(model, changes, cancellationToken)")
+        };
+        foreach (var method in methods)
+        {
+            var constraint = method.Name.EndsWith("<T>", StringComparison.Ordinal) ? " where T : class, IDatabaseModel<T>" : "";
+            yield return $"{namespaceTab}{tab}/// <summary>Executes a typed asynchronous mutation; local changes run synchronously before suspension.</summary>";
+            yield return $"{namespaceTab}{tab}/// <remarks>Database and source-derived helpers own completion and cleanup. Explicit transactions remain caller-owned.</remarks>";
+            yield return $"{namespaceTab}{tab}public static global::System.Threading.Tasks.Task<{name}> {method.Name}({method.Parameters}, {token}){constraint} =>";
+            yield return $"{namespaceTab}{tab}{tab}{method.Body};";
+        }
     }
 
     private string GetConstructorParam(ValueProperty property)
