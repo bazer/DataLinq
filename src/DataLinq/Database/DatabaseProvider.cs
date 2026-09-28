@@ -18,7 +18,7 @@ namespace DataLinq;
 /// Provides a generic abstract database provider for a specific type of database model.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<T>
+public abstract partial class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<T>
     where T : class, IDatabaseModel<T>
 {
     //public static DatabaseProvider<T> GetPrimaryProvider()
@@ -78,13 +78,15 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
 /// <summary>
 /// Abstract base class for database providers, encapsulating common database operations and properties.
 /// </summary>
-public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
+public abstract partial class DatabaseProvider : IDatabaseProvider, IDisposable
 {
     public string TelemetryInstanceId { get; } = Guid.NewGuid().ToString("N");
     public string DatabaseName { get; protected set; }
     public Type CsModelType { get; protected set; }
     public DatabaseType DatabaseType { get; }
     public DataLinqLoggingConfiguration LoggingConfiguration { get; }
+    /// <summary>Gets the validated execution settings captured during construction.</summary>
+    public DataLinqExecutionOptions ExecutionOptions { get; }
     public abstract IDatabaseProviderConstants Constants { get; }
 
     public string ConnectionString { get; }
@@ -136,7 +138,23 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory,
         bool createReadOnlyAccess,
         Action<DatabaseDefinition>? metadataBinder)
+        : this(connectionString, type, databaseType, loggingConfiguration, databaseName,
+            metadataFactory, createReadOnlyAccess, metadataBinder, new DataLinqExecutionOptions())
     {
+    }
+
+    private protected DatabaseProvider(
+        string connectionString,
+        Type type,
+        DatabaseType databaseType,
+        DataLinqLoggingConfiguration loggingConfiguration,
+        string? databaseName,
+        Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory,
+        bool createReadOnlyAccess,
+        Action<DatabaseDefinition>? metadataBinder,
+        DataLinqExecutionOptions executionOptions)
+    {
+        ExecutionOptions = DataLinqExecutionOptions.Capture(executionOptions);
         Metadata = DatabaseDefinition.ResolveLoadedDatabase(
             type,
             () =>

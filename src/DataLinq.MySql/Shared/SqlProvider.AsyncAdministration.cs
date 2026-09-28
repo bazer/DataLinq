@@ -10,6 +10,7 @@ namespace DataLinq.MySql;
 public abstract partial class SqlProvider<T> : IAsyncExistenceProbeSource, IAsyncRootDisposal, IAsyncProviderMetadataSource
 {
     private OwnedRootDisposal? rootDisposal;
+    internal override bool SupportsAsyncTransactions => true;
     // Avoid allocating the capturing factory on every check after publication.
     private OwnedRootDisposal RootDisposal => Volatile.Read(ref rootDisposal) ??
         LazyInitializer.EnsureInitialized(ref rootDisposal, () => new(
@@ -17,6 +18,9 @@ public abstract partial class SqlProvider<T> : IAsyncExistenceProbeSource, IAsyn
             RootCleanupStep.Resource(dataSource.Dispose, dataSource.DisposeAsync)], TelemetryInstanceId));
 
     ValueTask IAsyncRootDisposal.DisposeAsyncCore() => RootDisposal.DisposeAsync();
+
+    /// <summary>Releases this provider's owned resources asynchronously after active work has ended.</summary>
+    public override ValueTask DisposeAsync() => RootDisposal.DisposeAsync();
 
     IAsyncMetadataReadPlan IAsyncProviderMetadataSource.CaptureValidationMetadata(MetadataReadSettings settings)
     {

@@ -125,3 +125,22 @@ Verification:
 Summaries are `artifacts/w3-relations-quick-summary.json`, `artifacts/w3-relations-memory-summary.json` and `artifacts/w3-relations-providers-summary.json`. These are development-working-tree checks with `ValidForEvidence=false`; packed and old-binary acceptance remain open. The initial relation build caught and corrected generic type-argument forwarding for shared Min/Max defaults.
 
 W3.3-W3.7 remain open. The next work is public mutations, transaction callbacks/completion and disposal, with execution-options prerequisites integrated before declaring their configuration contract complete.
+
+## W3.3a Managed Mutation, Lifecycle And Options Checkpoint
+
+Implemented M01-M09 and T01-T04: database-owned mutations, transaction mutation/edit/finite-collection families, model extensions, all four typed database and untyped provider callback forms, managed completion, and async root/transaction disposal. Public methods use the W1/W2 ownership and recovery machinery. Local edits and input capture occur before suspension; caller-owned transactions are not completed by mutations. Callback results wait for finalization and cleanup, including cleanup after pre-callback validation fails. Source-less deletion validates the originating source before invoking the provider callback contract and cannot bypass a poisoned origin.
+
+Added the D06/D07 and C01/C02 prerequisites. Providers capture separate validated execution options before setup, preserve existing constructors/defaults, and offer the fully required options overloads. Transactions capture the effective automatic rollback timeout; mutation helpers, callbacks and disposal use it. It is independent of the request token and does not limit cleanup or unfinished-work draining. Legacy interface options use standard settings. The inherited `IAsyncDisposable` slot has an unsupported default; base providers retain unsupported virtual disposal and built-ins override it. Unsupported managed callback/mutation helpers reject before constructing a legacy provider transaction.
+
+Verification:
+
+- Quick run `20260928T153919930Z-a59c3a57063f43e2956e32aad41857df`: 4,855/4,855 pass (71 generators, 4,004 unit, 223 Memory, 557 SQLite-file compliance), zero failures/skips.
+- The existing controlled mutation/edit/completion cases now call the public methods. New lifecycle tests cover all twelve callback receiver/shape combinations, cleanup timing, original callback failure, null tasks, cancellation, validation cleanup and the configured rollback budget. A subsequent focused run adds poisoned-origin source-less deletion and passes 20/20.
+- Public provider run `20260928T154131037Z-38a68847bb3841119558b9a30266cdfa`: 12/12 pass across SQLite file/memory, MySQL 9.7 and MariaDB 12.3, including the final source-less provider callback dispatch. No older server versions were run locally.
+- Options tests cover null and invalid values before provider setup, inclusive bounds, distinct effective capture, constructor binding and required new parameters.
+- The non-friend source consumer builds without warnings/errors and runs on actual .NET 8.0.31/9.0.20/10.0.12. Its legacy provider implements no async members and has throwing synchronous methods; options, callback defaults and inherited async-disposal dispatch behave as specified. This remains source-project evidence, not old-binary or packed-consumer acceptance.
+- Initial compilation found a missing namespace import and two internal `token:` argument names in tests moved to public methods; corrected to the public `cancellationToken:` name before successful verification.
+
+Summaries: `artifacts/w3-mutations-quick-summary.json`, `artifacts/w3-mutations-lifecycle-summary.json` and `artifacts/w3-mutations-providers-summary.json`. These are development-working-tree checks, not frozen-candidate receipts.
+
+**Still open:** T05 direct provider-transaction completion requires a standalone lifecycle boundary; exposing managed-only native methods would be incorrect. W3.4-W3.7 also remain open, including generated APIs, lower-level/admin APIs, diagnostic snapshots, emitted manifests and packed/old-binary evidence. This checkpoint does not declare W3.3 or W3 complete.

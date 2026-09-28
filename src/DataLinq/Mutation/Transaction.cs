@@ -94,7 +94,7 @@ internal sealed record TransactionFailure(
 /// <summary>
 /// Represents a database transaction.
 /// </summary>
-public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction>
+public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposable, IEquatable<Transaction>
 {
     private static uint transactionCount = 0;
     private readonly List<StateChange> successfulChanges = [];
@@ -103,6 +103,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     private readonly bool isAttachedTransaction;
     private TransactionFailure? failure;
     internal TransactionOperationGate ExecutionGate { get; }
+    internal RecoveryRollbackSettings RecoverySettings { get; }
     private int managedCommitFinalizationState;
     private int deferredCommittedStatus;
     private int managedRollbackFinalizationState;
@@ -213,6 +214,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// <param name="type">The type of the transaction.</param>
     public Transaction(IDatabaseProvider databaseProvider, TransactionType type) : base(databaseProvider)
     {
+        RecoverySettings = new RecoveryRollbackSettings(databaseProvider.ExecutionOptions.RecoveryRollbackTimeout);
         //Provider = databaseProvider;
         DatabaseAccess = databaseProvider.GetNewDatabaseTransaction(type);
         DatabaseAccess.OnStatusChanged += HandleDatabaseStatusChanged;
@@ -239,6 +241,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// </remarks>
     public Transaction(IDatabaseProvider databaseProvider, IDbTransaction dbTransaction, TransactionType type) : base(databaseProvider)
     {
+        RecoverySettings = new RecoveryRollbackSettings(databaseProvider.ExecutionOptions.RecoveryRollbackTimeout);
         //Provider = databaseProvider;
         DatabaseAccess = databaseProvider.AttachDatabaseTransaction(dbTransaction, type);
         DatabaseAccess.OnStatusChanged += HandleDatabaseStatusChanged;

@@ -3,7 +3,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq;
 
-public static class IModelExtensions
+public static partial class IModelExtensions
 {
     public static T Insert<T>(this Mutable<T> model, Transaction transaction) where T : class, IImmutableInstance =>
         transaction.Insert(model);

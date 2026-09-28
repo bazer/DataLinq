@@ -24,7 +24,7 @@ public partial class Transaction
         // Construction is lazy and I/O-free. An unsupported adapter cannot acquire
         // resources through this helper; never substitute synchronous completion.
         var resource = new ManagedAsyncCompletion(this, RequireAsyncCompletion());
-        var settings = new RecoveryRollbackSettings();
+        var settings = RecoverySettings;
         CapturedMutation? input = null;
         var operationKind = MutationOperationKind(type);
         try

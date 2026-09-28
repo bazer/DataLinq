@@ -35,7 +35,15 @@ public abstract partial class SqlProvider<T> : DatabaseProvider<T>, IDisposable
     {
     }
 
-    public SqlProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName) : base(connectionString, databaseType, loggingConfiguration, databaseName)
+    public SqlProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName)
+        : this(connectionString, databaseType, loggingConfiguration, databaseName, new DataLinqExecutionOptions())
+    {
+    }
+
+    /// <summary>Constructs a SQL provider with validated, captured execution settings.</summary>
+    public SqlProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration,
+        string? databaseName, DataLinqExecutionOptions executionOptions)
+        : base(connectionString, databaseType, loggingConfiguration, databaseName, executionOptions)
     {
         var builder = new MySqlConnectionStringBuilder(connectionString);
 

@@ -1645,12 +1645,13 @@ public sealed partial class TransactionMutationFailureTests
         private readonly ScriptedDatabaseAccess databaseAccess;
         private readonly ScriptedWriter writer = new();
 
-        internal ScriptedMutationProvider(ScriptedMutationScenario scenario, DatabaseType databaseType = DatabaseType.SQLite)
+        internal ScriptedMutationProvider(ScriptedMutationScenario scenario, DatabaseType databaseType = DatabaseType.SQLite,
+            DataLinqExecutionOptions? executionOptions = null)
             : base(
                 "scripted-transaction-mutation-failure-tests",
                 databaseType,
                 DataLinqLoggingConfiguration.NullConfiguration,
-                "transaction-mutation-failure-tests")
+                "transaction-mutation-failure-tests", executionOptions ?? new())
         {
             this.scenario = scenario;
             databaseAccess = new ScriptedDatabaseAccess(this, scenario);
@@ -1658,6 +1659,7 @@ public sealed partial class TransactionMutationFailureTests
 
         public override IDatabaseProviderConstants Constants { get; } = new ScriptedProviderConstants();
         public override DatabaseAccess DatabaseAccess => databaseAccess;
+        internal override bool SupportsAsyncTransactions => scenario.AsyncCompletion is not null;
 
         public override IDbCommand ToDbCommand(IQuery query)
         {

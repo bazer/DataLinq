@@ -444,6 +444,7 @@ public sealed partial class TransactionMutationFailureTests
         ]));
         public override void Dispose() => Lifetime.Dispose();
         public ValueTask DisposeAsyncCore() => Lifetime.DisposeAsync();
+        public override ValueTask DisposeAsync() => Lifetime.DisposeAsync();
     }
 
     private sealed class LegacyRootTestProvider() : ScriptedMutationProvider<TransactionMutationGuardDb>(new())

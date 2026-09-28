@@ -53,10 +53,10 @@ public sealed partial class TransactionMutationFailureTests
         {
             work = kind switch
             {
-                "delete" => transaction.DeleteAsyncCore(mutable),
-                "insert" => result = transaction.InsertAsyncCore(mutable),
-                "update" => result = transaction.UpdateAsyncCore(mutable),
-                _ => result = transaction.SaveAsyncCore(mutable)
+                "delete" => transaction.DeleteAsync(mutable),
+                "insert" => result = transaction.InsertAsync(mutable),
+                "update" => result = transaction.UpdateAsync(mutable),
+                _ => result = transaction.SaveAsync(mutable)
             };
             await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
             await Assert.That(work.IsCompleted).IsFalse();
@@ -70,7 +70,7 @@ public sealed partial class TransactionMutationFailureTests
             _ = Capture<InvalidOperationException>(transaction.Commit);
             using var other = fixture.Database.Transaction();
             _ = Capture<InvalidOperationException>(() => other.Delete(mutable));
-            await Assert.That(await AsyncEnumerationFailureOf(() => other.UpdateAsyncCore(mutable))).IsTypeOf<InvalidOperationException>();
+            await Assert.That(await AsyncEnumerationFailureOf(() => other.UpdateAsync(mutable))).IsTypeOf<InvalidOperationException>();
             await Assert.That(mutable["Value"]).IsEqualTo("captured");
         }
         finally { access.Dispatch.Release(); if (work is not null) await work; }
@@ -98,7 +98,7 @@ public sealed partial class TransactionMutationFailureTests
         var mutable = fixture.CreateNewAutoMutable("submitted");
         var access = new ControlledAsyncDatabaseAccess { ScalarResult = 42L };
         var factory = EnableAsyncMutations(fixture, access, [42, "stored"]);
-        var result = await transaction.InsertAsyncCore(mutable);
+        var result = await transaction.InsertAsync(mutable);
         await Assert.That(result.Id).IsEqualTo(42);
         await Assert.That(result.Value).IsEqualTo("stored");
         await Assert.That(mutable["Id"]).IsEqualTo(42);
@@ -142,7 +142,7 @@ public sealed partial class TransactionMutationFailureTests
         });
         using var cancellation = new CancellationTokenSource();
         if (phase == "cancel-before") cancellation.Cancel();
-        var error = await AsyncEnumerationFailureOf(() => transaction.UpdateAsyncCore(mutable, cancellation.Token));
+        var error = await AsyncEnumerationFailureOf(() => transaction.UpdateAsync(mutable, cancellation.Token));
         if (phase == "cancel-before") await Assert.That(error).IsTypeOf<OperationCanceledException>();
         else await Assert.That(error).IsSameReferenceAs(expected);
         var wrote = phase is "dispatch" or "command-cleanup" or "hydrate";
@@ -179,7 +179,7 @@ public sealed partial class TransactionMutationFailureTests
         factory.ConfigureCommand = command => command.Resource.Cleanup = new(paused: true);
         var reader = new ControlledRowDataReader([1, "stored"]) { Advance = new(paused: true) };
         fixture.Scenario.AsyncSqlReaders = RawFactory(() => new() { ReaderOverride = reader, FailureEvidence = TrustedScalarRead });
-        var work = transaction.UpdateAsyncCore(mutable, cancellation.Token);
+        var work = transaction.UpdateAsync(mutable, cancellation.Token);
         var cleanup = factory.Commands[0].Resource.Cleanup;
         try
         {
@@ -218,7 +218,7 @@ public sealed partial class TransactionMutationFailureTests
             if (mode == "enumeration") throw new Exception("input enumeration");
             yield return mode == "duplicate" ? first : null!;
         }
-        _ = await AsyncEnumerationFailureOf(() => transaction.InsertAsyncCore(Input()));
+        _ = await AsyncEnumerationFailureOf(() => transaction.InsertAsync(Input()));
         await Assert.That(enumerations).IsEqualTo(1);
         await Assert.That(factory.Accesses).IsEmpty();
         await Assert.That(transaction.IsPoisoned).IsFalse();
@@ -265,7 +265,7 @@ public sealed partial class TransactionMutationFailureTests
                 command.Creating = () => { cancellation.Cancel(); return create(); };
             };
         }
-        var work = transaction.InsertAsyncCore(original, cancellation.Token);
+        var work = transaction.InsertAsync(original, cancellation.Token);
         try
         {
             await accesses[0].Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
@@ -313,8 +313,8 @@ public sealed partial class TransactionMutationFailureTests
         var factory = EnableAsyncMutations(fixture, null, [1, "current"]);
         using var cancellation = new CancellationTokenSource();
         if (cancel) cancellation.Cancel();
-        if (cancel) await Assert.That(await AsyncEnumerationFailureOf(() => transaction.UpdateAsyncCore(mutable, cancellation.Token))).IsTypeOf<OperationCanceledException>();
-        else await Assert.That((await transaction.UpdateAsyncCore(mutable)).Value).IsEqualTo("current");
+        if (cancel) await Assert.That(await AsyncEnumerationFailureOf(() => transaction.UpdateAsync(mutable, cancellation.Token))).IsTypeOf<OperationCanceledException>();
+        else await Assert.That((await transaction.UpdateAsync(mutable)).Value).IsEqualTo("current");
         await Assert.That(factory.Inputs).IsEmpty();
         await Assert.That(transaction.Changes).IsEmpty();
         await Assert.That(mutable["Value"]).IsEqualTo("old baseline");
@@ -369,7 +369,7 @@ public sealed partial class TransactionMutationFailureTests
         mutable["Payload"] = escaped;
         var access = new ControlledAsyncDatabaseAccess(new(paused: true)) { NonQueryResult = 1, FailureEvidence = TrustedScalarRead };
         var factory = EnableAsyncMutations(fixture, access);
-        var work = transaction.UpdateAsyncCore(mutable);
+        var work = transaction.UpdateAsync(mutable);
         try
         {
             await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
@@ -393,7 +393,7 @@ public sealed partial class TransactionMutationFailureTests
         var mutable = fixture.CreateExistingMutable(1, "old");
         var factory = EnableAsyncMutations(fixture);
         factory.ConfigureCommand = command => command.Resource.Disposing = cancellation.Cancel;
-        await transaction.DeleteAsyncCore(mutable, cancellation.Token);
+        await transaction.DeleteAsync(mutable, cancellation.Token);
         await Assert.That(cancellation.IsCancellationRequested).IsTrue();
         await Assert.That(mutable.IsDeleted()).IsTrue();
         await Assert.That(transaction.IsPoisoned).IsFalse();
@@ -419,7 +419,7 @@ public sealed partial class TransactionMutationFailureTests
             command.Resource.Cleanup = new(paused: true);
             command.Resource.Cleanup.Fail(cleanupFailure);
         };
-        var error = await AsyncEnumerationFailureOf(() => transaction.DeleteAsyncCore(mutable));
+        var error = await AsyncEnumerationFailureOf(() => transaction.DeleteAsync(mutable));
         await Assert.That(error).IsSameReferenceAs(expected);
         await Assert.That(transaction.IsPoisoned).IsTrue();
         var context = transaction.AsyncFailureContext!;
@@ -446,7 +446,7 @@ public sealed partial class TransactionMutationFailureTests
         Task? pending = null;
         var helper = transaction.RunCallbackAsyncCore(token =>
         {
-            pending = transaction.DeleteAsyncCore(mutable, token);
+            pending = transaction.DeleteAsync(mutable, token);
             return Task.FromResult(19);
         }, new());
         try
@@ -468,7 +468,7 @@ public sealed partial class TransactionMutationFailureTests
             access.Dispatch.Release();
             if (pending is not null) { try { await pending; } catch { } }
             try { await helper; } catch { }
-            await transaction.DisposeAsyncCore();
+            await transaction.DisposeAsync();
         }
         mutable["Value"] = "released";
     }
@@ -485,13 +485,13 @@ public sealed partial class TransactionMutationFailureTests
         var factory = EnableAsyncMutations(fixture);
         factory.Initialization = lazy;
         var mutable = fixture.CreateExistingMutable(1, "old");
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DeleteAsyncCore(mutable))).IsSameReferenceAs(expected);
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DeleteAsync(mutable))).IsSameReferenceAs(expected);
         await Assert.That(transaction.AsyncFailureContext!.Stage).IsEqualTo(ExecutionFailureStage.Initialization);
         await Assert.That(transaction.AsyncFailureContext.Recovery).IsEqualTo(ExecutionRecoveryActions.Dispose);
         await Assert.That(factory.Commands[0].Creates).IsEqualTo(0);
         await Assert.That(transaction.IsPoisoned).IsFalse();
         mutable["Value"] = "released";
-        await transaction.DisposeAsyncCore();
+        await transaction.DisposeAsync();
     }
 
     [Test]
@@ -509,7 +509,7 @@ public sealed partial class TransactionMutationFailureTests
         if (nullEvidence) access.FailureEvidence = null!;
         else access.EvidenceFailure = assessment;
         EnableAsyncMutations(fixture, access);
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DeleteAsyncCore(mutable))).IsSameReferenceAs(expected);
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DeleteAsync(mutable))).IsSameReferenceAs(expected);
         var context = transaction.AsyncFailureContext!;
         await Assert.That(context.Recovery).IsEqualTo(ExecutionRecoveryActions.Dispose);
         await Assert.That(context.SecondaryFailures.Count).IsEqualTo(1);

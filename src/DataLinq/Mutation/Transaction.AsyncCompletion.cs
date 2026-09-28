@@ -8,7 +8,17 @@ namespace DataLinq.Mutation;
 
 public partial class Transaction
 {
-    // Internal entry points until W2 provider evidence and W3 public declarations.
+    /// <summary>Commits this transaction asynchronously, including managed state finalization.</summary>
+    /// <remarks>Complete all active work first. Failure or cancellation does not establish whether a dispatched commit took effect.</remarks>
+    public Task CommitAsync(CancellationToken cancellationToken = default) => CommitAsyncCore(cancellationToken);
+
+    /// <summary>Rolls back this transaction asynchronously.</summary>
+    public Task RollbackAsync(CancellationToken cancellationToken = default) => RollbackAsyncCore(cancellationToken);
+
+    /// <summary>Performs permitted recovery and disposes this transaction asynchronously.</summary>
+    /// <remarks>Automatic rollback uses the provider's captured timeout independently of request cancellation.</remarks>
+    public ValueTask DisposeAsync() => DisposeAsyncCore();
+
     internal Task CommitAsyncCore(CancellationToken cancellationToken = default) =>
         CompleteAsyncCore(commit: true, cancellationToken);
 
@@ -53,7 +63,7 @@ public partial class Transaction
             catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Recovery, fallbackOperation: ExecutionOperationKind.Dispose); }
         }
         var recovery = new AutomaticTransactionRecovery(ExecutionGate, operation, resource,
-            settings ?? new(), failures, resource.Completion, actions, TransactionID, timeProvider);
+            settings ?? RecoverySettings, failures, resource.Completion, actions, TransactionID, timeProvider);
         try { await recovery.DisposeAsync().ConfigureAwait(false); }
         finally
         {
@@ -92,6 +102,35 @@ public partial class Transaction
     private IAsyncTransactionCompletion RequireAsyncCompletion() =>
         DatabaseAccess as IAsyncTransactionCompletion ?? throw new NotSupportedException(
             $"Provider transaction '{DatabaseAccess.GetType().Name}' does not implement explicit asynchronous completion.");
+
+    internal async Task<TResult> RunOwnedCallbackAsyncCore<TResult>(Func<CancellationToken, Task<TResult>> callback,
+        CancellationToken cancellationToken)
+    {
+        using var diagnostics = ExecutionFailureScope.Begin();
+        var resource = new ManagedAsyncCompletion(this, RequireAsyncCompletion());
+        try
+        {
+            return await RunCallbackAsyncCore(callback, RecoverySettings, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception failure) when (!IsDisposed)
+        {
+            // Validation may fail before the callback runner acquires its lifetime.
+            // This helper still owns the lazy transaction and must dispose it.
+            var failures = new ExecutionFailures();
+            failures.AddReported(failure, ExecutionFailureStage.Validation, fallbackOperation: ExecutionOperationKind.TransactionCallback);
+            using var operation = BeginExclusiveOperation("clean up failed transaction helper", completion: true,
+                operationKind: ExecutionOperationKind.TransactionCallback);
+            var recovery = new AutomaticTransactionRecovery(ExecutionGate, operation, resource, RecoverySettings,
+                failures, resource.Completion, ExecutionRecoveryActions.Dispose, TransactionID);
+            try { await recovery.DisposeAsync().ConfigureAwait(false); }
+            finally
+            {
+                if (recovery.FailureContext is { } context) Volatile.Write(ref asyncFailureContext, context);
+                if (IsDisposed) UpdateAsyncRecovery(resource.Completion, ExecutionRecoveryActions.None);
+            }
+            throw;
+        }
+    }
 
     private sealed class ManagedAsyncCompletion(Transaction transaction, IAsyncTransactionCompletion provider)
         : IAsyncHelperTransaction

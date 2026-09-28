@@ -28,7 +28,22 @@ if (await relation.CountAsync() != 0 || await relationInterface.CountAsync() != 
     throw new InvalidOperationException("Concrete/interface async relation defaults disagree.");
 if (await relation.AsAsyncEnumerable().AnyAsync())
     throw new InvalidOperationException("The empty relation produced a row.");
+IDatabaseProvider legacy = new LegacyProvider();
+if (legacy.ExecutionOptions.RecoveryRollbackTimeout != TimeSpan.FromSeconds(30))
+    throw new InvalidOperationException("Legacy options default changed.");
+await RejectTask(() => ((IAsyncDisposable)legacy).DisposeAsync().AsTask());
+await RejectTask(() => legacy.CommitAsync(_ => Task.CompletedTask));
+await RejectTask(() => legacy.CommitAsync((_, _) => Task.CompletedTask));
+await RejectTask(() => legacy.CommitAsync(_ => Task.FromResult(42)));
+await RejectTask(() => legacy.CommitAsync((_, _) => Task.FromResult(42)));
 Console.WriteLine("Public async query consumer passed on " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
+
+static async Task RejectTask(Func<Task> action)
+{
+    try { await action(); }
+    catch (NotSupportedException) { return; }
+    throw new InvalidOperationException("A legacy async default was accepted.");
+}
 
 static async Task Reject<T>(Func<ValueTask<T>> action)
 {

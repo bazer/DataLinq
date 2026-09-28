@@ -34,7 +34,14 @@ public class MariaDBProvider<T> : SqlProvider<T> where T : class, IDatabaseModel
     }
 
     public MariaDBProvider(string connectionString, string? databaseName = null, DataLinqLoggingConfiguration? loggerFactory = null)
-        : base(connectionString, DatabaseType.MariaDB, loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration, databaseName)
+        : this(connectionString, databaseName, loggerFactory, new DataLinqExecutionOptions())
+    {
+    }
+
+    /// <summary>Constructs a provider with validated, captured execution settings.</summary>
+    public MariaDBProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration? loggerFactory,
+        DataLinqExecutionOptions executionOptions)
+        : base(connectionString, DatabaseType.MariaDB, loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration, databaseName, executionOptions)
     {
         DetectServerVersion();
     }
