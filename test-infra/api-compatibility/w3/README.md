@@ -2,13 +2,13 @@
 
 `compiled-contract.txt` is a generated review projection of the actual core/provider/Memory package assemblies and package-generated consumer assembly, captured on .NET 10. It includes 63 selected types. It is not a handwritten rendering of proposed signatures.
 
-Input: `artifacts/w3-consumers/78d1b3c4/reconciled-contracts/contract-net10.0.json`, SHA-256 `bf0b7da88e931079ade2451bbadaea42f893f8acd61c7bd66b7e60b94170d1fc`. The selected packages are `0.10.0-w3.78d1b3c4`, from clean runtime commit `78d1b3c4436da22975ab73856907a73a18721c18`. The generated consumer was built from the working fixture sources recorded in the consumer report, not from that earlier clean commit.
+Final input: `artifacts/w3-consumers/db2b71df/final/contract-net10.0.json`, SHA-256 `2b7b0effb0b8ef40902008a60928e893d6bd84919f7a2a5bea65dce94d8fad19`. Packages `0.10.0-w3.db2b71df` and committed consumer sources were built at clean commit `db2b71dff1b12716baf48fa36df38785375a3f8d`. This final export exactly matches the original reviewed projection after line-ending normalization; historical captures remain in the compatibility evidence record.
 
 Reproduce the JSON captures using [the W3 consumer verifier](../../../tests/fixtures/W3%20Consumers.md). Export the review projection with:
 
 ```powershell
 .\tests\fixtures\Export-W3ContractReview.ps1 `
-  -Manifest artifacts/w3-consumers/78d1b3c4/reconciled-contracts/contract-net10.0.json `
+  -Manifest artifacts/w3-consumers/db2b71df/final/contract-net10.0.json `
   -Output test-infra/api-compatibility/w3/compiled-contract.txt
 ```
 

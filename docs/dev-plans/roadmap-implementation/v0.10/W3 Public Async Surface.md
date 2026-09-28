@@ -1,5 +1,7 @@
 # W3 Public Async Surface
 
+**Status, 2026-09-28:** W3 implementation and verification are complete at clean commit db2b71df, collected in [PR #230](https://github.com/bazer/DataLinq/pull/230) against v0.10. The final closeout below supersedes earlier checkpoint statements about open W3 work. Runtime validation remains W5; hosting remains W4; benchmarks remain deferred until the end of 0.10.
+
 **Status, 2026-09-28:** implementation started from W2 merge `69a2b2ee40b25862590fa5206901a51aabfbed80`. The user authorized one draft PR from `codex/0.10-w3` to `v0.10`, with incremental commits and pushes collected there. W3 completion, review and merge remain separate checkpoints.
 
 **PR:** [#230, Implement W3: public async surface](https://github.com/bazer/DataLinq/pull/230).
@@ -302,3 +304,13 @@ The emitted/generated manifest reconciliation, broader generated/constructor con
 Reconciled the compiled W3 families in the tracked contract projection (63 core/provider/generated types), preserving raw per-framework captures. Added package-generated composite/converted keys, all nineteen mutation bindings, shared required/optional navigation and relation execution. Added old/candidate constructor compilation, old derived-provider execution, exact SQLite untyped-null overload selection, old foreign-key covariance and an expected old-binary failure for the approved keyed rename. All nine consumer/runtime combinations pass; builds report zero warnings/errors.
 
 The evidence record preserves two corrected audit assumptions: SQLite's untyped-null constructor call is valid and unchanged; a Select constructor nullable reflection difference follows the runtime rather than different raw API metadata. Neither required a product change. The final clean-head package/integration pass remains open, and W5/benchmark boundaries are unchanged.
+
+## W3.7d Final Verification And Closeout
+
+Completed the clean-head pass at db2b71dff1b12716baf48fa36df38785375a3f8d. All six packages/symbol packages packed successfully; package inspection and isolated smoke passed. The expanded exact-package fixtures passed all nine executions on actual .NET 8/9/10 runtimes. The intentional EF ambiguity produced only CS0121 on all three TFMs. The final compiled contract projection matches the reviewed manifest exactly.
+
+The local quick plan passed 4,942/4,942 tests. Required PR checks passed in run 36476920793. The full matrix passed all 17 shards and aggregate validation with 8,842 cases in [run 36478298328](https://github.com/bazer/DataLinq/actions/runs/36478298328), covering both SQLite targets and all configured MySQL/MariaDB versions in CI. No extra server versions were run locally for this final pass. DocFX passed with zero warnings/errors, and generated navigation/links were inspected.
+
+The [compatibility evidence record](W3%20Compatibility%20Evidence.md) maps B01-B15 to compiled and executable evidence, retains report hashes, and explicitly dispositions the thirteen raw ApiCompat findings. Eleven findings represent the approved relation rename; two concern the accepted static key helper and retain the bounded old-binary/reflection evidence supporting its compatibility. No blanket suppressions were introduced. AAPI-16's required-reference behavior and regeneration requirement remain an explicit migration boundary.
+
+This closes W3.1-W3.7, including the user-approved protected generator bridge (AAPI-112), documentation and compiled/generated manifest. These final record changes do not alter the tested runtime or fixtures. The PR remains open for review; no merge or package publication was performed. A05-A07 and B16 remain with W4/W5, and benchmarks remain deferred until all 0.10 feature waves are complete.
