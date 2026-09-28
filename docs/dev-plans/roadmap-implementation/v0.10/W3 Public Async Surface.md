@@ -144,3 +144,19 @@ Verification:
 Summaries: `artifacts/w3-mutations-quick-summary.json`, `artifacts/w3-mutations-lifecycle-summary.json` and `artifacts/w3-mutations-providers-summary.json`. These are development-working-tree checks, not frozen-candidate receipts.
 
 **Still open:** T05 direct provider-transaction completion requires a standalone lifecycle boundary; exposing managed-only native methods would be incorrect. W3.4-W3.7 also remain open, including generated APIs, lower-level/admin APIs, diagnostic snapshots, emitted manifests and packed/old-binary evidence. This checkpoint does not declare W3.3 or W3 complete.
+
+## W3.3b Direct Provider Transaction Completion Checkpoint
+
+Implemented T05 with unsupported virtual legacy defaults on `DatabaseTransaction` and real SQLite/MySQL/MariaDB overrides. Standalone completion shares native resources and sync/async terminal state; it does not construct a managed wrapper or claim model/cache finalization. Direct async completion/disposal rejects a handle that belongs to a managed transaction. Unused completion does not initialize a connection or transaction.
+
+Standalone commands, readers, completion and cleanup now share an operation gate. Readers retain the slot through native reader and owned-command disposal, including at EOF; rejected competing calls leave the owner intact. The gate supports absent managed transaction IDs instead of inventing ID zero. Completion certainty survives observer/cleanup failures, an uncertain commit cannot be retried, rollback is attempted at most once, and disposal uses the captured independent recovery budget before attempting both cleanup stages.
+
+Verification:
+
+- Quick run `20260928T155212697Z-638b86475a8a474a92ca740d0dd22b61`: 4,867/4,867 pass (71 generators, 4,015 unit, 223 Memory, 558 SQLite-file compliance).
+- Final focused run `20260928T155433682Z-707fab7bbcb440d18f4105780f74e3b7`: 52/52 pass after correcting the owned-command cleanup boundary and adding real SQLite commit-denial coverage. An additional focused owned-command-disposal callback case passes 1/1.
+- Controlled cases exercise suspended completion/cleanup, cross-sync/async conflicts, original failure identity, ordered independent cleanup failures, no rollback replay and unknown completion after recovery. Real SQLite file/memory authorizer denial verifies native commit failure and subsequent rollback without fabricated certainty.
+- Provider run `20260928T155531969Z-4c5113316e374fccb98b59c44ecdb2f1`: 4/4 pass, one standalone lifecycle case each on SQLite file/memory, MySQL 9.7 and MariaDB 12.3.
+- External legacy provider-transaction source, with no async overrides and throwing synchronous methods, builds/runs on .NET 8/9/10 and rejects async calls through class and inherited interface dispatch. Builds report zero warnings/errors.
+
+Summaries: `artifacts/w3-provider-completion-quick-summary.json`, `artifacts/w3-provider-completion-focused-summary.json` and `artifacts/w3-provider-completion-providers-summary.json`. These remain development checks; old binaries and packed consumers are separate W3.7 obligations. T01-T05/M01-M09 declarations and their initial public verification are now implemented. W3.4-W3.7 remain open. CI on the preceding managed-lifecycle head `0bc03f89` passed all twelve checks in [run 36445892243](https://github.com/bazer/DataLinq/actions/runs/36445892243); that result is not evidence for later commits.

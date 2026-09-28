@@ -36,6 +36,10 @@ await RejectTask(() => legacy.CommitAsync(_ => Task.CompletedTask));
 await RejectTask(() => legacy.CommitAsync((_, _) => Task.CompletedTask));
 await RejectTask(() => legacy.CommitAsync(_ => Task.FromResult(42)));
 await RejectTask(() => legacy.CommitAsync((_, _) => Task.FromResult(42)));
+var legacyTransaction = new LegacyTransaction();
+await RejectTask(() => legacyTransaction.CommitAsync(cancellationToken: default));
+await RejectTask(() => legacyTransaction.RollbackAsync(cancellationToken: default));
+await RejectTask(() => ((IAsyncDisposable)legacyTransaction).DisposeAsync().AsTask());
 Console.WriteLine("Public async query consumer passed on " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
 
 static async Task RejectTask(Func<Task> action)

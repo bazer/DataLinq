@@ -107,4 +107,26 @@ public sealed class PublicAsyncMutationLifecycleTests
         model["Name"] = name;
         return model;
     }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task PublicStandaloneProviderCompletionSharesSyncLifecycleWithoutManagedFinalization(TestProviderDescriptor descriptor)
+    {
+        using var scope = EmployeesTestDatabase.CreateIsolated(descriptor, nameof(PublicStandaloneProviderCompletionSharesSyncLifecycleWithoutManagedFinalization), EmployeesFixtureProfile.TinySeeded);
+        var provider = scope.Database.Provider;
+        foreach (var mode in new[] { "commit", "rollback", "dispose" })
+        {
+            DatabaseTransaction transaction = provider.GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
+            transaction.ExecuteNonQuery("INSERT INTO departments (dept_no, dept_name) VALUES ('w331', 'standalone')");
+            if (mode == "commit") await transaction.CommitAsync();
+            if (mode == "rollback") await transaction.RollbackAsync();
+            await transaction.DisposeAsync();
+            transaction.Dispose();
+            var count = provider.DatabaseAccess.ExecuteScalar<long>("SELECT COUNT(*) FROM departments WHERE dept_no = 'w331'");
+            await Assert.That(count).IsEqualTo(mode == "commit" ? 1L : 0L);
+            if (mode == "commit")
+                provider.DatabaseAccess.ExecuteNonQuery("DELETE FROM departments WHERE dept_no = 'w331'");
+        }
+    }
 }

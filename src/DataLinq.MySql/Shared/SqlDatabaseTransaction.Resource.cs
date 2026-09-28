@@ -10,10 +10,25 @@ namespace DataLinq.MySql;
 
 public partial class SqlDatabaseTransaction : IAsyncTransactionCompletion
 {
+    /// <summary>Commits a standalone provider transaction, then releases its resources.</summary>
+    public override Task CommitAsync(CancellationToken cancellationToken = default) =>
+        CompleteStandaloneAsync(this, rollback: false, cancellationToken);
+
+    /// <summary>Rolls back a standalone provider transaction, then releases its resources.</summary>
+    public override Task RollbackAsync(CancellationToken cancellationToken = default) =>
+        CompleteStandaloneAsync(this, rollback: true, cancellationToken);
+
+    /// <summary>Performs permitted recovery and releases standalone resources asynchronously.</summary>
+    public override ValueTask DisposeAsync()
+    {
+        EnsureStandaloneCompletion();
+        ValidateNativeTransactionCapability();
+        return DisposeStandaloneAsync(this);
+    }
+
     private readonly object resourceLock = new();
     private LazyTransactionResource<NativeTransactionResource>? lazyResource;
     private NativeTransactionResource? nativeResource;
-    private TransactionOperationGate? unmanagedGate;
 
     private LazyTransactionResource<NativeTransactionResource> Resource
     {
@@ -22,7 +37,7 @@ public partial class SqlDatabaseTransaction : IAsyncTransactionCompletion
             lock (resourceLock)
             {
                 if (lazyResource is not null) return lazyResource;
-                var gate = ManagedTransaction?.ExecutionGate ?? (unmanagedGate ??= new(0, DiagnosticProviderInstanceId));
+                var gate = ManagedTransaction?.ExecutionGate ?? StandaloneExecutionGate;
                 if (DbTransaction is not null)
                 {
                     nativeResource = new(this, (MySqlConnection)dbConnection!, DbTransaction);
@@ -33,14 +48,13 @@ public partial class SqlDatabaseTransaction : IAsyncTransactionCompletion
         }
     }
 
-    private void InitializeUnmanaged()
+    private void InitializeUnmanaged(TransactionOperationGate.Step owner)
     {
         var resource = Resource;
         if (resource.State == TransactionInitializationState.Ready) return;
         if (ManagedTransaction is not null)
             throw new InvalidOperationException("Native initialization requires the managed operation owner.");
-        using var operation = unmanagedGate!.Enter("initialize native transaction");
-        resource.GetOrInitialize(operation);
+        resource.GetOrInitialize(owner);
     }
 
     private LazyTransactionResource<NativeTransactionResource> AsyncResource
@@ -77,8 +91,7 @@ public partial class SqlDatabaseTransaction : IAsyncTransactionCompletion
 
     private MySqlTransaction RequireNativeTransaction(TransactionOperationGate.Step owner)
     {
-        (ManagedTransaction ?? throw new InvalidOperationException("Native async completion requires a managed owner."))
-            .ExecutionGate.ValidateStep(owner);
+        (ManagedTransaction?.ExecutionGate ?? StandaloneExecutionGate).ValidateStep(owner);
         return (MySqlTransaction)GetActiveProviderTransaction("complete asynchronously");
     }
 
@@ -111,7 +124,7 @@ public partial class SqlDatabaseTransaction : IAsyncTransactionCompletion
 
     async ValueTask IAsyncTransactionCompletion.DisposeTransactionAsync(TransactionOperationGate.Step owner)
     {
-        ManagedTransaction!.ExecutionGate.ValidateStep(owner);
+        (ManagedTransaction?.ExecutionGate ?? StandaloneExecutionGate).ValidateStep(owner);
         // Materialize the adopted bundle, but never initialize an unused wrapper.
         _ = Resource;
         if (nativeResource is not null) await nativeResource.DisposeTransactionAsync().ConfigureAwait(false);

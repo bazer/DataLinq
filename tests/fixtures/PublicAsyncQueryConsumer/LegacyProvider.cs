@@ -44,3 +44,18 @@ internal sealed class LegacyProvider : IDatabaseProvider
     public Sql GetCreateSql() => throw new Exception("sync");
     public void Dispose() => throw new Exception("sync");
 }
+
+internal sealed class LegacyTransaction() : DatabaseTransaction(TransactionType.ReadAndWrite)
+{
+    public override void Commit() => throw new Exception("sync");
+    public override void Rollback() => throw new Exception("sync");
+    public override void Dispose() => throw new Exception("sync");
+    public override int ExecuteNonQuery(IDbCommand command) => throw new Exception("sync");
+    public override int ExecuteNonQuery(string query) => throw new Exception("sync");
+    public override object? ExecuteScalar(IDbCommand command) => throw new Exception("sync");
+    public override object? ExecuteScalar(string query) => throw new Exception("sync");
+    public override T ExecuteScalar<T>(IDbCommand command) => throw new Exception("sync");
+    public override T ExecuteScalar<T>(string query) => throw new Exception("sync");
+    public override IDataLinqDataReader ExecuteReader(IDbCommand command) => throw new Exception("sync");
+    public override IDataLinqDataReader ExecuteReader(string query) => throw new Exception("sync");
+}

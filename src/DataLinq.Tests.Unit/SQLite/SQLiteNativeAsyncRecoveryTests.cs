@@ -127,6 +127,31 @@ public sealed class SQLiteNativeAsyncRecoveryTests
         }
     }
 
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task PublicStandaloneRejectedNativeCommitPreservesUnknownOutcomeAcrossRollback(bool memory)
+    {
+        using var fixture = new Fixture(memory);
+        await using var transaction = fixture.Provider.GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
+        transaction.ExecuteNonQuery("INSERT INTO items VALUES (2)");
+        var policy = new CompletionPolicy("COMMIT");
+        policy.Install(((SqliteTransaction)transaction.DbTransaction!).Connection!);
+        var failure = await Assert.That(() => transaction.CommitAsync()).Throws<SqliteException>();
+        var context = ExecutionFailureContexts.Get(failure!)!;
+        await Assert.That(context.Completion).IsEqualTo(ExecutionCompletion.Unknown);
+        await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.ProviderError);
+        await Assert.That(context.TransactionId).IsNull();
+        await Assert.That(context.ProviderInstanceId).IsEqualTo(fixture.Provider.TelemetryInstanceId);
+        await Assert.That(() => transaction.CommitAsync()).Throws<InvalidOperationException>();
+        await transaction.RollbackAsync();
+        await Assert.That(transaction.SynchronousCompletion).IsEqualTo(ExecutionCompletion.Unknown);
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await Assert.That(policy.Commits).IsEqualTo(1);
+        await Assert.That(policy.Rollbacks).IsEqualTo(1);
+        await Assert.That(fixture.Provider.DatabaseAccess.ExecuteScalar<long>("SELECT COUNT(*) FROM items")).IsEqualTo(1L);
+    }
+
     // Reject only the selected completion at the real engine prepare boundary.
     // No exception or transaction result is synthesized by the fixture, and the
     // callback never modifies its connection. Its isolated pool is torn down last.
