@@ -50,11 +50,11 @@ public sealed class NativeAsyncTransactionTests
                 await Assert.That(transaction.DatabaseAccess.DbTransaction).IsNull();
                 var sql = $"INSERT INTO items VALUES ({mode}, 10)";
                 if ((mode & 1) == 0) transaction.DatabaseAccess.ExecuteNonQuery(sql);
-                else await transaction.DatabaseAccess.ExecuteNonQueryAsyncCore(sql);
+                else await transaction.DatabaseAccess.ExecuteNonQueryAsync(sql);
                 var native = transaction.DatabaseAccess.DbTransaction;
                 await Assert.That(native!.IsolationLevel).IsEqualTo(IsolationLevel.ReadCommitted);
                 await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Ready);
-                await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore<int>($"SELECT value FROM items WHERE id = {mode}")).IsEqualTo(10);
+                await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync<int>($"SELECT value FROM items WHERE id = {mode}")).IsEqualTo(10);
                 await Assert.That(transaction.DatabaseAccess.ExecuteScalar<int>($"SELECT value FROM items WHERE id = {mode}")).IsEqualTo(10);
                 await Assert.That(ReferenceEquals(native, transaction.DatabaseAccess.DbTransaction)).IsTrue();
                 if ((mode & 2) == 0) await transaction.CommitAsyncCore();
@@ -79,13 +79,13 @@ public sealed class NativeAsyncTransactionTests
             using var canceled = new CancellationTokenSource();
             canceled.Cancel();
             using var command = new MySqlCommand("SELECT 1");
-            await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore(command, canceled.Token)).Throws<OperationCanceledException>();
-            await Assert.That(() => transaction.DatabaseAccess.ExecuteNonQueryAsyncCore(" ", canceled.Token)).Throws<InvalidOperationException>();
-            await Assert.That(async () => { await transaction.DatabaseAccess.ExecuteReaderAsyncCore(command, canceled.Token); }).Throws<OperationCanceledException>();
+            await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync(command, canceled.Token)).Throws<OperationCanceledException>();
+            await Assert.That(() => transaction.DatabaseAccess.ExecuteNonQueryAsync(" ", canceled.Token)).Throws<InvalidOperationException>();
+            await Assert.That(async () => { await transaction.DatabaseAccess.ExecuteReaderAsync(command, canceled.Token); }).Throws<OperationCanceledException>();
             await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Unused);
             await Assert.That(command.Connection).IsNull();
             await Assert.That(transaction.DatabaseAccess.DbTransaction).IsNull();
-            await Assert.That(Convert.ToInt32(await transaction.DatabaseAccess.ExecuteScalarAsyncCore(command))).IsEqualTo(1);
+            await Assert.That(Convert.ToInt32(await transaction.DatabaseAccess.ExecuteScalarAsync(command))).IsEqualTo(1);
         }
         finally { await transaction.DisposeAsyncCore(); }
     }
@@ -101,13 +101,13 @@ public sealed class NativeAsyncTransactionTests
         try
         {
             using var command = new MySqlCommand("SELECT 1 UNION ALL SELECT 2");
-            var reader = await transaction.DatabaseAccess.ExecuteReaderAsyncCore(command);
+            var reader = await transaction.DatabaseAccess.ExecuteReaderAsync(command);
             try
             {
                 await Assert.That(await reader.ReadNextRowAsync(default)).IsTrue();
                 await Assert.That(reader.GetInt32(0)).IsEqualTo(1);
                 await Assert.That(() => transaction.DatabaseAccess.ExecuteScalar("SELECT 2")).Throws<InvalidOperationException>();
-                await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 2")).Throws<InvalidOperationException>();
+                await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 2")).Throws<InvalidOperationException>();
                 await Assert.That(() => transaction.CommitAsyncCore()).Throws<InvalidOperationException>();
                 await Assert.That(transaction.Dispose).Throws<InvalidOperationException>();
             }
@@ -118,7 +118,7 @@ public sealed class NativeAsyncTransactionTests
             await Assert.That(Convert.ToInt32(transaction.DatabaseAccess.ExecuteScalar("SELECT 3"))).IsEqualTo(3);
             using (var syncReader = transaction.DatabaseAccess.ExecuteReader(command))
                 await Assert.That(syncReader.ReadNextRow()).IsTrue();
-            await Assert.That(Convert.ToInt32(await transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 4"))).IsEqualTo(4);
+            await Assert.That(Convert.ToInt32(await transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 4"))).IsEqualTo(4);
         }
         finally { await transaction.DisposeAsyncCore(); }
         await Assert.That(Convert.ToInt32(provider.DatabaseAccess.ExecuteScalar("SELECT 5"))).IsEqualTo(5);
@@ -134,9 +134,9 @@ public sealed class NativeAsyncTransactionTests
         var transaction = new Transaction(provider, TransactionType.ReadAndWrite);
         try
         {
-            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT NULL")).IsNull();
+            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync("SELECT NULL")).IsNull();
             await Assert.That(transaction.DatabaseAccess.ExecuteScalar("SELECT NULL")).IsNull();
-            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore<int>("SELECT NULL")).IsEqualTo(0);
+            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync<int>("SELECT NULL")).IsEqualTo(0);
             await Assert.That(transaction.DatabaseAccess.ExecuteScalar<int>("SELECT NULL")).IsEqualTo(0);
         }
         finally { await transaction.DisposeAsyncCore(); }
@@ -155,7 +155,7 @@ public sealed class NativeAsyncTransactionTests
             try
             {
                 var failure = asyncFirst
-                    ? await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 1")).Throws<MySqlException>()
+                    ? await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 1")).Throws<MySqlException>()
                     : await Assert.That(() => transaction.DatabaseAccess.ExecuteScalar("SELECT 1")).Throws<MySqlException>();
                 await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Failed);
                 await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Closed);
@@ -184,7 +184,7 @@ public sealed class NativeAsyncTransactionTests
             using (var blocker = provider.DatabaseAccess.ExecuteReader("SELECT 1"))
             {
                 using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                var pending = transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 2", cancellation.Token);
+                var pending = transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 2", cancellation.Token);
                 await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Initializing);
                 await Assert.That(pending.IsCompleted).IsFalse();
                 await Assert.That(transaction.DatabaseAccess.DbTransaction).IsNull();
@@ -222,7 +222,7 @@ public sealed class NativeAsyncTransactionTests
             try
             {
                 var failure = asyncFirst
-                    ? await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 1")).Throws<InvalidOperationException>()
+                    ? await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 1")).Throws<InvalidOperationException>()
                     : await Assert.That(() => transaction.DatabaseAccess.ExecuteScalar("SELECT 1")).Throws<InvalidOperationException>();
                 await Assert.That(ReferenceEquals(failure, expected)).IsTrue();
                 await Assert.That(rejection).IsTypeOf<InvalidOperationException>();
@@ -250,7 +250,7 @@ public sealed class NativeAsyncTransactionTests
         try
         {
             await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Ready);
-            await transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("INSERT INTO items VALUES (1)");
+            await transaction.DatabaseAccess.ExecuteNonQueryAsync("INSERT INTO items VALUES (1)");
             await Assert.That(ReferenceEquals(native, transaction.DatabaseAccess.DbTransaction)).IsTrue();
             await Assert.That(native.IsolationLevel).IsEqualTo(IsolationLevel.Serializable);
             await transaction.RollbackAsyncCore();
@@ -271,7 +271,7 @@ public sealed class NativeAsyncTransactionTests
         foreach (var asyncDispose in new[] { false, true })
         {
             var transaction = new Transaction(provider, TransactionType.ReadAndWrite);
-            await transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("INSERT INTO items VALUES (1)");
+            await transaction.DatabaseAccess.ExecuteNonQueryAsync("INSERT INTO items VALUES (1)");
             if (asyncDispose) await transaction.DisposeAsyncCore(); else transaction.Dispose();
             await transaction.DisposeAsyncCore();
             transaction.Dispose();

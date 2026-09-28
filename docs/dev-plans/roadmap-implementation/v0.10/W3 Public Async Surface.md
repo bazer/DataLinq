@@ -261,3 +261,22 @@ Verification:
 Summaries: artifacts/w3-public-fluent-{unit,quick,providers}-summary.json. These remain development checks, not packed/frozen evidence. L01-L05 direct commands/readers and standalone async command ownership remain open, as does W3.7 compatibility/documentation closeout.
 
 CI on preceding generated-mutation head 3646c6b5 passed all provider and generator lanes but failed one existing unit allocation assertion: QueryPlanCapabilityValidationTests.ExecutionCapabilityValidation_AllocatesNothingForSupportedInvocation reported 2,000 bytes (4,036/4,037 unit cases passed), run 36459739922. The measured validation path and strict test were unchanged; the local full quick runs pass. A failed-jobs rerun at that same commit was requested to distinguish repeatable behavior before changing either code or the assertion. Its outcome remains to be checked; the original failure is retained.
+
+## W3.5c Public Commands And Standalone Ownership Checkpoint
+
+Implemented L01-L05 on IDatabaseAccess and DatabaseAccess: string and borrowed-command non-query, scalar, typed scalar, direct reader and reader-sequence families. Legacy interface defaults reject unsupported async execution. Direct readers expose IDataLinqAsyncDataReader; low-level sequences retain IDataLinqDataReader and guarded borrowed current-row views.
+
+Standalone provider transactions now retain their shared sync/async operation reservation through acquisition, dispatch, conversion and all owned cleanup. Failure restrictions are published before admission is released, and both synchronous and asynchronous completion/disposal respect the recorded recovery policy. Raw commands retain conservative effect evidence and do not invent managed transaction identity or tracked-model cache changes.
+
+Verification:
+
+- Controlled public raw-command/reader tests: 128/128, run 20260928T190750722Z-2d4bd80f16ee40c7b7cabda5f9570567.
+- Full quick run: 4,942/4,942 (101 generators, 4,050 unit, 223 Memory, 568 SQLite-file compliance), run 20260928T191812479Z-ac8c367b6d984410b537e0289dd671b0. Includes new paused acquisition/dispatch/reader cleanup/command cleanup tests and standalone cancellation/recovery tests.
+- Public command compliance: 4/4 across SQLite file/memory, MySQL 9.7 and MariaDB 12.3, run 20260928T192012196Z-01208a2e001441169742edf0effb0f65. Each case exercises all ten overloads on managed and standalone access, borrowed-command reuse, reader admission, cancellation and persisted commit results.
+- Native async server suite: 108/108 on MySQL 9.7 and MariaDB 12.3, run 20260928T192045181Z-afb51a6c5a54434fb5dc59de07c2ec06.
+- Core and external source consumers build with zero warnings/errors for net8.0/net9.0/net10.0 and execute on actual runtimes 8.0.31/9.0.20/10.0.12. Legacy interface-only and base-derived consumers verify all ten defaults without synchronous fallback.
+- Initial new fixture compilation required preserving the controlled factory's concrete type and matching IDbCommand.CommandText's AllowNull setter contract. Corrected both before passing verification.
+
+Summaries: artifacts/w3-public-raw-unit-summary.json, artifacts/w3-public-commands-{quick,providers,native-server}-summary.json. These remain development checks. W3.5 implementation is complete; W3.7 emitted/API compatibility, packed and old-binary consumers and documentation remain open.
+
+CI on preceding fluent-read head 04aca522 passed all twelve checks in run 36469409229. The requested failed-jobs rerun of 36459739922 was cancelled; it does not establish a root cause for the earlier allocation failure. The strict assertion remains unchanged and passed on the subsequent head.

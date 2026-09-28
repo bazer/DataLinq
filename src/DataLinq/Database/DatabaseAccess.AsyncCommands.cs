@@ -19,22 +19,22 @@ public abstract partial class DatabaseAccess
             throw new InvalidOperationException("This database access already belongs to a managed transaction.");
     }
 
-    internal Task<int> ExecuteNonQueryAsyncCore(string sql, CancellationToken cancellationToken = default)
-        => ExecuteNonQueryAsync(Bind(sql), null, cancellationToken);
+    internal Task<int> ExecuteNonQueryAsyncCore(string query, CancellationToken cancellationToken = default)
+        => ExecuteNonQueryAsync(Bind(query), null, cancellationToken);
 
     internal Task<int> ExecuteNonQueryAsyncCore(IDbCommand command, CancellationToken cancellationToken = default)
         => ExecuteNonQueryAsync(Bind(command), null, cancellationToken);
 
-    internal Task<object?> ExecuteScalarAsyncCore(string sql, CancellationToken cancellationToken = default)
-        => ExecuteScalarAsync(Bind(sql), static value => value, null, cancellationToken);
+    internal Task<object?> ExecuteScalarAsyncCore(string query, CancellationToken cancellationToken = default)
+        => ExecuteScalarAsync(Bind(query), static value => value, null, cancellationToken);
 
     internal Task<object?> ExecuteScalarAsyncCore(IDbCommand command, CancellationToken cancellationToken = default)
         => ExecuteScalarAsync(Bind(command), static value => value, null, cancellationToken);
 
-    internal Task<T> ExecuteScalarAsyncCore<T>(string sql, CancellationToken cancellationToken = default)
+    internal Task<T> ExecuteScalarAsyncCore<T>(string query, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(sql);
-        var invocation = IAsyncEagerCommandFactory.Require(this).BindScalar<T>(sql);
+        ArgumentNullException.ThrowIfNull(query);
+        var invocation = IAsyncEagerCommandFactory.Require(this).BindScalar<T>(query);
         return ExecuteScalarAsync(invocation.Command, invocation.Convert, null, cancellationToken);
     }
 
@@ -53,10 +53,10 @@ public abstract partial class DatabaseAccess
     internal Task<int> ExecuteNonQueryOwnedAsyncCore(IDbCommand command, TransactionOperationGate.Step owner, CancellationToken token)
         => ExecuteNonQueryAsync(Bind(command), owner, token);
 
-    private AsyncEagerCommand Bind(string sql)
+    private AsyncEagerCommand Bind(string query)
     {
-        ArgumentNullException.ThrowIfNull(sql);
-        return IAsyncEagerCommandFactory.Require(this).BindCommand(sql);
+        ArgumentNullException.ThrowIfNull(query);
+        return IAsyncEagerCommandFactory.Require(this).BindCommand(query);
     }
 
     private AsyncEagerCommand Bind(IDbCommand command)
@@ -84,15 +84,18 @@ public abstract partial class DatabaseAccess
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(convert);
         var transaction = managedTransaction;
-        if (transaction is null && (owner is not null || this is DatabaseTransaction))
+        var standalone = transaction is null ? this as DatabaseTransaction : null;
+        if (transaction is null && owner is not null)
             throw new InvalidOperationException("Transaction command execution requires its managed transaction owner.");
         var operationKind = owner?.Kind ?? ExecutionOperationKind.RawCommand;
         transaction?.EnsureCanRead(operation, owner, operationKind);
-        command.Validate(kind, transaction is not null);
+        standalone?.EnsureStandaloneCommandAllowed();
+        command.Validate(kind, transaction is not null || standalone is not null);
         token.ThrowIfCancellationRequested();
         using var ownership = transaction is not null && owner is null
             ? DataSourceAccess.BeginRead(transaction, operation, cancellationToken: token, operationKind: operationKind) : null;
-        var step = owner ?? ownership?.Step;
+        using var standaloneOwnership = standalone?.BeginStandaloneCommand();
+        var step = owner ?? ownership?.Step ?? standaloneOwnership?.Step;
         var stage = ExecutionFailureStage.CommandExecution;
         var cause = ExecutionFailureCause.Unknown;
         ExecutionFailureScope.Call? conversionDiagnostics = null;
@@ -133,12 +136,13 @@ public abstract partial class DatabaseAccess
                     failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, operationKind);
                 }
             }
-            var recovery = transaction is null ? ExecutionRecoveryActions.None
+            var recovery = transaction is null && standalone is null ? ExecutionRecoveryActions.None
                 : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessed);
-            var context = failures.Snapshot(evidence, transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
+            var context = failures.Snapshot(evidence, standalone?.SynchronousCompletion ?? (transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted),
                 recovery, transaction?.TransactionID, operationKind, transaction?.ExecutionGate.ProviderInstanceId ?? DiagnosticProviderInstanceId,
                 providerIdentityIsAuthoritative: true);
-            if (step is not null) transaction!.RecordAsyncReadFailure(step, context);
+            if (step is not null && transaction is not null) transaction.RecordAsyncReadFailure(step, context);
+            if (standaloneOwnership is not null) standalone!.RecordStandaloneFailure(standaloneOwnership.Step, context);
             ExecutionFailureContexts.Attach(failure, context);
             ownership?.ReportFailure(failure);
             throw;

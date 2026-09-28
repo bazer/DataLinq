@@ -45,6 +45,20 @@ await RejectTask(() => legacyMetadata.ParseDatabaseAsync("Db", "Db", "Consumer",
 DataLinq.Metadata.ISqlFromMetadataFactory legacyProvisioning = new LegacyProvisioningFactory();
 await RejectTask(() => legacyProvisioning.CreateDatabaseAsync(new DataLinq.Query.Sql("script"), "db", "invalid", false, cancellationToken: default));
 var legacyTransaction = new LegacyTransaction();
+foreach (IDatabaseAccess access in new IDatabaseAccess[] { new LegacyDatabaseAccess(), legacyTransaction })
+{
+    var command = new LegacyCommand();
+    await RejectTask(() => access.ExecuteNonQueryAsync(query: "sql"));
+    await RejectTask(() => access.ExecuteNonQueryAsync(command: command));
+    await RejectTask(() => access.ExecuteScalarAsync(query: "sql"));
+    await RejectTask(() => access.ExecuteScalarAsync(command: command));
+    await RejectTask(() => access.ExecuteScalarAsync<int>(query: "sql"));
+    await RejectTask(() => access.ExecuteScalarAsync<int>(command: command));
+    await RejectTask(() => access.ExecuteReaderAsync(query: "sql", cancellationToken: default));
+    await RejectTask(() => access.ExecuteReaderAsync(command: command, cancellationToken: default));
+    await RejectTask(async () => { await foreach (var _ in access.ReadReaderAsync(query: "sql")) { } });
+    await RejectTask(async () => { await foreach (var _ in access.ReadReaderAsync(command: command)) { } });
+}
 var legacySource = new LegacyDataSource(legacy);
 await RejectTask(async () => { await foreach (var _ in legacySource.GetFromQueryAsync<IModel>(query: "unused", cancellationToken: default)) { } });
 await RejectTask(async () => { await foreach (var _ in legacySource.GetFromCommandAsync<IModel>(dbCommand: null!, cancellationToken: default)) { } });

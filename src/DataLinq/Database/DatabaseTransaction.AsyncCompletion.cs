@@ -9,6 +9,7 @@ public abstract partial class DatabaseTransaction
 {
     private readonly RecoveryRollbackSettings standaloneRecoverySettings;
     private TransactionOperationGate? standaloneGate;
+    private ExecutionFailureContext? standaloneFailure;
     internal TransactionOperationGate StandaloneExecutionGate =>
         LazyInitializer.EnsureInitialized(ref standaloneGate, () => new(null, DiagnosticProviderInstanceId));
 
@@ -38,13 +39,37 @@ public abstract partial class DatabaseTransaction
         var operation = new StandaloneTransactionOperation(StandaloneExecutionGate, ExecutionOperationKind.RawCommand);
         try
         {
-            EnsureSynchronousResourceUsable();
-            if (Status is DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack ||
-                SynchronousCompletion != ExecutionCompletion.NotAttempted || synchronousRollbackAttempted)
-                throw new InvalidOperationException("This provider transaction no longer accepts commands.");
+            EnsureStandaloneCommandAllowed(operation.Step);
             return operation;
         }
         catch { operation.Dispose(); throw; }
+    }
+
+    internal void EnsureStandaloneCommandAllowed(TransactionOperationGate.Step? owner = null)
+    {
+        EnsureStandaloneCompletion();
+        EnsureSynchronousResourceUsable();
+        if (Status is DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack ||
+            SynchronousCompletion != ExecutionCompletion.NotAttempted || synchronousRollbackAttempted)
+            throw new InvalidOperationException("This provider transaction no longer accepts commands.");
+        if (owner is null) StandaloneExecutionGate.ThrowIfBusy("execute a standalone command", ExecutionOperationKind.RawCommand);
+        else StandaloneExecutionGate.ValidateStep(owner);
+        EnsureStandaloneRecoveryAllowed(ExecutionRecoveryActions.Continue);
+    }
+
+    internal void RecordStandaloneFailure(TransactionOperationGate.Step owner, ExecutionFailureContext context)
+    {
+        StandaloneExecutionGate.ValidateStep(owner);
+        Volatile.Write(ref standaloneFailure, context);
+    }
+
+    private bool StandaloneRecoveryAllows(ExecutionRecoveryActions action) =>
+        Volatile.Read(ref standaloneFailure) is not { } failure || (failure.Recovery & action) != 0;
+
+    private void EnsureStandaloneRecoveryAllowed(ExecutionRecoveryActions action)
+    {
+        if (!StandaloneRecoveryAllows(action))
+            throw new InvalidOperationException("The standalone transaction's failed execution permits only its recorded recovery actions.");
     }
 
     internal async Task CompleteStandaloneAsync(IAsyncTransactionCompletion resource, bool rollback, CancellationToken token)
@@ -55,6 +80,7 @@ public abstract partial class DatabaseTransaction
         using var operation = new StandaloneTransactionOperation(StandaloneExecutionGate, kind);
         EnsureSynchronousResourceUsable();
         resource.ValidateCompletion(rollback ? AsyncCompletionOperation.Rollback : AsyncCompletionOperation.Commit);
+        EnsureStandaloneRecoveryAllowed(rollback ? ExecutionRecoveryActions.Rollback : ExecutionRecoveryActions.Continue);
         if (synchronousRollbackAttempted || (!rollback && SynchronousCompletion == ExecutionCompletion.Unknown))
             throw new InvalidOperationException("Completion was already attempted; only permitted recovery may continue.");
         token.ThrowIfCancellationRequested();
@@ -109,7 +135,7 @@ public abstract partial class DatabaseTransaction
         resource.ValidateCompletion(AsyncCompletionOperation.Dispose);
         var failures = new ExecutionFailures();
         var rollback = false;
-        if (!synchronousRollbackAttempted && Status == DatabaseTransactionStatus.Open)
+        if (!synchronousRollbackAttempted && Status == DatabaseTransactionStatus.Open && StandaloneRecoveryAllows(ExecutionRecoveryActions.Rollback))
         {
             using var inspection = ExecutionFailureScope.Begin();
             try { rollback = (resource.Recovery & ExecutionRecoveryActions.Rollback) != 0; }

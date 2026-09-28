@@ -100,6 +100,8 @@ public abstract partial class DatabaseTransaction
         if (ManagedTransaction is null && !rollback && SynchronousCompletion == ExecutionCompletion.Unknown)
             throw new InvalidOperationException("A prior completion attempt has an unknown outcome; commit cannot be retried.");
         resource.ValidateCompletion();
+        if (ManagedTransaction is null)
+            EnsureStandaloneRecoveryAllowed(rollback ? ExecutionRecoveryActions.Rollback : ExecutionRecoveryActions.Continue);
         var operation = CompletionKind(outcome);
         if (Status is DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack)
             throw new InvalidOperationException("The transaction has already completed.");
@@ -141,7 +143,8 @@ public abstract partial class DatabaseTransaction
         var caller = synchronousTelemetryDeferred ? Activity.Current : SynchronousCompletionCaller();
         ExecutionFailures? failures = new();
         var confirmed = false;
-        if (!synchronousInitializationFailed && !synchronousRollbackAttempted && Status == DatabaseTransactionStatus.Open)
+        if (!synchronousInitializationFailed && !synchronousRollbackAttempted && Status == DatabaseTransactionStatus.Open &&
+            (ManagedTransaction is not null || StandaloneRecoveryAllows(ExecutionRecoveryActions.Rollback)))
         {
             synchronousRollbackAttempted = true;
             try

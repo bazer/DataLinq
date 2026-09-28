@@ -23,9 +23,9 @@ public sealed class SQLiteNativeAsyncCommandTests
         using var empty = new SqliteCommand();
         using var derived = new DerivedCommand { CommandText = "SELECT 1" };
         using var valid = new SqliteCommand("SELECT 1");
-        await Assert.That(() => access.ExecuteScalarAsyncCore(empty, new(true))).Throws<InvalidOperationException>();
-        await Assert.That(() => access.ExecuteScalarAsyncCore(derived, new(true))).Throws<NotSupportedException>();
-        await Assert.That(() => access.ExecuteScalarAsyncCore(valid, new(true))).Throws<OperationCanceledException>();
+        await Assert.That(() => access.ExecuteScalarAsync(empty, new(true))).Throws<InvalidOperationException>();
+        await Assert.That(() => access.ExecuteScalarAsync(derived, new(true))).Throws<NotSupportedException>();
+        await Assert.That(() => access.ExecuteScalarAsync(valid, new(true))).Throws<OperationCanceledException>();
         await Assert.That(valid.Connection).IsNull();
         await Assert.That(File.Exists(path)).IsFalse();
     }
@@ -41,17 +41,17 @@ public sealed class SQLiteNativeAsyncCommandTests
         command.Parameters.AddWithValue("@value", 19);
         var disposals = 0;
         command.Disposed += (_, _) => disposals++;
-        await Assert.That(await access.ExecuteNonQueryAsyncCore(command)).IsEqualTo(1);
+        await Assert.That(await access.ExecuteNonQueryAsync(command)).IsEqualTo(1);
         await Assert.That(command.Connection).IsNull();
         await Assert.That(command.CommandTimeout).IsEqualTo(7);
         await Assert.That(disposals).IsEqualTo(0);
         command.Parameters[0].Value = 23;
-        await Assert.That(await access.ExecuteNonQueryAsyncCore(command)).IsEqualTo(1);
-        await Assert.That(await access.ExecuteScalarAsyncCore<long>("SELECT value FROM items WHERE id=1")).IsEqualTo(access.ExecuteScalar<long>("SELECT value FROM items WHERE id=1"));
-        await Assert.That(await access.ExecuteScalarAsyncCore("SELECT NULL")).IsSameReferenceAs(DBNull.Value);
-        await Assert.That(await access.ExecuteScalarAsyncCore("SELECT value FROM items WHERE id=99")).IsNull();
-        await Assert.That(async () => { await access.ExecuteScalarAsyncCore<int>("SELECT value FROM items WHERE id=1"); }).Throws<InvalidCastException>();
-        await Assert.That(async () => { await access.ExecuteScalarAsyncCore<int>("SELECT value FROM items WHERE id=99"); }).Throws<NullReferenceException>();
+        await Assert.That(await access.ExecuteNonQueryAsync(command)).IsEqualTo(1);
+        await Assert.That(await access.ExecuteScalarAsync<long>("SELECT value FROM items WHERE id=1")).IsEqualTo(access.ExecuteScalar<long>("SELECT value FROM items WHERE id=1"));
+        await Assert.That(await access.ExecuteScalarAsync("SELECT NULL")).IsSameReferenceAs(DBNull.Value);
+        await Assert.That(await access.ExecuteScalarAsync("SELECT value FROM items WHERE id=99")).IsNull();
+        await Assert.That(async () => { await access.ExecuteScalarAsync<int>("SELECT value FROM items WHERE id=1"); }).Throws<InvalidCastException>();
+        await Assert.That(async () => { await access.ExecuteScalarAsync<int>("SELECT value FROM items WHERE id=99"); }).Throws<NullReferenceException>();
         await Assert.That(disposals).IsEqualTo(0);
     }
 
@@ -66,7 +66,7 @@ public sealed class SQLiteNativeAsyncCommandTests
         command.Disposed += (_, _) => disposals++;
         for (var mode = 0; mode < 3; mode++)
         {
-            var reader = await fixture.Access.ExecuteReaderAsyncCore(command);
+            var reader = await fixture.Access.ExecuteReaderAsync(command);
             var connection = command.Connection!;
             await Assert.That(await reader.ReadNextRowAsync(default)).IsTrue();
             await Assert.That(reader.GetInt32(0)).IsEqualTo(1);
@@ -78,14 +78,14 @@ public sealed class SQLiteNativeAsyncCommandTests
             await Assert.That(command.Connection).IsNull();
             await Assert.That(disposals).IsEqualTo(0);
         }
-        var sequence = fixture.Access.ReadReaderAsyncCore(command);
+        var sequence = fixture.Access.ReadReaderAsync(command);
         for (var repeat = 0; repeat < 2; repeat++)
         {
             await foreach (var row in sequence) { await Assert.That(row.GetInt32(0)).IsEqualTo(1); break; }
             await Assert.That(command.Connection).IsNull();
         }
         await Assert.That(disposals).IsEqualTo(0);
-        await Assert.That(await fixture.Access.ExecuteScalarAsyncCore<long>("SELECT 7")).IsEqualTo(7L);
+        await Assert.That(await fixture.Access.ExecuteScalarAsync<long>("SELECT 7")).IsEqualTo(7L);
     }
 
     [Test]
@@ -120,7 +120,7 @@ public sealed class SQLiteNativeAsyncCommandTests
     {
         using var fixture = new Fixture(memory);
         using var command = new SqliteCommand("SELECT missing_column FROM items");
-        var native = await Assert.That(() => fixture.Access.ExecuteScalarAsyncCore(command)).Throws<SqliteException>();
+        var native = await Assert.That(() => fixture.Access.ExecuteScalarAsync(command)).Throws<SqliteException>();
         var context = ExecutionFailureContexts.Get(native!)!;
         await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.ProviderError);
         await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.CommandExecution);
@@ -130,12 +130,12 @@ public sealed class SQLiteNativeAsyncCommandTests
         var expected = new InvalidOperationException("SQL logger failed.");
         using var logger = new CallbackLogger(() => throw expected);
         var loggingAccess = new SQLiteDbAccess(fixture.ConnectionString, new(logger));
-        var logged = await Assert.That(() => loggingAccess.ExecuteScalarAsyncCore(command)).Throws<InvalidOperationException>();
+        var logged = await Assert.That(() => loggingAccess.ExecuteScalarAsync(command)).Throws<InvalidOperationException>();
         await Assert.That(logged).IsSameReferenceAs(expected);
         await Assert.That(ExecutionFailureContexts.Get(logged!)!.CommandDispatch!.Dispatched).IsFalse();
         await Assert.That(ExecutionFailureContexts.Get(logged!)!.Stage).IsEqualTo(ExecutionFailureStage.Notification);
         await Assert.That(command.Connection).IsNull();
-        await Assert.That(await fixture.Access.ExecuteScalarAsyncCore<long>(command)).IsEqualTo(7L);
+        await Assert.That(await fixture.Access.ExecuteScalarAsync<long>(command)).IsEqualTo(7L);
     }
 
     [Test]
@@ -163,14 +163,14 @@ public sealed class SQLiteNativeAsyncCommandTests
         })
         {
             ActivitySource.AddActivityListener(listener);
-            var failure = await Assert.That(async () => { await fixture.Access.ExecuteReaderAsyncCore(command); }).Throws<InvalidOperationException>();
+            var failure = await Assert.That(async () => { await fixture.Access.ExecuteReaderAsync(command); }).Throws<InvalidOperationException>();
             await Assert.That(failure).IsSameReferenceAs(expected);
             await Assert.That(ExecutionFailureContexts.Get(failure!)!.CommandDispatch!.Dispatched).IsTrue();
         }
         await Assert.That(acquired!.State).IsEqualTo(ConnectionState.Closed);
         await Assert.That(command.Connection).IsNull();
         await Assert.That(disposals).IsEqualTo(0);
-        await Assert.That(await fixture.Access.ExecuteScalarAsyncCore<long>(command)).IsEqualTo(1L);
+        await Assert.That(await fixture.Access.ExecuteScalarAsync<long>(command)).IsEqualTo(1L);
     }
 
     [Test]
@@ -190,12 +190,12 @@ public sealed class SQLiteNativeAsyncCommandTests
             return 42;
         }));
         var access = new SQLiteDbAccess(fixture.ConnectionString, new(logger));
-        var pending = access.ExecuteNonQueryAsyncCore(command, cancellation.Token);
+        var pending = access.ExecuteNonQueryAsync(command, cancellation.Token);
         await Assert.That(pending.IsCompleted).IsTrue();
         await Assert.That(functionThread).IsEqualTo(callerThread);
         await Assert.That(cancellation.IsCancellationRequested).IsTrue();
         await Assert.That(await pending).IsEqualTo(1);
-        await Assert.That(await fixture.Access.ExecuteScalarAsyncCore<long>("SELECT value FROM items WHERE id=1")).IsEqualTo(42L);
+        await Assert.That(await fixture.Access.ExecuteScalarAsync<long>("SELECT value FROM items WHERE id=1")).IsEqualTo(42L);
     }
 
     [Test]
@@ -217,7 +217,7 @@ public sealed class SQLiteNativeAsyncCommandTests
         try
         {
             var clock = Stopwatch.StartNew();
-            var pending = access.ExecuteNonQueryAsyncCore(command, cancellation.Token);
+            var pending = access.ExecuteNonQueryAsync(command, cancellation.Token);
             var blockedFor = clock.Elapsed;
             await Assert.That(pending.IsCompleted).IsTrue();
             await Assert.That(blockedFor >= TimeSpan.FromMilliseconds(800)).IsTrue();
@@ -229,7 +229,7 @@ public sealed class SQLiteNativeAsyncCommandTests
         }
         finally { if (started) cancelThread.Join(); }
         held.Rollback();
-        await Assert.That(await fixture.Access.ExecuteScalarAsyncCore<long>("SELECT value FROM items WHERE id=1")).IsEqualTo(7L);
+        await Assert.That(await fixture.Access.ExecuteScalarAsync<long>("SELECT value FROM items WHERE id=1")).IsEqualTo(7L);
     }
 
     [Test]
@@ -242,7 +242,7 @@ public sealed class SQLiteNativeAsyncCommandTests
         connection.Open();
         using var transaction = connection.BeginTransaction();
         using var command = new SqliteCommand("SELECT 7", connection, transaction);
-        await Assert.That(() => fixture.Access.ExecuteScalarAsyncCore(command, new(true))).Throws<InvalidOperationException>();
+        await Assert.That(() => fixture.Access.ExecuteScalarAsync(command, new(true))).Throws<InvalidOperationException>();
         await Assert.That(command.Connection).IsSameReferenceAs(connection);
         await Assert.That(command.Transaction).IsSameReferenceAs(transaction);
         await Assert.That(command.ExecuteScalar()).IsEqualTo(7L);
@@ -260,7 +260,7 @@ public sealed class SQLiteNativeAsyncCommandTests
         using var command = new SqliteCommand("SELECT 7", connection);
         var disposals = 0;
         command.Disposed += (_, _) => disposals++;
-        var failure = await Assert.That(() => access.ExecuteScalarAsyncCore(command)).Throws<SqliteException>();
+        var failure = await Assert.That(() => access.ExecuteScalarAsync(command)).Throws<SqliteException>();
         await Assert.That(ExecutionFailureContexts.Get(failure!)!.Stage).IsEqualTo(ExecutionFailureStage.Initialization);
         await Assert.That(ExecutionFailureContexts.Get(failure!)!.CommandDispatch!.Dispatched).IsFalse();
         await Assert.That(command.Connection).IsSameReferenceAs(connection);
@@ -297,17 +297,17 @@ public sealed class SQLiteNativeAsyncCommandTests
         {
             ActivitySource.AddActivityListener(listener);
             Exception failure;
-            if (cancel) failure = (await Assert.That(() => fixture.Access.ExecuteNonQueryAsyncCore(command, cancellation.Token)).Throws<OperationCanceledException>())!;
+            if (cancel) failure = (await Assert.That(() => fixture.Access.ExecuteNonQueryAsync(command, cancellation.Token)).Throws<OperationCanceledException>())!;
             else
             {
-                failure = (await Assert.That(() => fixture.Access.ExecuteNonQueryAsyncCore(command)).Throws<InvalidOperationException>())!;
+                failure = (await Assert.That(() => fixture.Access.ExecuteNonQueryAsync(command)).Throws<InvalidOperationException>())!;
                 await Assert.That(failure).IsSameReferenceAs(expected);
             }
             await Assert.That(ExecutionFailureContexts.Get(failure)!.CommandDispatch!.Dispatched).IsFalse();
             await Assert.That(command.Connection).IsNull();
         }
         await Assert.That(observed).IsEqualTo(1);
-        await Assert.That(await fixture.Access.ExecuteScalarAsyncCore<long>("SELECT value FROM items WHERE id=1")).IsEqualTo(7L);
+        await Assert.That(await fixture.Access.ExecuteScalarAsync<long>("SELECT value FROM items WHERE id=1")).IsEqualTo(7L);
     }
 
     private sealed class DerivedCommand : SqliteCommand;

@@ -60,16 +60,16 @@ public sealed class NativeAsyncCommandTests
             "CREATE TABLE items (id INT PRIMARY KEY, value INT NOT NULL)");
         await using var source = CreateSource(schema);
         var access = new SqlDbAccess(source, DataLinqLoggingConfiguration.NullConfiguration);
-        await Assert.That(await access.ExecuteNonQueryAsyncCore("INSERT INTO items VALUES (1, 10)")).IsEqualTo(1);
+        await Assert.That(await access.ExecuteNonQueryAsync("INSERT INTO items VALUES (1, 10)")).IsEqualTo(1);
         using var update = new MySqlCommand("UPDATE items SET value = @value WHERE id = 1");
         update.Parameters.AddWithValue("@value", 20);
-        await Assert.That(await access.ExecuteNonQueryAsyncCore(update)).IsEqualTo(1);
+        await Assert.That(await access.ExecuteNonQueryAsync(update)).IsEqualTo(1);
         await Assert.That(update.Connection!.State).IsEqualTo(ConnectionState.Closed);
         update.Parameters[0].Value = 30;
         await Assert.That(access.ExecuteNonQuery(update)).IsEqualTo(1);
         using var select = new MySqlCommand("SELECT value FROM items WHERE id = 1");
-        await Assert.That(await access.ExecuteScalarAsyncCore<int>(select)).IsEqualTo(access.ExecuteScalar<int>(select));
-        await Assert.That(await access.ExecuteScalarAsyncCore<int>("SELECT value FROM items WHERE id = 1")).IsEqualTo(30);
+        await Assert.That(await access.ExecuteScalarAsync<int>(select)).IsEqualTo(access.ExecuteScalar<int>(select));
+        await Assert.That(await access.ExecuteScalarAsync<int>("SELECT value FROM items WHERE id = 1")).IsEqualTo(30);
         await Assert.That(select.Connection!.State).IsEqualTo(ConnectionState.Closed);
     }
 
@@ -84,7 +84,7 @@ public sealed class NativeAsyncCommandTests
         using var command = new MySqlCommand("SELECT 1 UNION ALL SELECT 2");
         for (var attempt = 0; attempt < 3; attempt++)
         {
-            var reader = await access.ExecuteReaderAsyncCore(command);
+            var reader = await access.ExecuteReaderAsync(command);
             await Assert.That(await reader.ReadNextRowAsync(default)).IsTrue();
             await Assert.That(reader.GetInt32(0)).IsEqualTo(1);
             await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Open);
@@ -92,7 +92,7 @@ public sealed class NativeAsyncCommandTests
             else await reader.DisposeAsync();
             await reader.DisposeAsync();
             await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
-            await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsyncCore("SELECT 7"))).IsEqualTo(7);
+            await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsync("SELECT 7"))).IsEqualTo(7);
         }
     }
 
@@ -117,7 +117,7 @@ public sealed class NativeAsyncCommandTests
             await Assert.That(second[0]).IsEqualTo((byte)1);
             await Assert.That(second[1]).IsEqualTo((byte)2);
         }
-        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsyncCore("SELECT 7"))).IsEqualTo(7);
+        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsync("SELECT 7"))).IsEqualTo(7);
     }
 
     [Test]
@@ -129,7 +129,7 @@ public sealed class NativeAsyncCommandTests
         await using var source = CreateSource(schema);
         var access = new SqlDbAccess(source, DataLinqLoggingConfiguration.NullConfiguration);
         using var command = new MySqlCommand("SELECT 1 UNION ALL SELECT 2");
-        var sequence = access.ReadReaderAsyncCore(command);
+        var sequence = access.ReadReaderAsync(command);
         await Assert.That(command.Connection).IsNull();
         for (var attempt = 0; attempt < 2; attempt++)
         {
@@ -141,7 +141,7 @@ public sealed class NativeAsyncCommandTests
             await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
         }
         var sum = 0;
-        await foreach (var row in access.ReadReaderAsyncCore("SELECT 1 UNION ALL SELECT 2")) sum += row.GetInt32(0);
+        await foreach (var row in access.ReadReaderAsync("SELECT 1 UNION ALL SELECT 2")) sum += row.GetInt32(0);
         await Assert.That(sum).IsEqualTo(3);
     }
 
@@ -153,10 +153,10 @@ public sealed class NativeAsyncCommandTests
         using var schema = ServerSchemaDatabase.Create(provider, nameof(CancelingAPoolWaitDoesNotDispatchOrDisposeTheOtherReader));
         await using var source = CreateSource(schema);
         var access = new SqlDbAccess(source, DataLinqLoggingConfiguration.NullConfiguration);
-        await using var reader = await access.ExecuteReaderAsyncCore("SELECT 1 UNION ALL SELECT 2");
+        await using var reader = await access.ExecuteReaderAsync("SELECT 1 UNION ALL SELECT 2");
         using var waiting = new MySqlCommand("SELECT 3");
         using var cancellation = new CancellationTokenSource();
-        var operation = access.ExecuteScalarAsyncCore(waiting, cancellation.Token);
+        var operation = access.ExecuteScalarAsync(waiting, cancellation.Token);
         await Assert.That(operation.IsCompleted).IsFalse();
         cancellation.Cancel();
         var failure = await Assert.That(async () => await operation).Throws<OperationCanceledException>();
@@ -167,7 +167,7 @@ public sealed class NativeAsyncCommandTests
         await Assert.That(await reader.ReadNextRowAsync(default)).IsTrue();
         await Assert.That(reader.GetInt32(0)).IsEqualTo(1);
         await reader.DisposeAsync();
-        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsyncCore(waiting))).IsEqualTo(3);
+        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsync(waiting))).IsEqualTo(3);
     }
 
     [Test]
@@ -179,14 +179,14 @@ public sealed class NativeAsyncCommandTests
         await using var source = CreateSource(schema);
         var access = new SqlDbAccess(source, DataLinqLoggingConfiguration.NullConfiguration);
         using var command = new MySqlCommand("SELECT 1 UNION ALL SELECT 2");
-        await using var reader = await access.ExecuteReaderAsyncCore(command);
+        await using var reader = await access.ExecuteReaderAsync(command);
         await Assert.That(await reader.ReadNextRowAsync(default)).IsTrue();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var failure = await Assert.That(() => reader.ReadNextRowAsync(cancellation.Token)).Throws<OperationCanceledException>();
         await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
         await Assert.That(ExecutionFailureContexts.Get(failure!)!.Stage).IsEqualTo(ExecutionFailureStage.RowLoading);
-        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsyncCore("SELECT 7"))).IsEqualTo(7);
+        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsync("SELECT 7"))).IsEqualTo(7);
     }
 
     [Test]
@@ -210,7 +210,7 @@ public sealed class NativeAsyncCommandTests
             await Assert.That(context.ProviderInstanceId).IsNull();
             await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
             command.CommandText = "SELECT 7";
-            await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsyncCore(command))).IsEqualTo(7);
+            await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsync(command))).IsEqualTo(7);
         }
     }
 
@@ -235,7 +235,7 @@ public sealed class NativeAsyncCommandTests
             await Assert.That(context.CommandDispatch!.Dispatched).IsFalse();
             await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
             logger.Enabled = false;
-            await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsyncCore(command))).IsEqualTo(7);
+            await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsync(command))).IsEqualTo(7);
         }
     }
 
@@ -262,12 +262,12 @@ public sealed class NativeAsyncCommandTests
         })
         {
             ActivitySource.AddActivityListener(listener);
-            var failure = await Assert.That(async () => { await access.ExecuteReaderAsyncCore(command); }).Throws<InvalidOperationException>();
+            var failure = await Assert.That(async () => { await access.ExecuteReaderAsync(command); }).Throws<InvalidOperationException>();
             await Assert.That(ReferenceEquals(failure, expected)).IsTrue();
             await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
             await Assert.That(ExecutionFailureContexts.Get(failure!)!.CommandDispatch!.Dispatched).IsTrue();
         }
-        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsyncCore(command))).IsEqualTo(1);
+        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsync(command))).IsEqualTo(1);
     }
 
     [Test]
@@ -287,12 +287,12 @@ public sealed class NativeAsyncCommandTests
         // Lock contention gives a real interrupted statement. SLEEP may instead
         // finish successfully with an interruption result on some server versions.
         using var command = new MySqlCommand(takeLock.CommandText) { CommandTimeout = 1 };
-        var failure = await Assert.That(() => access.ExecuteScalarAsyncCore(command)).Throws<MySqlException>();
+        var failure = await Assert.That(() => access.ExecuteScalarAsync(command)).Throws<MySqlException>();
         await Assert.That(failure!.ErrorCode).IsEqualTo(MySqlErrorCode.CommandTimeoutExpired);
         await Assert.That(ExecutionFailureContexts.Get(failure)!.Cause).IsEqualTo(ExecutionFailureCause.Timeout);
         await Assert.That(command.CommandTimeout).IsEqualTo(1);
         await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
-        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsyncCore("SELECT 7"))).IsEqualTo(7);
+        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsync("SELECT 7"))).IsEqualTo(7);
     }
 
     [Test]
@@ -317,7 +317,7 @@ public sealed class NativeAsyncCommandTests
         probe.CommandText = "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE INFO = @sql";
         probe.Parameters.AddWithValue("@sql", command.CommandText);
         using var cancellation = new CancellationTokenSource();
-        var operation = access.ExecuteScalarAsyncCore(command, cancellation.Token);
+        var operation = access.ExecuteScalarAsync(command, cancellation.Token);
         try
         {
             var started = Stopwatch.StartNew();
@@ -344,7 +344,7 @@ public sealed class NativeAsyncCommandTests
             try { await operation; } catch (Exception) { }
         }
         command.CommandText = "SELECT 7";
-        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsyncCore(command))).IsEqualTo(7);
+        await Assert.That(Convert.ToInt32(await access.ExecuteScalarAsync(command))).IsEqualTo(7);
     }
 
     [Test]
@@ -380,7 +380,7 @@ public sealed class NativeAsyncCommandTests
             ? new MySqlProvider<EmployeesDb>(schema.Connection.ConnectionString, schema.Connection.DataSourceName, DataLinqLoggingConfiguration.NullConfiguration)
             : new MariaDBProvider<EmployeesDb>(schema.Connection.ConnectionString, schema.Connection.DataSourceName, DataLinqLoggingConfiguration.NullConfiguration);
         var access = provider.DatabaseAccess;
-        var failure = await Assert.That(async () => { await access.ExecuteScalarAsyncCore<Guid>("SELECT 'text'"); }).Throws<InvalidCastException>();
+        var failure = await Assert.That(async () => { await access.ExecuteScalarAsync<Guid>("SELECT 'text'"); }).Throws<InvalidCastException>();
         await Assert.That(() => access.ExecuteScalar<Guid>("SELECT 'text'")).Throws<InvalidCastException>();
         var context = ExecutionFailureContexts.Get(failure!)!;
         await Assert.That(context.ProviderInstanceId).IsEqualTo(provider.TelemetryInstanceId);
@@ -389,10 +389,10 @@ public sealed class NativeAsyncCommandTests
         await Assert.That(context.Operation).IsEqualTo(ExecutionOperationKind.RawCommand);
         await Assert.That(context.Recovery).IsEqualTo(ExecutionRecoveryActions.None);
         using var command = new MySqlCommand("SELECT invalid syntax for provider attribution");
-        var providerFailure = await Assert.That(() => access.ExecuteScalarAsyncCore(command)).Throws<MySqlException>();
+        var providerFailure = await Assert.That(() => access.ExecuteScalarAsync(command)).Throws<MySqlException>();
         await Assert.That(ExecutionFailureContexts.Get(providerFailure!)!.ProviderInstanceId).IsEqualTo(provider.TelemetryInstanceId);
         await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
-        await Assert.That(await access.ExecuteScalarAsyncCore("SELECT 7")).IsEqualTo(access.ExecuteScalar("SELECT 7"));
+        await Assert.That(await access.ExecuteScalarAsync("SELECT 7")).IsEqualTo(access.ExecuteScalar("SELECT 7"));
     }
 
     [Test]
@@ -410,7 +410,7 @@ public sealed class NativeAsyncCommandTests
         await using var source = new MySqlDataSourceBuilder(connectionString.ConnectionString).Build();
         var access = new SqlDbAccess(source, DataLinqLoggingConfiguration.NullConfiguration);
         using var command = new MySqlCommand("SELECT 7");
-        var failure = await Assert.That(() => access.ExecuteScalarAsyncCore(command)).Throws<MySqlException>();
+        var failure = await Assert.That(() => access.ExecuteScalarAsync(command)).Throws<MySqlException>();
         var context = ExecutionFailureContexts.Get(failure!)!;
         await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.ProviderError);
         await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Initialization);
@@ -429,9 +429,9 @@ public sealed class NativeAsyncCommandTests
 
     private static async Task Execute(SqlDbAccess access, IDbCommand command, string kind, CancellationToken token = default)
     {
-        if (kind == "scalar") await access.ExecuteScalarAsyncCore(command, token);
-        else if (kind == "non_query") await access.ExecuteNonQueryAsyncCore(command, token);
-        else await (await access.ExecuteReaderAsyncCore(command, token)).DisposeAsync();
+        if (kind == "scalar") await access.ExecuteScalarAsync(command, token);
+        else if (kind == "non_query") await access.ExecuteNonQueryAsync(command, token);
+        else await (await access.ExecuteReaderAsync(command, token)).DisposeAsync();
     }
 
     private sealed class ThrowingLogger : ILoggerFactory, ILogger
