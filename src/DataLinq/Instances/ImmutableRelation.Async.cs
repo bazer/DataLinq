@@ -4,6 +4,7 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Cache;
 using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
@@ -21,7 +22,7 @@ public partial class ImmutableRelation<T, TKey>
 
     private async Task<RelationSnapshot> GetSnapshotAsync(CancellationToken token, bool buildDictionary = false,
         IDataSourceAccess? capturedSource = null, DataLinqKey? capturedKey = null,
-        TransactionOperationGate.Step? owner = null)
+        TransactionOperationGate.Step? owner = null, TableCache.PreparedRelationRows? capturedPlan = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         // Admission precedes waiting, so same-transaction overlap never becomes
@@ -35,7 +36,7 @@ public partial class ImmutableRelation<T, TKey>
         {
             var table = GetTableCache(source);
             var key = capturedKey ?? ProviderKeyComponents.ToDataLinqKey(foreignKey);
-            var prepared = table.PrepareRelationRowsAsyncCore(key, property, source, step);
+            var prepared = capturedPlan?.WithOwner(step) ?? table.PrepareRelationRowsAsyncCore(key, property, source, step);
             stage = ExecutionFailureStage.Materialization;
             token.ThrowIfCancellationRequested();
             var current = Volatile.Read(ref snapshot);
@@ -72,17 +73,28 @@ public partial class ImmutableRelation<T, TKey>
         catch (Exception failure) { identity.ReportLocalFailure(failure, source, step, token, stage); read?.ReportFailure(failure); throw; }
     }
 
+    private TableCache.PreparedRelationRows PrepareSnapshotRead(IDataSourceAccess source, DataLinqKey key) =>
+        GetTableCache(source).PrepareRelationRowsAsyncCore(key, property, source, owner: null);
+
     // Reuse the reader enumerator's admission, cancellation, call guard and helper
     // drain lifecycle even when the complete relation is already cached.
     private sealed class RelationSnapshotRead(ImmutableRelation<T, TKey> relation, IDataSourceAccess source, DataLinqKey key)
         : IAsyncReaderSource, IAsyncReaderContinuation<T>
     {
+        private TableCache.PreparedRelationRows? prepared;
         public bool RequiresInitialReader => false;
-        public void Validate() { }
+        public void Validate()
+        {
+            // The enumerator checks cancellation before invoking the continuation.
+            // Run the eager path's I/O-free validation here, including for a warm
+            // snapshot. Execution attaches admission to this same captured plan.
+            prepared = relation.PrepareSnapshotRead(source, key);
+        }
         public Task<IAsyncDataReader> OpenReaderAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public void AddRow(IAsyncDataReader reader) => throw new NotSupportedException();
         public async Task<IReadOnlyList<T>> CompleteAsync(TransactionOperationGate.Step? owner, CancellationToken token) =>
-            (await relation.GetSnapshotAsync(token, capturedSource: source, capturedKey: key, owner: owner).ConfigureAwait(false)).Values;
+            (await relation.GetSnapshotAsync(token, capturedSource: source, capturedKey: key, owner: owner,
+                capturedPlan: prepared ?? throw new InvalidOperationException("The relation read has not been validated.")).ConfigureAwait(false)).Values;
         // Load failures retain their child report. Once loading has succeeded,
         // cancellation between buffered rows has performed no further statement.
         public ReadFailureEvidence GetReadFailureEvidence(Exception failure) =>
