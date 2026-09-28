@@ -21,6 +21,7 @@ public class GeneratorFileFactoryOptions
     public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
     public IReadOnlyCollection<string> ReadSourceConstructorModelTypeNames { get; set; } = [];
     public bool SupportsReadSourceDatabaseConstruction { get; set; }
+    internal IReadOnlyCollection<RelationProperty> AsyncNavigationOverrides { get; set; } = [];
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
@@ -902,6 +903,16 @@ public class GeneratorFileFactory
         if (model.RelationProperties.Any())
             yield return "";
 
+        foreach (var relation in model.RelationProperties.Values.Where(x => x.RelationPart.Type == RelationPartType.ForeignKey))
+        {
+            var target = relation.RelationPart.GetOtherSide().ColumnIndex.Table.Model.CsType.Name;
+            var nullable = Options.UseNullableReferenceTypes && relation.CsNullable ? "?" : "";
+            var modifier = Options.AsyncNavigationOverrides.Contains(relation) ? "override" : "virtual";
+            yield return $"{namespaceTab}{tab}/// <summary>Asynchronously resolves the {relation.PropertyName} reference using this model's source and shared relation state.</summary>";
+            yield return $"{namespaceTab}{tab}public {modifier} global::System.Threading.Tasks.ValueTask<{target}{nullable}> {relation.PropertyName}Async(global::System.Threading.CancellationToken cancellationToken = default) => throw new global::System.NotSupportedException(\"This model does not implement asynchronous navigation.\");";
+            yield return "";
+        }
+
         yield return $"{namespaceTab}{tab}internal static void SetDataLinqGeneratedModel(global::DataLinq.Metadata.ModelDefinition model)";
         yield return $"{namespaceTab}{tab}" + "{";
         yield return $"{namespaceTab}{tab}{tab}DataLinqGeneratedModel = model ?? throw new global::System.ArgumentNullException(nameof(model));";
@@ -1272,6 +1283,13 @@ public class GeneratorFileFactory
 
                 yield return $"{namespaceTab}{tab}private IImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
                 yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar} {relationProperty.PropertyName} => (_{relationProperty.PropertyName} ??= {GetImmutableForeignKeyExpression(relationProperty, otherPart.ColumnIndex.Table.Model.CsType.Name)}).Value{expressionSuffix};";
+                yield return $"{namespaceTab}{tab}public override async global::System.Threading.Tasks.ValueTask<{otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar}> {relationProperty.PropertyName}Async(global::System.Threading.CancellationToken cancellationToken = default)";
+                yield return $"{namespaceTab}{tab}{{";
+                yield return $"{namespaceTab}{tab}{tab}var reference = _{relationProperty.PropertyName} ??= {GetImmutableForeignKeyExpression(relationProperty, otherPart.ColumnIndex.Table.Model.CsType.Name)};";
+                yield return $"{namespaceTab}{tab}{tab}if (reference is not global::DataLinq.Instances.IAsyncImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}> asyncReference)";
+                yield return $"{namespaceTab}{tab}{tab}{tab}throw new global::System.NotSupportedException(\"This reference does not implement asynchronous loading.\");";
+                yield return $"{namespaceTab}{tab}{tab}return (await asyncReference.GetAsync(cancellationToken).ConfigureAwait(false)){expressionSuffix};";
+                yield return $"{namespaceTab}{tab}}}";
             }
             else
             {

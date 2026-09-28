@@ -4,6 +4,14 @@ namespace DataLinq.SourceGenerators;
 
 internal static class GeneratorDiagnostics
 {
+    internal static readonly DiagnosticDescriptor AsyncNavigationConflict = new(
+        "DLG004",
+        "Async navigation member conflict",
+        "Relation '{0}' cannot generate '{1}': member '{2}' conflicts because {3}",
+        "DataLinq.Generators",
+        DiagnosticSeverity.Error,
+        true);
+
     internal static readonly DiagnosticDescriptor MetadataGenerationFailed = new(
         "DLG001",
         "Database Metadata Generation Failed",
