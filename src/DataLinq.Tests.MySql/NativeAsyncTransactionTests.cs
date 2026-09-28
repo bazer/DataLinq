@@ -112,7 +112,9 @@ public sealed class NativeAsyncTransactionTests
                 await Assert.That(transaction.Dispose).Throws<InvalidOperationException>();
             }
             finally { await reader.DisposeAsync(); }
-            await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Open);
+            await Assert.That(command.Connection).IsNull();
+            await Assert.That(command.Transaction).IsNull();
+            await Assert.That(transaction.DatabaseAccess.DbTransaction!.Connection!.State).IsEqualTo(ConnectionState.Open);
             await Assert.That(Convert.ToInt32(transaction.DatabaseAccess.ExecuteScalar("SELECT 3"))).IsEqualTo(3);
             using (var syncReader = transaction.DatabaseAccess.ExecuteReader(command))
                 await Assert.That(syncReader.ReadNextRow()).IsTrue();

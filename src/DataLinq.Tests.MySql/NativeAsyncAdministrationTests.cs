@@ -183,20 +183,24 @@ public sealed class NativeAsyncAdministrationTests
             using var provider = CreateProvider(schema);
             var transaction = provider.StartTransaction();
             using var command = new MySqlCommand("SELECT 1");
+            IDbConnection? transactionConnection = null;
             try
             {
                 await transaction.DatabaseAccess.ExecuteScalarAsyncCore(command);
                 var native = transaction.DatabaseAccess.DbTransaction;
+                transactionConnection = native!.Connection;
                 if (asyncFirst) await ((IAsyncRootDisposal)provider).DisposeAsyncCore(); else provider.Dispose();
                 await ((IAsyncRootDisposal)provider).DisposeAsyncCore();
                 provider.Dispose();
                 await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
                 await Assert.That(transaction.DatabaseAccess.DbTransaction).IsSameReferenceAs(native);
-                await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Open);
+                await Assert.That(command.Connection).IsNull();
+                await Assert.That(command.Transaction).IsNull();
+                await Assert.That(transactionConnection!.State).IsEqualTo(ConnectionState.Open);
                 await Assert.That(async () => { await provider.DatabaseExistsAsyncCore(); }).Throws<ObjectDisposedException>();
             }
             finally { await transaction.DisposeAsyncCore(); }
-            await Assert.That(command.Connection!.State).IsEqualTo(ConnectionState.Closed);
+            await Assert.That(transactionConnection!.State).IsEqualTo(ConnectionState.Closed);
         }
     }
 

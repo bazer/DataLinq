@@ -9,8 +9,9 @@ namespace DataLinq.MySql;
 
 /// <summary>Native reader; a supplied standalone connection is owned, transaction connections stay borrowed.</summary>
 internal sealed class SqlAsyncDataLinqDataReader(MySqlDataReader native, MySqlConnection? connection,
-    DatabaseType? databaseType, string? providerInstanceId) : IAsyncDataReader, IDataLinqOwnedBinaryBufferReader
+    DatabaseType? databaseType, string? providerInstanceId, MySqlCommand? borrowedCommand = null) : IAsyncDataReader, IDataLinqOwnedBinaryBufferReader
 {
+    private readonly MySqlConnection? commandConnection = borrowedCommand?.Connection;
     private readonly SqlDataLinqDataReader values = new(native, databaseType);
     private readonly EnumeratorCallGate calls = new();
     private bool disposed;
@@ -59,6 +60,9 @@ internal sealed class SqlAsyncDataLinqDataReader(MySqlDataReader native, MySqlCo
         try { native.Dispose(); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         occurrence = ExecutionFailureContexts.CaptureOccurrence();
+        try { DetachCommand(); }
+        catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
+        occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try { connection?.Dispose(); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         Report(failures);
@@ -75,9 +79,19 @@ internal sealed class SqlAsyncDataLinqDataReader(MySqlDataReader native, MySqlCo
         try { await native.DisposeAsync().ConfigureAwait(false); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         occurrence = ExecutionFailureContexts.CaptureOccurrence();
+        try { DetachCommand(); }
+        catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
+        occurrence = ExecutionFailureContexts.CaptureOccurrence();
         try { if (connection is not null) await connection.DisposeAsync().ConfigureAwait(false); }
         catch (Exception failure) { AddCleanup(ref failures, failure, occurrence); }
         Report(failures);
+    }
+
+    private void DetachCommand()
+    {
+        if (commandConnection is null || borrowedCommand is null || !ReferenceEquals(borrowedCommand.Connection, commandConnection)) return;
+        borrowedCommand.Transaction = null;
+        borrowedCommand.Connection = null;
     }
 
     private static void AddCleanup(ref ExecutionFailures? failures, Exception failure, long occurrence)

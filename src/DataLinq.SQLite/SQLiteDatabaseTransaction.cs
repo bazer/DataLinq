@@ -156,6 +156,8 @@ public partial class SQLiteDatabaseTransaction : DatabaseTransaction, ISyncTrans
 
     public override void Dispose() => DisposeSynchronousTransaction(this);
 
+    void ISyncTransactionCompletionResource.ValidateCompletion() => Resource.Validate();
+
     void ISyncTransactionCompletionResource.Complete(bool rollback)
     {
         var native = GetActiveProviderTransaction(rollback ? "roll back" : "commit");

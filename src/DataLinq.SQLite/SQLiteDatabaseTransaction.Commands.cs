@@ -91,6 +91,8 @@ public partial class SQLiteDatabaseTransaction : IAsyncEagerCommandFactory, IAsy
         {
             owner.ValidateNativeTransactionCapability();
             Validate(command);
+            if (command.GetType() != typeof(SqliteCommand))
+                throw new NotSupportedException("Asynchronous SQLite execution requires an unmodified Microsoft.Data.Sqlite command.");
         }
         void ISyncCommandAccess.ValidateCommand(IDbCommand command, SyncCommandKind kind) => Validate(command);
         private void Validate(IDbCommand command)
@@ -99,9 +101,8 @@ public partial class SQLiteDatabaseTransaction : IAsyncEagerCommandFactory, IAsy
             owner.Resource.Validate();
             if (owner.Status is DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack)
                 throw new InvalidOperationException("The transaction has already completed.");
-            if (command.GetType() != typeof(SqliteCommand))
-                throw new NotSupportedException("SQLite execution requires an unmodified Microsoft.Data.Sqlite command.");
-            var native = (SqliteCommand)command;
+            if (command is not SqliteCommand native)
+                throw new NotSupportedException("SQLite execution requires a Microsoft.Data.Sqlite command.");
             if (native.Transaction is not null && !ReferenceEquals(native.Transaction, owner.DbTransaction))
                 throw new InvalidOperationException("The command belongs to another transaction.");
             SQLiteDbAccess.ValidateSql(native.CommandText);
@@ -164,7 +165,8 @@ public partial class SQLiteDatabaseTransaction : IAsyncEagerCommandFactory, IAsy
         object? ISyncCommandAccess.ExecuteScalar(IDbCommand command) => Execute(command, "scalar", static native => native.ExecuteScalar());
         int ISyncCommandAccess.ExecuteNonQuery(IDbCommand command) => Execute(command, "non_query", static native => native.ExecuteNonQuery());
         IDataLinqDataReader ISyncCommandAccess.ExecuteReader(IDbCommand command) => Execute(command, "reader",
-            native => new SQLiteAsyncDataLinqDataReader(native.ExecuteReader(), null, native, owner.DiagnosticProviderInstanceId, detachBorrowedCommand: true));
+            native => new SQLiteAsyncDataLinqDataReader((SqliteDataReader)((IDbCommand)native).ExecuteReader(),
+                null, native, owner.DiagnosticProviderInstanceId, detachBorrowedCommand: true));
 
         private T Execute<T>(IDbCommand command, string kind, Func<SqliteCommand, T> execute)
         {

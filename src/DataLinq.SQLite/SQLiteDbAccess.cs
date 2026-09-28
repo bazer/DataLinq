@@ -28,6 +28,7 @@ public partial class SQLiteDbAccess : DatabaseAccess
 
     private SqliteConnection OpenOwnedConnection()
     {
+        validateLifecycle?.Invoke();
         var connection = new SqliteConnection(connectionString);
         try
         {

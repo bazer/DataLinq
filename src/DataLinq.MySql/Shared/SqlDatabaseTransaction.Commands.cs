@@ -132,32 +132,40 @@ public partial class SqlDatabaseTransaction : IAsyncEagerCommandFactory, IAsyncS
         {
             using var diagnostics = ExecutionFailureScope.Begin();
             var dispatched = false;
+            var result = default(T)!;
+            Exception? failure = null;
             try
             {
                 var native = Prepare(command);
-                return await owner.ExecuteCommandWithTelemetryAsync(command, kind, true, owner.Type, token, () =>
+                result = await owner.ExecuteCommandWithTelemetryAsync(command, kind, true, owner.Type, token, () =>
                 {
                     dispatched = true;
                     return execute(native, token);
                 }).ConfigureAwait(false);
             }
-            catch (Exception failure) { Report(failure, command, dispatched, token); throw; }
+            catch (Exception error) { failure = error; }
+            Finish(command, dispatched, token, failure, detach: true);
+            return result;
         }
         protected override async Task<IAsyncDataReader> ExecuteReaderCoreAsync(IDbCommand command, CancellationToken token)
         {
             using var diagnostics = ExecutionFailureScope.Begin();
             var dispatched = false;
+            IAsyncDataReader? result = null;
+            Exception? failure = null;
             try
             {
                 var native = Prepare(command);
-                return await owner.ExecuteReaderWithTelemetryAsync(command, true, owner.Type, token, async () =>
+                result = await owner.ExecuteReaderWithTelemetryAsync(command, true, owner.Type, token, async () =>
                 {
                     dispatched = true;
                     return new SqlAsyncDataLinqDataReader(await native.ExecuteReaderAsync(token).ConfigureAwait(false),
-                        null, owner.databaseType, owner.DiagnosticProviderInstanceId);
+                        null, owner.databaseType, owner.DiagnosticProviderInstanceId, borrowedCommand: native);
                 }).ConfigureAwait(false);
             }
-            catch (Exception failure) { Report(failure, command, dispatched, token); throw; }
+            catch (Exception error) { failure = error; }
+            Finish(command, dispatched, token, failure, detach: failure is not null);
+            return result!;
         }
 
         object? ISyncCommandAccess.ExecuteScalar(IDbCommand command)
@@ -167,31 +175,51 @@ public partial class SqlDatabaseTransaction : IAsyncEagerCommandFactory, IAsyncS
         }
         int ISyncCommandAccess.ExecuteNonQuery(IDbCommand command) => Execute(command, "non_query", static native => native.ExecuteNonQuery());
         IDataLinqDataReader ISyncCommandAccess.ExecuteReader(IDbCommand command) => Execute(command, "reader",
-            native => new SqlDataLinqDataReader(native.ExecuteReader(), owner.databaseType));
+            native => new SqlAsyncDataLinqDataReader(native.ExecuteReader(), null, owner.databaseType,
+                owner.DiagnosticProviderInstanceId, borrowedCommand: native));
 
         private T Execute<T>(IDbCommand command, string kind, Func<MySqlCommand, T> execute)
         {
             using var diagnostics = ExecutionFailureScope.Begin();
             var dispatched = false;
+            var result = default(T)!;
+            Exception? failure = null;
             try
             {
                 var native = Prepare(command);
-                return owner.ExecuteCommandWithTelemetry(command, kind, true, owner.Type, () =>
+                result = owner.ExecuteCommandWithTelemetry(command, kind, true, owner.Type, () =>
                 {
                     dispatched = true;
                     return execute(native);
                 });
             }
-            catch (Exception failure) { Report(failure, command, dispatched, default); throw; }
+            catch (Exception error) { failure = error; }
+            Finish(command, dispatched, default, failure, detach: kind != "reader" || failure is not null);
+            return result;
         }
-        private void Report(Exception failure, IDbCommand command, bool dispatched, CancellationToken token)
+        private void Finish(IDbCommand command, bool dispatched, CancellationToken token, Exception? failure, bool detach)
         {
-            var failures = new ExecutionFailures();
-            failures.AddReported(failure, dispatched ? ExecutionFailureStage.CommandExecution : ExecutionFailureStage.Validation,
-                ClassifyNativeFailure(failure, token));
-            CommandDispatchEvidence.Attach(failure, failures.Snapshot(new(), ExecutionCompletion.NotAttempted,
+            ExecutionFailures? failures = null;
+            if (failure is not null)
+                (failures = new()).AddReported(failure, dispatched ? ExecutionFailureStage.CommandExecution : ExecutionFailureStage.Validation,
+                    ClassifyNativeFailure(failure, token));
+            if (detach && owner.nativeResource?.Connection is { } connection && ReferenceEquals(command.Connection, connection))
+            {
+                // Release our bindings after execution; the caller still owns the command.
+                using var cleanup = ExecutionFailureScope.Begin();
+                var occurrence = ExecutionFailureContexts.CaptureOccurrence();
+                try { command.Transaction = null; command.Connection = null; }
+                catch (Exception error)
+                {
+                    ExecutionFailureContexts.DiscardEarlierReport(error, occurrence);
+                    (failures ??= new()).AddCleanup(error);
+                }
+            }
+            if (failures?.Primary is not { } primary) return;
+            CommandDispatchEvidence.Attach(primary, failures.Snapshot(new(), ExecutionCompletion.NotAttempted,
                 ExecutionRecoveryActions.Dispose, owner.ManagedTransaction?.TransactionID, ExecutionOperationKind.Unknown,
                 owner.DiagnosticProviderInstanceId, providerIdentityIsAuthoritative: true), command, dispatched);
+            failures.ThrowIfAny();
         }
     }
 }
