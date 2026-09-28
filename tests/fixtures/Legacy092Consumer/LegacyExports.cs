@@ -20,6 +20,15 @@ public static class LegacyExports
     public static IMetadataFromSqlFactory Metadata() => new LegacyMetadataFactory();
     public static ISqlFromMetadataFactory Provisioning() => new LegacyProvisioningFactory();
     public static IImmutable<IModel> StaticInterfaceImplementer() => new LegacyImmutable();
+    public static DatabaseProvider DerivedProvider() => ExternalConstructorBindings.Constructors.CreateSql();
+    public static string ConstructorBinding() => ExternalConstructorBindings.Constructors.UntypedNullBinding();
+    public static IImmutableForeignKey<IImmutableInstance> CovariantReference() => new LegacyReference();
+
+    public static void RemovedKeyedEnumeration()
+    {
+        var relation = new ImmutableRelationMock<PackageConsumerRow>([]);
+        _ = relation.AsEnumerable();
+    }
 
     public static int SynchronousGeneratedConsumer()
     {
@@ -42,4 +51,9 @@ public static class LegacyExports
     }
 
     private sealed class LegacyImmutable : IImmutable<IModel> { }
+    private sealed class LegacyReference : IImmutableForeignKey<PackageConsumerRow>
+    {
+        public PackageConsumerRow? Value => throw new Exception("Synchronous reference was read.");
+        public void Clear() => throw new Exception("Synchronous reference was cleared.");
+    }
 }

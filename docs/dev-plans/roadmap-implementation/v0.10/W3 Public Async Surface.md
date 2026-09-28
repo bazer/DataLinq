@@ -296,3 +296,9 @@ Audited the existing query, transaction and relation entry pages against the imp
 DocFX build passes with zero warnings/errors. Generated _site output includes the new Usage entry, correct links/anchors and unreleased scope text. A source cross-check corrected an initial draft's overstatement about direct reader sync calls: inherited synchronous advancement/disposal remain available when deliberately selected; the async path never chooses them as fallback. W5 runtime validation/hosting is explicitly excluded.
 
 The emitted/generated manifest reconciliation, broader generated/constructor consumer coverage and final W3 verification remain open.
+
+## W3.7c Compiled Manifest And Expanded Consumer Checkpoint
+
+Reconciled the compiled W3 families in the tracked contract projection (63 core/provider/generated types), preserving raw per-framework captures. Added package-generated composite/converted keys, all nineteen mutation bindings, shared required/optional navigation and relation execution. Added old/candidate constructor compilation, old derived-provider execution, exact SQLite untyped-null overload selection, old foreign-key covariance and an expected old-binary failure for the approved keyed rename. All nine consumer/runtime combinations pass; builds report zero warnings/errors.
+
+The evidence record preserves two corrected audit assumptions: SQLite's untyped-null constructor call is valid and unchanged; a Select constructor nullable reflection difference follows the runtime rather than different raw API metadata. Neither required a product change. The final clean-head package/integration pass remains open, and W5/benchmark boundaries are unchanged.

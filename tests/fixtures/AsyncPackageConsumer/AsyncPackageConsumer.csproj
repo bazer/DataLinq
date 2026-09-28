@@ -16,6 +16,7 @@
     <PackageReference Include="DataLinq.MySql" Version="[$(DataLinqCandidateVersion)]" />
     <PackageReference Include="DataLinq.Memory" Version="[$(DataLinqCandidateVersion)]" />
     <Compile Include="../PublicAsyncQueryConsumer/*.cs" Link="%(Filename)%(Extension)" />
+    <Compile Include="../Legacy092Consumer/ConstructorBindings.cs" Link="ConstructorBindings.cs" />
     <Compile Include="../../../test-infra/package-consumer/PackageConsumerModel.cs" Link="PackageConsumerModel.cs" />
   </ItemGroup>
   <Target Name="RequireCandidate" BeforeTargets="CollectPackageReferences;PrepareForBuild">

@@ -50,3 +50,21 @@ The [fixtures and reproduction instructions](../../../../tests/fixtures/W3%20Con
 An initial Memory fixture omitted its generated required Guid field, then caught the wrong exception type for unsupported aggregation. Both fixture assumptions were corrected; runtime code was unchanged. All subsequent builds report zero warnings/errors.
 
 The additional verifier checks prebuilt fixtures and records source hashes; it is not a clean source-to-binary attestation. The package/API reports bind the clean candidate, while the additional consumer fixtures were developed on a working tree. Full emitted-family reconciliation, broader generated/constructor consumer coverage, XML/usage documentation and final W3 head evidence remain open. B16 remains W4/W5; benchmarks remain deferred.
+
+## Expanded Generated, Constructor And Manifest Capture
+
+The expanded exact-package fixture passes all nine runtime combinations again in `artifacts/w3-consumers/78d1b3c4/reconciled-contracts/report.json` (SHA-256 `7f8c80df224772795115444f0a0184acb1d4338c478e12a1cb166267860a9371`). It compiles all nineteen generated mutation receiver forms and executes composite converted-key lookups on all three sources, required/optional navigation sharing synchronous state, and composite-key relation loading. Separate generator/provider suites retain nullable-disabled, DLG004 and full lifetime semantics coverage.
+
+Identical old constructor-call source compiles against baseline and candidate packages. The unchanged old DLL instantiates an external SqlProvider subclass and receives default captured options. Abstract external subclasses compile the preserved generic/nongeneric base constructors; candidate compilation also covers each accepted required options forwarding form. The baseline experiment disproved an assumed SQLite untyped-null ambiguity: the two-argument `(connectionString, null)` call selects DataLinqLoggingConfiguration. Expression inspection verifies the same selection in old and candidate binaries on every runtime. No constructor change was needed.
+
+Old foreign-key covariance survives without gaining async capability or reading the synchronous Value getter. An unchanged old binary calling the removed keyed AsEnumerable fails with the expected MissingMethodException, providing a concrete AAPI-11 migration boundary rather than claiming every old binary works.
+
+Compiled manifests capture 63 selected types, including generated declarations and the explicit inherited private default disposal slot. The [tracked review projection and family map](../../../../test-infra/api-compatibility/w3/README.md) reconcile the accepted W3 inventory, including the protected AAPI-112 bridge. Original JSON hashes:
+
+- net8: `3fcccfcbfc1820e9a2428589c4fa12ae029a3ed589faaa0b604c6e868ac9724e`.
+- net9: `3755a9263810b1075007fa08368a7585f531450448514909a8fe45f427b0865d`.
+- net10: `bf0b7da88e931079ade2451bbadaea42f893f8acd61c7bd66b7e60b94170d1fc`.
+
+The only nullable interpretation difference is an existing Select constructor's nested generic argument under .NET 8 reflection. Raw metadata matches; the same net8 bytes reflect the net9/10 interpretation under an explicitly selected .NET 10 host. That diagnostic is not counted as actual net8 runtime evidence. No product change or suppression was made.
+
+These fixtures/manifests extend the earlier clean 78d1b3c4 package candidate. Final clean-head integration verification remains required; the guide and metadata capture do not by themselves constitute release certification.

@@ -14,16 +14,31 @@ internal static class PackedChecks
 {
     internal static async Task RunAsync(string[] args)
     {
-        if (args.Length != 1) throw new ArgumentException("Supply the matching-TFM 0.9.2 consumer DLL.");
+        if (args.Length is < 1 or > 2) throw new ArgumentException("Supply the matching-TFM 0.9.2 consumer DLL and optional manifest output path.");
         var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(args[0]));
         var exports = assembly.GetType("Legacy092Consumer.LegacyExports", throwOnError: true)!;
         T Old<T>(string name) => (T)exports.GetMethod(name)!.Invoke(null, null)!;
         if (Old<int>("SynchronousGeneratedConsumer") != 17) throw new Exception("Old synchronous generated consumer failed.");
         _ = Old<IImmutable<IModel>>("StaticInterfaceImplementer");
+        var oldReference = Old<IImmutableForeignKey<IImmutableInstance>>("CovariantReference");
+        if (oldReference is IAsyncImmutableForeignKey<IImmutableInstance>) throw new Exception("Old covariance incorrectly supplied async capability.");
+        try
+        {
+            exports.GetMethod("RemovedKeyedEnumeration")!.Invoke(null, null);
+            throw new Exception("The approved removed keyed API unexpectedly remained callable.");
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is MissingMethodException) { }
         var staticLookup = typeof(IImmutable<IModel>).GetMethod("GetByProviderKeyAsync")!;
         if (!staticLookup.IsStatic || staticLookup.IsAbstract || staticLookup.IsVirtual || staticLookup.GetMethodBody() is null)
             throw new Exception("The new static lookup unexpectedly requires an implementer slot.");
         var provider = Old<IDatabaseProvider>("Provider");
+        if (Old<string>("ConstructorBinding") != typeof(DataLinq.Logging.DataLinqLoggingConfiguration).FullName ||
+            ExternalConstructorBindings.Constructors.UntypedNullBinding() != typeof(DataLinq.Logging.DataLinqLoggingConfiguration).FullName)
+            throw new Exception("SQLite's existing untyped-null constructor binding changed.");
+        await using (var derived = Old<DatabaseProvider>("DerivedProvider"))
+        {
+            if (derived.ExecutionOptions.RecoveryRollbackTimeout != TimeSpan.FromSeconds(30)) throw new Exception("Old derived constructor settings changed.");
+        }
         if (provider.ExecutionOptions.RecoveryRollbackTimeout != TimeSpan.FromSeconds(30)) throw new Exception("Old default options.");
         await Reject(() => ((IAsyncDisposable)provider).DisposeAsync().AsTask());
         await Reject(() => provider.CommitAsync(_ => Task.CompletedTask));
@@ -44,6 +59,8 @@ internal static class PackedChecks
         await Reject(() => Old<IMetadataFromSqlFactory>("Metadata").ParseDatabaseAsync("Db", "Db", "Ns", "db", "invalid"));
         await Reject(() => Old<ISqlFromMetadataFactory>("Provisioning").CreateDatabaseAsync(new("sql"), "db", "invalid", false));
         await GeneratedAsync();
+        await GeneratedExecution.RunAsync();
+        if (args.Length == 2) ContractManifest.Write(args[1]);
         Console.WriteLine("Packed async and unchanged 0.9.2 binary consumers passed on " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
     }
 

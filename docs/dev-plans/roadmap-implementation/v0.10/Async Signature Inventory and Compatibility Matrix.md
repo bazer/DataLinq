@@ -15,6 +15,8 @@
 
 **W3 sequencing clarification, accepted 2026-09-28:** [W3 execution](W3%20Public%20Async%20Surface.md) excludes runtime schema validation A05-A07 and its supporting types/behavior, which remain W5. B16 belongs to W4/W5 integration. These contracts remain in this cross-workstream inventory; W3's consumer closeout covers B01-B15 and records the later dependency explicitly.
 
+**W3 implementation evidence, 2026-09-28:** The original pending labels below describe this inventory's planning baseline. Current emitted declarations and package/generated consumer results are recorded separately in the [compiled contract reconciliation](../../../../test-infra/api-compatibility/w3/README.md) and [W3 compatibility evidence](W3%20Compatibility%20Evidence.md). These records preserve diagnostics and remaining final-head gates; they do not mark W4/W5 APIs implemented.
+
 ## Reading The Inventory
 
 - **Accepted target** means the family and stated contract follow an accepted AAPI decision. It is not evidence of implementation.

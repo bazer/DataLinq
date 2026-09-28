@@ -82,7 +82,7 @@ try {
             $packageCore = Join-Path $packageCache "datalinq/$CandidateVersion/lib/$tfm/DataLinq.dll"
             if ((Hash $runtimeCore) -ne (Hash $packageCore)) { throw 'Executed core does not match the restored candidate.' }
             $arguments = @($dll)
-            if ($fixture -eq 'AsyncPackageConsumer') { $arguments += $frozen }
+            if ($fixture -eq 'AsyncPackageConsumer') { $arguments += @($frozen, (Join-Path $output "contract-$tfm.json")) }
             $log = Join-Path $output "$fixture-$tfm.log"
             if ($tfm -eq 'net9.0') { $lines = @(& $runtime9 @arguments 2>&1) }
             else { $lines = @(& (Join-Path $repo 'scripts/dotnet-sandbox.ps1') @arguments 2>&1) }

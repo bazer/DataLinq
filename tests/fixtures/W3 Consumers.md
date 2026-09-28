@@ -4,12 +4,12 @@ These fixtures have no friend-assembly access or DataLinq project references. Th
 
 | Fixture | Purpose |
 | --- | --- |
-| `Legacy092Consumer` | Builds a DLL against exact 0.9.2 core/SQLite packages. Contains synchronous-only interface implementations and subclasses, a static-interface implementer, and a generated SQLite model with synchronous insert/query/transaction execution. |
+| `Legacy092Consumer` | Builds a DLL against exact 0.9.2 core/SQLite/MySQL packages. Contains synchronous-only implementations/subclasses, old constructor calls, a covariant reference and static-interface implementer, and a generated SQLite model with synchronous execution. |
 | `AsyncPackageConsumer` | Loads the unchanged matching-TFM old DLL into a candidate-package process. Exercises new unsupported defaults, old generated execution, the static lookup metadata contract, and public/generated async SQLite calls. Also compiles/runs the existing non-friend public source consumer. |
 | `AsyncEfCoexistence` | Uses pinned EF Core 9.0.5 and DataLinq imports. Static aliases compile and reject foreign query providers for scalar, nullable, anonymous, interface and DTO query receivers. `ExpectAmbiguity=true` must fail with CS0121. This fixture does not run an EF database. |
 | `AsyncMemoryConsumer` | Resolves core and Memory only. Exercises supported async query/lookup, cancellation, unsupported aggregation and a separate graph mock. Its package graph must contain no SQLite/MySQL/MariaDB dependency. |
 
-All four target net8.0/net9.0/net10.0. The linked simple model is shared with the existing package smoke. These cases do not by themselves prove all composite/converted-key, navigation, DLG004, callback or constructor forms; the W3 evidence matrix must retain the corresponding generator, unit and provider cases.
+All four target net8.0/net9.0/net10.0. The linked simple model is shared with the existing package smoke. The packed host also generates composite converted-key models, compiles all nineteen mutation receiver forms, executes shared required/optional navigation, and captures a focused compiled contract manifest. The same constructor-binding source compiles against baseline and candidate; expression inspection checks the selected SQLite untyped-null overload. An old derived SQL provider constructs/disposes without contacting a server. An old call to removed keyed AsEnumerable is expected to fail with MissingMethodException, recording the approved break explicitly. Full lifetime, DLG004, nullable-disabled and provider cases remain in the generator/unit/provider suites.
 
 ## Restore and build
 
@@ -48,6 +48,8 @@ foreach ($fixture in 'AsyncPackageConsumer','AsyncMemoryConsumer','AsyncEfCoexis
 ```
 
 Run `Verify-W3ConsumerOutputs.ps1` after successful builds. It checks package hashes against the selected archives and the locked baseline, records source/assets and executable hashes, checks the transitive async LINQ version on 8/9 and its absence on 10, rejects SQL dependencies in the Memory graph, and verifies the executed core DLL matches the selected restored package. It copies each old DLL once into the evidence directory and runs all nine fixture/runtime combinations without rebuilding it. Runtime-major checks prevent a major-version roll-forward from posing as missing-runtime evidence. The output directory must be fresh.
+
+Each packed-host execution also writes `contract-<tfm>.json`: reflected public/protected execution methods, constructors, generic constraints, nullable metadata, optional values, enum values, generated methods and inherited default disposal. Use `Export-W3ContractReview.ps1` to project the .NET 10 capture into the tracked [review manifest](../../test-infra/api-compatibility/w3/README.md). Original ApiCompat metadata is still authoritative for binary/API comparison.
 
 ```powershell
 .\tests\fixtures\Verify-W3ConsumerOutputs.ps1 `
