@@ -21,6 +21,8 @@ The [performance cost follow-up](W2%20Performance%20Cost%20Disposition.md) attri
 
 ## Milestones And Evidence Matrix
 
+**Upstream follow-up, verified 2026-09-28:** the separate SQLite failed-rollback correction [PR #39083](https://github.com/dotnet/efcore/pull/39083) merged into `main` on 2026-09-26 as `7b0248934f14bbb2159310b224f669c76eb07946`. Issue #39082 is closed as completed with milestone [12.0-preview1](https://github.com/dotnet/efcore/milestone/238). Both SQLite fixes are now accepted upstream, but this second merge does not confirm a 10.0.x backport or inclusion in the first fix's scheduled 10.0.13 release. The [investigation record](SQLite%20Failed%20Rollback%20Pool%20Reuse%20Investigation.md) retains the distinction; DataLinq's pin, official-package adoption/rerun gate and performance acceptance remain unchanged.
+
 Each cell progresses separately through implementation and verification. A passing test with a controllable adapter cannot be recorded as native-provider proof.
 
 | Milestone / required behavior | MySQL | MariaDB | SQLite file / memory |

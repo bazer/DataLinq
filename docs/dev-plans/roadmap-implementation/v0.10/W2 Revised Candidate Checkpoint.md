@@ -42,7 +42,7 @@ The current totals are **13 allocation warnings, 19 latency warnings and 9 noisy
 
 ## SQLite Acceptance
 
-Production pins remain Microsoft.Data.Sqlite 10.0.11 and MySqlConnector 2.6.2. Adopt the official SQLite ownership correction through `master` → `v0.10` → W2 and rerun affected evidence when the published package is available. The separate [failed-rollback pool finding](SQLite%20Failed%20Rollback%20Pool%20Reuse%20Investigation.md) now reproduces directly on published **10.0.11 and 10.0.12**, in both sync and async disposal. A [reviewable upstream draft](evidence/sqlite-rollback/upstream-issue.md) is prepared; nothing has been submitted. No production pool policy or automatic retry is changed. These are distinct acceptance questions.
+Production pins remain Microsoft.Data.Sqlite 10.0.11 and MySqlConnector 2.6.2. Adopt the official SQLite ownership correction through `master` → `v0.10` → W2 and rerun affected evidence when the published package is available. The separate [failed-rollback pool finding](SQLite%20Failed%20Rollback%20Pool%20Reuse%20Investigation.md) reproduces directly on published **10.0.11 and 10.0.12**, in both sync and async disposal. Its [upstream PR #39083](https://github.com/dotnet/efcore/pull/39083) merged into `main` on 2026-09-26 as `7b0248934f14bbb2159310b224f669c76eb07946`; issue #39082 is closed as completed with milestone [12.0-preview1](https://github.com/dotnet/efcore/milestone/238), verified 2026-09-28. This confirms upstream acceptance, not a 10.0.x backport or inclusion in 10.0.13. Official-package adoption and affected reruns remain open. No production pool policy or automatic retry is changed. These are distinct acceptance questions.
 
 ## Capture Receipts
 
