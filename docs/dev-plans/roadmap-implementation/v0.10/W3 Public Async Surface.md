@@ -160,3 +160,19 @@ Verification:
 - External legacy provider-transaction source, with no async overrides and throwing synchronous methods, builds/runs on .NET 8/9/10 and rejects async calls through class and inherited interface dispatch. Builds report zero warnings/errors.
 
 Summaries: `artifacts/w3-provider-completion-quick-summary.json`, `artifacts/w3-provider-completion-focused-summary.json` and `artifacts/w3-provider-completion-providers-summary.json`. These remain development checks; old binaries and packed consumers are separate W3.7 obligations. T01-T05/M01-M09 declarations and their initial public verification are now implemented. W3.4-W3.7 remain open. CI on the preceding managed-lifecycle head `0bc03f89` passed all twelve checks in [run 36445892243](https://github.com/bazer/DataLinq/actions/runs/36445892243); that result is not evidence for later commits.
+
+## W3.6 Diagnostic Snapshot Checkpoint
+
+Completed D01-D05 ahead of the generator/lower-level slices so public callers can inspect the execution evidence already recorded by those paths. D06/D07 and C01/C02 were implemented with the managed lifecycle prerequisite. Added direct-only `DataLinqFailure.GetContext`, `Transaction.FailureContext`, sealed getter-only context/secondary entries and the five independent public enums with the accepted explicit numeric assignments.
+
+Mapping preserves original exceptions and ordered secondary entries, produces defensively protected collections, and exposes no internal scope, SQL/key additions or live execution resources. Public snapshots are cached by internal immutable snapshot identity; later recovery produces a new snapshot while earlier returned values remain unchanged. Internal materialization maps to public RowLoading, finalization to LocalFinalization, and generic internal recovery maps to Rollback only when its operation is known to be rollback; recovery inspection with no such evidence remains Unknown. Unknown internal enum values do not invent public classifications or recovery permissions. The new standalone disposal fallback now identifies an actual rollback failure as Rollback rather than the surrounding Dispose operation.
+
+Verification:
+
+- Core and external source consumer build for .NET 8/9/10 without warnings/errors.
+- Three public transaction-diagnostics tests pass: immutable recovery history, overlap isolation and the existing committed-finalization exception contract.
+- Three mapping/shape/accessor tests pass in `20260928T160350120Z-e93ffa2e6f9f452b8d3ba38134ba2fd6`, including exact enum values, direct-only lookup, defensive collections and unknown mapping.
+- The focused standalone rollback-attribution case passes 1/1.
+- Public callback diagnostic assertions pass 4/4 across SQLite file/memory, MySQL 9.7 and MariaDB 12.3 in `20260928T160435338Z-fac1c91a4a344c5e92a33b7198359344`.
+
+Summaries: `artifacts/w3-diagnostics-mapping-summary.json` and `artifacts/w3-diagnostics-providers-summary.json`. These are development-working-tree checks. Full emitted/packed/old-binary evidence remains W3.7. Generator/navigation/mutation emission (W3.4), lower-level/admin APIs (W3.5) and final contract/documentation closeout (W3.7) remain open; no W5 validation behavior was added.

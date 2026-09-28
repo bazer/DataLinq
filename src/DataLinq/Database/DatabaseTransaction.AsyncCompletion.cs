@@ -132,7 +132,7 @@ public abstract partial class DatabaseTransaction
                 SynchronousCompletion = ExecutionRecoveryPolicy.PreserveCompletion(SynchronousCompletion, ExecutionCompletion.Unknown);
                 failures.AddReported(failure, ExecutionFailureStage.Recovery,
                     failure is OperationCanceledException canceled && canceled.CancellationToken == budget.Token && budget.IsCancellationRequested
-                        ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.Dispose);
+                        ? ExecutionFailureCause.Cancellation : ExecutionFailureCause.Unknown, ExecutionOperationKind.Rollback);
             }
         }
         await DisposeStandaloneResourcesAsync(resource, operation.Step, failures).ConfigureAwait(false);

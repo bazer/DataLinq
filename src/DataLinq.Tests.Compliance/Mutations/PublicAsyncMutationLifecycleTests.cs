@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Instances;
+using DataLinq.Diagnostics;
 using DataLinq.Interfaces;
 using DataLinq.Linq;
 using DataLinq.Mutation;
@@ -77,6 +78,13 @@ public sealed class PublicAsyncMutationLifecycleTests
         }
         catch (Exception error) { actual = error; }
         await Assert.That(actual).IsSameReferenceAs(expected);
+        var failureContext = DataLinqFailure.GetContext(expected)!;
+        await Assert.That(failureContext.Cause).IsEqualTo(DataLinqFailureCause.ApplicationError);
+        await Assert.That(failureContext.Stage).IsEqualTo(DataLinqFailureStage.Callback);
+        await Assert.That(failureContext.CompletionOutcome).IsEqualTo(DataLinqCompletionOutcome.RolledBack);
+        await Assert.That(failureContext.RecoveryActions).IsEqualTo(DataLinqRecoveryActions.None);
+        await Assert.That(failureContext.ProviderInstanceId).IsEqualTo(provider.TelemetryInstanceId);
+        await Assert.That(failureContext.TransactionId).IsNotNull();
         await Assert.That(await database.GetAsync<Department>(DataLinqKey.FromValue("w313"))).IsNull();
     }
 

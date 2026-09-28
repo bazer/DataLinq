@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Execution;
+using DataLinq.Diagnostics;
 using DataLinq.Mutation;
 using DataLinq.Tests.Unit.Fixtures;
 
@@ -106,6 +107,9 @@ public sealed class StandaloneCompletionTests
         var error = await Assert.That(async () => await transaction.DisposeAsync()).Throws<Exception>();
         await Assert.That(error).IsSameReferenceAs(expected);
         var context = ExecutionFailureContexts.Get(expected)!;
+        var publicContext = DataLinqFailure.GetContext(expected)!;
+        await Assert.That(publicContext.Operation).IsEqualTo(DataLinqOperationKind.Rollback);
+        await Assert.That(publicContext.Stage).IsEqualTo(DataLinqFailureStage.Rollback);
         await Assert.That(context.Completion).IsEqualTo(ExecutionCompletion.Unknown);
         await Assert.That(context.SecondaryFailures.Single().Exception).IsSameReferenceAs(cleanup);
         await Assert.That(completion.Calls.SequenceEqual(["rollback", "dispose-transaction", "dispose-connection"])).IsTrue();

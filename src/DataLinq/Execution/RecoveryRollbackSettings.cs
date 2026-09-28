@@ -2,7 +2,7 @@ using System;
 
 namespace DataLinq.Execution;
 
-/// <summary>Immutable internal capture; public provider/host options remain separate integration work.</summary>
+/// <summary>Immutable internal capture of the provider's validated automatic rollback budget.</summary>
 internal sealed class RecoveryRollbackSettings
 {
     internal TimeSpan RecoveryRollbackTimeout { get; }

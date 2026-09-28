@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Interfaces;
 using DataLinq.Instances;
+using DataLinq.Diagnostics;
 using DataLinq.Linq;
 using QueryAsync = DataLinq.Linq.DataLinqAsyncQueryableExtensions;
 
@@ -40,6 +41,9 @@ var legacyTransaction = new LegacyTransaction();
 await RejectTask(() => legacyTransaction.CommitAsync(cancellationToken: default));
 await RejectTask(() => legacyTransaction.RollbackAsync(cancellationToken: default));
 await RejectTask(() => ((IAsyncDisposable)legacyTransaction).DisposeAsync().AsTask());
+if (DataLinqFailure.GetContext(new Exception("unreported")) is not null ||
+    (int)DataLinqFailureCause.ApplicationError != 4 || (int)DataLinqCompletionOutcome.Committed != 3)
+    throw new InvalidOperationException("Public diagnostic contract changed.");
 Console.WriteLine("Public async query consumer passed on " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
 
 static async Task RejectTask(Func<Task> action)

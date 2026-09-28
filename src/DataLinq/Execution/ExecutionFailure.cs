@@ -7,7 +7,8 @@ using System.Threading;
 
 namespace DataLinq.Execution;
 
-// Internal evidence vocabulary. Public diagnostic declarations/mappings remain W3 work.
+// Internal evidence vocabulary. PublicFailureMapping deliberately decouples it
+// from the stable public enum values and diagnostic snapshot shape.
 internal enum ExecutionFailureCause { Unknown, Cancellation, Timeout, ProviderError, MaterializationError, ApplicationError, LocalFinalizationError, InvalidOperation }
 internal enum ExecutionOperationKind
 {
