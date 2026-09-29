@@ -14,7 +14,6 @@ namespace DataLinq.Execution;
 /// disposal uses the implemented async path, never a fallback to synchronous disposal.
 /// A transaction-bound reader does not own its surrounding transaction or connection.
 /// </remarks>
-internal interface IAsyncDataReader : IDataLinqDataReader, IAsyncDisposable
+internal interface IAsyncDataReader : IDataLinqAsyncDataReader
 {
-    Task<bool> ReadNextRowAsync(CancellationToken cancellationToken);
 }

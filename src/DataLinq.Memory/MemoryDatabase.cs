@@ -132,7 +132,12 @@ public sealed class MemoryDatabase<TDatabase>
         where TModel : class, IImmutableInstance, ITableModel<TDatabase> =>
         FindCore<TModel>(modelPrimaryKey, CancellationToken.None);
 
-    // Internal W1 orchestration; the public ValueTask counterpart is a W3 declaration.
+    /// <summary>Looks up a row by its single model-side primary key with cooperative cancellation.</summary>
+    /// <remarks>Preserves the bounded Find capability and normally completes immediately; no SQL execution or composite lookup is added.</remarks>
+    public ValueTask<TModel?> FindAsync<TModel>(object modelPrimaryKey, CancellationToken cancellationToken = default)
+        where TModel : class, IImmutableInstance, ITableModel<TDatabase> =>
+        FindAsyncCore<TModel>(modelPrimaryKey, cancellationToken);
+
     internal ValueTask<TModel?> FindAsyncCore<TModel>(object modelPrimaryKey, CancellationToken cancellationToken = default)
         where TModel : class, IImmutableInstance, ITableModel<TDatabase>
     {

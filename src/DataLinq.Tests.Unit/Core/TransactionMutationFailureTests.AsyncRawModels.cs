@@ -16,8 +16,8 @@ public sealed partial class TransactionMutationFailureTests
 {
     private static IAsyncEnumerable<T> RawModels<T>(DataSourceAccess source, bool borrowed, ControlledCommand command,
         CancellationToken token = default) where T : IModel => borrowed
-            ? source.GetFromCommandAsyncCore<T>(command, token)
-            : source.GetFromQueryAsyncCore<T>("SELECT value, id FROM supplied_source", token);
+            ? source.GetFromCommandAsync<T>(command, token)
+            : source.GetFromQueryAsync<T>("SELECT value, id FROM supplied_source", token);
 
     private static ControlledSqlReaderFactory RawFactory(Func<ControlledAsyncDatabaseAccess> create) =>
         new() { CreateAccess = _ => create(), CreateBorrowedAccess = _ => create() };
@@ -100,7 +100,7 @@ public sealed partial class TransactionMutationFailureTests
         using var converter = new TransactionMutationGuardReferenceIdConverter.Observation();
         fixture.Scenario.AsyncSqlReaders = RawFactory(() => new()
             { ReaderOverride = new ControlledRowDataReader(["value", 42]) { ColumnNames = ["value", "id"] } });
-        await using var rows = fixture.Provider.ReadOnlyAccess.GetFromQueryAsyncCore<TransactionMutationGuardReferenceIdRow>("SELECT value, id").GetAsyncEnumerator();
+        await using var rows = fixture.Provider.ReadOnlyAccess.GetFromQueryAsync<TransactionMutationGuardReferenceIdRow>("SELECT value, id").GetAsyncEnumerator();
         await Assert.That(await rows.MoveNextAsync()).IsTrue();
         await Assert.That(rows.Current.Id.Value).IsEqualTo(42);
         await Assert.That(converter.ToProviderValues).IsEmpty();
@@ -129,7 +129,7 @@ public sealed partial class TransactionMutationFailureTests
         };
         try
         {
-            await using var rows = transaction.GetFromQueryAsyncCore<AsyncCanonicalCachedRow>("SELECT id, value").GetAsyncEnumerator();
+            await using var rows = transaction.GetFromQueryAsync<AsyncCanonicalCachedRow>("SELECT id, value").GetAsyncEnumerator();
             if (fail) await Assert.That(await AsyncEnumerationFailureOf(async () => { await rows.MoveNextAsync(); })).IsSameReferenceAs(expected);
             else await Assert.That(await rows.MoveNextAsync()).IsTrue();
             await rows.DisposeAsync();
@@ -315,7 +315,7 @@ public sealed partial class TransactionMutationFailureTests
         using var provider = new CapturedReadProvider<AsyncModelQueryDb>(scenario);
         scenario.AsyncSqlReaders = RawFactory(() => new()
             { ReaderOverride = new ControlledRowDataReader([7, 99, "value"]) { ColumnNames = ["number", "extra", "value"] } });
-        await using var rows = provider.ReadOnlyAccess.GetFromQueryAsyncCore<AsyncModelKeylessRow>("SELECT number, extra, value").GetAsyncEnumerator();
+        await using var rows = provider.ReadOnlyAccess.GetFromQueryAsync<AsyncModelKeylessRow>("SELECT number, extra, value").GetAsyncEnumerator();
         await Assert.That(await rows.MoveNextAsync()).IsTrue();
         await Assert.That(rows.Current.Number).IsEqualTo(7);
         await Assert.That(rows.Current.Value).IsEqualTo("value");

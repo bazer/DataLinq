@@ -35,7 +35,7 @@ public sealed partial class TransactionMutationFailureTests
             _ = Capture<InvalidOperationException>(transaction.Commit);
             _ = Capture<InvalidOperationException>(transaction.Rollback);
             _ = Capture<InvalidOperationException>(transaction.Dispose);
-            var overlap = await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsyncCore(command));
+            var overlap = await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsync(command));
             await Assert.That(overlap).IsTypeOf<InvalidOperationException>();
             await Assert.That(access.Calls.Count(x => x.StartsWith("dispatch", StringComparison.Ordinal))).IsEqualTo(1);
             if (borrowed) await Assert.That(access.ObservedCommand).IsSameReferenceAs(command);
@@ -159,7 +159,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledEagerCommandFactory { Initialization = lazy,
             ConfigureCommand = command => command.Creating = () => throw expected };
         fixture.Scenario.AsyncCommands = factory;
-        var failure = await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("UPDATE rows", cancellation.Token));
+        var failure = await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsync("UPDATE rows", cancellation.Token));
         if (cancel) await Assert.That(failure).IsTypeOf<OperationCanceledException>();
         else await Assert.That(failure).IsSameReferenceAs(expected);
         await Assert.That(transaction.AsyncFailureContext!.Recovery.HasFlag(ExecutionRecoveryActions.Continue)).IsTrue();
@@ -203,7 +203,7 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(transaction.AsyncFailureContext.Recovery).IsEqualTo(ExecutionRecoveryActions.Dispose);
         await Assert.That(factory.Commands.All(x => x.Creates == 0)).IsTrue();
         await Assert.That(command.DisposeCalls).IsEqualTo(0);
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsyncCore(command, new(true)))).IsTypeOf<InvalidOperationException>();
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsync(command, new(true)))).IsTypeOf<InvalidOperationException>();
         await transaction.DisposeAsyncCore();
     }
 
@@ -220,7 +220,7 @@ public sealed partial class TransactionMutationFailureTests
         var access = new ControlledAsyncDatabaseAccess(new(paused: true)) { EvidenceFailure = assessment };
         fixture.Scenario.AsyncCommands = new ControlledEagerCommandFactory { Access = access,
             ConfigureCommand = command => command.Resource.Disposing = () => throw cleanup };
-        var pending = transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("UPDATE rows");
+        var pending = transaction.DatabaseAccess.ExecuteNonQueryAsync("UPDATE rows");
         access.Dispatch.Fail(expected);
         await Assert.That(await AsyncEnumerationFailureOf(() => pending)).IsSameReferenceAs(expected);
         var context = transaction.AsyncFailureContext!;
@@ -247,7 +247,7 @@ public sealed partial class TransactionMutationFailureTests
             return (int)value! + 1;
         };
         fixture.Scenario.AsyncCommands = factory;
-        var pending = transaction.DatabaseAccess.ExecuteScalarAsyncCore<int>("UPDATE rows RETURNING value", cancellation.Token);
+        var pending = transaction.DatabaseAccess.ExecuteScalarAsync<int>("UPDATE rows RETURNING value", cancellation.Token);
         factory.ScalarConverting = _ => throw new Exception("later policy");
         fixture.Scenario.AsyncCommands = new ControlledEagerCommandFactory();
         access.Dispatch.Release();
@@ -265,7 +265,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledEagerCommandFactory { Access = new() { FailureEvidence = TrustedScalarRead },
             ScalarConverting = _ => throw expected };
         fixture.Scenario.AsyncCommands = factory;
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore<int>("SELECT value"))).IsSameReferenceAs(expected);
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteScalarAsync<int>("SELECT value"))).IsSameReferenceAs(expected);
         await Assert.That(transaction.AsyncFailureContext!.Stage).IsEqualTo(ExecutionFailureStage.Materialization);
         await Assert.That(transaction.AsyncFailureContext.Cause).IsEqualTo(ExecutionFailureCause.MaterializationError);
         await Assert.That(transaction.AsyncFailureContext.Recovery.HasFlag(ExecutionRecoveryActions.Continue)).IsFalse();
@@ -280,13 +280,13 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncCommands = factory;
         var access = fixture.Provider.ReadOnlyAccess.DatabaseAccess;
         using var command = new ControlledCommand();
-        await Assert.That(await access.ExecuteScalarAsyncCore<int>(command)).IsEqualTo(17);
+        await Assert.That(await access.ExecuteScalarAsync<int>(command)).IsEqualTo(17);
         factory.Access.ScalarResult = DBNull.Value;
-        await Assert.That(await access.ExecuteScalarAsyncCore("SELECT NULL")).IsSameReferenceAs(DBNull.Value);
-        await Assert.That(await access.ExecuteScalarAsyncCore(command)).IsSameReferenceAs(DBNull.Value);
+        await Assert.That(await access.ExecuteScalarAsync("SELECT NULL")).IsSameReferenceAs(DBNull.Value);
+        await Assert.That(await access.ExecuteScalarAsync(command)).IsSameReferenceAs(DBNull.Value);
         factory.Access = new(new(paused: true)) { FailureEvidence = TrustedScalarRead };
         var expected = new Exception("standalone");
-        var pending = access.ExecuteNonQueryAsyncCore("UPDATE rows");
+        var pending = access.ExecuteNonQueryAsync("UPDATE rows");
         factory.Access.Dispatch.Fail(expected);
         await Assert.That(await AsyncEnumerationFailureOf(() => pending)).IsSameReferenceAs(expected);
         await Assert.That(ExecutionFailureContexts.Get(expected)!.Recovery).IsEqualTo(ExecutionRecoveryActions.None);
@@ -330,7 +330,7 @@ public sealed partial class TransactionMutationFailureTests
         Task<int>? commandTask = null;
         var helper = transaction.RunCallbackAsyncCore(_ =>
         {
-            commandTask = transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("UPDATE rows");
+            commandTask = transaction.DatabaseAccess.ExecuteNonQueryAsync("UPDATE rows");
             return Task.FromResult(9);
         }, new());
         await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
@@ -379,7 +379,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledEagerCommandFactory { Access = new() { ValidationFailure = expected },
             ConfigureCommand = command => command.Resource.Disposing = () => { if (cleanupFails) throw cleanup; } };
         fixture.Scenario.AsyncCommands = factory;
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("UPDATE rows"))).IsSameReferenceAs(expected);
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsync("UPDATE rows"))).IsSameReferenceAs(expected);
         await Assert.That(factory.Commands[0].Resource.AsyncDisposals).IsEqualTo(1);
         await Assert.That(factory.Access.Calls.Any(x => x.StartsWith("dispatch", StringComparison.Ordinal))).IsFalse();
         await Assert.That(transaction.AsyncFailureContext!.Stage).IsEqualTo(ExecutionFailureStage.Validation);
@@ -399,7 +399,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledEagerCommandFactory { Initialization = lazy,
             Access = new() { NonQueryResult = 7, ScalarResult = 8 } };
         fixture.Scenario.AsyncCommands = factory;
-        var pending = transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("UPDATE rows");
+        var pending = transaction.DatabaseAccess.ExecuteNonQueryAsync("UPDATE rows");
         await pause.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         var selected = factory.Access;
         try
@@ -412,7 +412,7 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(await pending).IsEqualTo(7);
         await Assert.That(selected.Calls.Contains("dispatch:NonQuery")).IsTrue();
         using var command = new ControlledCommand();
-        await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore<int>(command)).IsEqualTo(21);
+        await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync<int>(command)).IsEqualTo(21);
         await Assert.That(resource.Calls.Count(x => x == "async-open")).IsEqualTo(1);
         await Assert.That(lazy.State).IsEqualTo(TransactionInitializationState.Ready);
         await transaction.DisposeAsyncCore();
@@ -431,7 +431,7 @@ public sealed partial class TransactionMutationFailureTests
         scope.Dispose();
         await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryOwnedAsyncCore(command, retired, default))).IsTypeOf<InvalidOperationException>();
         transaction.Commit();
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsyncCore(command, new(true)))).IsTypeOf<InvalidOperationException>();
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsync(command, new(true)))).IsTypeOf<InvalidOperationException>();
         await Assert.That(factory.Access.Calls.Any(x => x.StartsWith("dispatch", StringComparison.Ordinal))).IsFalse();
     }
 
@@ -449,7 +449,7 @@ public sealed partial class TransactionMutationFailureTests
             ConfigureCommand = command => { if (unsupported) command.ValidationFailure = new NotSupportedException("capability"); }
         };
         fixture.Scenario.AsyncCommands = factory;
-        var failure = await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("UPDATE rows", new(true)));
+        var failure = await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsync("UPDATE rows", new(true)));
         await Assert.That(unsupported ? failure is NotSupportedException : failure is OperationCanceledException).IsTrue();
         await Assert.That(transaction.Changes.Count).IsEqualTo(1);
         await Assert.That(transaction.IsPoisoned).IsFalse();
@@ -468,7 +468,7 @@ public sealed partial class TransactionMutationFailureTests
             FailureEvidence = new(Effects: ExecutionEffects.NoStatement, Integrity: TransactionIntegrity.Confirmed, RollbackAvailable: true)
         };
         fixture.Scenario.AsyncCommands = new ControlledEagerCommandFactory { Access = access };
-        var pending = transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT value");
+        var pending = transaction.DatabaseAccess.ExecuteScalarAsync("SELECT value");
         access.Dispatch.Fail(new Exception("dispatch"));
         _ = await AsyncEnumerationFailureOf(() => pending);
         await Assert.That(transaction.AsyncFailureContext!.Recovery).IsEqualTo(ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose);
@@ -486,7 +486,7 @@ public sealed partial class TransactionMutationFailureTests
             ConfigureCommand = command => command.Resource.Disposing = () => throw expected
         };
         fixture.Scenario.AsyncCommands = factory;
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("UPDATE rows"))).IsSameReferenceAs(expected);
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteNonQueryAsync("UPDATE rows"))).IsSameReferenceAs(expected);
         await Assert.That(transaction.AsyncFailureContext!.Stage).IsEqualTo(ExecutionFailureStage.Cleanup);
         await Assert.That(transaction.AsyncFailureContext.Recovery).IsEqualTo(ExecutionRecoveryActions.Dispose);
         await Assert.That(factory.Commands[0].Resource.AsyncDisposals).IsEqualTo(1);
@@ -494,9 +494,9 @@ public sealed partial class TransactionMutationFailureTests
 
     private static async Task<int> ExecuteRaw(DatabaseAccess access, bool scalar, IDbCommand? command, CancellationToken token = default)
     {
-        if (scalar) return command is null ? await access.ExecuteScalarAsyncCore<int>("UPDATE rows RETURNING value", token)
-            : await access.ExecuteScalarAsyncCore<int>(command, token);
-        return command is null ? await access.ExecuteNonQueryAsyncCore("UPDATE rows", token)
-            : await access.ExecuteNonQueryAsyncCore(command, token);
+        if (scalar) return command is null ? await access.ExecuteScalarAsync<int>("UPDATE rows RETURNING value", token)
+            : await access.ExecuteScalarAsync<int>(command, token);
+        return command is null ? await access.ExecuteNonQueryAsync("UPDATE rows", token)
+            : await access.ExecuteNonQueryAsync(command, token);
     }
 }

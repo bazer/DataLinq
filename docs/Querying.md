@@ -6,6 +6,8 @@ That is a good thing, not a defect. A small, test-backed query surface is far be
 
 For the exact query shapes that are currently safe to rely on, see [Supported LINQ Queries](Supported%20LINQ%20Queries.md).
 
+The unreleased 0.10 branch also exposes public async execution. See [Async Execution](Async%20Execution.md) for imports, capture timing, cancellation and provider limits.
+
 The examples on this page use the SQL backend through SQLite, MySQL, or MariaDB. The experimental [Memory backend](backends/Memory.md) consumes the same normalized query-plan boundary but intentionally accepts a much smaller, read-only subset.
 
 ## Runtime Setup

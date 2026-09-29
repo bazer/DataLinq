@@ -92,10 +92,16 @@ public abstract partial class DatabaseTransaction
     internal void CompleteSynchronousTransaction(ISyncTransactionCompletionResource resource, bool rollback)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
+        using var standalone = ManagedTransaction is null
+            ? new StandaloneTransactionOperation(StandaloneExecutionGate, rollback ? ExecutionOperationKind.Rollback : ExecutionOperationKind.Commit) : null;
         var outcome = rollback ? DatabaseTransactionStatus.RolledBack : DatabaseTransactionStatus.Committed;
         if (Volatile.Read(ref synchronousDisposed) != 0 && Status == outcome) return;
         EnsureSynchronousResourceUsable();
+        if (ManagedTransaction is null && !rollback && SynchronousCompletion == ExecutionCompletion.Unknown)
+            throw new InvalidOperationException("A prior completion attempt has an unknown outcome; commit cannot be retried.");
         resource.ValidateCompletion();
+        if (ManagedTransaction is null)
+            EnsureStandaloneRecoveryAllowed(rollback ? ExecutionRecoveryActions.Rollback : ExecutionRecoveryActions.Continue);
         var operation = CompletionKind(outcome);
         if (Status is DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack)
             throw new InvalidOperationException("The transaction has already completed.");
@@ -124,18 +130,22 @@ public abstract partial class DatabaseTransaction
             CompleteAsyncTransactionTelemetry(confirmed ? CompletionOutcome(outcome) : ExecutionCompletion.Unknown, failures, operation);
         ExecutionActivity.RestoreCurrent(caller, ref failures, operation);
         PublishSynchronousFailure(failures!, SynchronousCompletion,
-            !confirmed && !rollback ? ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose : ExecutionRecoveryActions.Dispose, operation);
+            !confirmed && !rollback ? ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose : ExecutionRecoveryActions.Dispose, operation,
+            standaloneOwner: standalone?.Step);
         failures!.ThrowIfAny();
     }
 
     internal void DisposeSynchronousTransaction(ISyncTransactionCompletionResource resource)
     {
+        using var standalone = ManagedTransaction is null
+            ? new StandaloneTransactionOperation(StandaloneExecutionGate, ExecutionOperationKind.Dispose) : null;
         if (Volatile.Read(ref synchronousDisposed) != 0) return;
         using var diagnostics = ExecutionFailureScope.Begin();
         var caller = synchronousTelemetryDeferred ? Activity.Current : SynchronousCompletionCaller();
         ExecutionFailures? failures = new();
         var confirmed = false;
-        if (!synchronousInitializationFailed && !synchronousRollbackAttempted && Status == DatabaseTransactionStatus.Open)
+        if (!synchronousInitializationFailed && !synchronousRollbackAttempted && Status == DatabaseTransactionStatus.Open &&
+            (ManagedTransaction is not null || StandaloneRecoveryAllows(ExecutionRecoveryActions.Rollback)))
         {
             synchronousRollbackAttempted = true;
             try
@@ -156,7 +166,8 @@ public abstract partial class DatabaseTransaction
         if (!synchronousTelemetryDeferred)
             CompleteAsyncTransactionTelemetry(confirmed ? ExecutionCompletion.RolledBack : SynchronousCompletion, failures, ExecutionOperationKind.Dispose);
         ExecutionActivity.RestoreCurrent(caller, ref failures, ExecutionOperationKind.Dispose);
-        PublishSynchronousFailure(failures!, SynchronousCompletion, ExecutionRecoveryActions.None, ExecutionOperationKind.Dispose);
+        PublishSynchronousFailure(failures!, SynchronousCompletion, ExecutionRecoveryActions.None, ExecutionOperationKind.Dispose,
+            standaloneOwner: standalone?.Step);
         failures!.ThrowIfAny();
     }
 
@@ -184,12 +195,15 @@ public abstract partial class DatabaseTransaction
         ? transactionActivity?.Parent : Activity.Current;
 
     private void PublishSynchronousFailure(ExecutionFailures failures, ExecutionCompletion completion,
-        ExecutionRecoveryActions recovery, ExecutionOperationKind operation, bool initialization = false)
+        ExecutionRecoveryActions recovery, ExecutionOperationKind operation, bool initialization = false,
+        TransactionOperationGate.Step? standaloneOwner = null)
     {
         if (failures.Primary is not { } failure) return;
-        ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(Effects: initialization ? ExecutionEffects.Initialization : ExecutionEffects.Unknown),
+        var context = failures.Snapshot(new(Effects: initialization ? ExecutionEffects.Initialization : ExecutionEffects.Unknown),
             completion, recovery, ManagedTransaction?.TransactionID, operation,
-            string.IsNullOrEmpty(TelemetryContext.ProviderInstanceId) ? null : TelemetryContext.ProviderInstanceId));
+            string.IsNullOrEmpty(TelemetryContext.ProviderInstanceId) ? null : TelemetryContext.ProviderInstanceId);
+        if (standaloneOwner is not null) RecordStandaloneFailure(standaloneOwner, context);
+        ExecutionFailureContexts.Attach(failure, context);
     }
 
     internal SynchronousTelemetryScope DeferSynchronousTransactionTelemetry(TransactionOperationGate.Step owner)

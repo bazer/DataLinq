@@ -20,6 +20,14 @@ namespace DataLinq.MySql;
 
 public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
 {
+    /// <summary>Imports live metadata asynchronously. Cancellation escapes the non-cancellation Option failure contract.</summary>
+    public virtual Task<Option<DatabaseDefinition, IDLOptionFailure>> ParseDatabaseAsync(string name, string csTypeName,
+        string csNamespace, string dbName, string connectionString, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dbName);
+        return this.ParseDatabaseAsyncCore(name, csTypeName, csNamespace, dbName, connectionString, cancellationToken);
+    }
+
     MetadataFromDatabaseFactoryOptions IAsyncMetadataFactory.Options => options;
 
     IAsyncMetadataReadPlan IAsyncMetadataFactory.CaptureImport(MetadataImportRequest request)

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
+using DataLinq.Linq;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Memory;
 
@@ -25,14 +26,14 @@ public sealed partial class MemoryAsyncExecutionTests
             [First, Second, Second, null], [Second, First, First, First]);
 
     private static IAsyncEnumerable<T> Rows<T>(IQueryable<T> query, CancellationToken token = default) =>
-        ((ExpressionQueryPlanProvider)query.Provider).ExecuteEnumerableAsyncCore<T>(query.Expression, token);
+        query.AsAsyncEnumerable(token);
 
     private static Task<TResult> Terminal<T, TResult>(IQueryable<T> query, string method, CancellationToken token = default) =>
         ((ExpressionQueryPlanProvider)query.Provider).ExecuteAsyncCore<TResult>(
             Expression.Call(typeof(System.Linq.Queryable), method, [typeof(T)], query.Expression), token);
 
     private static Task<List<T>> List<T>(IQueryable<T> query, CancellationToken token = default) =>
-        ((ExpressionQueryPlanProvider)query.Provider).ExecuteListAsyncCore<T>(query.Expression, token);
+        query.ToListAsync(token).AsTask();
 
     private static async Task<List<T>> Drain<T>(IAsyncEnumerable<T> source)
     {
@@ -415,7 +416,7 @@ public sealed partial class MemoryAsyncExecutionTests
             : new OperationCanceledException("user cancellation", cancellation.Token);
         observation.FromProvider = column => throw expected;
         await using var rows = Rows(database.Query().Rows.Select(row => row.Id)).GetAsyncEnumerator();
-        Task pending = lookup ? database.FindAsyncCore<MemoryConvertedRow>(new MemoryGuidId(First)).AsTask()
+        Task pending = lookup ? database.FindAsync<MemoryConvertedRow>(new MemoryGuidId(First)).AsTask()
             : rows.MoveNextAsync().AsTask();
         await Assert.That(pending.IsCompleted).IsTrue();
         await Assert.That(pending.IsCanceled).IsEqualTo(kind != "fatal");
@@ -438,8 +439,8 @@ public sealed partial class MemoryAsyncExecutionTests
         var beforeComposite = composite.Diagnostics;
         var failure = await Failure(async () =>
         {
-            if (kind == "composite") _ = await composite.FindAsyncCore<MemoryCompositeRow>("private-key", new(true));
-            else _ = await database.FindAsyncCore<MemoryPrimitiveRow>(kind switch { "null" => null!, "canonical" => DataLinqKey.FromValue(3), _ => "private-key" }, new(true));
+            if (kind == "composite") _ = await composite.FindAsync<MemoryCompositeRow>("private-key", new(true));
+            else _ = await database.FindAsync<MemoryPrimitiveRow>(kind switch { "null" => null!, "canonical" => DataLinqKey.FromValue(3), _ => "private-key" }, new(true));
         });
         await Assert.That(kind == "null" ? failure is ArgumentNullException : failure is MemoryLookupException).IsTrue();
         await Assert.That(failure.ToString()).DoesNotContain("private-key");
@@ -451,14 +452,14 @@ public sealed partial class MemoryAsyncExecutionTests
     public async Task AsyncMemory_FindHitMissAndWarmIdentityCompleteImmediatelyButHonorCancellation()
     {
         var database = Primitives();
-        var cold = database.FindAsyncCore<MemoryPrimitiveRow>(3);
+        var cold = database.FindAsync<MemoryPrimitiveRow>(3);
         await Assert.That(cold.IsCompletedSuccessfully).IsTrue();
         var row = await cold;
-        await Assert.That(await database.FindAsyncCore<MemoryPrimitiveRow>(3)).IsSameReferenceAs(row);
+        await Assert.That(await database.FindAsync<MemoryPrimitiveRow>(3)).IsSameReferenceAs(row);
         await Assert.That(database.Find<MemoryPrimitiveRow>(3)).IsSameReferenceAs(row);
-        await Assert.That(await database.FindAsyncCore<MemoryPrimitiveRow>(99)).IsNull();
+        await Assert.That(await database.FindAsync<MemoryPrimitiveRow>(99)).IsNull();
         var before = database.Diagnostics;
-        await Assert.That(await Failure(async () => { _ = await database.FindAsyncCore<MemoryPrimitiveRow>(3, new(true)); })).IsAssignableTo<OperationCanceledException>();
+        await Assert.That(await Failure(async () => { _ = await database.FindAsync<MemoryPrimitiveRow>(3, new(true)); })).IsAssignableTo<OperationCanceledException>();
         await Assert.That(database.Diagnostics).IsEqualTo(before);
     }
 
@@ -478,24 +479,24 @@ public sealed partial class MemoryAsyncExecutionTests
         observation.FromProvider = _ => { if (mode == "materialization") throw expected; if (mode == "materialization-cancel") cancellation.Cancel(); };
         if (mode == "success")
         {
-            var row = await database.FindAsyncCore<MemoryConvertedRow>(new MemoryGuidId(First));
+            var row = await database.FindAsync<MemoryConvertedRow>(new MemoryGuidId(First));
             await Assert.That(row!.Id).IsEqualTo(new MemoryGuidId(First));
             await Assert.That(observation.ToProviderColumns.Count).IsEqualTo(1);
             await Assert.That(observation.FromProviderColumns.Count).IsEqualTo(2);
-            await Assert.That(await database.FindAsyncCore<MemoryConvertedRow>(new MemoryGuidId(First))).IsSameReferenceAs(row);
+            await Assert.That(await database.FindAsync<MemoryConvertedRow>(new MemoryGuidId(First))).IsSameReferenceAs(row);
             await Assert.That(observation.ToProviderColumns.Count).IsEqualTo(2);
             await Assert.That(observation.FromProviderColumns.Count).IsEqualTo(2);
         }
         else
         {
-            var failure = await Failure(async () => { _ = await database.FindAsyncCore<MemoryConvertedRow>(new MemoryGuidId(First), cancellation.Token); });
+            var failure = await Failure(async () => { _ = await database.FindAsync<MemoryConvertedRow>(new MemoryGuidId(First), cancellation.Token); });
             await Assert.That(mode.EndsWith("-cancel", StringComparison.Ordinal) ? failure is OperationCanceledException : failure is MemoryLookupException).IsTrue();
             await Assert.That(failure.ToString()).DoesNotContain("private-converter-detail");
             await Assert.That(database.Diagnostics.PrimaryKeyProbes).IsEqualTo(mode.StartsWith("binding", StringComparison.Ordinal) ? 0L : 1L);
             await Assert.That(database.GetMaterializedRowCount<MemoryConvertedRow>()).IsEqualTo(mode == "materialization-cancel" ? 1 : 0);
             observation.ToProvider = null;
             observation.FromProvider = null;
-            await Assert.That(await database.FindAsyncCore<MemoryConvertedRow>(new MemoryGuidId(First))).IsNotNull();
+            await Assert.That(await database.FindAsync<MemoryConvertedRow>(new MemoryGuidId(First))).IsNotNull();
         }
     }
 }

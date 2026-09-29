@@ -15,6 +15,8 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
     private const string Operation = "use an asynchronous raw reader";
     private readonly IAsyncReaderSource source;
     private readonly Transaction? transaction;
+    private readonly DatabaseTransaction? standalone;
+    private StandaloneTransactionOperation? standaloneOwnership;
     private readonly string? providerInstanceId;
     private readonly EnumeratorCallGate calls = new();
     private TransactionReadScope? ownership;
@@ -23,33 +25,36 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
     private bool hasCurrent;
     private bool helperDrained;
 
-    private AsyncRawDataReader(IAsyncReaderSource source, Transaction? transaction, string? providerInstanceId)
+    private AsyncRawDataReader(IAsyncReaderSource source, Transaction? transaction, string? providerInstanceId, DatabaseTransaction? standalone)
     {
         this.source = source;
         this.transaction = transaction;
+        this.standalone = standalone;
         this.providerInstanceId = transaction?.ExecutionGate.ProviderInstanceId ?? providerInstanceId;
     }
 
     internal static async Task<IAsyncDataReader> OpenAsync(IAsyncReaderSource source, Transaction? transaction, CancellationToken token,
-        string? providerInstanceId = null)
+        string? providerInstanceId = null, DatabaseTransaction? standalone = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         ArgumentNullException.ThrowIfNull(source);
         transaction?.EnsureCanRead(Operation, operationKind: ExecutionOperationKind.RawCommand);
+        standalone?.EnsureStandaloneCommandAllowed();
         source.Validate();
-        if (source is IAsyncTransactionReaderSource && transaction is null)
+        if (source is IAsyncTransactionReaderSource && transaction is null && standalone is null)
             throw new InvalidOperationException("This reader requires a managed transaction owner.");
         token.ThrowIfCancellationRequested();
-        var result = new AsyncRawDataReader(source, transaction, providerInstanceId);
+        var result = new AsyncRawDataReader(source, transaction, providerInstanceId, standalone);
         using var call = result.calls.Enter();
         ExecutionFailures failures;
         try
         {
             result.ownership = transaction is null ? null : DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token,
                 operationKind: ExecutionOperationKind.RawCommand);
+            result.standaloneOwnership = standalone?.BeginStandaloneCommand();
             result.ownership?.RegisterReader(result);
             result.reader = await (source is IAsyncTransactionReaderSource owned
-                ? owned.OpenReaderAsync(result.ownership!.Step, token) : source.OpenReaderAsync(token)).ConfigureAwait(false)
+                ? owned.OpenReaderAsync(result.ownership?.Step ?? result.standaloneOwnership!.Step, token) : source.OpenReaderAsync(token)).ConfigureAwait(false)
                 ?? throw new InvalidOperationException("Reader acquisition returned no reader.");
             // Ownership must reach the caller even if the provider completed despite a
             // late cancellation request. Subsequent reads have their own call tokens.
@@ -199,12 +204,13 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
                     failures.Add(assessment, ExecutionFailureCause.Unknown, ExecutionFailureStage.Recovery, ExecutionOperationKind.RawCommand);
                 }
             }
-            var recovery = ownership is null ? ExecutionRecoveryActions.None
+            var recovery = ownership is null && standaloneOwnership is null ? ExecutionRecoveryActions.None
                 : ExecutionRecoveryPolicy.ForReadFailure(evidence, !failures.HasCleanupFailure && assessed);
-            var context = failures.Snapshot(evidence, transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted,
+            var context = failures.Snapshot(evidence, standalone?.SynchronousCompletion ?? (transaction is null ? ExecutionCompletion.NotApplicable : ExecutionCompletion.NotAttempted),
                 recovery, transaction?.TransactionID, ExecutionOperationKind.RawCommand, providerInstanceId,
                 providerIdentityIsAuthoritative: true);
             if (ownership is not null) transaction!.RecordAsyncReadFailure(ownership.Step, context);
+            if (standaloneOwnership is not null) standalone!.RecordStandaloneFailure(standaloneOwnership.Step, context);
             ExecutionFailureContexts.Attach(failure, context);
             ownership?.ReportFailure(failure);
         }
@@ -212,6 +218,8 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
         {
             ownership?.Dispose();
             ownership = null;
+            standaloneOwnership?.Dispose();
+            standaloneOwnership = null;
         }
     }
 
@@ -223,6 +231,7 @@ internal sealed class AsyncRawDataReader : IAsyncDataReader, IHelperTrackedReade
     {
         ObjectDisposedException.ThrowIf(finished, this);
         transaction?.EnsureCanRead(Operation, ownership?.Step);
+        standalone?.EnsureStandaloneCommandAllowed(standaloneOwnership?.Step);
     }
 
     // Getters inspect already available row data; they neither advance nor release the

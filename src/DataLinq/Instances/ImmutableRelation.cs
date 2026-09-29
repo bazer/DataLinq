@@ -14,7 +14,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
+public partial interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
 {
     T? this[DataLinqKey key] { get; }
 
@@ -88,7 +88,7 @@ public interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
     FrozenDictionary<DataLinqKey, T> ToFrozenDictionary();
 }
 
-public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelInstance
+public partial class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelInstance
 {
     private readonly IEnumerable<T> list;
     private Lazy<Snapshot> snapshot;
@@ -185,7 +185,8 @@ public partial class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAcce
             if (current is not null)
                 return current;
 
-            var created = Values.ToFrozenDictionary(row => row.PrimaryKeys());
+            // Do not let frozen-dictionary construction silently select a duplicate row.
+            var created = Values.ToDictionary(row => row.PrimaryKeys()).ToFrozenDictionary();
             return Interlocked.CompareExchange(ref instances, created, null) ?? created;
         }
 

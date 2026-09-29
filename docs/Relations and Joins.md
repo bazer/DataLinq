@@ -32,7 +32,7 @@ var keyedRows = department.Managers.AsKeyValuePairs(); // KeyValuePair<DataLinqK
 
 Standard `AsEnumerable()` only exposes the relation as a row sequence; the call does not load it. Enumeration can still perform synchronous I/O. `AsKeyValuePairs()` preserves keyed enumeration, which can load rows and build a dictionary synchronously. The built-in runtime does this during enumeration and retains transaction ownership until enumeration ends or is disposed. Custom implementations and mocks need not defer keyed loading. Its keys identify the related rows, including composite primary keys; they are not the parent relation's foreign key.
 
-When upgrading, change pair-consuming calls to `AsKeyValuePairs()`, update custom `IImmutableRelation<T>` implementations and mocks, and recompile consumers. Audit existing calls even when they still compile: inferred types can silently change from pairs to rows, and obtaining the row view no longer triggers loading. There is no obsolete `AsEnumerable()` alias because it would continue hiding the standard extension. This rename does not add async execution APIs.
+When upgrading, change pair-consuming calls to `AsKeyValuePairs()`, update custom `IImmutableRelation<T>` implementations and mocks, and recompile consumers. Audit existing calls even when they still compile: inferred types can silently change from pairs to rows, and obtaining the row view no longer triggers loading. There is no obsolete `AsEnumerable()` alias because it would continue hiding the standard extension. For the separate async relation methods implemented in 0.10, see [Async Execution](Async%20Execution.md#relations-and-reference-navigation).
 
 ### Singular Relations
 
@@ -54,7 +54,7 @@ Generated required reference properties now throw `InvalidOperationException` wh
 
 Validation uses the single resolved value and applies to cold loads, cached absence and reloads after invalidation. It does not add a second load or relabel provider, cancellation or unsupported-capability failures. Nullable `Get` misses and the lower-level reference holder's nullable `Value` contract are unchanged.
 
-Rebuild source-generated consumers with the 0.10 generator and regenerate checked-in generated implementations. Updating only the runtime does not replace an already compiled getter. Consumers relying on a required reference returning `null` must fix the data or declare the relation optional; disabling nullable annotations does not disable the runtime check. This synchronous correction does not add async navigation methods.
+Rebuild source-generated consumers with the 0.10 generator and regenerate checked-in generated implementations. Updating only the runtime does not replace an already compiled getter. Consumers relying on a required reference returning `null` must fix the data or declare the relation optional; disabling nullable annotations does not disable the runtime check. Generated async navigation follows the same required/optional rule, with the property name followed by `Async`.
 
 ## Relation Predicates
 

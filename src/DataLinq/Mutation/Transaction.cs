@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using System.Threading.Tasks;
 using DataLinq.Exceptions;
 using DataLinq.Execution;
 using DataLinq.Instances;
@@ -93,7 +94,7 @@ internal sealed record TransactionFailure(
 /// <summary>
 /// Represents a database transaction.
 /// </summary>
-public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction>
+public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposable, IEquatable<Transaction>
 {
     private static uint transactionCount = 0;
     private readonly List<StateChange> successfulChanges = [];
@@ -102,6 +103,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     private readonly bool isAttachedTransaction;
     private TransactionFailure? failure;
     internal TransactionOperationGate ExecutionGate { get; }
+    internal RecoveryRollbackSettings RecoverySettings { get; }
     private int managedCommitFinalizationState;
     private int deferredCommittedStatus;
     private int managedRollbackFinalizationState;
@@ -212,6 +214,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// <param name="type">The type of the transaction.</param>
     public Transaction(IDatabaseProvider databaseProvider, TransactionType type) : base(databaseProvider)
     {
+        RecoverySettings = new RecoveryRollbackSettings(databaseProvider.ExecutionOptions.RecoveryRollbackTimeout);
         //Provider = databaseProvider;
         DatabaseAccess = databaseProvider.GetNewDatabaseTransaction(type);
         DatabaseAccess.OnStatusChanged += HandleDatabaseStatusChanged;
@@ -238,6 +241,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Tra
     /// </remarks>
     public Transaction(IDatabaseProvider databaseProvider, IDbTransaction dbTransaction, TransactionType type) : base(databaseProvider)
     {
+        RecoverySettings = new RecoveryRollbackSettings(databaseProvider.ExecutionOptions.RecoveryRollbackTimeout);
         //Provider = databaseProvider;
         DatabaseAccess = databaseProvider.AttachDatabaseTransaction(dbTransaction, type);
         DatabaseAccess.OnStatusChanged += HandleDatabaseStatusChanged;
@@ -1559,6 +1563,12 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
 
         return (M?)Provider.GetTableCache(tableModel.Table).GetRow(key, this);
     }
+
+    /// <summary>Looks up a model by canonical provider key within this transaction.</summary>
+    /// <returns>The row, or null when absent.</returns>
+    public ValueTask<M?> GetAsync<M>(DataLinqKey key, CancellationToken cancellationToken = default)
+        where M : IImmutableInstance =>
+        new(AsyncModelLookup.GetByProviderKeyAsyncCore<M>(key, this, cancellationToken));
 
     /// <summary>
     /// Retrieves a model from the database using the specified provider key.

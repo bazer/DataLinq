@@ -32,10 +32,10 @@ public sealed partial class TransactionMutationFailureTests
         Task<TransactionMutationGuardRow>? result = null;
         Task work = kind switch
         {
-            "delete" => fixture.Database.DeleteAsyncCore(mutable),
-            "insert" => result = fixture.Database.InsertAsyncCore(mutable),
-            "update" => result = fixture.Database.UpdateAsyncCore(mutable),
-            _ => result = fixture.Database.SaveAsyncCore(mutable)
+            "delete" => fixture.Database.DeleteAsync(mutable),
+            "insert" => result = fixture.Database.InsertAsync(mutable),
+            "update" => result = fixture.Database.UpdateAsync(mutable),
+            _ => result = fixture.Database.SaveAsync(mutable)
         };
         try
         {
@@ -98,7 +98,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = EnableAsyncMutations(fixture, rows: [[1, "stored"]]);
         if (phase == "binding") factory.ConfigureCommand = command => command.ValidationFailure = expected;
         if (phase == "completion") completion.ValidationFailure = expected;
-        var work = fixture.Database.UpdateAsyncCore(phase == "null" ? null! : mutable,
+        var work = fixture.Database.UpdateAsync(phase == "null" ? null! : mutable,
             phase == "readonly" ? TransactionType.ReadOnly : TransactionType.ReadAndWrite, cancellation.Token);
         try
         {
@@ -142,7 +142,7 @@ public sealed partial class TransactionMutationFailureTests
             FailureEvidence = new(ExecutionFailureCause.Cancellation, ExecutionEffects.Mutation, TransactionIntegrity.Confirmed, true)
         };
         EnableAsyncMutations(fixture, access, [1, "stored"]);
-        var work = fixture.Database.UpdateAsyncCore(mutable, token: cancellation.Token);
+        var work = fixture.Database.UpdateAsync(mutable, cancellationToken: cancellation.Token);
         try
         {
             await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
@@ -188,7 +188,7 @@ public sealed partial class TransactionMutationFailureTests
         if (phase == "committed-publication") fixture.RowCache.SubscribeToChanges(new ThrowingNotification(expected));
         completion.ConnectionCleanup = new(paused: true);
         completion.ConnectionCleanup.Fail(phase == "connection-cleanup" ? expected : secondary);
-        var error = await AsyncEnumerationFailureOf(() => fixture.Database.UpdateAsyncCore(mutable));
+        var error = await AsyncEnumerationFailureOf(() => fixture.Database.UpdateAsync(mutable));
         if (phase == "committed-publication")
         {
             await Assert.That(error).IsTypeOf<TransactionCommitFinalizationException>();
@@ -217,7 +217,7 @@ public sealed partial class TransactionMutationFailureTests
         var mutable = fixture.CreateExistingMutable(1, "stale");
         if (warm) fixture.PrimeCommittedRow(1, "current");
         var factory = EnableAsyncMutations(fixture, rows: [[1, "current"]]);
-        var work = fixture.Database.UpdateAsyncCore(mutable);
+        var work = fixture.Database.UpdateAsync(mutable);
         try
         {
             await completion.ConnectionCleanup.Entered.WaitAsync(TimeSpan.FromSeconds(10));
@@ -239,13 +239,13 @@ public sealed partial class TransactionMutationFailureTests
         using var source = fixture.Database.Transaction();
         var fromSource = fixture.CreateImmutable(1, "source", source);
         EnableAsyncMutations(fixture);
-        var error = await AsyncEnumerationFailureOf(() => fixture.Database.DeleteAsyncCore(fromSource));
+        var error = await AsyncEnumerationFailureOf(() => fixture.Database.DeleteAsync(fromSource));
         await Assert.That(error).IsTypeOf<MutationGuardException>();
         await Assert.That(source.Changes).IsEmpty();
         await Assert.That(source.Status).IsEqualTo(DatabaseTransactionStatus.Open);
         source.Commit();
         completion.Calls.Clear();
-        await fixture.Database.DeleteAsyncCore(fromSource);
+        await fixture.Database.DeleteAsync(fromSource);
         await Assert.That(source.Changes).IsEmpty();
         await Assert.That(fixture.Scenario.CreatedTransactionTypes.Count).IsEqualTo(3);
         await Assert.That(completion.Calls.SequenceEqual(["commit", "dispose-transaction", "dispose-connection"])).IsTrue();
@@ -260,7 +260,7 @@ public sealed partial class TransactionMutationFailureTests
         completion.Committed = late.Cancel;
         var mutable = fixture.CreateNewAutoMutable("submitted");
         EnableAsyncMutations(fixture, new() { ScalarResult = 42L }, [42, "stored"]);
-        var result = await fixture.Database.SaveAsyncCore(mutable, token: late.Token);
+        var result = await fixture.Database.SaveAsync(mutable, cancellationToken: late.Token);
         await Assert.That(late.IsCancellationRequested).IsTrue();
         await Assert.That(result.Id).IsEqualTo(42);
         await Assert.That(mutable["Id"]).IsEqualTo(42);
@@ -295,7 +295,7 @@ public sealed partial class TransactionMutationFailureTests
         EnableAsyncMutations(fixture, access);
         var mutable = fixture.CreateExistingMutable(1, "old");
         mutable["Value"] = "submitted";
-        var error = await AsyncEnumerationFailureOf(() => fixture.Database.UpdateAsyncCore(mutable));
+        var error = await AsyncEnumerationFailureOf(() => fixture.Database.UpdateAsync(mutable));
         await Assert.That(error).IsSameReferenceAs(primary);
         var context = ExecutionFailureContexts.Get(error)!;
         await Assert.That(context.Completion).IsEqualTo(ExecutionCompletion.Unknown);
@@ -317,7 +317,7 @@ public sealed partial class TransactionMutationFailureTests
         mutable["Value"] = "submitted";
         var access = new ControlledAsyncDatabaseAccess(new(paused: true)) { NonQueryResult = 1 };
         EnableAsyncMutations(fixture, access, [1, "captured"]);
-        var work = fixture.Database.SaveAsyncCore(mutable);
+        var work = fixture.Database.SaveAsync(mutable);
         try
         {
             await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));

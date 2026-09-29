@@ -14,6 +14,8 @@
   items:
     - name: Querying
       href: Querying.md
+    - name: Async Execution (0.10 development)
+      href: Async Execution.md
     - name: Relations and Joins
       href: Relations and Joins.md
     - name: Caching and Mutation

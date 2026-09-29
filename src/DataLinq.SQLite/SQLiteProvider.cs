@@ -66,15 +66,22 @@ public partial class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     { }
 
     public SQLiteProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration? loggerFactory = null) :
-        this(CreateConnectionOptions(connectionString, databaseName), loggerFactory)
+        this(new DataLinqExecutionOptions(), CreateConnectionOptions(connectionString, databaseName), loggerFactory)
     { }
 
-    private SQLiteProvider(SQLiteConnectionOptions connectionOptions, DataLinqLoggingConfiguration? loggerFactory = null) :
+    /// <summary>Constructs a SQLite provider with validated, captured execution settings.</summary>
+    public SQLiteProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration? loggerFactory,
+        DataLinqExecutionOptions executionOptions)
+        : this(DataLinqExecutionOptions.Capture(executionOptions), CreateConnectionOptions(connectionString, databaseName), loggerFactory)
+    { }
+
+    private SQLiteProvider(DataLinqExecutionOptions executionOptions, SQLiteConnectionOptions connectionOptions, DataLinqLoggingConfiguration? loggerFactory) :
         base(
             connectionOptions.ConnectionString,
             DatabaseType.SQLite,
             loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration,
-            connectionOptions.DatabaseName)
+            connectionOptions.DatabaseName,
+            executionOptions)
     {
         connectionStringBuilder = new SqliteConnectionStringBuilder(ConnectionString);
         keepAliveConnection = SQLiteConnectionStringFactory.AcquireKeepAliveConnectionIfInMemory(connectionStringBuilder.ConnectionString);

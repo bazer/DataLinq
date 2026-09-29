@@ -23,7 +23,8 @@ public sealed class ModelGenerator : IIncrementalGenerator
     private const string GeneratorName = "DataLinqSourceGenerator";
     private static readonly IGeneratorDatabaseValidator[] validators =
     [
-        new DefaultValueCompatibilityValidator()
+        new DefaultValueCompatibilityValidator(),
+        new AsyncNavigationCompatibilityValidator()
     ];
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -169,6 +170,8 @@ public sealed class ModelGenerator : IIncrementalGenerator
             var validationContext = new GeneratorValidationContext();
             foreach (var validator in validators)
                 validator.Validate(database, compilation, cancellationToken, diagnostics.Add, validationContext);
+            if (validationContext.StopGeneration)
+                return new PreparedDatabaseInput(null, diagnostics);
 
             var runtimeValuePropertyTypeNames = ResolveRuntimeValuePropertyTypeNames(
                 database,
@@ -191,6 +194,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
                 ReadSourceConstructorModelTypeNames = readSourceConstructorModelTypeNames,
                 SupportsReadSourceDatabaseConstruction = supportsReadSourceDatabaseConstruction,
+                AsyncNavigationOverrides = validationContext.AsyncNavigationOverrides,
             };
 
             var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(database, compilation, useNullableReferenceTypes);

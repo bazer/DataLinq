@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>14.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <DefineConstants Condition="'$(ExpectAmbiguity)' == 'true'">$(DefineConstants);EXPECT_AMBIGUITY</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="DataLinq" Version="[$(DataLinqCandidateVersion)]" />
+    <!-- Fixed fixture version, also used by this repository's EF comparison. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="[9.0.5]" />
+  </ItemGroup>
+  <Target Name="RequireCandidate" BeforeTargets="CollectPackageReferences;PrepareForBuild">
+    <Error Condition="'$(DataLinqCandidateVersion)' == ''" Text="Supply the exact DataLinqCandidateVersion." />
+  </Target>
+</Project>

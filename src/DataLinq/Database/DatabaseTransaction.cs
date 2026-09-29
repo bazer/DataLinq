@@ -21,7 +21,7 @@ public class DatabaseTransactionStatusChangeEventArgs : EventArgs
     public DatabaseTransactionStatus Status { get; set; }
 }
 
-public abstract partial class DatabaseTransaction : DatabaseAccess, IDisposable
+public abstract partial class DatabaseTransaction : DatabaseAccess, IDisposable, IAsyncDisposable
 {
     private Activity? transactionActivity;
     private long transactionStartedTimestamp;
@@ -51,6 +51,7 @@ public abstract partial class DatabaseTransaction : DatabaseAccess, IDisposable
     protected DatabaseTransaction(IDatabaseProvider? databaseProvider, TransactionType type)
         : base(databaseProvider)
     {
+        standaloneRecoverySettings = new(databaseProvider?.ExecutionOptions.RecoveryRollbackTimeout);
         Type = type;
     }
 
@@ -62,6 +63,7 @@ public abstract partial class DatabaseTransaction : DatabaseAccess, IDisposable
     protected DatabaseTransaction(IDatabaseProvider? databaseProvider, IDbTransaction dbTransaction, TransactionType type)
         : base(databaseProvider)
     {
+        standaloneRecoverySettings = new(databaseProvider?.ExecutionOptions.RecoveryRollbackTimeout);
         DbTransaction = dbTransaction ?? throw new ArgumentNullException(nameof(dbTransaction));
         Type = type;
     }

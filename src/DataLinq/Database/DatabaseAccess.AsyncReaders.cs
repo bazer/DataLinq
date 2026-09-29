@@ -10,32 +10,33 @@ namespace DataLinq;
 
 public abstract partial class DatabaseAccess
 {
-    internal Task<IAsyncDataReader> ExecuteReaderAsyncCore(string sql, CancellationToken cancellationToken = default)
-        => AsyncRawDataReader.OpenAsync(CaptureRawReader(sql), managedTransaction, cancellationToken, DiagnosticProviderInstanceId);
+    internal Task<IAsyncDataReader> ExecuteReaderAsyncCore(string query, CancellationToken cancellationToken = default)
+        => AsyncRawDataReader.OpenAsync(CaptureRawReader(query), managedTransaction, cancellationToken, DiagnosticProviderInstanceId, StandaloneReaderOwner);
 
     internal Task<IAsyncDataReader> ExecuteReaderAsyncCore(IDbCommand command, CancellationToken cancellationToken = default)
-        => AsyncRawDataReader.OpenAsync(CaptureRawReader(command), managedTransaction, cancellationToken, DiagnosticProviderInstanceId);
+        => AsyncRawDataReader.OpenAsync(CaptureRawReader(command), managedTransaction, cancellationToken, DiagnosticProviderInstanceId, StandaloneReaderOwner);
 
-    internal IAsyncEnumerable<IDataLinqDataReader> ReadReaderAsyncCore(string sql, CancellationToken cancellationToken = default)
-        => new AsyncReaderEnumerable<IDataLinqDataReader>(() => CaptureRawReader(sql), static reader => reader, managedTransaction, cancellationToken,
-            new(ExecutionOperationKind.RawCommand, DiagnosticProviderInstanceId));
+    internal IAsyncEnumerable<IDataLinqDataReader> ReadReaderAsyncCore(string query, CancellationToken cancellationToken = default)
+        => new AsyncReaderEnumerable<IDataLinqDataReader>(() => CaptureRawReader(query), static reader => reader, managedTransaction, cancellationToken,
+            new(ExecutionOperationKind.RawCommand, DiagnosticProviderInstanceId), StandaloneReaderOwner, borrowCurrentRow: true);
 
     internal IAsyncEnumerable<IDataLinqDataReader> ReadReaderAsyncCore(IDbCommand command, CancellationToken cancellationToken = default)
         => new AsyncReaderEnumerable<IDataLinqDataReader>(() => CaptureRawReader(command), static reader => reader, managedTransaction, cancellationToken,
-            new(ExecutionOperationKind.RawCommand, DiagnosticProviderInstanceId));
+            new(ExecutionOperationKind.RawCommand, DiagnosticProviderInstanceId), StandaloneReaderOwner, borrowCurrentRow: true);
+
+    private DatabaseTransaction? StandaloneReaderOwner => managedTransaction is null ? this as DatabaseTransaction : null;
 
     private void ValidateRawReaderOwner()
     {
-        if (this is DatabaseTransaction && managedTransaction is null)
-            throw new InvalidOperationException("Transaction reader execution requires its managed transaction owner.");
+        StandaloneReaderOwner?.EnsureStandaloneCommandAllowed();
         managedTransaction?.EnsureCanRead("execute an asynchronous raw reader", operationKind: ExecutionOperationKind.RawCommand);
     }
 
-    private IAsyncReaderSource CaptureRawReader(string sql)
+    private IAsyncReaderSource CaptureRawReader(string query)
     {
-        ArgumentNullException.ThrowIfNull(sql);
+        ArgumentNullException.ThrowIfNull(query);
         ValidateRawReaderOwner();
-        return RawAsyncReaderSource.Wrap(IAsyncSqlReaderFactory.Require(this).BindReader(CapturedSql.Capture(new Sql(sql))));
+        return RawAsyncReaderSource.Wrap(IAsyncSqlReaderFactory.Require(this).BindReader(CapturedSql.Capture(new Sql(query))));
     }
 
     private IAsyncReaderSource CaptureRawReader(IDbCommand command)

@@ -36,6 +36,15 @@ public partial class TableCache
         internal AsyncBufferedRead<SourceIndexRowLoadResult>? Neutral { get; } = neutral;
         internal AsyncBufferedRead<IReadOnlyList<LoadedCanonicalRow>>? Matched { get; } = matched;
         internal AsyncBufferedRead<IReadOnlyList<CanonicalProviderValueRow>>? Keyless { get; } = keyless;
+
+        internal PreparedRelationRows WithOwner(TransactionOperationGate.Step? step)
+        {
+            if (ReferenceEquals(step, Owner)) return this;
+            if (Owner is not null || step is null)
+                throw new InvalidOperationException("A relation plan cannot change its transaction owner.");
+            return new(Cache, Source, Index, Key, step, Factory,
+                Single?.WithOwner(step), Neutral?.WithOwner(step), Matched?.WithOwner(step), Keyless?.WithOwner(step));
+        }
     }
 
     internal PreparedRelationRows PrepareRelationRowsAsyncCore<TKey>(TKey foreignKey,

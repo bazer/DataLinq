@@ -21,6 +21,7 @@ public class GeneratorFileFactoryOptions
     public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
     public IReadOnlyCollection<string> ReadSourceConstructorModelTypeNames { get; set; } = [];
     public bool SupportsReadSourceDatabaseConstruction { get; set; }
+    internal IReadOnlyCollection<RelationProperty> AsyncNavigationOverrides { get; set; } = [];
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
@@ -902,6 +903,16 @@ public class GeneratorFileFactory
         if (model.RelationProperties.Any())
             yield return "";
 
+        foreach (var relation in model.RelationProperties.Values.Where(x => x.RelationPart.Type == RelationPartType.ForeignKey))
+        {
+            var target = relation.RelationPart.GetOtherSide().ColumnIndex.Table.Model.CsType.Name;
+            var nullable = Options.UseNullableReferenceTypes && relation.CsNullable ? "?" : "";
+            var modifier = Options.AsyncNavigationOverrides.Contains(relation) ? "override" : "virtual";
+            yield return $"{namespaceTab}{tab}/// <summary>Asynchronously resolves the {relation.PropertyName} reference using this model's source and shared relation state.</summary>";
+            yield return $"{namespaceTab}{tab}public {modifier} global::System.Threading.Tasks.ValueTask<{target}{nullable}> {relation.PropertyName}Async(global::System.Threading.CancellationToken cancellationToken = default) => throw new global::System.NotSupportedException(\"This model does not implement asynchronous navigation.\");";
+            yield return "";
+        }
+
         yield return $"{namespaceTab}{tab}internal static void SetDataLinqGeneratedModel(global::DataLinq.Metadata.ModelDefinition model)";
         yield return $"{namespaceTab}{tab}" + "{";
         yield return $"{namespaceTab}{tab}{tab}DataLinqGeneratedModel = model ?? throw new global::System.ArgumentNullException(nameof(model));";
@@ -1132,6 +1143,10 @@ public class GeneratorFileFactory
                     yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.GetByProviderKey(new {keyTypeName}({keyValues}), transaction);";
                 }
 
+                foreach (var line in WriteAsyncKeyLookups(model, keyString,
+                    primaryKeys.Count == 1 ? keyValues : $"new {keyTypeName}({keyValues})"))
+                    yield return line;
+
                 yield return $"";
             }
 
@@ -1157,6 +1172,8 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, IDataSourceAccess dataSource) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, dataSource);";
                 yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, database.Provider.ReadOnlyAccess);";
                 yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, transaction);";
+                foreach (var line in WriteAsyncKeyLookups(model, keyString, normalizedKeyExpression))
+                    yield return line;
                 yield return "";
             }
 
@@ -1189,6 +1206,18 @@ public class GeneratorFileFactory
 
         yield return namespaceTab + "}";
         yield return "";
+    }
+
+    private IEnumerable<string> WriteAsyncKeyLookups(ModelDefinition model, string keyParameters, string providerKey)
+    {
+        var result = $"global::System.Threading.Tasks.ValueTask<{model.CsType.Name}{GetUseNullableReferenceTypes()}>";
+        var token = "global::System.Threading.CancellationToken cancellationToken = default";
+        yield return $"{namespaceTab}{tab}/// <summary>Asynchronously looks up a model by its typed primary key; returns null when no row exists.</summary>";
+        yield return $"{namespaceTab}{tab}public static {result} GetAsync({keyParameters}, IDataSourceAccess dataSource, {token}) => IImmutable<{model.CsType.Name}>.GetByProviderKeyAsync({providerKey}, dataSource, cancellationToken);";
+        yield return $"{namespaceTab}{tab}/// <summary>Asynchronously looks up a model using the database read-only source.</summary>";
+        yield return $"{namespaceTab}{tab}public static {result} GetAsync({keyParameters}, Database<{model.Database.CsType.Name}> database, {token}) => IImmutable<{model.CsType.Name}>.GetByProviderKeyAsync({providerKey}, database.Provider.ReadOnlyAccess, cancellationToken);";
+        yield return $"{namespaceTab}{tab}/// <summary>Asynchronously looks up a model using the caller-owned transaction.</summary>";
+        yield return $"{namespaceTab}{tab}public static {result} GetAsync({keyParameters}, Transaction<{model.Database.CsType.Name}> transaction, {token}) => IImmutable<{model.CsType.Name}>.GetByProviderKeyAsync({providerKey}, transaction, cancellationToken);";
     }
 
     private IEnumerable<string> ImmutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
@@ -1228,13 +1257,34 @@ public class GeneratorFileFactory
                 valueProperty.CsType.Name is "byte[]" or "System.Byte[]" ||
                 (valueProperty.CsType.Namespace == "System" && valueProperty.CsType.Name == "Byte[]");
             if (!binaryValue)
-                yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetImmutableFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
+                yield return $"{namespaceTab}{tab}private object{GetUseNullableReferenceTypes()} _{c.ValueProperty.PropertyName};";
 
             foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(c.ValueProperty.Attributes), $"{namespaceTab}{tab}"))
                 yield return row;
 
-            var memoize = binaryValue ? "" : $"_{c.ValueProperty.PropertyName} ??= ";
-            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => {memoize}({GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}){(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}({GetGeneratedColumnIndexName(valueProperty)});";
+            var propertyType = $"{GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}";
+            var readValue = $"{(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}({GetGeneratedColumnIndexName(valueProperty)})";
+            if (binaryValue)
+                yield return $"{namespaceTab}{tab}public override {propertyType} {c.ValueProperty.PropertyName} => ({propertyType}){readValue};";
+            else
+            {
+                // Nullable<T> writes can tear even for an int property. Publish the
+                // already-boxed row value as one reference, with acquire/release ordering.
+                // Racing initializers must all use the published winner.
+                yield return $"{namespaceTab}{tab}public override {propertyType} {c.ValueProperty.PropertyName}";
+                yield return $"{namespaceTab}{tab}{{";
+                yield return $"{namespaceTab}{tab}{tab}get";
+                yield return $"{namespaceTab}{tab}{tab}{{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}var value = global::System.Threading.Volatile.Read(ref _{c.ValueProperty.PropertyName});";
+                yield return $"{namespaceTab}{tab}{tab}{tab}if (value is null)";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}value = {readValue};";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}value = global::System.Threading.Interlocked.CompareExchange(ref _{c.ValueProperty.PropertyName}, value, null) ?? value;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}}}";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return ({propertyType})value!;";
+                yield return $"{namespaceTab}{tab}{tab}}}";
+                yield return $"{namespaceTab}{tab}}}";
+            }
             yield return $"";
         }
 
@@ -1254,6 +1304,13 @@ public class GeneratorFileFactory
 
                 yield return $"{namespaceTab}{tab}private IImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
                 yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar} {relationProperty.PropertyName} => (_{relationProperty.PropertyName} ??= {GetImmutableForeignKeyExpression(relationProperty, otherPart.ColumnIndex.Table.Model.CsType.Name)}).Value{expressionSuffix};";
+                yield return $"{namespaceTab}{tab}public override async global::System.Threading.Tasks.ValueTask<{otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar}> {relationProperty.PropertyName}Async(global::System.Threading.CancellationToken cancellationToken = default)";
+                yield return $"{namespaceTab}{tab}{{";
+                yield return $"{namespaceTab}{tab}{tab}var reference = _{relationProperty.PropertyName} ??= {GetImmutableForeignKeyExpression(relationProperty, otherPart.ColumnIndex.Table.Model.CsType.Name)};";
+                yield return $"{namespaceTab}{tab}{tab}if (reference is not global::DataLinq.Instances.IAsyncImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}> asyncReference)";
+                yield return $"{namespaceTab}{tab}{tab}{tab}throw new global::System.NotSupportedException(\"This reference does not implement asynchronous loading.\");";
+                yield return $"{namespaceTab}{tab}{tab}return (await asyncReference.GetAsync(cancellationToken).ConfigureAwait(false)){expressionSuffix};";
+                yield return $"{namespaceTab}{tab}}}";
             }
             else
             {
@@ -1346,6 +1403,9 @@ public class GeneratorFileFactory
 
         yield return $"{namespaceTab}public partial class Mutable{model.CsType.Name} : Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}";
         yield return namespaceTab + "{";
+
+        yield return $"{namespaceTab}{tab}internal static global::System.Threading.Tasks.Task<{model.CsType.Name}> ExecuteOwnedMutationAsync(global::DataLinq.Interfaces.IDatabaseProvider provider, Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, TransactionChangeType? changeType, global::System.Threading.CancellationToken cancellationToken) =>";
+        yield return $"{namespaceTab}{tab}{tab}ExecuteGeneratedMutationAsync(provider, model, changes, changeType, cancellationToken);";
 
         var defaultProps = GetDefaultValueProperties(model);
 
@@ -1529,7 +1589,49 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Transaction transaction, Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Save(changes, transaction);";
 
+        foreach (var row in AsyncMutationExtensionMethods(model))
+            yield return row;
+
         yield return namespaceTab + "}";
+    }
+
+    private IEnumerable<string> AsyncMutationExtensionMethods(ModelDefinition model)
+    {
+        var name = model.CsType.Name;
+        var mutable = $"Mutable{name}";
+        var action = $"Action<{mutable}> changes";
+        var token = "global::System.Threading.CancellationToken cancellationToken = default";
+        var methods = new (string Name, string Parameters, string Body)[]
+        {
+            ("InsertAsync<T>", $"this {mutable} model, Database<T> database", "database.InsertAsync(model, cancellationToken: cancellationToken)"),
+            ("InsertAsync", $"this {mutable} model, {action}, Transaction transaction", $"transaction.InsertAsync<{name}, {mutable}>(model, changes, cancellationToken)"),
+            ("InsertAsync<T>", $"this {mutable} model, {action}, Database<T> database", $"{mutable}.ExecuteOwnedMutationAsync(database.Provider, model, changes, TransactionChangeType.Insert, cancellationToken)"),
+            ("InsertAsync", $"this Transaction transaction, {mutable} model, {action}", $"transaction.InsertAsync<{name}, {mutable}>(model, changes, cancellationToken)"),
+            ("UpdateAsync", $"this {name} model, {action}", $"{mutable}.ExecuteOwnedMutationAsync(model.GetDataSource().Provider, model.Mutate(), changes, TransactionChangeType.Update, cancellationToken)"),
+            ("UpdateAsync", $"this {name} model, {action}, Transaction transaction", $"transaction.UpdateAsync<{name}, {mutable}>(model.Mutate(), changes, cancellationToken)"),
+            ("UpdateAsync<T>", $"this Database<T> database, {name} model, {action}", $"{mutable}.ExecuteOwnedMutationAsync(database.Provider, model.Mutate(), changes, TransactionChangeType.Update, cancellationToken)"),
+            ("UpdateAsync", $"this Transaction transaction, {name} model, {action}", $"transaction.UpdateAsync<{name}, {mutable}>(model.Mutate(), changes, cancellationToken)"),
+            ("UpdateAsync<T>", $"this {mutable} model, Database<T> database", "database.UpdateAsync(model, cancellationToken: cancellationToken)"),
+            // Immutable Save deliberately remains an Update alias, including its null behavior.
+            ("SaveAsync", $"this {name} model, {action}", "model.UpdateAsync(changes, cancellationToken)"),
+            ("SaveAsync", $"this {name} model, {action}, Transaction transaction", "model.UpdateAsync(changes, transaction, cancellationToken)"),
+            ("SaveAsync<T>", $"this Database<T> database, {name} model, {action}", $"{name}Extensions.UpdateAsync(database, model, changes, cancellationToken)"),
+            ("SaveAsync", $"this Transaction transaction, {name} model, {action}", "model.UpdateAsync(changes, transaction, cancellationToken)"),
+            ("SaveAsync<T>", $"this {name} model, {action}, Database<T> database", $"{name}Extensions.UpdateAsync(database, model, changes, cancellationToken)"),
+            ("SaveAsync<T>", $"this {mutable} model, Database<T> database", "database.SaveAsync(model, cancellationToken: cancellationToken)"),
+            ("SaveAsync", $"this {mutable} model, {action}, Transaction transaction", $"transaction.SaveAsync<{name}, {mutable}>(model, changes, cancellationToken)"),
+            ("SaveAsync<T>", $"this {mutable} model, {action}, Database<T> database", $"{mutable}.ExecuteOwnedMutationAsync(database.Provider, model, changes, null, cancellationToken)"),
+            ("SaveAsync", $"this {mutable} model, Transaction transaction", "transaction.SaveAsync(model, cancellationToken)"),
+            ("SaveAsync", $"this Transaction transaction, {mutable} model, {action}", $"transaction.SaveAsync<{name}, {mutable}>(model, changes, cancellationToken)")
+        };
+        foreach (var method in methods)
+        {
+            var constraint = method.Name.EndsWith("<T>", StringComparison.Ordinal) ? " where T : class, IDatabaseModel<T>" : "";
+            yield return $"{namespaceTab}{tab}/// <summary>Executes a typed asynchronous mutation; local changes run synchronously before suspension.</summary>";
+            yield return $"{namespaceTab}{tab}/// <remarks>Database and source-derived helpers own completion and cleanup. Explicit transactions remain caller-owned.</remarks>";
+            yield return $"{namespaceTab}{tab}public static global::System.Threading.Tasks.Task<{name}> {method.Name}({method.Parameters}, {token}){constraint} =>";
+            yield return $"{namespaceTab}{tab}{tab}{method.Body};";
+        }
     }
 
     private string GetConstructorParam(ValueProperty property)
@@ -1609,11 +1711,6 @@ public class GeneratorFileFactory
         return IsMutablePropertyRequired(property) ? "required " : "";
     }
 
-    private string GetImmutableFieldNullable(ValueProperty property)
-    {
-        return IsImmutableFieldNullable(property) ? "?" : "";
-    }
-
     private string GetUseNullableReferenceTypes()
     {
         return Options.UseNullableReferenceTypes ? "?" : "";
@@ -1649,15 +1746,6 @@ public class GeneratorFileFactory
     private bool IsImmutableGetterNullable(ValueProperty property)
     {
         return !Options.UseNullableReferenceTypes || IsImmutablePropertyNullable(property);
-    }
-
-    private bool IsImmutableFieldNullable(ValueProperty property)
-    {
-        return Options.UseNullableReferenceTypes
-            || property.CsNullable
-            || property.EnumProperty.HasValue
-            || MetadataTypeConverter.IsCsTypeNullable(property.CsType.Name)
-            || !MetadataTypeConverter.IsKnownCsType(property.CsType.Name);
     }
 
     private static string? GetDocumentationComment(IEnumerable<Attribute> attributes)

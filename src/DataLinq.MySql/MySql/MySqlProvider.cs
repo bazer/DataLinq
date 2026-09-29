@@ -31,7 +31,14 @@ public class MySqlProvider<T> : SqlProvider<T> where T : class, IDatabaseModel<T
     }
 
     public MySqlProvider(string connectionString, string? databaseName = null, DataLinqLoggingConfiguration? loggerFactory = null)
-        : base(connectionString, DatabaseType.MySQL, loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration, databaseName)
+        : this(connectionString, databaseName, loggerFactory, new DataLinqExecutionOptions())
+    {
+    }
+
+    /// <summary>Constructs a provider with validated, captured execution settings.</summary>
+    public MySqlProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration? loggerFactory,
+        DataLinqExecutionOptions executionOptions)
+        : base(connectionString, DatabaseType.MySQL, loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration, databaseName, executionOptions)
     {
     }
 }

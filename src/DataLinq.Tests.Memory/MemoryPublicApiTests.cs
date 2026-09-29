@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
@@ -417,7 +418,16 @@ public sealed class MemoryPublicApiTests
 
         await Assert.That(databaseType.IsPublic).IsTrue();
         await Assert.That(databaseType.GetConstructors().Length).IsEqualTo(1);
-        await Assert.That(declaredMethods).IsEquivalentTo(["Find", "Query", "Seed"]);
+        await Assert.That(declaredMethods).IsEquivalentTo(["Find", "FindAsync", "Query", "Seed"]);
+        var asyncFind = databaseType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+            .Single(static method => method.Name == "FindAsync");
+        await Assert.That(asyncFind.ReturnType.GetGenericTypeDefinition()).IsEqualTo(typeof(ValueTask<>));
+        await Assert.That(asyncFind.ReturnType.GetGenericArguments().Single()).IsSameReferenceAs(asyncFind.GetGenericArguments().Single());
+        await Assert.That(asyncFind.GetParameters().Select(parameter => parameter.Name!).ToArray())
+            .IsEquivalentTo(["modelPrimaryKey", "cancellationToken"]);
+        await Assert.That(asyncFind.GetParameters()[0].ParameterType).IsEqualTo(typeof(object));
+        await Assert.That(asyncFind.GetParameters()[1].ParameterType).IsEqualTo(typeof(CancellationToken));
+        await Assert.That(asyncFind.GetParameters()[1].IsOptional).IsTrue();
         await Assert.That(findMethod.IsGenericMethodDefinition).IsTrue();
         await Assert.That(findMethod.GetGenericArguments().Length).IsEqualTo(1);
         await Assert.That(findMethod.ReturnType).IsSameReferenceAs(findModelTypeParameter);

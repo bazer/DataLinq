@@ -23,7 +23,7 @@ public sealed partial class MemoryAsyncExecutionTests
         var query = database.Query().Rows;
         var failure = await Failure(() => kind switch
         {
-            "lookup" => database.FindAsyncCore<MemoryPrimitiveRow>(1, cancellation.Token).AsTask(),
+            "lookup" => database.FindAsync<MemoryPrimitiveRow>(1, cancellation.Token).AsTask(),
             "entity" => Drain(Rows(query, cancellation.Token)),
             "projection" => Drain(Rows(query.Select(row => row.Id), cancellation.Token)),
             "count" => Terminal<MemoryPrimitiveRow, int>(query, "Count", cancellation.Token),
@@ -57,7 +57,7 @@ public sealed partial class MemoryAsyncExecutionTests
             providerInstanceId: "previous-provider", activeOperation: ExecutionOperationKind.Commit);
         ExecutionFailureContexts.Attach(primary, previous);
         observation.FromProvider = _ => throw primary;
-        var failure = await Failure(() => lookup ? database.FindAsyncCore<MemoryConvertedRow>(new MemoryGuidId(First)).AsTask()
+        var failure = await Failure(() => lookup ? database.FindAsync<MemoryConvertedRow>(new MemoryGuidId(First)).AsTask()
             : Drain(Rows(database.Query().Rows.Select(row => row.Id))));
         var context = ExecutionFailureContexts.Get(failure)!;
         await Assert.That(failure).IsSameReferenceAs(primary);

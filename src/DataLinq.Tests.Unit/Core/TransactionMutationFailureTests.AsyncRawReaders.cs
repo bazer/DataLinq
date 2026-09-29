@@ -11,11 +11,11 @@ namespace DataLinq.Tests.Unit.Core;
 
 public sealed partial class TransactionMutationFailureTests
 {
-    private static Task<IAsyncDataReader> OpenRawReader(DatabaseAccess access, bool borrowed, ControlledCommand command, CancellationToken token = default)
-        => borrowed ? access.ExecuteReaderAsyncCore(command, token) : access.ExecuteReaderAsyncCore("UPDATE rows RETURNING value", token);
+    private static Task<IDataLinqAsyncDataReader> OpenRawReader(DatabaseAccess access, bool borrowed, ControlledCommand command, CancellationToken token = default)
+        => borrowed ? access.ExecuteReaderAsync(command, token) : access.ExecuteReaderAsync("UPDATE rows RETURNING value", token);
 
     private static IAsyncEnumerable<IDataLinqDataReader> RawReaderRows(DatabaseAccess access, bool borrowed, ControlledCommand command, CancellationToken token = default)
-        => borrowed ? access.ReadReaderAsyncCore(command, token) : access.ReadReaderAsyncCore("UPDATE rows RETURNING value", token);
+        => borrowed ? access.ReadReaderAsync(command, token) : access.ReadReaderAsync("UPDATE rows RETURNING value", token);
 
     [Test]
     [Arguments(false)]
@@ -244,7 +244,7 @@ public sealed partial class TransactionMutationFailureTests
         using var transaction = fixture.Database.Transaction();
         var access = new ControlledAsyncDatabaseAccess();
         fixture.Scenario.AsyncSqlReaders = RawFactory(() => access);
-        await using var reader = await transaction.DatabaseAccess.ExecuteReaderAsyncCore("SELECT value");
+        await using var reader = await transaction.DatabaseAccess.ExecuteReaderAsync("SELECT value");
         await reader.ReadNextRowAsync(default);
         access.Reader.Advance = new(paused: true);
         var pending = reader.ReadNextRowAsync(default);
@@ -315,7 +315,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = RawFactory(() => access);
         factory.ConfigureCommand = command => command.Resource.Disposing = () => throw commandCleanup;
         fixture.Scenario.AsyncSqlReaders = factory;
-        var reader = await transaction.DatabaseAccess.ExecuteReaderAsyncCore("SELECT value");
+        var reader = await transaction.DatabaseAccess.ExecuteReaderAsync("SELECT value");
         Exception failure;
         if (failedAdvance)
         {
@@ -345,7 +345,7 @@ public sealed partial class TransactionMutationFailureTests
         using var cancellation = new CancellationTokenSource();
         var access = new ControlledAsyncDatabaseAccess { ReaderAcquired = cancellation.Cancel };
         fixture.Scenario.AsyncSqlReaders = RawFactory(() => access);
-        var reader = await transaction.DatabaseAccess.ExecuteReaderAsyncCore("SELECT value", cancellation.Token);
+        var reader = await transaction.DatabaseAccess.ExecuteReaderAsync("SELECT value", cancellation.Token);
         await Assert.That(cancellation.IsCancellationRequested).IsTrue();
         await Assert.That(await reader.ReadNextRowAsync(default)).IsTrue();
         await reader.DisposeAsync();
@@ -356,7 +356,7 @@ public sealed partial class TransactionMutationFailureTests
     [Test]
     [Arguments(false)]
     [Arguments(true)]
-    public async Task AsyncRawReaders_DeferredSequenceIsColdAndYieldsOneEphemeralReader(bool borrowed)
+    public async Task AsyncRawReaders_DeferredSequenceIsColdAndYieldsGuardedEphemeralRows(bool borrowed)
     {
         using var fixture = new ScriptedFixture();
         using var transaction = fixture.Database.Transaction();
@@ -376,8 +376,8 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(first.GetInt32(0)).IsEqualTo(11);
         _ = Capture<InvalidOperationException>(() => transaction.Query());
         await Assert.That(await rows.MoveNextAsync()).IsTrue();
-        await Assert.That(rows.Current).IsSameReferenceAs(first);
-        await Assert.That(first.GetInt32(0)).IsEqualTo(22);
+        await Assert.That(rows.Current.GetInt32(0)).IsEqualTo(22);
+        _ = Capture<InvalidOperationException>(() => first.GetInt32(0));
         await rows.DisposeAsync(); // Early termination rather than exhaustion.
         await Assert.That(replacement.Accesses[0].Reader.AsyncDisposeCalls).IsEqualTo(1);
         await Assert.That(command.DisposeCalls).IsEqualTo(0);
@@ -444,7 +444,7 @@ public sealed partial class TransactionMutationFailureTests
         access.Reader.Cleanup = new(paused: true);
         fixture.Scenario.AsyncSqlReaders = RawFactory(() => access);
         using var command = new ControlledCommand();
-        IAsyncDataReader? escaped = null;
+        IDataLinqAsyncDataReader? escaped = null;
         var helper = transaction.RunCallbackAsyncCore(async _ =>
         {
             escaped = await OpenRawReader(transaction.DatabaseAccess, borrowed, command);
@@ -483,7 +483,7 @@ public sealed partial class TransactionMutationFailureTests
         Task? unfinished = null;
         var helper = transaction.RunCallbackAsyncCore(async _ =>
         {
-            var opening = transaction.DatabaseAccess.ExecuteReaderAsyncCore("SELECT value");
+            var opening = transaction.DatabaseAccess.ExecuteReaderAsync("SELECT value");
             if (duringAcquisition) unfinished = opening;
             else
             {
@@ -522,7 +522,7 @@ public sealed partial class TransactionMutationFailureTests
         {
             await using var reader = await transaction.DatabaseAccess.ExecuteReaderOwnedAsyncCore(command, ownership.Step, default);
             await Assert.That(await reader.ReadNextRowAsync(default)).IsTrue();
-            await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteReaderAsyncCore(command))).IsTypeOf<InvalidOperationException>();
+            await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteReaderAsync(command))).IsTypeOf<InvalidOperationException>();
             await Assert.That(await AsyncEnumerationFailureOf(() => other.DatabaseAccess.ExecuteReaderOwnedAsyncCore(command, ownership.Step, default))).IsTypeOf<InvalidOperationException>();
         }
         _ = transaction.Query();
@@ -536,8 +536,8 @@ public sealed partial class TransactionMutationFailureTests
         var factory = RawFactory(() => new(new(paused: true)));
         fixture.Scenario.AsyncSqlReaders = factory;
         var access = fixture.Provider.ReadOnlyAccess.DatabaseAccess;
-        var first = access.ExecuteReaderAsyncCore("SELECT first");
-        var second = access.ExecuteReaderAsyncCore("SELECT second");
+        var first = access.ExecuteReaderAsync("SELECT first");
+        var second = access.ExecuteReaderAsync("SELECT second");
         await Task.WhenAll(factory.Accesses.Select(x => x.Dispatch.Entered)).WaitAsync(TimeSpan.FromSeconds(10));
         foreach (var native in factory.Accesses) native.Dispatch.Release();
         await using var one = await first;
@@ -598,7 +598,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = RawFactory(() => access);
         factory.ConfigureCommand = command => command.Resource.Disposing = () => throw cleanup;
         fixture.Scenario.AsyncSqlReaders = factory;
-        var pending = transaction.DatabaseAccess.ExecuteReaderAsyncCore("SELECT value");
+        var pending = transaction.DatabaseAccess.ExecuteReaderAsync("SELECT value");
         access.Dispatch.Fail(expected);
         await Assert.That(await AsyncEnumerationFailureOf(() => pending)).IsSameReferenceAs(expected);
         var context = transaction.AsyncFailureContext!;
@@ -650,7 +650,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = RawFactory(() => new());
         fixture.Scenario.AsyncSqlReaders = factory;
         using var command = new UnverifiedCommand();
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteReaderAsyncCore(command, new(true)))).IsTypeOf<NotSupportedException>();
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteReaderAsync(command, new(true)))).IsTypeOf<NotSupportedException>();
         await Assert.That(command.SyncExecutionCalls).IsEqualTo(0);
         await Assert.That(command.DisposeCalls).IsEqualTo(0);
         await Assert.That(transaction.AsyncFailureContext).IsNull();
@@ -668,7 +668,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = RawFactory(() => new() { FailureEvidence = TrustedScalarRead });
         factory.ConfigureCommand = command => command.Creating = () => throw expected;
         fixture.Scenario.AsyncSqlReaders = factory;
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteReaderAsyncCore("SELECT value"))).IsSameReferenceAs(expected);
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteReaderAsync("SELECT value"))).IsSameReferenceAs(expected);
         await Assert.That(transaction.AsyncFailureContext!.Stage).IsEqualTo(ExecutionFailureStage.Validation);
         await Assert.That(transaction.AsyncFailureContext.Recovery.HasFlag(ExecutionRecoveryActions.Continue)).IsTrue();
         await Assert.That(transaction.Changes.Count).IsEqualTo(1);
@@ -700,7 +700,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = RawFactory(() => new());
         factory.WrapSource = _ => new ClassifiedRawSource(expected, evidence);
         fixture.Scenario.AsyncSqlReaders = factory;
-        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteReaderAsyncCore("SELECT value"))).IsSameReferenceAs(expected);
+        await Assert.That(await AsyncEnumerationFailureOf(() => transaction.DatabaseAccess.ExecuteReaderAsync("SELECT value"))).IsSameReferenceAs(expected);
         await Assert.That(transaction.AsyncFailureContext!.Recovery).IsEqualTo(initialization
             ? ExecutionRecoveryActions.Dispose : ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose);
         await Assert.That(transaction.AsyncFailureContext.Stage).IsEqualTo(initialization

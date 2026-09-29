@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using DataLinq.Diagnostics;
 using DataLinq.Execution;
 using DataLinq.Interfaces;
@@ -45,6 +47,13 @@ public interface IImmutableInstance<T> : IImmutableInstance, IModelInstance<T>
 public interface IImmutable<T>
     where T : IModel
 {
+    /// <summary>Asynchronously looks up a model using canonical provider-key components.</summary>
+    static ValueTask<T?> GetByProviderKeyAsync<TKey>(
+        TKey key, IDataSourceAccess dataSource, CancellationToken cancellationToken = default)
+        where TKey : notnull =>
+        new(AsyncModelLookup.GetByProviderKeyAsyncCore<T>(
+            ProviderKeyComponents.ToDataLinqKey(key), dataSource, cancellationToken));
+
     static T? GetByProviderKey<TKey>(
         TKey key,
         IDataSourceAccess dataSource)

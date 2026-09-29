@@ -3,7 +3,7 @@ using System.Data;
 
 namespace DataLinq.Interfaces;
 
-public interface IDatabaseAccess
+public partial interface IDatabaseAccess
 {
     /// <summary>Executes a caller-owned command. The caller must dispose the returned reader and command.</summary>
     IDataLinqDataReader ExecuteReader(IDbCommand command);

@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Mutation;
@@ -52,27 +53,17 @@ public partial class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransact
         BeginTransactionTelemetry();
     }
 
-    private IDbConnection DbConnection
+    private IDbConnection GetStandaloneConnection(TransactionOperationGate.Step owner)
     {
-        get
-        {
-            EnsureSynchronousResourceUsable();
-            if (Status == DatabaseTransactionStatus.Committed || Status == DatabaseTransactionStatus.RolledBack)
-                throw new Exception("Cannot open a new connection on a committed or rolled back transaction.");
-
-            InitializeUnmanaged();
-
-            if (dbConnection == null)
-                throw new Exception("The database connection is null");
-
-            return dbConnection;
-        }
+        InitializeUnmanaged(owner);
+        return dbConnection ?? throw new InvalidOperationException("The native transaction connection is unavailable.");
     }
 
     public override int ExecuteNonQuery(IDbCommand command)
     {
         if (ManagedTransaction is not null) return ExecuteNonQuerySyncCore(command);
-        command.Connection = DbConnection;
+        using var operation = BeginStandaloneCommand();
+        command.Connection = GetStandaloneConnection(operation.Step);
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration, command);
         return ExecuteCommandWithTelemetry(command, "non_query", transactional: true, Type, command.ExecuteNonQuery);
@@ -105,7 +96,8 @@ public partial class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransact
     public override object? ExecuteScalar(IDbCommand command)
     {
         if (ManagedTransaction is not null) return ExecuteScalarSyncCore(command);
-        command.Connection = DbConnection;
+        using var operation = BeginStandaloneCommand();
+        command.Connection = GetStandaloneConnection(operation.Step);
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration, command);
         var result = ExecuteCommandWithTelemetry(command, "scalar", transactional: true, Type, command.ExecuteScalar);
@@ -118,22 +110,19 @@ public partial class SqlDatabaseTransaction : DatabaseTransaction, ISyncTransact
         return ExecuteOwnedReader(new MySqlCommand(query));
     }
 
-    public override IDataLinqDataReader ExecuteReader(IDbCommand command)
-    {
-        if (ManagedTransaction is not null) return ExecuteReaderSyncCore(command);
-        command.Connection = DbConnection;
-        command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration, command);
+    public override IDataLinqDataReader ExecuteReader(IDbCommand command) => ManagedTransaction is not null
+        ? ExecuteReaderSyncCore(command) : ExecuteStandaloneReader(command, ownsCommand: false);
 
-        var reader = ExecuteCommandWithTelemetry(
-            command,
-            "reader",
-            transactional: true,
-            Type,
-            () => command.ExecuteReader() as MySqlDataReader);
-
-        return new SqlDataLinqDataReader(reader!, databaseType);
-    }
+    private IDataLinqDataReader ExecuteStandaloneReader(IDbCommand command, bool ownsCommand) =>
+        StandaloneTransactionReader.Open(this, command, ownsCommand, owner =>
+        {
+            command.Connection = GetStandaloneConnection(owner);
+            command.Transaction = DbTransaction;
+            Log.SqlCommand(loggingConfiguration, command);
+            var reader = ExecuteCommandWithTelemetry(command, "reader", transactional: true, Type,
+                () => command.ExecuteReader() as MySqlDataReader);
+            return new SqlDataLinqDataReader(reader!, databaseType);
+        });
 
     private IDbTransaction GetActiveProviderTransaction(string operation)
     {

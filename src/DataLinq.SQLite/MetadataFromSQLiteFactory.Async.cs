@@ -17,6 +17,14 @@ namespace DataLinq.SQLite;
 
 public partial class MetadataFromSQLiteFactory : IAsyncMetadataFactory
 {
+    /// <summary>Imports SQLite metadata asynchronously without creating a missing file. Cancellation escapes Option failures.</summary>
+    public virtual Task<Option<DatabaseDefinition, IDLOptionFailure>> ParseDatabaseAsync(string name, string csTypeName,
+        string csNamespace, string dbName, string connectionString, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dbName);
+        return this.ParseDatabaseAsyncCore(name, csTypeName, csNamespace, dbName, connectionString, cancellationToken);
+    }
+
     MetadataFromDatabaseFactoryOptions IAsyncMetadataFactory.Options => options;
 
     IAsyncMetadataReadPlan IAsyncMetadataFactory.CaptureImport(MetadataImportRequest request)

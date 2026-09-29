@@ -1793,6 +1793,25 @@ Explicitly disposition AAPI-11's keyed-view rename and AAPI-16's required-refere
 **Owner/gate:** R10/A10, D10-1; tooling policy/lock validation, package identity and provenance, complete target/package coverage, and old-binary/generated consumer checks against 0.9.2. The compatibility baseline is fixed at that release, not a moving latest-patch selector. Current-development performance/test identity remains separate, with both new benchmark baselines and candidates measured on .NET 10.
 
 
+### AAPI-112: Protected Generated Mutation Bridge
+
+**Accepted:** 2026-09-28, explicitly approved by the user during W3 implementation.
+
+Add one protected static support method on `DataLinq.Instances.Mutable<T>`:
+
+```csharp
+protected static Task<T> ExecuteGeneratedMutationAsync<TMutable>(
+    IDatabaseProvider provider, TMutable model, Action<TMutable> changes,
+    TransactionChangeType? changeType, CancellationToken cancellationToken)
+    where TMutable : Mutable<T>;
+```
+
+All parameters are required. `T` retains the enclosing `class, IImmutableInstance` constraint. Only Insert, Update and null (Save) are accepted; Delete and unknown enum values fail before transaction creation. Generated mutable types expose an internal forwarding method for their generated extension class, adding no public generated support member.
+
+This bridge supports M10's owned typed-edit helpers. Validate the input lifecycle and cancellation before invoking the synchronous edit delegate; capture the resulting mutation before suspension and retain its reservation through commit and both cleanup attempts. Null change type follows the mutable's resulting lifecycle. Explicit-transaction helpers use the public transaction methods and do not complete the caller's transaction. Immutable generated Save remains an Update alias. Source-derived helpers validate the source before extracting its provider; the bridge neither joins ambient work nor adds Memory mutation support.
+
+The existing public transaction mutation completes its reservation before the enclosing helper's commit, so wrapping it in a public callback cannot satisfy the owned mutation contract. This narrowly scoped protected addition is explicit API policy, not an inference from the inventory. Verify its signature, invalid inputs, typed generated bindings, cancellation/edit ordering and reservation lifetime; packed and old-consumer evidence remains part of W3 closeout.
+
 ### OAPI-1: Task Versus ValueTask
 
 **Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.

@@ -26,7 +26,7 @@ public sealed partial class TransactionMutationFailureTests
         var table = select.Query.Table;
         var converter = (TransactionMutationGuardReferenceIdConverter)table.GetColumnByDbName("id").ScalarConverter!;
         converter.Reset();
-        var sequence = select.ReadKeysAsyncCore();
+        var sequence = select.ReadKeysAsync();
         await using var keys = sequence.GetAsyncEnumerator();
         select.What("id");
         await Assert.That(factory.Commands[0].Creates).IsEqualTo(0);
@@ -48,7 +48,7 @@ public sealed partial class TransactionMutationFailureTests
             ConfigureCommand = command => command.Resource.Disposing = () => bytes[0]++
         };
         fixture.Scenario.AsyncSqlReaders = factory;
-        var sequence = fixture.Database.From<TransactionMutationGuardBinaryRow>().SelectQuery().What("id").ReadKeysAsyncCore();
+        var sequence = fixture.Database.From<TransactionMutationGuardBinaryRow>().SelectQuery().What("id").ReadKeysAsync();
         await using var first = sequence.GetAsyncEnumerator();
         await Assert.That(await first.MoveNextAsync()).IsTrue();
         var key = first.Current;
@@ -68,10 +68,10 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledSqlReaderFactory();
         fixture.Scenario.AsyncSqlReaders = factory;
         var select = fixture.Database.From<TransactionMutationGuardRow>().SelectQuery().What("value");
-        _ = Capture<InvalidOperationException>(() => select.ReadKeysAsyncCore(new(true)).GetAsyncEnumerator());
+        _ = Capture<InvalidOperationException>(() => select.ReadKeysAsync(new(true)).GetAsyncEnumerator());
         select.What("id");
         var wrong = new ColumnIndex("wrong", IndexCharacteristic.Simple, IndexType.BTREE, [fixture.BinaryTable.Columns[0]]);
-        _ = Capture<ArgumentException>(() => select.ReadPrimaryAndForeignKeysAsyncCore(wrong, new(true)).GetAsyncEnumerator());
+        _ = Capture<ArgumentException>(() => select.ReadPrimaryAndForeignKeysAsync(wrong, new(true)).GetAsyncEnumerator());
         await Assert.That(factory.Inputs).IsEmpty();
     }
 
@@ -90,7 +90,7 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncSqlReaders = factory;
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery();
         var index = new ColumnIndex("group", IndexCharacteristic.Simple, IndexType.BTREE, [fixture.RowTable.GetColumnByDbName("value")]);
-        await using var groups = select.ReadPrimaryAndForeignKeysAsyncCore(index).GetAsyncEnumerator(cancellation.Token);
+        await using var groups = select.ReadPrimaryAndForeignKeysAsync(index).GetAsyncEnumerator(cancellation.Token);
         select.What("value"); // Must not change the captured default projection.
         var pending = groups.MoveNextAsync().AsTask();
         var cleanup = factory.Commands[0].Resource.Cleanup;
@@ -132,7 +132,7 @@ public sealed partial class TransactionMutationFailureTests
         var columns = composite ? fixture.BinaryTable.Columns.ToList() : [fixture.BinaryTable.GetColumnByDbName("payload")];
         var index = new ColumnIndex("group", IndexCharacteristic.Simple, IndexType.BTREE, columns);
         await using var groups = fixture.Database.From<TransactionMutationGuardBinaryRow>().SelectQuery()
-            .ReadPrimaryAndForeignKeysAsyncCore(index).GetAsyncEnumerator();
+            .ReadPrimaryAndForeignKeysAsync(index).GetAsyncEnumerator();
         await Assert.That(await groups.MoveNextAsync()).IsTrue();
         await Assert.That(groups.Current.fk).IsEqualTo(composite ? DataLinqKey.FromValues([new byte[] { 1 }, null]) : DataLinqKey.Null);
         await Assert.That(groups.Current.pks.Length).IsEqualTo(2);
@@ -163,7 +163,7 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncSqlReaders = factory;
         var index = new ColumnIndex("group", IndexCharacteristic.Simple, IndexType.BTREE, [fixture.RowTable.GetColumnByDbName("value")]);
         await using var groups = transaction.From<TransactionMutationGuardRow>().SelectQuery()
-            .ReadPrimaryAndForeignKeysAsyncCore(index, cancellation.Token).GetAsyncEnumerator();
+            .ReadPrimaryAndForeignKeysAsync(index, cancellation.Token).GetAsyncEnumerator();
         var failure = await AsyncEnumerationFailureOf(() => groups.MoveNextAsync().AsTask());
         if (phase is "read" or "cleanup") await Assert.That(failure).IsSameReferenceAs(expected);
         if (phase == "cancel") await Assert.That(failure).IsTypeOf<OperationCanceledException>();
@@ -183,7 +183,7 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncSqlReaders = factory;
         var index = new ColumnIndex("group", IndexCharacteristic.Simple, IndexType.BTREE, fixture.BinaryTable.Columns.ToList());
         await using var groups = fixture.Database.From<TransactionMutationGuardBinaryRow>().SelectQuery()
-            .ReadPrimaryAndForeignKeysAsyncCore(index).GetAsyncEnumerator();
+            .ReadPrimaryAndForeignKeysAsync(index).GetAsyncEnumerator();
         await Assert.That(await groups.MoveNextAsync()).IsTrue();
         await Assert.That(reader.OwnedReads).IsEqualTo(2);
         await Assert.That(groups.Current.fk).IsEqualTo(DataLinqKey.FromValues([new byte[] { 1 }, new byte[] { 2 }]));
@@ -202,7 +202,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledSqlReaderFactory { CreateAccess = _ => new() { ReaderOverride = reader } };
         fixture.Scenario.AsyncSqlReaders = factory;
         var index = new ColumnIndex("group", IndexCharacteristic.Simple, IndexType.BTREE, [fixture.RowTable.GetColumnByDbName("value")]);
-        var sequence = transaction.From<TransactionMutationGuardRow>().SelectQuery().ReadPrimaryAndForeignKeysAsyncCore(index, new(mode == "canceled"));
+        var sequence = transaction.From<TransactionMutationGuardRow>().SelectQuery().ReadPrimaryAndForeignKeysAsync(index, new(mode == "canceled"));
         await Assert.That(factory.Inputs).IsEmpty();
         await using var groups = sequence.GetAsyncEnumerator();
         if (mode == "empty") await Assert.That(await groups.MoveNextAsync()).IsFalse();
@@ -223,7 +223,7 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledSqlReaderFactory { CreateAccess = _ => new() { ReaderOverride = new ControlledRowDataReader([1, "a"]) } };
         fixture.Scenario.AsyncSqlReaders = factory;
         var index = new ColumnIndex("group", IndexCharacteristic.Simple, IndexType.BTREE, [fixture.RowTable.GetColumnByDbName("value")]);
-        await using var groups = transaction.From<TransactionMutationGuardRow>().SelectQuery().ReadPrimaryAndForeignKeysAsyncCore(index).GetAsyncEnumerator();
+        await using var groups = transaction.From<TransactionMutationGuardRow>().SelectQuery().ReadPrimaryAndForeignKeysAsync(index).GetAsyncEnumerator();
         var failure = await AsyncEnumerationFailureOf(() => transaction.RunCallbackAsyncCore(async _ =>
         {
             await groups.MoveNextAsync();

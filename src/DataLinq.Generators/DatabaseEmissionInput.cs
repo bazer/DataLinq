@@ -101,6 +101,12 @@ internal sealed class DatabaseEmissionInput
                 continue;
             var options = tableOptions[table];
             Add(options.UseNullableReferenceTypes.ToString());
+            foreach (var relation in table.Model.RelationProperties.Values.OrderBy(x => x.PropertyName, StringComparer.Ordinal))
+            {
+                Add(relation.PropertyName);
+                Add(options.AsyncNavigationOverrides.Contains(relation).ToString());
+            }
+            Add("/async-navigation-overrides");
             foreach (var property in table.Model.ValueProperties.Values)
             {
                 Add(property.PropertyName);

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
+using System.Threading.Tasks;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Query;
 using Microsoft.Extensions.Logging;
@@ -23,6 +25,11 @@ public interface ISqlFromMetadataFactory
 {
     Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict);
     Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict);
+
+    /// <summary>Creates a database from captured SQL asynchronously. Partial effects are possible; failures are not retried.</summary>
+    Task<Option<int, IDLOptionFailure>> CreateDatabaseAsync(Sql sql, string databaseName, string connectionString,
+        bool foreignKeyRestrict, CancellationToken cancellationToken = default) =>
+        AsyncProvisioning.CreateDatabaseAsyncCore(this, sql, databaseName, connectionString, foreignKeyRestrict, cancellationToken);
 }
 
 public interface IMetadataFromDatabaseFactoryCreator
@@ -33,6 +40,14 @@ public interface IMetadataFromDatabaseFactoryCreator
 public interface IMetadataFromSqlFactory
 {
     Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString);
+
+    /// <summary>Imports live metadata asynchronously. Cancellation escapes the non-cancellation Option failure contract.</summary>
+    Task<Option<DatabaseDefinition, IDLOptionFailure>> ParseDatabaseAsync(string name, string csTypeName, string csNamespace,
+        string dbName, string connectionString, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dbName);
+        return AsyncMetadataRead.ParseDatabaseAsyncCore(this, name, csTypeName, csNamespace, dbName, connectionString, cancellationToken);
+    }
 }
 
 /// <summary>The three services installed together for one SQL provider.</summary>

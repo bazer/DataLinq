@@ -214,11 +214,21 @@ public sealed class RelationSnapshotPublicationTests
             for (var iteration = 0; iteration < 4000; iteration++)
             {
                 var values = relation.Values;
-                if (values.IsDefault || values.Length != 3 || relation.Count != 3 ||
-                    relation.Keys.Length != 3 || relation.ToFrozenDictionary().Count != 3 ||
-                    relation.AsKeyValuePairs().Count() != 3 || relation.AsEnumerable().Count() != 3 || relation.ToArray().Length != 3 ||
-                    !relation.ContainsKey(DataLinqKey.FromValue(1)) || relation.Get(DataLinqKey.FromValue(1))?.Id != 1)
-                    throw new InvalidOperationException("A relation exposed an incomplete snapshot.");
+                if (values.IsDefault) throw new InvalidOperationException("Values returned a default snapshot.");
+                RequireCount(values.Length, "Values");
+                RequireCount(relation.Count, "Count");
+                RequireCount(relation.Keys.Length, "Keys");
+                RequireCount(relation.ToFrozenDictionary().Count, "ToFrozenDictionary");
+                RequireCount(relation.AsKeyValuePairs().Count(), "AsKeyValuePairs");
+                RequireCount(relation.AsEnumerable().Count(), "AsEnumerable");
+                RequireCount(relation.ToArray().Length, "ToArray");
+                if (!relation.ContainsKey(DataLinqKey.FromValue(1)))
+                    throw new InvalidOperationException("ContainsKey lost primary key 1.");
+                var found = relation.Get(DataLinqKey.FromValue(1));
+                if (found is null) throw new InvalidOperationException("Get lost primary key 1.");
+                var foundId = found.Id;
+                if (foundId != 1)
+                    throw new InvalidOperationException($"Get found primary key {found.PrimaryKeys()}, but Id was {foundId} (second read {found.Id}, stored {found.GetRowData().GetValue(0)}).");
             }
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
         var clear = Task.Factory.StartNew(() =>
@@ -232,5 +242,10 @@ public sealed class RelationSnapshotPublicationTests
             }
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         await Task.WhenAll(readers.Append(clear)).WaitAsync(TimeSpan.FromSeconds(40));
+
+        static void RequireCount(int actual, string shape)
+        {
+            if (actual != 3) throw new InvalidOperationException($"{shape} returned {actual} rows; expected 3.");
+        }
     }
 }

@@ -26,7 +26,7 @@ public sealed partial class TransactionMutationFailureTests
         var query = transaction.From<TransactionMutationGuardBinaryRow>();
         query.Where("id").EqualTo(bytes);
         var select = query.SelectQuery().What("COUNT(*)");
-        var pending = select.ExecuteScalarAsyncCore<int>();
+        var pending = select.ExecuteScalarAsync<int>();
         await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         var sql = factory.Inputs[0].Text;
         select.What("id");
@@ -67,7 +67,7 @@ public sealed partial class TransactionMutationFailureTests
             ConfigureCommand = command => { if (unsupported) command.ValidationFailure = new NotSupportedException("scalar"); }
         };
         fixture.Scenario.AsyncSqlScalars = factory;
-        var error = await AsyncEnumerationFailureOf(() => transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsyncCore(new(true)));
+        var error = await AsyncEnumerationFailureOf(() => transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsync(new(true)));
         await Assert.That(unsupported ? error is NotSupportedException : error is OperationCanceledException).IsTrue();
         await Assert.That(lazy.State).IsEqualTo(TransactionInitializationState.Unused);
         await Assert.That(resource.Calls).IsEmpty();
@@ -100,7 +100,7 @@ public sealed partial class TransactionMutationFailureTests
         };
         fixture.Scenario.AsyncSqlScalars = factory;
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery();
-        var pending = select.ExecuteScalarAsyncCore(cancellation.Token);
+        var pending = select.ExecuteScalarAsync(cancellation.Token);
         await pause.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         var expected = new Exception("initialization");
         if (cancel) cancellation.Cancel(); else pause.Fail(expected);
@@ -120,7 +120,7 @@ public sealed partial class TransactionMutationFailureTests
         await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Initialization);
         await Assert.That(context.Recovery).IsEqualTo(ExecutionRecoveryActions.Dispose);
         await Assert.That(lazy.State).IsEqualTo(TransactionInitializationState.Failed);
-        await Assert.That(await AsyncEnumerationFailureOf(() => select.ExecuteScalarAsyncCore(new(true)))).IsTypeOf<InvalidOperationException>();
+        await Assert.That(await AsyncEnumerationFailureOf(() => select.ExecuteScalarAsync(new(true)))).IsTypeOf<InvalidOperationException>();
         await Assert.That(await AsyncEnumerationFailureOf(() => transaction.CommitAsyncCore())).IsTypeOf<InvalidOperationException>();
         await transaction.DisposeAsyncCore();
         await Assert.That(resource.Calls.Count(x => x == "async-open")).IsEqualTo(1);
@@ -141,11 +141,11 @@ public sealed partial class TransactionMutationFailureTests
         };
         fixture.Scenario.AsyncSqlScalars = factory;
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery();
-        await Assert.That(await AsyncEnumerationFailureOf(() => select.ExecuteScalarAsyncCore(cancellation.Token))).IsTypeOf<OperationCanceledException>();
+        await Assert.That(await AsyncEnumerationFailureOf(() => select.ExecuteScalarAsync(cancellation.Token))).IsTypeOf<OperationCanceledException>();
         await Assert.That(lazy.State).IsEqualTo(TransactionInitializationState.Ready);
         await Assert.That(transaction.AsyncFailureContext!.Recovery.HasFlag(ExecutionRecoveryActions.Continue)).IsTrue();
         await Assert.That(factory.Commands[0].Creates).IsEqualTo(0);
-        await Assert.That(await select.ExecuteScalarAsyncCore<int>()).IsEqualTo(7);
+        await Assert.That(await select.ExecuteScalarAsync<int>()).IsEqualTo(7);
         await transaction.DisposeAsyncCore();
     }
 
@@ -167,7 +167,7 @@ public sealed partial class TransactionMutationFailureTests
             ConfigureCommand = command => { if (cleanupFails) command.Resource.Disposing = () => throw cleanup; }
         };
         fixture.Scenario.AsyncSqlScalars = factory;
-        var pending = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsyncCore();
+        var pending = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsync();
         await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         access.Dispatch.Fail(expected);
         await Assert.That(await AsyncEnumerationFailureOf(() => pending)).IsSameReferenceAs(expected);
@@ -191,7 +191,7 @@ public sealed partial class TransactionMutationFailureTests
             ConfigureCommand = command => command.Resource.Disposing = () => throw expected
         };
         fixture.Scenario.AsyncSqlScalars = factory;
-        var pending = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsyncCore();
+        var pending = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsync();
         access.Dispatch.Fail(expected);
         await Assert.That(await AsyncEnumerationFailureOf(() => pending)).IsSameReferenceAs(expected);
         var context = transaction.AsyncFailureContext!;
@@ -215,9 +215,9 @@ public sealed partial class TransactionMutationFailureTests
         };
         fixture.Scenario.AsyncSqlScalars = factory;
         var select = transaction.From<TransactionMutationGuardRow>().SelectQuery();
-        await Assert.That(await select.ExecuteScalarAsyncCore<int>(cancellation.Token)).IsEqualTo(7);
+        await Assert.That(await select.ExecuteScalarAsync<int>(cancellation.Token)).IsEqualTo(7);
         await Assert.That(cancellation.IsCancellationRequested).IsTrue();
-        var failure = await AsyncEnumerationFailureOf(() => select.ExecuteScalarAsyncCore<Guid>());
+        var failure = await AsyncEnumerationFailureOf(() => select.ExecuteScalarAsync<Guid>());
         await Assert.That(failure).IsTypeOf<InvalidCastException>();
         await Assert.That(transaction.AsyncFailureContext!.Stage).IsEqualTo(ExecutionFailureStage.Materialization);
         await Assert.That(transaction.AsyncFailureContext.Cause).IsEqualTo(ExecutionFailureCause.MaterializationError);
@@ -232,9 +232,9 @@ public sealed partial class TransactionMutationFailureTests
         var factory = new ControlledSqlReaderFactory { CreateAccess = _ => new() { ScalarResult = null }, ScalarConverting = value => value ?? 0 };
         fixture.Scenario.AsyncSqlScalars = factory;
         var select = fixture.Database.From<TransactionMutationGuardRow>().SelectQuery();
-        await Assert.That(await select.ExecuteScalarAsyncCore<int>()).IsEqualTo(0);
+        await Assert.That(await select.ExecuteScalarAsync<int>()).IsEqualTo(0);
         factory.CreateAccess = _ => new() { ScalarResult = DBNull.Value };
-        await Assert.That(await select.ExecuteScalarAsyncCore()).IsSameReferenceAs(DBNull.Value);
+        await Assert.That(await select.ExecuteScalarAsync()).IsSameReferenceAs(DBNull.Value);
     }
 
     [Test]
@@ -249,7 +249,7 @@ public sealed partial class TransactionMutationFailureTests
         Task<object?>? scalar = null;
         var helper = transaction.RunCallbackAsyncCore(_ =>
         {
-            scalar = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsyncCore();
+            scalar = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsync();
             return Task.FromResult(9);
         }, new());
         await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
@@ -277,7 +277,7 @@ public sealed partial class TransactionMutationFailureTests
         };
         var factory = new ControlledSqlReaderFactory { CreateAccess = _ => access };
         fixture.Scenario.AsyncSqlScalars = factory;
-        var pending = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsyncCore();
+        var pending = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteScalarAsync();
         access.Dispatch.Fail(expected);
         await Assert.That(await AsyncEnumerationFailureOf(() => pending)).IsSameReferenceAs(expected);
         await Assert.That(transaction.AsyncFailureContext!.Recovery).IsEqualTo(ExecutionRecoveryActions.Dispose);

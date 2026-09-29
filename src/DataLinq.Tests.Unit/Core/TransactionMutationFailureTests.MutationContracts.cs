@@ -50,16 +50,16 @@ public sealed partial class TransactionMutationFailureTests
         }
         var work = family switch
         {
-            "base-insert" => transaction.InsertAsyncCore((Mutable<TransactionMutationGuardRow>)typed, Edit),
-            "typed-insert" => transaction.InsertAsyncCore<TransactionMutationGuardRow, MutableTransactionMutationGuardRow>(typed, value => { Edit(value); value.Value = "typed"; }),
-            "base-update" => transaction.UpdateAsyncCore((Mutable<TransactionMutationGuardRow>)typed, Edit),
-            "typed-update" => transaction.UpdateAsyncCore<TransactionMutationGuardRow, MutableTransactionMutationGuardRow>(typed, value => { Edit(value); value.Value = "typed"; }),
-            "immutable-update" => transaction.UpdateAsyncCore(immutable, Edit),
-            "base-save-null" => transaction.SaveAsyncCore((Mutable<TransactionMutationGuardRow>?)null, Edit),
-            "immutable-save-null" => transaction.SaveAsyncCore((TransactionMutationGuardRow?)null, Edit),
-            "base-save-existing" => transaction.SaveAsyncCore((Mutable<TransactionMutationGuardRow>)typed, Edit),
-            "immutable-save-existing" => transaction.SaveAsyncCore(immutable, Edit),
-            _ => transaction.SaveAsyncCore<TransactionMutationGuardRow, MutableTransactionMutationGuardRow>(typed, value => { Edit(value); value.Value = "typed"; })
+            "base-insert" => transaction.InsertAsync((Mutable<TransactionMutationGuardRow>)typed, Edit),
+            "typed-insert" => transaction.InsertAsync<TransactionMutationGuardRow, MutableTransactionMutationGuardRow>(typed, value => { Edit(value); value.Value = "typed"; }),
+            "base-update" => transaction.UpdateAsync((Mutable<TransactionMutationGuardRow>)typed, Edit),
+            "typed-update" => transaction.UpdateAsync<TransactionMutationGuardRow, MutableTransactionMutationGuardRow>(typed, value => { Edit(value); value.Value = "typed"; }),
+            "immutable-update" => transaction.UpdateAsync(immutable, Edit),
+            "base-save-null" => transaction.SaveAsync((Mutable<TransactionMutationGuardRow>?)null, Edit),
+            "immutable-save-null" => transaction.SaveAsync((TransactionMutationGuardRow?)null, Edit),
+            "base-save-existing" => transaction.SaveAsync((Mutable<TransactionMutationGuardRow>)typed, Edit),
+            "immutable-save-existing" => transaction.SaveAsync(immutable, Edit),
+            _ => transaction.SaveAsync<TransactionMutationGuardRow, MutableTransactionMutationGuardRow>(typed, value => { Edit(value); value.Value = "typed"; })
         };
         try
         {
@@ -100,10 +100,10 @@ public sealed partial class TransactionMutationFailureTests
         }
         var error = await AsyncEnumerationFailureOf(() => invalid switch
         {
-            "direct-null" => transaction.SaveAsyncCore((Mutable<TransactionMutationGuardRow>)null!, cancellation.Token),
-            "typed-null" => transaction.SaveAsyncCore<TransactionMutationGuardRow, MutableTransactionMutationGuardRow>(null!, _ => edits++, cancellation.Token),
-            "null-edits" => transaction.SaveAsyncCore(mutable, (Action<Mutable<TransactionMutationGuardRow>>)null!, cancellation.Token),
-            _ => transaction.UpdateAsyncCore(mutable, Edit, cancellation.Token)
+            "direct-null" => transaction.SaveAsync((Mutable<TransactionMutationGuardRow>)null!, cancellation.Token),
+            "typed-null" => transaction.SaveAsync<TransactionMutationGuardRow, MutableTransactionMutationGuardRow>(null!, _ => edits++, cancellation.Token),
+            "null-edits" => transaction.SaveAsync(mutable, (Action<Mutable<TransactionMutationGuardRow>>)null!, cancellation.Token),
+            _ => transaction.UpdateAsync(mutable, Edit, cancellation.Token)
         });
         await Assert.That(error is OperationCanceledException).IsFalse();
         await Assert.That(edits).IsEqualTo(invalid == "invalid-after-edits" ? 1 : 0);
@@ -119,7 +119,7 @@ public sealed partial class TransactionMutationFailureTests
         using var transaction = fixture.Database.Transaction();
         var mutable = new Mutable<TransactionMutationGuardRow>();
         EnableAsyncMutations(fixture, rows: [[1, "stored"]]);
-        var result = await transaction.SaveAsyncCore(mutable, value =>
+        var result = await transaction.SaveAsync(mutable, value =>
         {
             value.Reset(fixture.CreateImmutable(1, "old"));
             value["Value"] = "edited existing row";
@@ -244,7 +244,7 @@ public sealed partial class TransactionMutationFailureTests
             }), transaction);
         var legacy = new LegacyAsyncMutable(mutable) { Deleting = () => throw expected };
         var error = await AsyncEnumerationFailureOf(() => phase == "custom-delete"
-            ? transaction.DeleteAsyncCore(legacy) : transaction.UpdateAsyncCore(mutable));
+            ? transaction.DeleteAsync(legacy) : transaction.UpdateAsync(mutable));
         if (phase is "pending-cache" or "custom-delete") await Assert.That(error).IsSameReferenceAs(expected);
         if (phase == "missing-row") await Assert.That(error).IsTypeOf<ModelLoadFailureException>();
         await Assert.That(transaction.Failure!.Stage).IsEqualTo(phase switch
@@ -287,7 +287,7 @@ public sealed partial class TransactionMutationFailureTests
             CreateAccess = _ => new() { ReaderOverride = new ControlledRowDataReader([42, "stored"]) { ColumnNames = ["id", "value"] }, FailureEvidence = TrustedScalarRead }
         };
         scenario.AsyncSqlReaders = reads;
-        var work = transaction.InsertAsyncCore((Mutable<AsyncMutationConvertedRow>)mutable);
+        var work = transaction.InsertAsync((Mutable<AsyncMutationConvertedRow>)mutable);
         if (phase == "success")
         {
             var result = await work;
@@ -324,7 +324,7 @@ public sealed partial class TransactionMutationFailureTests
             CreateAccess = _ => new() { ReaderOverride = new ControlledRowDataReader([1, 2, "stored"]) { ColumnNames = ["first", "second", "value"] } }
         };
         scenario.AsyncSqlReaders = reads;
-        var result = await transaction.InsertAsyncCore((Mutable<AsyncModelCompositeRow>)mutable);
+        var result = await transaction.InsertAsync((Mutable<AsyncModelCompositeRow>)mutable);
         await Assert.That(result.Value).IsEqualTo("stored");
         await Assert.That(mutable.Value).IsEqualTo("stored");
         await Assert.That(transaction.Changes.Single().PrimaryKeys).IsEqualTo(DataLinqKey.FromValues([1, 2]));
@@ -363,7 +363,7 @@ public sealed partial class TransactionMutationFailureTests
         using var cancellation = new CancellationTokenSource();
         if (mode != "empty") cancellation.Cancel();
         // No async capabilities have been configured: empty work must not require them.
-        var pending = transaction.InsertAsyncCore(Array.Empty<Mutable<TransactionMutationGuardRow>>(), cancellation.Token);
+        var pending = transaction.InsertAsync(Array.Empty<Mutable<TransactionMutationGuardRow>>(), cancellation.Token);
         if (mode == "empty") await Assert.That(await pending).IsEmpty();
         else
         {
@@ -396,7 +396,7 @@ public sealed partial class TransactionMutationFailureTests
                 ReaderOverride = new ControlledRowDataReader([sql.ToSql().Parameters.Single().Value, "stored"]) { ColumnNames = ["id", "value"] }
             }
         };
-        var rows = await transaction.InsertAsyncCore(Models());
+        var rows = await transaction.InsertAsync(Models());
         await Assert.That(enumerations).IsEqualTo(1);
         await Assert.That(rows.Select(row => row.Id).SequenceEqual([3, 1, 2])).IsTrue();
         await Assert.That(transaction.Changes.Select(change => (int)change.PrimaryKeys.GetValue(0)!).SequenceEqual([3, 1, 2])).IsTrue();
@@ -444,7 +444,7 @@ public sealed partial class TransactionMutationFailureTests
         EnableAsyncMutations(fixture, access);
         var reads = new ControlledSqlReaderFactory { CreateAccess = _ => throw new Exception("Generated-value failure must precede hydration.") };
         fixture.Scenario.AsyncSqlReaders = reads;
-        _ = await AsyncEnumerationFailureOf(() => transaction.InsertAsyncCore(mutable));
+        _ = await AsyncEnumerationFailureOf(() => transaction.InsertAsync(mutable));
         await Assert.That(reads.Inputs).IsEmpty();
         await Assert.That(transaction.IsPoisoned).IsTrue();
         await Assert.That(transaction.Failure!.Stage).IsEqualTo(TransactionFailureStage.Hydration);

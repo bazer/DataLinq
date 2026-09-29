@@ -66,7 +66,7 @@ public sealed partial class TransactionMutationFailureTests
         query.Where("id").EqualTo(1);
         query.Where("value").EqualTo("value"); // Exercise both stages, not the direct-key shortcut.
         var select = query.SelectQuery().What("value");
-        var sequence = select.ExecuteAsyncCore();
+        var sequence = select.ExecuteAsync();
         await Assert.That(factory.Inputs).IsEmpty();
         IAsyncEnumerator<IImmutableInstance>? iterator = null;
         Task pending;
@@ -186,7 +186,7 @@ public sealed partial class TransactionMutationFailureTests
             CreateAccess = _ => new() { ReaderOverride = call++ == 0 ? new ControlledRowDataReader([2], [1]) : new ControlledRowDataReader([1, "one"], [2, "two"]), FailureEvidence = TrustedScalarRead }
         };
         fixture.Scenario.AsyncSqlReaders = factory;
-        await using var rows = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteAsyncCore(method.Token).GetAsyncEnumerator(enumeration.Token);
+        await using var rows = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteAsync(method.Token).GetAsyncEnumerator(enumeration.Token);
         await Assert.That(await rows.MoveNextAsync()).IsTrue();
         await Assert.That(((TransactionMutationGuardRow)rows.Current).Id).IsEqualTo(2);
         await Assert.That(factory.Commands.All(x => x.Resource.AsyncDisposals == 1)).IsTrue();
@@ -226,7 +226,7 @@ public sealed partial class TransactionMutationFailureTests
         Task<bool>? move = null;
         var helper = transaction.RunCallbackAsyncCore(_ =>
         {
-            escaped = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteAsyncCore().GetAsyncEnumerator();
+            escaped = transaction.From<TransactionMutationGuardRow>().SelectQuery().ExecuteAsync().GetAsyncEnumerator();
             move = escaped.MoveNextAsync().AsTask();
             return Task.FromResult(9);
         }, new());

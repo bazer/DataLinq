@@ -12,6 +12,7 @@ public partial class SQLiteProvider<T> : IAsyncExistenceProbeSource, IAsyncJourn
     IAsyncProviderMetadataSource
 {
     private OwnedRootDisposal? rootDisposal;
+    internal override bool SupportsAsyncTransactions => true;
     // Avoid allocating the capturing factory on every check after publication.
     private OwnedRootDisposal RootDisposal => Volatile.Read(ref rootDisposal) ??
         LazyInitializer.EnsureInitialized(ref rootDisposal, () => new(() =>
@@ -22,6 +23,16 @@ public partial class SQLiteProvider<T> : IAsyncExistenceProbeSource, IAsyncJourn
         TelemetryInstanceId));
 
     ValueTask IAsyncRootDisposal.DisposeAsyncCore() => RootDisposal.DisposeAsync();
+
+    /// <summary>Releases this provider's owned resources asynchronously after active work has ended.</summary>
+    public override ValueTask DisposeAsync() => RootDisposal.DisposeAsync();
+
+    /// <summary>Requests SQLite journal mode asynchronously; completion does not guarantee the effective mode.</summary>
+    public Task SetJournalModeAsync(SQLiteJournalMode journalMode, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(journalMode)) throw new ArgumentOutOfRangeException(nameof(journalMode));
+        return this.SetJournalModeAsyncCore(journalMode, cancellationToken);
+    }
 
     IAsyncMetadataReadPlan IAsyncProviderMetadataSource.CaptureValidationMetadata(MetadataReadSettings settings)
     {

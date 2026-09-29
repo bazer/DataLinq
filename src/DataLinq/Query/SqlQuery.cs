@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Linq;
+using System.Threading;
 using DataLinq.Interfaces;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -89,6 +90,10 @@ public class SqlQuery<T>
     {
         return new Select<T>(this).ExecuteAs<T>();
     }
+
+    /// <summary>Enumerates supported models using a private selection captured for each enumerator.</summary>
+    public IAsyncEnumerable<T> SelectAsync(CancellationToken cancellationToken = default)
+        => new Select<T>(this).ExecuteAsAsync<T>(cancellationToken);
 
     [Obsolete("Use Transaction.Delete(model) for tracked mutations, or DeleteQuery().ToDbCommand() for caller-owned raw SQL execution.", error: true)]
     [EditorBrowsable(EditorBrowsableState.Never)]

@@ -13,6 +13,10 @@
 
 **Authority:** [Async Public API Decisions](Async%20Public%20API%20Decisions.md) owns accepted contracts. This inventory expands and cross-checks them against source; it cannot silently approve a new API or compatibility break. [Implementation Order](Implementation%20Order%20and%20Integration%20Plan.md) owns sequencing and [Release Evidence](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md) owns exit gates.
 
+**W3 sequencing clarification, accepted 2026-09-28:** [W3 execution](W3%20Public%20Async%20Surface.md) excludes runtime schema validation A05-A07 and its supporting types/behavior, which remain W5. B16 belongs to W4/W5 integration. These contracts remain in this cross-workstream inventory; W3's consumer closeout covers B01-B15 and records the later dependency explicitly.
+
+**W3 implementation evidence, 2026-09-28:** The original pending labels below describe this inventory's planning baseline. W3 implementation and B01-B15 verification are complete at clean commit db2b71df; see the [compiled contract reconciliation](../../../../test-infra/api-compatibility/w3/README.md) and [W3 compatibility evidence](W3%20Compatibility%20Evidence.md) for emitted declarations, clean package/consumer results and the final full CI matrix. Raw compatibility diagnostics remain individually dispositioned, not suppressed. W4/W5 APIs and B16 remain outside W3.
+
 ## Reading The Inventory
 
 - **Accepted target** means the family and stated contract follow an accepted AAPI decision. It is not evidence of implementation.
@@ -166,6 +170,8 @@ Callbacks execute once; helpers own completion and return results after finaliza
 ### Generated Mutation Expansion
 
 M10 covers the existing generated extension templates; retain their emitted namespace and argument names. `M` is the generated public model and `MM` its generated mutable type. Every row returns `Task<M>` and appends `ct`. Multiple entries in a cell are separate overloads; no implicit Cartesian product is intended.
+
+**Explicit support API addition, accepted 2026-09-28 (AAPI-112):** `Mutable<T>` adds `protected static Task<T> ExecuteGeneratedMutationAsync<TMutable>(IDatabaseProvider provider, TMutable model, Action<TMutable> changes, TransactionChangeType? changeType, CancellationToken cancellationToken) where TMutable : Mutable<T>`. All arguments are required, and the enclosing `T : class, IImmutableInstance` constraint is retained. Only Insert, Update or null (Save) is supported. The generated forwarding member is internal. The bridge owns the transaction and retains captured input reservations through completion and cleanup; explicit-transaction M10 overloads remain borrowed. Include this protected signature in emitted manifests and consumer compatibility review.
 
 | Member | Receiver and remaining existing arguments |
 | --- | --- |
@@ -587,7 +593,7 @@ Next gates, in order:
 1. **Complete W0:** G01–G03/E01–E06 design choices and W0-P1 through W0-P6 are accepted. Compatibility tooling and .NET 10 benchmark migration are implemented. Follow the [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) to freeze clean identities and capture the remaining baselines. OAPI-7 remains an implementation/manifest/verification gate; new design questions require concrete findings.
 2. **W0:** capture the real before-state I/O, compatibility and performance evidence. This document's source scan is only an input, not completion of W0.
 3. **W1/W2:** establish internal async contracts and prove provider feasibility, cancellation/timeout distinction, first initialization, ownership, cache publication, completion certainty and cleanup.
-4. **W3:** implement the public surface against those contracts; compile the full signature/generator manifest and run B01–B16 using packed consumers and ApiCompat.
+4. **W3:** implement its public surface against those contracts; compile its signature/generator manifest and run B01–B15 using packed consumers and ApiCompat. A05-A07 remain W5 and B16 remains W4/W5 integration evidence under the accepted 2026-09-28 boundary.
 5. **Release integration:** supply deterministic and real-provider evidence from S9; reconcile hosted validation/testing integration, packaging, benchmarks and migration notes with the release evidence plan.
 
 No DataLinq runtime implementation, package publication, baseline benchmark, real-provider experiment or DataLinq consumer compilation was performed. S10 separately records the isolated language/framework probe and its limitations.

@@ -9,10 +9,10 @@ namespace DataLinq.Execution;
 /// execution context, owns the slot. Locks protect transitions only, not provider work.
 /// Lifecycle/capability validation and pre-cancellation remain the caller's responsibility.
 /// </summary>
-internal sealed class TransactionOperationGate(uint transactionId, string? providerInstanceId = null)
+internal sealed class TransactionOperationGate(uint? transactionId, string? providerInstanceId = null)
 {
     private readonly object sync = new();
-    internal uint TransactionId => transactionId;
+    internal uint? TransactionId => transactionId;
     internal string? ProviderInstanceId => providerInstanceId;
     private Lease? active;
     private HelperOwner? helper;

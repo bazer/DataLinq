@@ -17,14 +17,20 @@ public partial class Transaction
     internal Task RunDeleteHelperAsyncCore(IModelInstance model, CancellationToken token)
         => RunOwnedMutationAsync(model, TransactionChangeType.Delete, static (_, _) => true, token);
 
+    internal Task<T> RunMutationHelperWithEditsAsyncCore<T, TMutable>(TMutable model, Action<TMutable> changes,
+        TransactionChangeType? type, CancellationToken token)
+        where T : class, IImmutableInstance where TMutable : Mutable<T>
+        => RunOwnedMutationAsync(model, type, (input, result) =>
+            result as T ?? throw new ModelLoadFailureException(input.Change.PrimaryKeys), token, () => changes(model));
+
     private async Task<TResult> RunOwnedMutationAsync<TResult>(IModelInstance model, TransactionChangeType? type,
-        Func<CapturedMutation, IImmutableInstance?, TResult> select, CancellationToken token)
+        Func<CapturedMutation, IImmutableInstance?, TResult> select, CancellationToken token, Action? changes = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         // Construction is lazy and I/O-free. An unsupported adapter cannot acquire
         // resources through this helper; never substitute synchronous completion.
         var resource = new ManagedAsyncCompletion(this, RequireAsyncCompletion());
-        var settings = new RecoveryRollbackSettings();
+        var settings = RecoverySettings;
         CapturedMutation? input = null;
         var operationKind = MutationOperationKind(type);
         try
@@ -32,6 +38,14 @@ public partial class Transaction
             ArgumentNullException.ThrowIfNull(model);
             var selected = type ?? (model is IMutableInstance mutable && mutable.IsNew()
                 ? TransactionChangeType.Insert : TransactionChangeType.Update);
+            if (changes is not null)
+            {
+                MutationPreflight.Ensure(this, model, selected, operationKind);
+                token.ThrowIfCancellationRequested();
+                changes();
+                selected = type ?? (model is IMutableInstance edited && edited.IsNew()
+                    ? TransactionChangeType.Insert : TransactionChangeType.Update);
+            }
             input = CaptureMutation(model, selected, operationKind);
             CapturedMutation[] inputs = [input];
             var readers = BindCapturedMutations(inputs);

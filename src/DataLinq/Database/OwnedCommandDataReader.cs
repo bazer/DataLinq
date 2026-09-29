@@ -8,16 +8,16 @@ using DataLinq.Metadata;
 namespace DataLinq;
 
 /// <summary>Transfers an internally created command's lifetime to its reader.</summary>
-internal class OwnedCommandDataReader(IDataLinqDataReader reader, IDbCommand command) : IDataLinqDataReader
+internal class OwnedCommandDataReader(IDataLinqDataReader reader, IDbCommand command, IDisposable? lifetime = null) : IDataLinqDataReader
 {
     private int disposed;
 
-    internal static IDataLinqDataReader Create(IDataLinqDataReader reader, IDbCommand command)
+    internal static IDataLinqDataReader Create(IDataLinqDataReader reader, IDbCommand command, IDisposable? lifetime = null)
     {
         ArgumentNullException.ThrowIfNull(reader);
         return reader is IDataLinqOwnedBinaryBufferReader ownedBinary
-            ? new OwnedBinaryCommandDataReader(reader, command, ownedBinary)
-            : new OwnedCommandDataReader(reader, command);
+            ? new OwnedBinaryCommandDataReader(reader, command, ownedBinary, lifetime)
+            : new OwnedCommandDataReader(reader, command, lifetime);
     }
 
     public object GetValue(int ordinal) => reader.GetValue(ordinal);
@@ -57,6 +57,7 @@ internal class OwnedCommandDataReader(IDataLinqDataReader reader, IDbCommand com
         {
             throw new AggregateException("Reader and owned command disposal both failed.", readerFailure, commandFailure);
         }
+        finally { lifetime?.Dispose(); }
 
         if (readerFailure is not null)
             ExceptionDispatchInfo.Capture(readerFailure).Throw();
@@ -69,6 +70,7 @@ internal class OwnedCommandDataReader(IDataLinqDataReader reader, IDbCommand com
         using var diagnostics = ExecutionFailureScope.Begin();
         try { command.Dispose(); }
         catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
+        finally { lifetime?.Dispose(); }
         return failures;
     }
 
@@ -76,8 +78,8 @@ internal class OwnedCommandDataReader(IDataLinqDataReader reader, IDbCommand com
     private sealed class OwnedBinaryCommandDataReader(
         IDataLinqDataReader reader,
         IDbCommand command,
-        IDataLinqOwnedBinaryBufferReader ownedBinary)
-        : OwnedCommandDataReader(reader, command), IDataLinqOwnedBinaryBufferReader
+        IDataLinqOwnedBinaryBufferReader ownedBinary, IDisposable? lifetime)
+        : OwnedCommandDataReader(reader, command, lifetime), IDataLinqOwnedBinaryBufferReader
     {
         public byte[]? TakeOwnedBytes(int ordinal) => ownedBinary.TakeOwnedBytes(ordinal);
     }

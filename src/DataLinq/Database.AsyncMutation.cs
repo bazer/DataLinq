@@ -13,19 +13,25 @@ public abstract partial class Database<T>
     internal Task<TModel> InsertAsyncCore<TModel>(Mutable<TModel> model,
         TransactionType transactionType = TransactionType.ReadAndWrite, CancellationToken token = default)
         where TModel : class, IImmutableInstance
-        => Transaction(transactionType).RunMutationHelperAsyncCore<TModel>(model, TransactionChangeType.Insert, token);
+        => AsyncMutationTransaction(transactionType).RunMutationHelperAsyncCore<TModel>(model, TransactionChangeType.Insert, token);
 
     internal Task<TModel> UpdateAsyncCore<TModel>(Mutable<TModel> model,
         TransactionType transactionType = TransactionType.ReadAndWrite, CancellationToken token = default)
         where TModel : class, IImmutableInstance
-        => Transaction(transactionType).RunMutationHelperAsyncCore<TModel>(model, TransactionChangeType.Update, token);
+        => AsyncMutationTransaction(transactionType).RunMutationHelperAsyncCore<TModel>(model, TransactionChangeType.Update, token);
 
     internal Task<TModel> SaveAsyncCore<TModel>(Mutable<TModel> model,
         TransactionType transactionType = TransactionType.ReadAndWrite, CancellationToken token = default)
         where TModel : class, IImmutableInstance
-        => Transaction(transactionType).RunMutationHelperAsyncCore<TModel>(model, null, token);
+        => AsyncMutationTransaction(transactionType).RunMutationHelperAsyncCore<TModel>(model, null, token);
 
     internal Task DeleteAsyncCore(IModelInstance model,
         TransactionType transactionType = TransactionType.ReadAndWrite, CancellationToken token = default)
-        => Transaction(transactionType).RunDeleteHelperAsyncCore(model, token);
+        => AsyncMutationTransaction(transactionType).RunDeleteHelperAsyncCore(model, token);
+
+    private Transaction<T> AsyncMutationTransaction(TransactionType transactionType)
+    {
+        DatabaseProvider.EnsureAsyncTransactions(Provider);
+        return Transaction(transactionType);
+    }
 }

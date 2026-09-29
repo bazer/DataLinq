@@ -17,6 +17,41 @@ namespace DataLinq.Tests.Unit.Core;
 public sealed class GeneratedNeutralMaterializationTests
 {
     [Test]
+    public async Task ConcurrentFirstScalarReadsNeverExposeDefaultValues()
+    {
+        var metadata = MetadataFromTypeFactory
+            .ParseDatabaseFromDatabaseModel<GeneratedNeutralMaterializationDb>()
+            .ValueOrException();
+        var table = metadata.TableModels.Single().Table;
+        var providerRow = CreateCanonicalRow(table, id: 42, groupId: 7, name: "concurrent");
+        var values = new object?[table.ColumnCount];
+        values[table.GetColumnByDbName("id").Index] = 42;
+        values[table.GetColumnByDbName("group_id").Index] = 7;
+        values[table.GetColumnByDbName("name").Index] = "concurrent";
+        var rowData = RowData.CreateTrusted(providerRow, values);
+        var rows = Enumerable.Range(0, 20000)
+            .Select(_ => new ImmutableGeneratedNeutralMaterializationRow(rowData, (IDataSourceAccess)null!))
+            .ToArray();
+        using var start = new Barrier(4);
+        var invalidReads = 0;
+        var readers = Enumerable.Range(0, 4).Select(_ => Task.Factory.StartNew(() =>
+        {
+            foreach (var row in rows)
+            {
+                // Race first access on a fresh model every time, rather than repeatedly
+                // reading a single model whose fields have already been initialized.
+                if (!start.SignalAndWait(TimeSpan.FromSeconds(20)))
+                    throw new TimeoutException("Scalar readers did not rendezvous.");
+                if (row.Id != 42 || row.GroupId != 7 || row.Name != "concurrent")
+                    Interlocked.Increment(ref invalidReads);
+            }
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
+
+        await Task.WhenAll(readers).WaitAsync(TimeSpan.FromSeconds(40));
+        await Assert.That(invalidReads).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task KnownCanonicalKeySeedsGeneratedImmutableWithoutRetainingCarrier()
     {
         var metadata = MetadataFromTypeFactory

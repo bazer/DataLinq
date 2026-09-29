@@ -52,13 +52,13 @@ public sealed class SQLiteNativeAsyncTransactionTests
                 await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Unused);
                 command.Parameters[0].Value = mode;
                 if ((mode & 1) == 0) transaction.DatabaseAccess.ExecuteNonQuery(command);
-                else await transaction.DatabaseAccess.ExecuteNonQueryAsyncCore(command);
+                else await transaction.DatabaseAccess.ExecuteNonQueryAsync(command);
                 await Assert.That(command.Connection).IsNull();
                 await Assert.That(command.Transaction).IsNull();
                 var native = transaction.DatabaseAccess.DbTransaction;
                 await Assert.That(native!.IsolationLevel).IsEqualTo(IsolationLevel.Serializable);
                 await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Ready);
-                await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore<long>($"SELECT value FROM items WHERE id={mode}")).IsEqualTo(10L);
+                await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync<long>($"SELECT value FROM items WHERE id={mode}")).IsEqualTo(10L);
                 await Assert.That(transaction.DatabaseAccess.ExecuteScalar<long>($"SELECT value FROM items WHERE id={mode}")).IsEqualTo(10L);
                 await Assert.That(transaction.DatabaseAccess.DbTransaction).IsSameReferenceAs(native);
                 if ((mode & 2) == 0) await transaction.CommitAsyncCore(); else transaction.Commit();
@@ -81,13 +81,13 @@ public sealed class SQLiteNativeAsyncTransactionTests
         using var unsupported = new DerivedCommand { CommandText = "SELECT 1" };
         try
         {
-            await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore(command, new(true))).Throws<OperationCanceledException>();
-            await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore(unsupported, new(true))).Throws<NotSupportedException>();
-            await Assert.That(() => transaction.DatabaseAccess.ExecuteNonQueryAsyncCore(" ", new(true))).Throws<InvalidOperationException>();
+            await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync(command, new(true))).Throws<OperationCanceledException>();
+            await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync(unsupported, new(true))).Throws<NotSupportedException>();
+            await Assert.That(() => transaction.DatabaseAccess.ExecuteNonQueryAsync(" ", new(true))).Throws<InvalidOperationException>();
             await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Unused);
             await Assert.That(transaction.DatabaseAccess.DbTransaction).IsNull();
             await Assert.That(command.Connection).IsNull();
-            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore<long>(command)).IsEqualTo(1L);
+            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync<long>(command)).IsEqualTo(1L);
         }
         finally { await transaction.DisposeAsyncCore(); }
     }
@@ -104,13 +104,13 @@ public sealed class SQLiteNativeAsyncTransactionTests
         command.Disposed += (_, _) => disposals++;
         try
         {
-            var reader = await transaction.DatabaseAccess.ExecuteReaderAsyncCore(command);
+            var reader = await transaction.DatabaseAccess.ExecuteReaderAsync(command);
             var connection = command.Connection!;
             try
             {
                 await Assert.That(await reader.ReadNextRowAsync(default)).IsTrue();
                 await Assert.That(() => transaction.DatabaseAccess.ExecuteScalar("SELECT 9")).Throws<InvalidOperationException>();
-                await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 9")).Throws<InvalidOperationException>();
+                await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 9")).Throws<InvalidOperationException>();
                 await Assert.That(() => transaction.CommitAsyncCore()).Throws<InvalidOperationException>();
                 await Assert.That(transaction.Dispose).Throws<InvalidOperationException>();
             }
@@ -120,11 +120,11 @@ public sealed class SQLiteNativeAsyncTransactionTests
             using (var syncReader = transaction.DatabaseAccess.ExecuteReader(command))
                 await Assert.That(syncReader.ReadNextRow()).IsTrue();
             await Assert.That(command.Connection).IsNull();
-            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore<long>("SELECT 3")).IsEqualTo(3L);
+            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync<long>("SELECT 3")).IsEqualTo(3L);
         }
         finally { await transaction.DisposeAsyncCore(); }
         await Assert.That(disposals).IsEqualTo(0);
-        await Assert.That(await fixture.Provider.DatabaseAccess.ExecuteScalarAsyncCore<long>(command)).IsEqualTo(1L);
+        await Assert.That(await fixture.Provider.DatabaseAccess.ExecuteScalarAsync<long>(command)).IsEqualTo(1L);
     }
 
     [Test]
@@ -142,11 +142,11 @@ public sealed class SQLiteNativeAsyncTransactionTests
             var transaction = fixture.NewTransaction();
             try
             {
-                var result = asyncFirst ? await transaction.DatabaseAccess.ExecuteScalarAsyncCore<long>("SELECT 7")
+                var result = asyncFirst ? await transaction.DatabaseAccess.ExecuteScalarAsync<long>("SELECT 7")
                     : transaction.DatabaseAccess.ExecuteScalar<long>("SELECT 7");
                 await Assert.That(result).IsEqualTo(7L);
                 await Assert.That(transaction.DatabaseAccess.DbTransaction!.IsolationLevel).IsEqualTo(IsolationLevel.Serializable);
-                await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore<long>("PRAGMA read_uncommitted")).IsEqualTo(0L);
+                await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync<long>("PRAGMA read_uncommitted")).IsEqualTo(0L);
             }
             finally { await transaction.DisposeAsyncCore(); }
         }
@@ -162,13 +162,13 @@ public sealed class SQLiteNativeAsyncTransactionTests
         var transaction = fixture.NewTransaction();
         try
         {
-            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT NULL")).IsSameReferenceAs(DBNull.Value);
+            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync("SELECT NULL")).IsSameReferenceAs(DBNull.Value);
             await Assert.That(transaction.DatabaseAccess.ExecuteScalar("SELECT NULL")).IsSameReferenceAs(DBNull.Value);
-            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT value FROM items")).IsNull();
+            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync("SELECT value FROM items")).IsNull();
             // Raw SQL retains unknown effects; even a later CLR cast failure
             // cannot authorize more business operations after dispatch.
-            await Assert.That(async () => { await transaction.DatabaseAccess.ExecuteScalarAsyncCore<int>("SELECT 7"); }).Throws<InvalidCastException>();
-            await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 7")).Throws<InvalidOperationException>();
+            await Assert.That(async () => { await transaction.DatabaseAccess.ExecuteScalarAsync<int>("SELECT 7"); }).Throws<InvalidCastException>();
+            await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 7")).Throws<InvalidOperationException>();
             await transaction.RollbackAsyncCore();
         }
         finally { await transaction.DisposeAsyncCore(); }
@@ -194,7 +194,7 @@ public sealed class SQLiteNativeAsyncTransactionTests
             try
             {
                 var failure = asyncFirst
-                    ? await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 1")).Throws<InvalidOperationException>()
+                    ? await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 1")).Throws<InvalidOperationException>()
                     : await Assert.That(() => transaction.DatabaseAccess.ExecuteScalar("SELECT 1")).Throws<InvalidOperationException>();
                 await Assert.That(failure).IsSameReferenceAs(expected);
                 await Assert.That(rejection).IsTypeOf<InvalidOperationException>();
@@ -202,10 +202,10 @@ public sealed class SQLiteNativeAsyncTransactionTests
                 await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Closed);
                 await Assert.That(transaction.DatabaseAccess.DbTransaction).IsNull();
                 await Assert.That(ExecutionFailureContexts.Get(failure!)!.Cause).IsEqualTo(ExecutionFailureCause.ApplicationError);
-                await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 2")).Throws<InvalidOperationException>();
+                await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 2")).Throws<InvalidOperationException>();
             }
             finally { await transaction.DisposeAsyncCore(); }
-            await fixture.Provider.DatabaseAccess.ExecuteNonQueryAsyncCore("INSERT INTO items VALUES (1,10); DELETE FROM items");
+            await fixture.Provider.DatabaseAccess.ExecuteNonQueryAsync("INSERT INTO items VALUES (1,10); DELETE FROM items");
         }
     }
 
@@ -231,7 +231,7 @@ public sealed class SQLiteNativeAsyncTransactionTests
             })
             {
                 ActivitySource.AddActivityListener(listener);
-                await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsyncCore("SELECT 1", cancellation.Token)).Throws<OperationCanceledException>();
+                await Assert.That(() => transaction.DatabaseAccess.ExecuteScalarAsync("SELECT 1", cancellation.Token)).Throws<OperationCanceledException>();
             }
             await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Failed);
             await Assert.That(transaction.DatabaseAccess.DbTransaction).IsNull();
@@ -239,7 +239,7 @@ public sealed class SQLiteNativeAsyncTransactionTests
             await Assert.That(() => transaction.DatabaseAccess.ExecuteScalar("SELECT 2")).Throws<InvalidOperationException>();
         }
         finally { await transaction.DisposeAsyncCore(); }
-        await fixture.Provider.DatabaseAccess.ExecuteNonQueryAsyncCore("INSERT INTO items VALUES (1,10)");
+        await fixture.Provider.DatabaseAccess.ExecuteNonQueryAsync("INSERT INTO items VALUES (1,10)");
     }
 
     [Test]
@@ -256,8 +256,8 @@ public sealed class SQLiteNativeAsyncTransactionTests
         try
         {
             await Assert.That(State(transaction)).IsEqualTo(TransactionInitializationState.Ready);
-            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsyncCore<long>("PRAGMA read_uncommitted")).IsEqualTo(1L);
-            await transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("INSERT INTO items VALUES (1,10)");
+            await Assert.That(await transaction.DatabaseAccess.ExecuteScalarAsync<long>("PRAGMA read_uncommitted")).IsEqualTo(1L);
+            await transaction.DatabaseAccess.ExecuteNonQueryAsync("INSERT INTO items VALUES (1,10)");
             await Assert.That(transaction.DatabaseAccess.DbTransaction).IsSameReferenceAs(native);
             await Assert.That(native.IsolationLevel).IsEqualTo(IsolationLevel.ReadUncommitted);
             await transaction.RollbackAsyncCore();
@@ -277,7 +277,7 @@ public sealed class SQLiteNativeAsyncTransactionTests
         foreach (var asyncDispose in new[] { false, true })
         {
             var transaction = fixture.NewTransaction();
-            await transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("INSERT INTO items VALUES (1,10)");
+            await transaction.DatabaseAccess.ExecuteNonQueryAsync("INSERT INTO items VALUES (1,10)");
             if (asyncDispose) await transaction.DisposeAsyncCore(); else transaction.Dispose();
             await transaction.DisposeAsyncCore();
             await Assert.That(fixture.Provider.DatabaseAccess.ExecuteScalar<long>("SELECT COUNT(*) FROM items")).IsEqualTo(0L);
@@ -286,7 +286,7 @@ public sealed class SQLiteNativeAsyncTransactionTests
         {
             var transaction = fixture.NewTransaction();
             var expected = new InvalidOperationException("Completion observer failed.");
-            await transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("INSERT INTO items VALUES (1,10)");
+            await transaction.DatabaseAccess.ExecuteNonQueryAsync("INSERT INTO items VALUES (1,10)");
             transaction.OnStatusChanged += (_, _) => throw expected;
             try
             {
@@ -320,7 +320,7 @@ public sealed class SQLiteNativeAsyncTransactionTests
                 {
                     await transaction.RunCallbackAsyncCore<int>(async token =>
                     {
-                        await transaction.DatabaseAccess.ExecuteNonQueryAsyncCore("INSERT INTO items VALUES (1,10)", token);
+                        await transaction.DatabaseAccess.ExecuteNonQueryAsync("INSERT INTO items VALUES (1,10)", token);
                         cancellation.Cancel();
                         token.ThrowIfCancellationRequested();
                         return 1;

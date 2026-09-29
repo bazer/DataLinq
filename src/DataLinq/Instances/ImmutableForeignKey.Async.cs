@@ -7,9 +7,21 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
+/// <summary>Asynchronous loading capability alongside the covariant synchronous reference contract.</summary>
+/// <typeparam name="T">The target model type. Async capability is invariant.</typeparam>
+public interface IAsyncImmutableForeignKey<T> : IImmutableForeignKey<T> where T : IImmutableInstance
+{
+    /// <summary>Loads the referenced row asynchronously, or returns null when absent.</summary>
+    ValueTask<T?> GetAsync(CancellationToken cancellationToken = default);
+}
+
 public partial class ImmutableForeignKey<T, TKey>
     where T : IImmutableInstance where TKey : notnull
 {
+    /// <summary>Loads the referenced row asynchronously using the shared relation cache.</summary>
+    public virtual ValueTask<T?> GetAsync(CancellationToken cancellationToken = default) =>
+        new(GetValueAsyncCore(cancellationToken));
+
     internal Task<T?> GetValueAsyncCore(CancellationToken token = default)
         => LoadValueAsyncCore(required: false, token);
 

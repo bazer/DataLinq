@@ -94,7 +94,7 @@ public sealed class SQLiteNativeAsyncMetadataTests
         // Metadata execution must neither release the root's keeper nor rewrite
         // the named-memory identity from its configured, different data source.
         fixture.ClearPools();
-        await Assert.That(await fixture.Provider.TableExistsAsyncCore("right_database")).IsTrue();
+        await Assert.That(await fixture.Provider.TableExistsAsync("right_database")).IsTrue();
         await Assert.That(async () => { await fixture.Provider.ReadValidationMetadataAsyncCore(TimeSpan.FromSeconds(-1), token: new(true)); }).Throws<ArgumentOutOfRangeException>();
         await Assert.That(async () => { await fixture.Provider.ReadValidationMetadataAsyncCore(token: new(true)); }).Throws<OperationCanceledException>();
         await ((IAsyncRootDisposal)fixture.Provider).DisposeAsyncCore();
@@ -148,7 +148,7 @@ public sealed class SQLiteNativeAsyncMetadataTests
     public async Task MetadataScalarAndReaderHonorNativeLockTimeoutAndSettleSession(bool memory)
     {
         using var fixture = new Fixture(memory, "CREATE TABLE blocked_row(id INTEGER PRIMARY KEY, value INTEGER); INSERT INTO blocked_row VALUES(1, 1)");
-        await fixture.Provider.SetJournalModeAsyncCore(SQLiteJournalMode.DELETE);
+        await fixture.Provider.SetJournalModeAsync(SQLiteJournalMode.DELETE);
         foreach (var scalar in new[] { true, false })
         {
             var settings = MetadataReadSettings.Runtime(TimeSpan.FromSeconds(1), null);
@@ -229,7 +229,7 @@ public sealed class SQLiteNativeAsyncMetadataTests
     [Test]
     public async Task DerivedImportFactoryIsRejectedBeforeCancellationAndConnectionParsing()
     {
-        await Assert.That(async () => { await new DerivedFactory().ParseDatabaseAsyncCore("Db", "Db", "Tests", "db", "invalid connection string", new(true)); })
+        await Assert.That(async () => { await new DerivedFactory().ParseDatabaseAsync("Db", "Db", "Tests", "db", "invalid connection string", new(true)); })
             .Throws<NotSupportedException>();
     }
 
@@ -302,7 +302,7 @@ public sealed class SQLiteNativeAsyncMetadataTests
             catch { Dispose(); throw; }
         }
         internal Task<Option<DatabaseDefinition, IDLOptionFailure>> Import(MetadataFromSQLiteFactory factory, CancellationToken token = default) =>
-            factory.ParseDatabaseAsyncCore("MetadataDb", "MetadataDb", "Tests", Name, ConnectionString, token);
+            factory.ParseDatabaseAsync("MetadataDb", "MetadataDb", "Tests", Name, ConnectionString, token);
         internal void ClearPools()
         {
             using var pool = new SqliteConnection(ConnectionString);

@@ -20,6 +20,17 @@ internal sealed class AsyncBufferedRead<TResult>(
     private readonly ReadExecutionIdentity identity = ReadExecutionIdentity.Capture(dataSource, operationKind, owner);
     private int executed;
 
+    // Transfer an unexecuted plan to the enumerator's admitted transaction step.
+    // Reuse the bound source and aggregation state; never recapture provider policy.
+    internal AsyncBufferedRead<TResult> WithOwner(TransactionOperationGate.Step step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        DataSourceAccess.EnsureReadAllowed(dataSource, Operation, step, identity.Operation);
+        if (owner is not null || Interlocked.Exchange(ref executed, 1) != 0)
+            throw new InvalidOperationException("Only an unowned, unexecuted read can acquire an owner.");
+        return new(dataSource, source, addRow, complete, step, firstRowOnly, operationKind);
+    }
+
     internal void Validate()
     {
         DataSourceAccess.EnsureReadAllowed(dataSource, Operation, owner, identity.Operation);

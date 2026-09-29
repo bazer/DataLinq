@@ -39,9 +39,10 @@ public abstract partial class DatabaseAccess : IDatabaseAccess
     /// </summary>
     protected IDataLinqDataReader ExecuteOwnedReader(IDbCommand command)
     {
+        var lifetime = new OwnedCommandLifetime(command);
         try
         {
-            return OwnedCommandDataReader.Create(ExecuteReader(command), command);
+            return OwnedCommandDataReader.Create(ExecuteReader(command), command, lifetime);
         }
         catch (Exception executionFailure)
         {
@@ -61,6 +62,7 @@ public abstract partial class DatabaseAccess : IDatabaseAccess
                     managedTransaction?.TransactionID));
                 throw aggregate;
             }
+            finally { lifetime.Dispose(); }
             throw;
         }
     }

@@ -254,9 +254,13 @@ Exit gate:
 
 ### W3: Public Async Surface
 
+Execution record: [W3 Public Async Surface](W3%20Public%20Async%20Surface.md). On 2026-09-28 the user authorized one draft PR against `v0.10` with incremental commits/pushes and explicitly retained runtime schema validation in W5. Inventory A05-A07 and their supporting validation types/behavior remain W5; B16 remains W4/W5 integration evidence.
+
+**Closed, 2026-09-29:** the [W3 closeout](W3%20Closeout.md) records reviewer acceptance, all review findings resolved through `2988aeac`, and the user's authorization to merge PR #230. All 4,971 Release quick-plan tests and twelve required CI checks pass; .NET 8/9/10 Release builds have zero warnings/errors. W4 is the next implementation wave. Runtime validation remains W5; performance and final release evidence retain their W8/W9 gates.
+
 Required work:
 
-- expose the audited async query, relation, mutation, transaction, and validation operations
+- expose the audited async query, relation, mutation, transaction, lower-level, probe, metadata, and provisioning operations; runtime schema validation remains W5
 - add XML/API documentation and focused examples
 - validate overload consistency, optional final `CancellationToken` parameters, generated `<PropertyName>Async` methods, and synchronous transaction construction against the API decision record
 - run ApiCompat and review every public addition or change

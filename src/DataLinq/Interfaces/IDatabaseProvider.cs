@@ -7,7 +7,7 @@ using DataLinq.Query;
 
 namespace DataLinq.Interfaces;
 
-public interface IDatabaseProvider : IDisposable
+public partial interface IDatabaseProvider : IDisposable, IAsyncDisposable
 {
     string TelemetryInstanceId { get; }
     string DatabaseName { get; }
@@ -18,6 +18,8 @@ public interface IDatabaseProvider : IDisposable
     IDatabaseProviderConstants Constants { get; }
     ReadOnlyAccess ReadOnlyAccess { get; }
     DatabaseType DatabaseType { get; }
+    /// <summary>Gets execution settings. Legacy implementations use the standard settings.</summary>
+    DataLinqExecutionOptions ExecutionOptions => new();
 
     IDbCommand ToDbCommand(IQuery query);
 
