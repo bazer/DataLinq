@@ -4,7 +4,9 @@ This records bounded results for the unreleased W3 branch. It supplements the [s
 
 **W3 closeout:** implementation and B01-B15 verification are complete at clean commit `db2b71dff1b12716baf48fa36df38785375a3f8d`. The final results below supersede the open-gate statements in earlier checkpoints. This is wave completion, not publication or release certification; B16 remains W4/W5 and benchmarks remain deferred.
 
-## Final Clean Candidate db2b71df
+**Review closure, 2026-09-29:** the user accepted W3 after review fixes through `2988aeac` and authorized merge-commit integration of PR #230. The [closeout](W3%20Closeout.md) records 4,971 passing quick-plan tests, clean .NET 8/9/10 Release builds and all twelve passing required CI checks on that implementation head. The package, full-matrix and old-consumer evidence below remains attributed to `db2b71df`; it was not rerun or relabeled for the subsequent internal fixes.
+
+## Pre-review Clean Candidate db2b71df
 
 Packed all six packages and symbol packages as `0.10.0-w3.db2b71df`, without publishing. Package/API reports confirm a clean, matching candidate and clean report-runner build. The locked 0.9.2 baseline is unchanged. Raw ApiCompat again reports exactly the thirteen findings dispositioned below, 867 compatible changes, two inherited divergences and zero new framework mismatches. Its failure is preserved, not converted into a green compatibility gate.
 

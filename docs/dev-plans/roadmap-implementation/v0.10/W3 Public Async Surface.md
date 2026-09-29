@@ -1,5 +1,7 @@
 # W3 Public Async Surface
 
+**Closed, 2026-09-29:** the user confirmed reviewer acceptance and authorized merge-commit integration of [PR #230](https://github.com/bazer/DataLinq/pull/230) into `v0.10`. The [W3 closeout](W3%20Closeout.md) records the review fixes through `2988aeac`, 4,971 passing quick-plan tests, all twelve passing required CI checks and carried-forward W4/W5/release obligations. Earlier checkpoints below retain their original evidence identities.
+
 **Status, 2026-09-28:** W3 implementation and verification are complete at clean commit db2b71df, collected in [PR #230](https://github.com/bazer/DataLinq/pull/230) against v0.10. The final closeout below supersedes earlier checkpoint statements about open W3 work. Runtime validation remains W5; hosting remains W4; benchmarks remain deferred until the end of 0.10.
 
 **Status, 2026-09-28:** implementation started from W2 merge `69a2b2ee40b25862590fa5206901a51aabfbed80`. The user authorized one draft PR from `codex/0.10-w3` to `v0.10`, with incremental commits and pushes collected there. W3 completion, review and merge remain separate checkpoints.

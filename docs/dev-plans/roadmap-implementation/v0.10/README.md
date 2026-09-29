@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-28.
+**Last reviewed:** 2026-09-29.
 
 **Prerequisite:** DataLinq 0.9.2 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -15,7 +15,7 @@
 
 ## Release Thesis
 
-**Current checkpoint, 2026-09-28:** [W1 is closed](W1%20Closeout.md) and [W2 is closed](W2%20Closeout.md) in [PR #229](https://github.com/bazer/DataLinq/pull/229). The reviewer confirmed all four findings resolved with no new actionable issues; the user authorized merge-commit integration into `v0.10`. Clean Debug and Release matrices each pass 8,558/8,558 tests. [W3 implementation](W3%20Public%20Async%20Surface.md) has started in the single draft [PR #230](https://github.com/bazer/DataLinq/pull/230); runtime schema validation remains W5. All further performance work is deferred until all 0.10 features are implemented, followed by a focused optimization and acceptance effort before the final candidate freeze. Both SQLite fixes are merged upstream; official-package adoption and affected reruns continue when suitable versions become available. The ownership fix targets 10.0.13, while the separate rollback issue targets 12.0-preview1 without a confirmed 10.0.x backport. W0-F1 and corrected-package/release acceptance remain open. The earlier W1-only and W2-development checkpoints are historical; the review handoff records the current scheduling decisions.
+**Current checkpoint, 2026-09-29:** [W1 is closed](W1%20Closeout.md), [W2 is closed](W2%20Closeout.md), and [W3 is closed](W3%20Closeout.md). The user confirmed reviewer acceptance and authorized merge-commit integration of [PR #230](https://github.com/bazer/DataLinq/pull/230) into `v0.10`. Review fixes through `2988aeac` pass all 4,971 Release quick-plan tests and twelve required CI checks, with clean .NET 8/9/10 builds. W4 (DI, hosting and unit of work) is next; runtime schema validation remains W5. Earlier package/full-matrix evidence retains its original commit identity. Performance investigation, optimization and acceptance remain deferred until after feature implementation; official SQLite package adoption, affected reruns, W0-F1 and release acceptance remain separate obligations.
 
 > Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class database-free testing support.
 
