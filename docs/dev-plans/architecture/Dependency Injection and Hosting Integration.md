@@ -5,13 +5,15 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for unnamed registration, explicit unit of work, and startup-host integration; broader host variants remain later work.
-**Last reviewed:** 2026-09-16.
+**Last reviewed:** 2026-10-01 (H10-1 package placement, H10-2 singleton read services, and H10-3 explicit composable units of work; remaining registration/ownership questions stay open).
 **Dependency:** The shipped 0.9 backend/source boundary and the 0.10 async contracts must be stable before host integration freezes public service abstractions.
 **Goal:** Make DataLinq straightforward to configure, validate, and consume from ASP.NET Core, generic host, background workers, Blazor, MAUI, Avalonia, and other .NET application surfaces without hiding database I/O or transaction boundaries.
 
 **0.10 failure contract:** [AAPI-21 through AAPI-26](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-21-validate-first-then-honor-pre-cancellation-even-on-cache-hits) own cancellation validation, initialization/read/mutation recovery, confirmed/unknown completion, cleanup precedence, and structured failure information. Host unit-of-work helpers must consume these policies, including an independent configurable 30-second starting recovery rollback budget subject to provider verification rather than the canceled request token. Do not promise a hard total-disposal deadline or infer rollback from cancellation.
 
 **0.10 mutation/callback contract:** [AAPI-27 through AAPI-33](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-27-capture-mutation-inputs-before-the-first-suspension) settle mutation input capture/exclusive lifetime, synchronous local edits, finite multi-model capture, task-returning callback families, borrowed completion restrictions, explicit token delivery, and results after successful commit/finalization/cleanup. Apply those policies to host helpers without hidden transaction retention or callback replay.
+
+**0.10 composable service decision:** [H10-3](#h10-3-explicit-composable-units-of-work) adds participant rollback requests, native typed business results, an outcome-aware owning helper, and generated owner/participant service entry points. Existing `CommitAsync` callbacks retain their success-means-commit contract. This is accepted W4 design, not implemented behavior or a W4 closeout.
 
 **0.10 concurrency contract:** [AAPI-34 through AAPI-41](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-34-reject-overlapping-transaction-execution) settle transaction overlap/resource ownership, private internal/mutable/helper rights, busy caller-disposal rejection, unfinished-callback admission/recovery, and cache coordination/isolation. Host helpers must not queue transaction work implicitly, commit unfinished callbacks, propagate ambient cancellation, or promise a hard drain deadline. Exact public surfaces remain under OAPI-7, provider feasibility under OAPI-9, and host lifetimes still require H10 design.
 
@@ -27,7 +29,7 @@
 
 ## Problem Statement
 
-**0.10 validation integration:** [AAPI-106 through AAPI-109](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-106-runtime-validation-types-and-immutable-result-construction) place validation types in core and host adapters separately, retain complete immutable result collections, separate display filtering from failure policy, scope Include to comparison and preserve empty-versus-unreadable schema distinctions. Use the same bounded per-command timeout contract; startup cancellation is separate and operational failures cannot become successful comparisons. Actual host/provider verification remains pending.
+**0.10 validation integration:** [AAPI-106 through AAPI-109](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-106-runtime-validation-types-and-immutable-result-construction), as amended by [H10-1](#h10-1-integration-in-existing-packages), place validation types and hosting integration in core with separate namespaces and responsibilities, retain complete immutable result collections, separate display filtering from failure policy, scope Include to comparison and preserve empty-versus-unreadable schema distinctions. Use the same bounded per-command timeout contract; startup cancellation is separate and operational failures cannot become successful comparisons. Actual host/provider verification remains pending.
 
 **0.10 inventory decisions:** [AAPI-100 through AAPI-102](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-100-async-raw-model-readers-follow-the-existing-class-hierarchy) settle raw model readers, lower-level provider-transaction async completion and exact diagnostic values/options placement. Hosted units of work complete through the managed Transaction wrapper; provider-level completion does not perform its mutable/cache finalization. DataLinqExecutionOptions lives in DataLinq; the diagnostic classification enums use Unknown = 0. [AAPI-105](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-105-provider-interface-disposal-implements-the-inherited-slot) settles IDatabaseProvider's inherited IAsyncDisposable slot/default and public virtual base/concrete dispatch. Unsupported async disposal never chooses synchronous cleanup or marks resources disposed; host/old-binary verification remains pending.
 
@@ -58,7 +60,7 @@ DataLinq should take responsibility for first-class registration, configuration,
 
 The central opinion:
 
-> A provider-backed `Database<TDatabase>` should be an application-level singleton, while operation-specific read facades and write units of work should be scoped or explicitly created.
+> The provider-backed `Database<TDatabase>`, its existing `ReadOnlyAccess<TDatabase>`, and that access object's generated `TDatabase` read root are application-level singletons. Transactions and write units of work are explicitly created per operation.
 
 That position follows from the current runtime:
 
@@ -73,9 +75,9 @@ The DI design should preserve those semantics instead of flattening everything i
 ## Design Principles
 
 - **Use the host's primitives:** integrate with `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Options`, `Microsoft.Extensions.Hosting`, and `Microsoft.Extensions.Logging`.
-- **Keep core small:** avoid ASP.NET Core dependencies in core runtime packages. ASP.NET-specific helpers can be extension packages or thin optional layers.
+- **Use existing packages:** common DI/hosting integration belongs in `DataLinq`, and provider registration belongs in the corresponding provider package. Keep integration organized under extension namespaces. Future helpers that require ASP.NET Core dependencies must use a separate package.
 - **Singleton database root:** register provider-backed `Database<TDatabase>` as singleton unless a provider has a documented reason not to.
-- **Scoped read convenience:** allow scoped injection of generated read roots for ergonomic handlers and services.
+- **Shared read convenience:** inject the existing provider-owned read access and generated read root as singletons, without constructing new facades for each request or scope.
 - **Explicit writes:** do not start hidden request-wide transactions by default.
 - **Policy-driven startup validation:** validation can fail startup, warn only, or be disabled per environment. It must be visible in the registration call.
 - **Normal configuration sources:** connection strings should come from `IConfiguration`, options binding, user secrets, environment variables, Key Vault, or whatever the host already supports. Runtime apps should not be forced through `datalinq.json`.
@@ -95,30 +97,37 @@ The DI design should preserve those semantics instead of flattening everything i
 
 ## Package Shape
 
-The preferred package split is:
+### H10-1: Integration In Existing Packages
 
-```text
-DataLinq
-DataLinq.Extensions.DependencyInjection
-DataLinq.MySql.Extensions.DependencyInjection
-DataLinq.SQLite.Extensions.DependencyInjection
-```
+**Accepted:** 2026-09-30. Keep W4 DI/unit-of-work integration and W5 hosted startup validation in the existing packages. This supersedes the earlier DI/provider extension-package proposal and AAPI-106's separate-hosting-package requirement. It records planned placement, not implemented APIs or dependencies.
 
-The exact names can change, but the dependency direction should not:
+| Existing package | Integration responsibility |
+| --- | --- |
+| `DataLinq` | Common registration, unit-of-work contracts and integration, configuration support, and W5 hosted startup validation. |
+| `DataLinq.MySql` | MySQL and MariaDB registration and provider-specific configuration. |
+| `DataLinq.SQLite` | SQLite registration and provider-specific configuration. |
 
-- `DataLinq` remains the runtime core.
-- `DataLinq.Extensions.DependencyInjection` owns core service registration abstractions, options, unit-of-work interfaces, and validation registration hooks.
-- Provider packages add provider-specific `UseMySql`, `UseMariaDb`, and `UseSQLite` registration methods.
-- ASP.NET Core-only helpers, if needed, should live in a separate package or namespace so core DI does not depend on the web stack.
+Organize these APIs under extension namespaces, such as `DataLinq.Extensions.DependencyInjection` and `DataLinq.Extensions.Hosting`, with corresponding provider namespaces. Exact public namespace/type spelling remains part of the API review; these names do not identify new assemblies or NuGet packages. Runtime validation retains its accepted `DataLinq.Validation` and `DataLinq.Exceptions` placement.
 
-The core DI package can depend on:
+Do not introduce DI-only, provider-DI, or hosting-only DataLinq packages for this scope. The existing provider-to-core dependency direction remains. Future helpers that actually require ASP.NET Core types/dependencies must live in a separate package; W4/W5 require neither an ASP.NET Core dependency nor an ASP.NET-specific package. Testing-package layout remains a separate T10 decision.
 
-- `Microsoft.Extensions.DependencyInjection.Abstractions`
-- `Microsoft.Extensions.Options`
-- `Microsoft.Extensions.Logging.Abstractions`
-- `Microsoft.Extensions.Hosting.Abstractions` if startup validation is implemented there
+**Rationale:** basic DI abstractions already arrive through DataLinq's logging dependency. Keeping registration with the runtime/provider packages avoids additional package selection, version alignment, and release maintenance for common application setup. Consumers using direct construction, including Memory consumers, will also inherit any added dependency graph; namespaces do not make dependencies optional.
 
-Avoid taking a hard dependency on `Microsoft.AspNetCore.*` for the first implementation.
+**Dependency boundary:** use the Microsoft.Extensions packages needed by the accepted APIs. The planning audit used the repository's 10.0 package line and net8.0/net9.0/net10.0 dependency groups. All names in this table have the `Microsoft.Extensions.` prefix; the last column lists additions beyond preceding rows.
+
+| Feature | Package used directly | Additional dependencies |
+| --- | --- | --- |
+| Service registration, lifetimes, factories, and service resolution | `DependencyInjection.Abstractions` | Already transitive through `Logging.Abstractions`; make the reference explicit when used directly. |
+| Host logging | `Logging.Abstractions` | Already referenced by core. |
+| `IConfiguration` and named connection strings | `Configuration.Abstractions` | `Primitives`. |
+| Standard options registration/validation and `IOptions<T>` | `Options` | Nothing further beyond preceding rows. |
+| Bind configuration sections into options objects | `Configuration.Binder` | `Configuration`. |
+| Configuration binding through the standard options pipeline | `Options.ConfigurationExtensions` | Nothing further beyond preceding rows. |
+| W5 startup execution through `IHostedService` | `Hosting.Abstractions` | `Diagnostics.Abstractions` and `FileProviders.Abstractions`. |
+
+Programmatic registration needs no new package IDs beyond the current graph. Plain DataLinq options objects and ordinary argument validation do not themselves require Microsoft.Extensions.Options. Exact options/binding APIs and dependency versions remain implementation decisions; do not add every package merely because it appears in this inventory. Standard options/configuration binding is supported by the [options binding dependency metadata](https://www.nuget.org/packages/Microsoft.Extensions.Options.ConfigurationExtensions/10.0.11#dependencies-body-tab) and [binder metadata](https://www.nuget.org/packages/Microsoft.Extensions.Configuration.Binder/10.0.11#dependencies-body-tab); the [hosting metadata](https://www.nuget.org/packages/Microsoft.Extensions.Hosting.Abstractions/10.0.11#dependencies-body-tab) records its abstraction dependencies.
+
+Registration/startup adapters consume the application's services without requiring the full `Microsoft.Extensions.Hosting` implementation, Microsoft's concrete DI container, configuration source providers, or logging providers as DataLinq dependencies. Preserve explicit opt-in startup execution and the W4/W5 sequencing. Core must still avoid dependencies on Tools, CLI configuration, source parsing, and ASP.NET Core. Verify the actual restored/packed dependency graph and supported consumer/platform evidence when implementation lands.
 
 ## Public API Shape
 
@@ -218,77 +227,181 @@ public sealed class EmployeeQueries
 
 This keeps query services lightweight and avoids generic repository boilerplate.
 
-### Write Usage
+### H10-3: Explicit Composable Units Of Work
 
-Writes should be explicit:
+**Accepted:** 2026-10-01. The ownership, rollback-request, service-composition, native-result, and future union-compatibility decisions below resolve this design question. They supersede this document's earlier participant `Rollback()`, mandatory `Begin()`, scoped current-session proposal, and void-returning mutation sketches. Public spelling and generator wiring still need the bounded API work listed below; this is not a claim that W4 has shipped or that every H10 question is closed.
+
+#### Ownership And Transaction Creation
+
+The participant session exposes transaction-bound reads, the supported mutation surface, and a way to request rollback. It exposes no physical commit, rollback, or disposal operations. The owner controls completion and cleanup. Query and mutation signatures must retain the real runtime's return values and sync/async semantics; for example, immutable mutation results must not be discarded by an interface declaring every mutation `void`.
+
+Use the existing managed `Transaction<TDatabase>` lifecycle, including its mutable/cache finalization, failure classification, and operation gate. Prefer direct interface implementation where it fits; a small borrowing adapter is acceptable when needed to express ownership. Do not create a second transaction engine or require a wrapper allocation merely to rename a transaction. A narrow interface communicates participation rights; managed owning helpers must also enforce borrowed-completion restrictions at runtime. It is not a universal protection against arbitrary casts or unsupported direct provider access.
+
+No separate call to `Begin()` is necessary. `Database<TDatabase>.Transaction()` already creates an explicit logical transaction with lazy provider I/O. A factory can expose this operation for DI/testability, and an owning callback helper creates it internally. Choosing an owning service entry point is an explicit operation boundary; registering or resolving a service must not start a transaction.
+
+Pass the participant session explicitly to nested services. W4 introduces no ambient/`AsyncLocal` transaction, automatically resolved current session, nested independent transaction masquerading as participation, or savepoint behavior. Work on a shared transaction remains sequential, with all child work awaited. Reads through the singleton read root remain independent of this transaction.
+
+#### Participant Rollback Requests
+
+Use `session.RequestRollback(failure)` as the illustrative API. It immediately records an irreversible veto on committing the shared managed transaction and returns a typed rollback value. It performs no provider I/O and does not end the owner's lifetime. Expose the same veto semantics through the managed transaction/session surface so manual owners and callback owners cannot disagree about whether commit is allowed.
+
+- A later commit attempt is rejected before provider commit dispatch. For a manual owner, cleanup remains that owner's responsibility; an owning helper performs recovery and cleanup before reporting failure.
+- Once rollback is requested, reject further database execution through that session. Local result construction, failure mapping, and unwinding remain possible, as do owner recovery and cleanup.
+- Repeated requests cannot clear the veto. Preserve the original request for diagnostics; a parent can translate the returned business failure without replacing the original reason the transaction became noncommittable.
+- A requested business rollback is distinct from poisoning caused by an execution failure. Exceptions, cancellation, provider failure, and unknown completion do not become ordinary business results.
+- An ordinary returned domain value is not inspected for application-specific success/failure flags. Only the explicit result protocol and transaction state control completion.
+
+This is a rollback of the whole shared unit. A child that wants to undo only its own writes and let the parent commit would need a separate savepoint design, outside W4.
+
+#### Native Result And Conversion Contract
+
+Provide small DataLinq-owned result types, illustrated as `TransactionResult<T>` for a string failure and `TransactionResult<T, TFailure>` for a typed failure. Success and rollback are distinct cases, represented as readonly structs `Success<T>` and `Rollback<TFailure>`. These names are provisional. Keep the implementation small, with typed storage and an explicit discriminator rather than an object-backed general-purpose union library.
+
+The public construction rules are:
+
+| Expression | Meaning |
+| --- | --- |
+| `return value;` where the value is a `T` | Implicitly construct the success case. |
+| `return session.RequestRollback(failure);` | Record the session veto and implicitly construct the rollback case from its typed marker. |
+| A bare `TFailure` | No implicit failure conversion; use the rollback-request form. |
+| `default(TransactionResult<...>)` | Uninitialized and invalid for completing an operation; never permission to commit. |
+
+The rollback marker lets the session infer only `TFailure`; the method's return type supplies `T`. Both branches may have the same payload type without confusing their meaning:
 
 ```csharp
-app.MapPost("/employees", (
-    IDataLinqUnitOfWorkFactory<EmployeesDb> unitsOfWork,
-    CreateEmployee command) =>
-{
-    using var unit = unitsOfWork.Begin();
+// Illustrative method body returning TransactionResult<OrderResult, OrderResult>.
+if (!available)
+    return session.RequestRollback(OrderResult.Rejected("Unavailable"));
 
-    unit.Insert(new MutableEmployee
+return OrderResult.Accepted();
+```
+
+Likewise, `TransactionResult<string>` can accept a plain successful string or a string wrapped by `RequestRollback`. Conversion from `T` constructs `Success<T>` internally; callers need not construct that wrapper. Separate case types also avoid treating a broad success payload such as `object` as the union's failure case solely because of the payload's runtime type.
+
+Expose explicit inspection such as `IsSuccess`, `RequiresRollback`, `TryUnwrap`, and `Match`. Do not add an implicit conversion from the result back to `T` in the initial surface. Keep wrong-case access guarded, and keep an uninitialized result distinguishable from either valid case. The proposed type does not replace ThrowAway across the repository; that broader dependency migration is later work.
+
+#### Generated Owner And Participant Entry Points
+
+An opted-in service supplies one business implementation. The existing bundled source generator emits a standalone owning entry point and a participating overload taking the explicit session. A marker interface identifies the database and an attribute selects operation methods; `IDataLinqService<TDatabase>` and `[DataLinqOperation]` are illustrative spellings. Constructor/factory wiring and diagnostics are part of signature review, not implicit service activation or runtime reflection.
+
+```csharp
+public partial class OrderService : IDataLinqService<ShopDb>
+{
+    [DataLinqOperation]
+    private async Task<TransactionResult<Order, OrderError>> PlaceCoreAsync(
+        IDataLinqSession<ShopDb> session,
+        CreateOrder command,
+        CancellationToken cancellationToken)
     {
-        FirstName = command.FirstName,
-        LastName = command.LastName
-    });
+        var customer = await session.Query().Customers.SingleAsync(
+            x => x.Id == command.CustomerId, cancellationToken);
 
-    unit.Commit();
+        if (!customer.CanPlaceOrders)
+            return session.RequestRollback(
+                new OrderError("Customer cannot place orders."));
 
-    return Results.Created();
-});
+        return await session.InsertAsync(
+            new MutableOrder { CustomerId = customer.Id }, cancellationToken);
+    }
+}
 ```
 
-For services that participate in a write operation but should not own commit:
+The generated signatures have this shape:
 
 ```csharp
-public interface IDataLinqSession<TDatabase>
-{
-    TDatabase Query();
-    void Insert<TModel>(Mutable<TModel> model);
-    void Update<TModel>(Mutable<TModel> model);
-    void Save<TModel>(Mutable<TModel> model);
-    void Delete<TModel>(TModel model);
-    void Rollback();
-}
+// Own a new transaction and finish completion/cleanup before returning.
+Task<TransactionResult<Order, OrderError>> PlaceAsync(
+    CreateOrder command, CancellationToken cancellationToken = default);
 
-public interface IDataLinqUnitOfWork<TDatabase> : IDataLinqSession<TDatabase>, IDisposable
-{
-    void Commit();
-}
-
-public interface IDataLinqUnitOfWorkFactory<TDatabase>
-{
-    IDataLinqUnitOfWork<TDatabase> Begin(
-        Action<DataLinqUnitOfWorkOptions>? configure = null);
-}
+// Borrow the supplied session; do not physically complete or dispose it.
+Task<TransactionResult<Order, OrderError>> PlaceAsync(
+    IDataLinqSession<ShopDb> session,
+    CreateOrder command, CancellationToken cancellationToken = default);
 ```
 
-The participant/coordinator distinction from the older application-patterns draft is still good. What needs more caution is the ambient `AsyncLocal` model. Ambient transactions are convenient, but they are also a sharp edge in background work, streaming endpoints, Blazor Server circuits, and async fan-out.
+The standalone method returns the union too: different success/failure types cannot both be returned as a plain `T`. A participating success means that service's work succeeded so far, not that the outer transaction committed. Services can therefore be used independently or stacked under one owner without duplicating their business code. Calling an owning overload from inside another operation still starts an independent unit; callers must use the session-taking overload to participate.
 
-Recommended first slice:
+A parent can translate a child's failure while preserving the veto:
 
-- implement explicit `IDataLinqUnitOfWorkFactory<TDatabase>`
-- optionally add scoped `IDataLinqSession<TDatabase>` only when a unit of work has been explicitly started for the scope
-- defer ambient `AsyncLocal` behavior until concrete scenarios prove it is worth the complexity
+```csharp
+// Inside an operation returning TransactionResult<Checkout, CheckoutError>.
+var result = await orders.PlaceAsync(session, command.Order, cancellationToken);
+
+if (!result.TryUnwrap(out var order, out var failure))
+    return session.RequestRollback(CheckoutError.FromOrderError(failure));
+
+return new Checkout(order.Id);
+```
+
+Keep all completion/recovery behavior in shared runtime helpers; generated methods forward to those helpers rather than copying rollback/finalization logic. The same protocol must be usable without generation. Validate method shapes, generated-name collisions, and token forwarding with generator diagnostics/tests. Runtime enforcement remains necessary: generation cannot prove arbitrary application control flow handles every child result correctly.
+
+#### Owning Callback Completion
+
+Add an explicit outcome-aware helper, illustrated as `ExecuteAsync`, that receives a session and cancellation token and awaits a `TransactionResult` callback. Generated owning methods use it; manually composed services can use it directly. It invokes the callback once without replay and retains the existing unfinished-work, active-reader, cancellation, recovery, and cleanup policies.
+
+| Final callback result | Shared rollback veto | Owner behavior |
+| --- | --- | --- |
+| Success | Absent | Commit, finalize, clean up, then return success. |
+| Rollback | Present or absent | Ensure the veto is recorded, roll back, clean up, then return the typed business failure. |
+| Success | Present | Roll back and clean up, then throw an inconsistent-result exception; never return success for discarded writes. |
+| Uninitialized result | Either | Do not commit; recover/clean up and report invalid result usage. |
+| Exception or cancellation | Either | Preserve the existing failure/recovery contract and throw; do not turn it into a business rejection. |
+
+Each managed participating boundary must honor a returned rollback case in the shared transaction state, including when a result was forwarded or mapped rather than created locally by `RequestRollback`. The immediate veto from `RequestRollback` must survive an ignored result. Returning a result is never evidence that physical completion has already occurred.
+
+Return the normal rollback result only after rollback is confirmed, or no provider transaction/work was started, and required cleanup succeeds. A rollback, finalization, or cleanup failure still throws with honest outcome/secondary-failure information. A rolled-back inserted model or generated key is not evidence of persisted data. Transaction-bound deferred work must remain inside its owning lifetime.
+
+Existing `CommitAsync` callback contracts remain intact: normal callback completion requests commit, and a veto prevents that commit and causes an exception. Do not reinterpret arbitrary existing callback return types or silently return a normal result after rollback. This new helper is the explicit opt-in for returning expected business failures after successful rollback. It reuses managed lifecycle machinery rather than directly completing the lower-level provider transaction.
+
+#### C# Union Compatibility
+
+Prepare the case model and member names for C# 15 custom unions while keeping W4 usable on the repository's existing .NET 8/9/10 and C# 14 baseline. Do not make the new service/result API depend on .NET 11 or emit union syntax unconditionally into consumer code.
+
+The [C# union specification](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/proposals/csharp-15.0/unions) permits custom types and distinct case wrappers. Its compiler-facing `Value` represents the active case, and `HasValue` describes non-null contents rather than business success. Reserve those meanings or isolate them through a union-member provider; do not accidentally commit a conflicting public contract. The runtime runner still rejects the uninitialized/default result even if its union view represents empty contents as null.
+
+Prefer typed storage and the [non-boxing custom union access pattern](https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/tutorials/unions#build-a-custom-union-that-avoids-boxing) over the object storage generated by the ordinary `union` shorthand. This avoids requiring a separate allocation for struct cases on the typed path; an object-valued view can still box. Native matching supplements the ordinary inspection API and does not replace transaction ownership or the rollback veto.
+
+The [2026-09-08 .NET 11 RC1 announcement](https://devblogs.microsoft.com/dotnet/dotnet-11-rc-1/) records stabilization of C# 15 unions. Actual compiler integration, target-specific metadata/polyfill choices, and source/binary compatibility must be verified separately. Adding union recognition can affect existing pattern matching, so it is a deliberate compatibility change, not assumed to be a harmless attribute addition. Broad ThrowAway replacement and native union activation are later work, not requirements to finish W4.
+
+#### Bounded API And Verification Follow-Up
+
+This decision closes the ownership/composition question; it does not freeze a complete signature manifest. Before implementation API freeze:
+
+- finalize public names/namespaces, the session/owner/factory mutation and completion inventories, and exception/diagnostic access using existing runtime conventions;
+- specify generator method naming, constructor/factory acquisition, supported sync/async shapes, and diagnostics without changing the one-body/two-entry-point contract;
+- complete the result surface for nullable payloads, operations with no value, explicit construction/inspection, and unusual generic conversions, preserving distinct cases and invalid-default rejection;
+- prove generated and handwritten composition with consumer-shaped tests, including same-type/string payloads, failure mapping, ignored vetoes, post-veto execution rejection, borrowed completion, cancellation, cleanup errors, and no callback replay;
+- retain separate follow-up for native union compilation/compatibility and for a possible repository-wide ThrowAway replacement.
+
+Exact mechanics may be settled during API review; they must not silently change these accepted semantics. Configuration/registration APIs and container/external-instance disposal ownership remain other H10 questions. W6B fakes consume the final W4 signatures and these behaviors rather than inventing a competing lifecycle.
 
 ## Service Lifetimes
+
+### H10-2: Shared Singleton Read Services
+
+**Accepted:** 2026-10-01. Register `Database<TDatabase>`, the provider's existing `ReadOnlyAccess<TDatabase>`, and that access object's existing generated `TDatabase` read root as singletons. Share these same instances across resolutions, requests, and DI scopes within one service provider/database registration. This supersedes the earlier scoped/transient read-facade proposal. The provider-specific database and its base `Database<TDatabase>` service identify the same database instance.
+
+**Rationale:** reusable read infrastructure is part of DataLinq's design and a benefit to preserve in DI. The current provider already constructs and retains read access, which constructs and retains the generated root; `Database<TDatabase>.Query()` returns that root. Registration should expose those objects without recreating read facades or table/query roots per request. Singleton here means per application container/registration, not a process-global static shared by independent service providers.
+
+Read roots retain no current request, user, request token, or active unit of work. Application-added partial members must respect their shared lifetime. Individual query executions, active enumerators, mutable query builders, connections, and transactions retain their existing operation/resource lifetimes; sharing the root does not authorize concurrent use of one active enumerator or transaction. An injected read root provides no operation-wide snapshot or transaction participation. Reads that must join a unit of work use that unit's transaction-bound root.
+
+Expose `ReadOnlyAccess<TDatabase>` directly as well as the generated `TDatabase`; this decision does not introduce a new read-access interface. Ending a child DI scope must not dispose the shared database/provider or read services. Preserve one disposal owner for each owned database/provider pair; exact registration mechanics and external-instance ownership remain part of the ownership review. Transactions and unit-of-work instances remain explicitly created per operation, never shared singletons.
+
+**Owner/gate:** H10/W4. Verify reference identity across repeated resolutions and independent scopes, identity with the provider's read access and `Database.Query()`, no repeated read-root construction per scope, direct consumption by singleton workers, concurrent independent reads and cancellation/failure isolation, and correct scope/host disposal. This is an accepted integration design, not evidence that DI registration is implemented.
 
 Default registrations:
 
 | Service | Lifetime | Reason |
 | --- | --- | --- |
 | `Database<TDatabase>` | Singleton | Owns provider/cache/state and is expensive enough to treat as app-level infrastructure. |
-| Provider-specific database, e.g. `MySqlDatabase<TDatabase>` | Singleton | Same object as the base database registration where possible. |
-| `ReadOnlyAccess<TDatabase>` | Scoped or transient facade | Ergonomic read dependency. It may wrap singleton provider state but should feel operation-local. |
-| Generated `TDatabase` read root | Scoped or transient | Convenience read model for handlers/services; must be read-only. |
+| Provider-specific database, e.g. `MySqlDatabase<TDatabase>` | Singleton | Same object as the base database registration. |
+| `ReadOnlyAccess<TDatabase>` | Singleton | Exposes the provider's existing shared read access. |
+| Generated `TDatabase` read root | Singleton | Exposes that read access object's existing root, also returned by `Database.Query()`. |
 | `IDataLinqUnitOfWorkFactory<TDatabase>` | Singleton | Creates explicit transactions from the singleton database root. |
-| `IDataLinqUnitOfWork<TDatabase>` | Explicit/disposable, optionally scoped | Should not be silently created for every request. |
+| `IDataLinqUnitOfWork<TDatabase>` | Explicit/disposable per operation | Owner-controlled completion under H10-3; participants borrow the explicit session. Exact public names/signatures remain subject to API review. |
 | Schema validation hosted service | Singleton hosted service | Runs once during host startup over registered targets. |
 
-The important rule is that scoped services can depend on singleton database infrastructure, but singleton hosted services must create scopes when they need scoped services. This matches the generic host DI model and avoids leaking scoped objects into singleton services.
+Scoped application services can depend on these singleton read services. Singleton hosted services can inject the shared read root or unit-of-work factory directly; they need scopes only when consuming other scoped application services.
 
 ### Why Not Scoped `Database<TDatabase>`?
 
@@ -416,35 +529,34 @@ The default should make the correct read path easy and the write path explicit.
 
 ## Generic Host and Worker Services
 
-Worker services should use `IServiceScopeFactory` per job or message:
+Worker services can inject the singleton read root or unit-of-work factory directly. A fresh unit of work is still created for each bounded write operation:
 
 ```csharp
 public sealed class ImportWorker : BackgroundService
 {
-    private readonly IServiceScopeFactory scopes;
+    private readonly IDataLinqUnitOfWorkFactory<EmployeesDb> units;
 
-    public ImportWorker(IServiceScopeFactory scopes)
+    public ImportWorker(IDataLinqUnitOfWorkFactory<EmployeesDb> units)
     {
-        this.scopes = scopes;
+        this.units = units;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            using var scope = scopes.CreateScope();
-            var units = scope.ServiceProvider
-                .GetRequiredService<IDataLinqUnitOfWorkFactory<EmployeesDb>>();
-
-            using var unit = units.Begin();
-            // process one bounded unit of work
-            unit.Commit();
+            var result = await units.ExecuteAsync(
+                (session, token) => ImportOneAsync(session, token),
+                cancellationToken: stoppingToken);
+            HandleImportResult(result);
         }
     }
 }
 ```
 
-Singleton hosted services should not directly capture scoped read roots or scoped sessions. That is standard host hygiene, and DataLinq docs should say it plainly.
+This is a shape sketch: `ImportOneAsync` represents an application operation returning a native transaction result, and `HandleImportResult` consumes its completed outcome. The helper owns completion/cleanup under H10-3; an opted-in generated service can provide the same boundary.
+
+When a job also consumes scoped application services, create an application-service scope per job or message. DataLinq's shared read services do not themselves require that scope. Keep unit-of-work instances within the operation that owns them; do not retain them on the singleton worker.
 
 ## Blazor
 
@@ -454,8 +566,8 @@ Blazor Server scoped services live for the circuit, not one HTTP request. That m
 
 Recommended guidance:
 
-- singleton `Database<TDatabase>` is fine
-- inject read/query services for UI reads
+- share singleton `Database<TDatabase>`, read access, and generated read roots across circuits
+- inject the shared read root or application query services for UI reads
 - create explicit units of work inside event handlers or application services
 - do not keep a transaction open across component lifetime or circuit lifetime
 - avoid ambient session patterns unless the boundary is very tightly controlled
@@ -555,7 +667,7 @@ Rules:
 
 - databases created by the registration delegate are container-owned unless explicitly marked external
 - externally supplied instances should not be disposed by DataLinq unless the user opts in
-- unit-of-work instances are caller-owned and disposed by `using`
+- manually created unit-of-work instances are caller-owned and disposed by `using`/`await using`; generated owning methods and owning callbacks manage their own completion/cleanup under H10-3, while participants never dispose the borrowed session
 - startup validation should not dispose registered databases
 
 This matters because hosted apps often run for a long time, and incorrect disposal ownership creates miserable shutdown bugs.
@@ -564,16 +676,18 @@ This matters because hosted apps often run for a long time, and incorrect dispos
 
 ### Slice 1: Core DI Registration
 
-- Add a DI extension package.
+- Add DI registration under extension namespaces in `DataLinq`, following H10-1.
 - Add `AddDataLinq<TDatabase>(...)`.
 - Register `Database<TDatabase>` as singleton.
 - Register provider-specific database concrete type as singleton where possible.
 - Register `ReadOnlyAccess<TDatabase>` and generated `TDatabase` read root for injection.
+- Reuse the provider-owned singleton read instances under H10-2; do not construct per-scope/per-request facades.
 - Wire `ILoggerFactory` automatically.
 - Add unit tests for service resolution, lifetime behavior, and disposal ownership.
 
 ### Slice 2: Provider Registration Extensions
 
+- Implement these extensions in the existing provider packages, following H10-1.
 - Add `UseMySql(...)`.
 - Add `UseMariaDb(...)`.
 - Add `UseSQLite(...)`.
@@ -583,15 +697,16 @@ This matters because hosted apps often run for a long time, and incorrect dispos
 
 ### Slice 3: Explicit Unit of Work API
 
-- Add `IDataLinqSession<TDatabase>`.
-- Add `IDataLinqUnitOfWork<TDatabase>`.
-- Add `IDataLinqUnitOfWorkFactory<TDatabase>`.
-- Wrap existing `Transaction<TDatabase>` rather than duplicating transaction behavior.
-- Keep `Commit()` available only on the coordinator interface.
-- Add tests for commit, rollback, disposal, nested service participation, and failed commit behavior.
+- Implement H10-3's participant/owner/factory contracts after the bounded signature review.
+- Reuse managed `Transaction<TDatabase>` behavior and return values, without a mandatory extra `Begin()` step or duplicate transaction engine.
+- Keep physical commit, rollback, and disposal with the owner; add the irreversible participant rollback request and post-veto execution rejection.
+- Add native typed results and an outcome-aware owning helper, preserving existing `CommitAsync` semantics.
+- Extend the bundled generator with opted-in owner/participant service methods that share runtime lifecycle helpers.
+- Add consumer, generator, and runtime tests for composition, result propagation, completion, cancellation, and cleanup failures.
 
 ### Slice 4: Startup Validation Integration
 
+- Implement this W5 slice in `DataLinq` under a hosting extension namespace, following H10-1.
 - Reuse the runtime validation API from `Schema Validation Hooks.md`.
 - Add database validation target registration.
 - Add hosted service startup runner.
@@ -615,7 +730,9 @@ Unit tests:
 
 - `AddDataLinq<TDatabase>` registers all expected services.
 - `Database<TDatabase>` resolves as singleton.
-- generated `TDatabase` read root resolves from a scope.
+- `ReadOnlyAccess<TDatabase>` and generated `TDatabase` resolve to the same existing instances across repeated resolutions and independent scopes, matching provider read access and `Database.Query()`.
+- creating/resolving additional scopes does not reconstruct read access or generated table roots.
+- disposing a child scope does not dispose shared database/provider/read services.
 - host `ILoggerFactory` is passed to provider database creation.
 - named connection strings resolve from `IConfiguration`.
 - missing connection string fails with a clear error.
@@ -626,11 +743,15 @@ Unit tests:
 Unit-of-work tests:
 
 - factory creates a transaction-backed unit of work.
-- participant interface cannot commit.
+- participant interface exposes no physical commit, rollback, or disposal; helper-owned lifecycle also rejects borrowed completion at runtime.
 - coordinator commits once.
-- rollback prevents commit.
+- participant rollback requests prevent commit and further database execution without prematurely disposing the shared transaction.
 - disposal rolls back uncommitted work according to existing transaction semantics.
-- nested services can share an explicit unit when passed the participant interface.
+- generated services work both independently and as explicit participants, with one business implementation and no ambient session.
+- string, typed, and same-type success/failure payloads preserve their cases; default results cannot commit.
+- mapped/forwarded child failures preserve the veto; ignored child failures cannot produce outer success.
+- expected rollback results are returned only after confirmed rollback/no started work and successful cleanup; exceptions/cancellation/unknown outcomes still throw.
+- existing `CommitAsync` callbacks retain their contract; new helpers invoke once, await all work, and preserve recovery/finalization rules.
 
 Startup validation tests:
 
@@ -643,13 +764,14 @@ Startup validation tests:
 Integration tests:
 
 - ASP.NET Core test host can resolve read root in Minimal API handler.
+- concurrent handlers share read-root identity while independent executions preserve cancellation/failure isolation.
 - write handler can use unit-of-work factory.
-- worker-style scope can resolve and dispose operation services.
+- a singleton worker can consume the shared read root/factory directly, with separate scopes only for scoped application services.
 - SQLite registration can use a configured local path.
 
 ## Risks and Sharp Edges
 
-- **Ambiguous scoped root:** injecting generated `TDatabase` is ergonomic, but it must be clearly read-only or users will assume it behaves like EF `DbContext`.
+- **Shared read root:** injected `TDatabase` is shared query infrastructure. Application partial members must not store request-local state, and ordinary reads must not imply transaction participation or snapshot isolation.
 - **Ambient sessions:** `AsyncLocal` can be useful, but it makes transaction ownership less obvious. It should not be first-slice behavior.
 - **Blazor Server scope semantics:** scoped does not mean request-scoped in Blazor Server. Documentation must be blunt about this.
 - **Multiple same-model registrations:** unnamed-only registration is simple but incomplete. Design the types so keyed/named support can be added without breaking the API.
@@ -658,12 +780,11 @@ Integration tests:
 
 ## Open Questions
 
-- Should the first package be named `DataLinq.Extensions.DependencyInjection`, `DataLinq.DependencyInjection`, or provider-specific only?
-- Should generated `TDatabase` read root be scoped or transient when resolved through DI?
-- Should `ReadOnlyAccess<TDatabase>` be directly injectable, or should a new `IDataLinqReadAccess<TDatabase>` abstraction exist?
-- Should startup validation live in the same DI package or a hosting-specific package?
+- Package placement is resolved by [H10-1](#h10-1-integration-in-existing-packages): existing core/provider packages, extension namespaces, and a separate package only for future ASP.NET-dependent helpers. Exact extension API spelling and options/binding behavior remain to be reviewed.
+- Read-service identity/lifetimes and direct read-access injection are resolved by [H10-2](#h10-2-shared-singleton-read-services): expose the existing database/read-access/generated-root instances as singletons. Container/external-instance disposal ownership mechanics remain to be reviewed.
+- Unit-of-work ownership/composition is resolved by [H10-3](#h10-3-explicit-composable-units-of-work): owner-only physical completion, explicit participants with rollback requests, native results, generated service entry points, and preparation for future native unions. Its bounded signature/generator follow-up is required before API freeze.
 - Should named/keyed registrations be first-slice or second-slice?
-- Should unit-of-work participant sharing be explicit only, or should an optional ambient scope be added later?
+- W4 participant sharing is explicit only under H10-3. Any ambient or savepoint scope is a separate later proposal.
 - Should endpoint filters/middleware be included in the ASP.NET package or documented as application code?
 - Should provider registration support connection-string reload through `IOptionsMonitor`, or should database instances stay immutable until app restart?
 

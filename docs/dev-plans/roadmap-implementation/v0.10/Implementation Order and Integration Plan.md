@@ -96,6 +96,8 @@ Provider differences may be explicit, but they cannot become silent semantic dri
 
 ### D10-3: Host Lifetime And Unit-Of-Work Ownership
 
+**Design progress, 2026-10-01:** [H10-1 through H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) settle existing-package placement, shared singleton read infrastructure, and explicit composable operation ownership. Participant rollback requests, native results, and generated service entry points reuse managed transaction completion. Exact registration/host-disposal mechanics and the bounded signature review remain open; this is not implementation evidence.
+
 Define:
 
 - the reusable provider/database state lifetime
@@ -118,7 +120,7 @@ Define one structured validation result and explicit policies for:
 
 The host adapter consumes this result; it does not invent a second schema comparison model. AAPI-64 through AAPI-67 settle async validation/probe contracts, configuration capture, operational failure versus schema differences, effective database identity, and fresh complete metadata without hidden creation/repair. Propagate startup cancellation, keep command timeout separate from a whole-operation token, and preserve provider/SQLite resource ownership.
 
-AAPI-106 through AAPI-109 fix runtime types in core and hosting separately, immutable result snapshots retaining Info, independent threshold/issue policy, comparison-scoped Include and empty-schema behavior, and null/default, zero/unlimited, rounded positive command timeouts capped at 2,147,483 seconds. The adapter must not discard structured differences to filter logs, fabricate empty schemas from reader failures or silently ignore timeout settings.
+AAPI-106 through AAPI-109, with the [H10-1 package-placement amendment](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages), fix runtime types and hosting integration in core with separate namespaces/responsibilities, immutable result snapshots retaining Info, independent threshold/issue policy, comparison-scoped Include and empty-schema behavior, and null/default, zero/unlimited, rounded positive command timeouts capped at 2,147,483 seconds. The adapter must not discard structured differences to filter logs, fabricate empty schemas from reader failures or silently ignore timeout settings.
 
 ### D10-5: Testing Fidelity Boundary
 
@@ -274,11 +276,14 @@ Exit gate:
 
 ### W4: DI, Hosting, And Unit Of Work
 
+**Design checkpoint, 2026-10-01:** [H10-1](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages) accepts integration in existing core/provider packages under extension namespaces, including W5 hosted startup validation. [H10-2](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-2-shared-singleton-read-services) accepts shared singleton database/read-access/generated-root instances, reusing the provider-owned objects without per-request facades. [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) accepts owner-only completion, explicit participants with rollback requests, native business results, an outcome-aware helper, and generated composable services. This deliberately adds service generation/result handling to W4; native C# union activation and broader ThrowAway replacement remain later work. Exact registration APIs, container/external-instance disposal mechanics, and H10-3's bounded signature/generator details remain for review; this does not start implementation or close W4.
+
 Required work:
 
-- establish the host-integration package boundary and dependency graph
-- implement generated-database/provider registration
+- implement H10-1's existing-package integration boundary and verify the required Microsoft.Extensions dependency graph
+- implement generated-database/provider registration with H10-2 singleton identity and no per-scope read-root construction
 - expose read access and explicit unit-of-work factory contracts
+- implement H10-3's shared transaction veto, native result protocol, and generated owner/participant entry points through shared runtime lifecycle helpers, preserving existing `CommitAsync` behavior
 - integrate logging and options validation
 - test scopes, concurrent requests, nested service participation, cancellation, terminal failures, and shutdown
 - document ownership without implying EF `DbContext` semantics
@@ -288,6 +293,7 @@ Exit gate:
 - ASP.NET Core and Generic Host consumer fixtures resolve and dispose services correctly
 - transaction state cannot leak across scopes
 - unit-of-work failure semantics match the existing SQL mutable lifecycle
+- generated and handwritten nested services preserve rollback requests, map typed failures, reject invalid/default or inconsistent results, and deliver normal results only after successful owner completion/cleanup
 
 ### W5: Startup Schema Validation
 
@@ -386,7 +392,7 @@ Exit gate: all requirements in the [release evidence plan](Release%20Evidence%20
 
 - W7 can run beside W1-W6 after W0.
 - W6A can begin after W1 while provider work continues, but it cannot invent a second query engine.
-- H10 package scaffolding may begin during W3, but public lifetimes cannot freeze until W3 contracts are stable.
+- H10 integration scaffolding may begin during W3, but public lifetimes cannot freeze until W3 contracts are stable; H10-1 places it in existing packages.
 - Release tooling can add new suite/package registrations incrementally, but final evidence waits for W8/W9.
 - Documentation plans and examples may be drafted early; shipped-behavior wording waits for W9.
 

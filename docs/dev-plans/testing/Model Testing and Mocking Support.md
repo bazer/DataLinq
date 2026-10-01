@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
-**Last reviewed:** 2026-09-16.
+**Last reviewed:** 2026-10-01 (H10 package-placement and unit-of-work amendments; remaining T10 design stays open).
 **Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
@@ -232,7 +232,7 @@ If an application test does not need to exercise a query at all, stub the applic
 
 ### Layer 5: Fake Unit of Work
 
-The DI/hosting plan proposes explicit unit-of-work abstractions. Testing should provide fakes for those interfaces.
+The DI/hosting plan accepts explicit unit-of-work ownership/composition under [H10-3](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work). Testing should provide fakes for the final production interfaces after W4 freezes their signatures; the testing surface must preserve participant rollback requests, typed results, and owner-only physical completion.
 
 Desired API:
 
@@ -241,11 +241,15 @@ var unit = DataLinqTest.UnitOfWork<EmployeesDb>()
     .Seed<Employee>(existingEmployees)
     .Build();
 
-handler.Handle(command, unit);
+// Exercise the participant path, then complete through the test owner.
+var result = await handler.HandleAsync(command, unit.Session, cancellationToken);
+await unit.CompleteAsync(result, cancellationToken);
 
 Assert.That(unit.Inserted<Employee>()).HasCount().EqualTo(1);
 Assert.That(unit.WasCommitted).IsTrue();
 ```
+
+These fake helper names are illustrative, not a frozen T10 API. Invoking only a participant must not record a physical commit; an owner must apply the returned decision and the shared veto.
 
 The fake unit of work should:
 
@@ -255,6 +259,9 @@ The fake unit of work should:
 - record saves
 - record deletes
 - record commit/rollback/dispose
+- distinguish a participant's irreversible rollback request from the owner's physical rollback and disposal
+- reject post-veto execution, invalid/default results, and outer success after an ignored child failure, while allowing local failure mapping
+- mirror generated/handwritten service composition and return expected rejection results only after successful owner rollback/cleanup; operational failures remain exceptions
 - optionally apply recorded mutations to testing-owned state after commit once memory mutation semantics exist
 - optionally fail on commit for error-path tests
 
@@ -522,6 +529,8 @@ This is useful for application resilience tests. Provider-backed tests should st
 
 ## Package Shape
 
+The following testing-package split remains a T10 proposal. [H10-1](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages), accepted 2026-09-30, places production DI/unit-of-work integration in the existing core/provider packages; it does not settle testing-package layout. Test helpers consume those core contracts and registration APIs.
+
 Possible package split:
 
 ```text
@@ -598,7 +607,7 @@ Avoid making the runtime package carry testing dependencies.
 - Add `ReplaceDataLinqWithMemory<TDatabase>()`.
 - Add `ReplaceDataLinqUnitOfWorkWithFake<TDatabase>()`.
 - Add `ReplaceDataLinqWithSqliteInMemory<TDatabase>()`.
-- Add tests with `ServiceCollection` and the planned DI package.
+- Add tests with `ServiceCollection` and the planned DI registration APIs in `DataLinq`.
 
 ### Slice 7: Query Translation Assertions
 

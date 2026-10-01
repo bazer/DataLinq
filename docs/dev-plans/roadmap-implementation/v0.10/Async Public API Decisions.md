@@ -659,6 +659,8 @@ Guide asynchronous transaction work to `CommitAsync`. The current synchronous ge
 
 **Accepted:** 2026-09-04. A `CommitAsync` helper owns its transaction lifecycle. Invoke its callback once and await the returned task; never automatically retry/replay it. The callback borrows the transaction for operations and may pass it to application services. Reject callback attempts to commit, roll back, or dispose the helper-owned transaction before those actions reach the provider. Applications needing manual completion use `Transaction()`.
 
+**W4 extension, 2026-10-01:** [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) adds a participant request to veto commit without physically rolling back or disposing the borrowed transaction. This planned business rollback state is distinct from execution poisoning. It preserves owner-only completion and the existing `CommitAsync` success-means-commit contract; a veto makes that helper fail rather than return ordinary success after rollback.
+
 Transaction operations started by the callback must finish before the callback returns. AAPI-36 and AAPI-38 settle private helper ownership and recovery for unfinished operations/readers and escaped work, including the limits of detecting unawaited completed tasks. Do not commit while tracked work remains active.
 
 | Cancellation boundary | Required behavior |
@@ -677,6 +679,8 @@ Swallowing a mutation failure inside the callback cannot repair a poisoned trans
 ### AAPI-33: Deliver Callback Results After Completion And Cleanup
 
 **Accepted:** 2026-09-04. Deliver callback `TResult` only after callback execution, commit, required finalization, and cleanup have all succeeded. Returning a value from the callback is an intermediate step; a known-committed cleanup failure is reported under AAPI-24 through AAPI-26 instead of returning ordinary success.
+
+**Separate outcome-aware helper, 2026-10-01:** [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) accepts a new explicit helper for native typed success/rollback results. That helper can return a business rejection after confirmed rollback (or no provider work started) and successful cleanup. It does not change this decision's `CommitAsync` contract, convert operational failures/cancellation into business results, or return before required cleanup. Its generated participant overloads return provisional operation results; only the outer owner completes the shared transaction.
 
 Prefer materialized immutable rows, lists/arrays, keys, scalars, and application DTOs. Callers must materialize deferred work bound to the helper's transaction inside the callback. The helper does not automatically enumerate arbitrary returned sequences, inspect whole result graphs, or secretly keep the transaction alive. Deferred work against an independent database root is not thereby made transaction-bound.
 
@@ -1730,7 +1734,7 @@ Retain the standard-settings interface getter and compatible constructor policy.
 
 ### AAPI-106: Runtime Validation Types And Immutable Result Construction
 
-**Accepted:** 2026-09-16. Resolves E04's supporting type placement and construction. Put `DataLinqSchemaValidator`, `DataLinqSchemaValidationOptions` and `DataLinqSchemaValidationResult` in `DataLinq.Validation` in the core package; put `DataLinqSchemaValidationException` in `DataLinq.Exceptions` in core. Hosting registration/startup stays in the separate hosting package. Do not introduce core dependencies on hosting, Tools, CLI configuration or source parsing.
+**Accepted:** 2026-09-16; package placement amended by the user on 2026-09-30 through [H10-1](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages). Resolves E04's supporting type placement and construction. Put `DataLinqSchemaValidator`, `DataLinqSchemaValidationOptions` and `DataLinqSchemaValidationResult` in `DataLinq.Validation` in the core package; put `DataLinqSchemaValidationException` in `DataLinq.Exceptions` in core. The earlier separate-hosting-package requirement is superseded: hosting registration/startup also belongs in `DataLinq`, organized under an extension namespace, with the required Microsoft.Extensions dependencies. Core must still avoid dependencies on ASP.NET Core, Tools, CLI configuration and source parsing. Validation behavior and W5 sequencing are unchanged.
 
 Reuse the existing shared comparer, difference and diagnostic types. Preserve Tools' public `SchemaValidationRunResult` and CLI behavior. Options are sealed, publicly parameterless-constructible and settable, then captured once before execution: `FailOnSeverity` defaults to `Error`, `TreatValidationIssuesAsFailures` to `true`, with nullable `CommandTimeout`, `Include` and `MetadataReaderLog`. AAPI-107 removes informational filtering from these options.
 

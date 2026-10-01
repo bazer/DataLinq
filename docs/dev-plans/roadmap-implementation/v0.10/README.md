@@ -120,18 +120,24 @@ Durable design source: [Dependency Injection and Hosting Integration](../../arch
 
 Required contract:
 
-- a deliberate host-integration package boundary
+- common DI/unit-of-work integration in `DataLinq`, provider registration in the existing provider packages, and W5 hosted startup validation in `DataLinq`, organized under extension namespaces as accepted in [H10-1](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages); no new DI/hosting integration packages
 - service registration for generated database models and current providers
+- shared singleton `Database<TDatabase>`, provider-owned `ReadOnlyAccess<TDatabase>`, and existing generated `TDatabase` read root under [H10-2](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-2-shared-singleton-read-services), with no per-request/per-scope read-facade construction; transactions and units of work remain explicitly created per operation
 - read access separated from explicit mutable unit-of-work ownership
-- an explicit unit-of-work factory that owns transaction begin, commit, rollback, cancellation, disposal, and terminal-state reporting
+- explicit owner-controlled transaction creation/completion/cleanup under [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work), with participant rollback requests and no mandatory extra `Begin()` step
+- native typed success/rollback results, an outcome-aware owning helper that preserves existing `CommitAsync` semantics, and generated standalone/participating service entry points over one business implementation
+- distinct result case types and typed storage prepared for later C# union integration without requiring .NET 11 or replacing ThrowAway elsewhere in W4
 - documented singleton/scoped/transient ownership for provider state, generated roots, connections, transactions, units of work, and hosted services
-- Generic Host logging integration without a hard dependency on ASP.NET Core in the first package
+- Generic Host logging integration using the required Microsoft.Extensions dependencies, without an ASP.NET Core dependency; future ASP.NET-dependent helpers require a separate package
 - deterministic shutdown and disposal behavior
 
 Acceptance summary:
 
 - an ASP.NET Core test host and a worker-style Generic Host can resolve read services and execute one explicit unit of work
+- repeated resolutions and independent scopes share the existing database/read-access/generated-root instances; child scope disposal leaves those services available
 - concurrent scopes do not share transaction state accidentally
+- explicit nested services share one transaction; mapped or ignored rollback requests cannot permit commit or outer success
+- business rejection returns only after confirmed rollback/no started work and successful cleanup; default results and inconsistent success cannot commit
 - failed commit, cancellation, rollback failure, and disposal paths preserve the existing mutable-instance trust rules
 - application shutdown disposes owned resources exactly once
 
@@ -142,6 +148,9 @@ Explicit non-goals:
 - automatic migrations at startup
 - named/keyed database registrations
 - XAML-framework-specific packages
+- savepoint/partial-child rollback, repository-wide ThrowAway replacement, and a requirement to activate native C# union support in W4
+
+**Design checkpoint, 2026-10-01:** H10-1 through H10-3 settle package placement, shared read lifetimes, and unit-of-work ownership/composition. Exact registration/options and container/external-instance ownership remain separate H10 questions. H10-3 lists bounded signature/generator follow-up before implementation API freeze; these accepted decisions do not close W4 or release W6B from depending on its final production contracts.
 
 ### V10: Startup Schema Validation
 
