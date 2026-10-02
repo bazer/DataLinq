@@ -19,6 +19,7 @@ public class GeneratorFileFactoryOptions
     public bool SeparateTablesAndViews { get; set; } = false;
     public IReadOnlyDictionary<ValueProperty, string> RuntimeValuePropertyTypeNames { get; set; } = new Dictionary<ValueProperty, string>();
     public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
+    public IReadOnlyDictionary<ValueProperty, object> ResolvedEnumDefaultValues { get; set; } = new Dictionary<ValueProperty, object>();
     public IReadOnlyCollection<string> ReadSourceConstructorModelTypeNames { get; set; } = [];
     public bool SupportsReadSourceDatabaseConstruction { get; set; }
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };
@@ -454,7 +455,13 @@ public class GeneratorFileFactory
         yield return $"{indent}[";
 
         foreach (var attribute in property.Attributes.Where(static attribute => attribute is not ScalarConverterSourceAttribute))
-            yield return $"{indent}{tab}{FormatAttribute(attribute)},";
+        {
+            var metadataAttribute = attribute;
+            if (attribute.GetType() == typeof(DefaultAttribute) &&
+                Options.ResolvedEnumDefaultValues.TryGetValue(property, out var constant))
+                metadataAttribute = new DefaultAttribute(constant, ((DefaultAttribute)attribute).CodeExpression);
+            yield return $"{indent}{tab}{FormatAttribute(metadataAttribute)},";
+        }
 
         var declaredUnresolvedProviders = new HashSet<DatabaseType>(property.Attributes
             .OfType<GuidStorageUnresolvedAttribute>()
