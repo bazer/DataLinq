@@ -338,21 +338,6 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     }
 
     [Test]
-    [MethodDataSource(nameof(SqlLiteralFormattingCases))]
-    public async Task GetDefaultValue_FormatsTypedSqlLiterals(SqlLiteralFormattingCase testCase)
-    {
-        var (_, column, _) = CreateProperty(
-            "test_col",
-            testCase.CsType,
-            [new DefaultAttribute(testCase.DefaultValue)],
-            dbTypes: testCase.DefaultValue is TimeSpan ? [new DatabaseColumnType(DataLinq.DatabaseType.MariaDB, "time", 6)] : null);
-
-        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
-
-        await Assert.That(sqlDefault).IsEqualTo(testCase.ExpectedSqlDefault);
-    }
-
-    [Test]
     public async Task GetDefaultValue_IntegerEnumsPreserveIntegralValues()
     {
         var enumProperty = new EnumProperty([], [("Inactive", 1), ("Negative", -7)], declaredInClass: false);
@@ -367,6 +352,21 @@ public class MetadataFromSqlFactoryDefaultParsingTests
                 dbTypes: [new DatabaseColumnType(provider, "bigint")]);
             await Assert.That(SqlFromMetadataFactory.GetFactoryFromDatabaseType(provider).GetDefaultValue(column)).IsEqualTo(expected);
         }
+    }
+
+    [Test]
+    [MethodDataSource(nameof(SqlLiteralFormattingCases))]
+    public async Task GetDefaultValue_FormatsTypedSqlLiterals(SqlLiteralFormattingCase testCase)
+    {
+        var (_, column, _) = CreateProperty(
+            "test_col",
+            testCase.CsType,
+            [new DefaultAttribute(testCase.DefaultValue)],
+            dbTypes: testCase.DefaultValue is TimeSpan ? [new DatabaseColumnType(DataLinq.DatabaseType.MariaDB, "time", 6)] : null);
+
+        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
+
+        await Assert.That(sqlDefault).IsEqualTo(testCase.ExpectedSqlDefault);
     }
 
     [Test]
