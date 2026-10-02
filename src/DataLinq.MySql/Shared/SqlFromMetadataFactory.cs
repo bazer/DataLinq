@@ -85,13 +85,14 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             if (!NoLengthTypes.Contains(dbType.Name.ToLower()) && dbType.Length.HasValue && dbType.Length != 0)
                 sql.TypeLength(dbType.Length, dbType.Decimals);
 
+            sql.Unsigned(string.Equals(dbType.Name, "uuid", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : dbType.Signed);
+
             var defaultValue = GetDefaultValue(column);
             if (defaultValue != null)
                 row.DefaultValue(defaultValue);
 
-            sql.Unsigned(string.Equals(dbType.Name, "uuid", StringComparison.OrdinalIgnoreCase)
-                ? null
-                : dbType.Signed);
             sql.Nullable(column.Nullable)
                 .Autoincrement(column.AutoIncrement);
 
