@@ -327,11 +327,10 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         await Assert.That(((DefaultAttribute)defaultAttr!).Value).IsTypeOf<int>();
         await Assert.That((int)((DefaultAttribute)defaultAttr).Value).IsEqualTo(2);
 
-        var (_, columnWithDefault, propertyWithDefault) = CreateEnumProperty(
-            "tier",
-            "TierValue",
-            enumProperty,
-            [(DefaultAttribute)defaultAttr]);
+        var (_, columnWithDefault, propertyWithDefault) = CreateProperty(
+            "tier", new CsTypeDeclaration("TierValue", "TestNamespace", ModelCsType.Enum),
+            [(DefaultAttribute)defaultAttr], enumProperty,
+            dbTypes: [new DatabaseColumnType(DataLinq.DatabaseType.MariaDB, "enum")]);
         await Assert.That(propertyWithDefault.GetDefaultValueCode()).IsEqualTo("TierValue.Premium");
 
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(columnWithDefault);
@@ -351,6 +350,23 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
 
         await Assert.That(sqlDefault).IsEqualTo(testCase.ExpectedSqlDefault);
+    }
+
+    [Test]
+    public async Task GetDefaultValue_IntegerEnumsPreserveIntegralValues()
+    {
+        var enumProperty = new EnumProperty([], [("Inactive", 1), ("Negative", -7)], declaredInClass: false);
+        foreach (var (value, expected) in new (object, string)[]
+        {
+            (1, "1"), (1U, "1"), (1L, "1"), (1UL, "1"), (-7, "-7")
+        })
+        foreach (var provider in new[] { DataLinq.DatabaseType.MySQL, DataLinq.DatabaseType.MariaDB })
+        {
+            var (_, column, _) = CreateProperty("status", new CsTypeDeclaration("RowStatus", "TestNamespace", ModelCsType.Enum),
+                [new DefaultAttribute(value)], enumProperty,
+                dbTypes: [new DatabaseColumnType(provider, "bigint")]);
+            await Assert.That(SqlFromMetadataFactory.GetFactoryFromDatabaseType(provider).GetDefaultValue(column)).IsEqualTo(expected);
+        }
     }
 
     [Test]

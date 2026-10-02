@@ -249,7 +249,7 @@ public abstract string Status { get; }
 public abstract AccountStatus Status { get; }
 ```
 
-For a legal enum constant, the source generator stores its resolved underlying integral value in runtime metadata and retains the C# expression separately in `CodeExpression`. Mutable initialization still uses the expression; numeric SQL columns use the integral default. This also covers enum casts and flags combinations. Changing a referenced constant updates generated metadata even when the model declaration itself is unchanged. Provider enum-by-name mappings and their supported numeric ranges still apply.
+For a legal enum constant, the source generator stores its resolved underlying integral value in runtime metadata and retains the C# expression separately in `CodeExpression`. Mutable initialization still uses the expression; integer SQL columns use the integral default. MySQL/MariaDB native `ENUM` columns retain their mapped quoted labels. This also covers enum casts and flags combinations. Changing a referenced constant updates generated metadata even when the model declaration itself is unchanged. Provider enum-by-name mappings and their supported numeric ranges still apply.
 
 ### `[DefaultGuid(...)]`
 
