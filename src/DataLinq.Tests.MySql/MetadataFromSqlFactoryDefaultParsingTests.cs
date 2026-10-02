@@ -146,6 +146,7 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(TimeSpan)), TimeSpan.FromHours(-1), "'-01:00:00'");
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(TimeSpan)), TimeSpan.FromHours(25) + TimeSpan.FromTicks(1234560), "'25:00:00.123456'");
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(DateTime)), new DateTime(2024, 1, 2, 3, 4, 5), "'2024-01-02 03:04:05'");
+        yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(DateTime)), new DateTime(2024, 1, 2, 3, 4, 5).AddTicks(1234560), "'2024-01-02 03:04:05.123456'");
     }
 
     public static IEnumerable<Func<GuidDefaultScenario>> GuidDefaultScenarios()
@@ -351,6 +352,17 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
 
         await Assert.That(sqlDefault).IsEqualTo(testCase.ExpectedSqlDefault);
+    }
+
+    [Test]
+    public async Task DateTimeDefaultsRejectSubMicrosecondSqlLiterals()
+    {
+        var (_, column, _) = CreateProperty(
+            "timestamp", new CsTypeDeclaration(typeof(DateTime)),
+            [new DefaultAttribute(new DateTime(1970, 1, 1).AddTicks(1))],
+            dbTypes: [new DatabaseColumnType(DataLinq.DatabaseType.MariaDB, "datetime", 6)]);
+        await Assert.That(() => SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB)
+            .GetDefaultValue(column)).Throws<InvalidOperationException>();
     }
 
     [Test]

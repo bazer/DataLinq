@@ -1009,6 +1009,36 @@ public class SyntaxParser
             return new DefaultAttribute(guid);
         }
 
+        if (name is "DefaultDateTime" or "DefaultDateTimeOffset" or "DefaultTimeSpan")
+        {
+            var raw = attributeSyntax.ArgumentList?.Arguments;
+            var maximum = name == "DefaultDateTime" ? 2 : 1;
+            if (raw is null || raw.Value.Count < 1 || raw.Value.Count > maximum ||
+                raw.Value[0].Expression is not LiteralExpressionSyntax { Token.Value: string text })
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' requires an invariant temporal string literal and an optional DateTimeKind for DefaultDateTime.");
+
+            var kind = DateTimeKind.Unspecified;
+            if (raw.Value.Count == 2 &&
+                (!Enum.TryParse(arguments[1].Split('.').Last(), out kind) || !Enum.IsDefined(typeof(DateTimeKind), kind)))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid DateTimeKind '{arguments[1]}'.");
+            try
+            {
+                var value = name switch
+                {
+                    "DefaultDateTime" => new DefaultDateTimeAttribute(text, kind).Value,
+                    "DefaultDateTimeOffset" => new DefaultDateTimeOffsetAttribute(text).Value,
+                    _ => new DefaultTimeSpanAttribute(text).Value
+                };
+                return new DefaultAttribute(value);
+            }
+            catch (Exception exception) when (exception is FormatException or ArgumentException)
+            {
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument,
+                    $"Invalid '{name}' value: {exception.Message}");
+            }
+        }
+
         if (name == "DefaultSql")
         {
             if (arguments.Count != 2)

@@ -189,7 +189,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             "decimal" => Convert.ToDecimal(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
             "DateOnly" => QuoteSqlString(((DateOnly)defaultAttr.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
             "TimeOnly" => QuoteSqlString(((TimeOnly)defaultAttr.Value).ToString("HH:mm:ss", CultureInfo.InvariantCulture)),
-            "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
+            "DateTime" => QuoteSqlString(FormatDateTimeDefaultValue((DateTime)defaultAttr.Value)),
             "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
             "TimeSpan" => QuoteSqlString(FormatTimeSpanDefaultValue((TimeSpan)defaultAttr.Value)),
             _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
@@ -232,6 +232,13 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         var microseconds = (remainder % TimeSpan.TicksPerSecond) / 10;
         var fraction = microseconds == 0 ? "" : "." + microseconds.ToString("D6", CultureInfo.InvariantCulture).TrimEnd('0');
         return FormattableString.Invariant($"{(value.Ticks < 0 ? "-" : "")}{hours:D2}:{minutes:D2}:{seconds:D2}{fraction}");
+    }
+
+    private static string FormatDateTimeDefaultValue(DateTime value)
+    {
+        if (value.Ticks % 10 != 0)
+            throw new InvalidOperationException("MySQL/MariaDB DATETIME defaults cannot represent fractions smaller than one microsecond.");
+        return value.ToString("yyyy-MM-dd HH:mm:ss.FFFFFF", CultureInfo.InvariantCulture);
     }
 
     private static string FormatBooleanDefaultValue(object value, DatabaseColumnType dbType)
