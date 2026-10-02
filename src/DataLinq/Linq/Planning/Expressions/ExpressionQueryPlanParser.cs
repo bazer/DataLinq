@@ -620,15 +620,16 @@ internal sealed class ExpressionQueryPlanParser
     private ParsedQuery ParseJoin(MethodCallExpression methodCall)
     {
         EnsureArgumentCount(methodCall, 5);
-        var parsedOuter = ParseSequence(methodCall.Arguments[0]);
-        if (operations.Count != 0)
+        var outerSource = ParseFilteredJoinSource(methodCall.Arguments[0], QueryPlanSourceKind.RootTable, "outer");
+        var parsedOuter = new ParsedQuery(outerSource, outerSource.ElementType);
+        var innerSource = ParseFilteredJoinSource(methodCall.Arguments[1], QueryPlanSourceKind.ExplicitJoin, "inner");
+        if (operations.Any(static operation => operation is not QueryPlanOperation.Where))
         {
             throw new QueryTranslationException(
-                $"Join queries currently support only direct source Join calls. Filtering, ordering, and additional operators over joins are not supported yet. Expression: {methodCall}");
+                $"Join input filters must not introduce additional joins or sequence operators. Expression: {methodCall}");
         }
-
-        if (!TryParseRootSource(methodCall.Arguments[1], QueryPlanSourceKind.ExplicitJoin, out var innerSource))
-            throw new QueryTranslationException($"Join inner sequence '{methodCall.Arguments[1]}' is not supported. Only direct DataLinq query sources are supported.");
+        var inputFilters = operations.ToArray();
+        operations.Clear();
 
         var outerKeySelector = UnwrapLambda(methodCall.Arguments[2], methodCall.ToString());
         var innerKeySelector = UnwrapLambda(methodCall.Arguments[3], methodCall.ToString());
@@ -646,6 +647,9 @@ internal sealed class ExpressionQueryPlanParser
         }));
 
         operations.Add(new QueryPlanOperation.Join(join));
+        // Inner joins preserve both input filters as conjunctive SQL predicates.
+        // Apply them after registering the join so both aliases are available.
+        operations.AddRange(inputFilters);
 
         QueryPlanProjection projection = null!;
         WithSource(resultSelector.Parameters[0], parsedOuter.RootSource, () =>
@@ -653,6 +657,28 @@ internal sealed class ExpressionQueryPlanParser
             projection = CreateProjection(resultSelector.Body, resultSelector.ReturnType)));
 
         return parsedOuter with { ElementType = resultSelector.ReturnType, Projection = projection };
+    }
+
+    private QueryPlanSourceSlot ParseFilteredJoinSource(Expression expression, QueryPlanSourceKind kind, string side)
+    {
+        expression = UnwrapConvert(expression);
+        if (TryParseRootSource(expression, kind, out var source))
+            return source;
+
+        if (expression is MethodCallExpression methodCall && IsQueryableMethod(methodCall) &&
+            methodCall.Method.Name == nameof(Queryable.Where) && methodCall.Arguments.Count == 2)
+        {
+            source = ParseFilteredJoinSource(methodCall.Arguments[0], kind, side);
+            var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+            if (predicate.Parameters.Count != 1)
+                throw new QueryTranslationException($"Join {side} input does not support indexed Where predicates.");
+            WithSource(predicate.Parameters[0], source, () =>
+                operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+            return source;
+        }
+
+        throw new QueryTranslationException(
+            $"Join {side} sequence '{expression}' is not supported. Only direct DataLinq query sources with optional Where filters are supported before Join; ordering, paging, projections, grouping, and chained joins are not supported.");
     }
 
     private ParsedQuery ParseScalar(MethodCallExpression methodCall, QueryPlanResultKind resultKind, Type resultType)

@@ -251,6 +251,7 @@ The test suite covers one narrow explicit inner join shape, both as fluent `Join
 
 - one outer DataLinq query source
 - one inner DataLinq query source
+- zero or more supported `Where(...)` filters on either or both input sources; these remain parameterized SQL predicates
 - direct member equality keys such as `outer.DepartmentId` and `inner.Id`
 - nullable `.Value` key selectors such as `employee.emp_no.Value`
 - a result selector that projects direct source-slot values from both sides
@@ -312,6 +313,7 @@ These join shapes are not supported yet:
 - left/outer join patterns such as `DefaultIfEmpty()`
 - composite anonymous-object join keys
 - multiple chained joins
+- ordering, paging, projections, or grouping on either input before the join (input composition is limited to `Where(...)`)
 - query-syntax transparent identifiers that project whole source entities or cannot bind back to source-slot values
 - scalar aggregates over joined rows other than `Any()` and `Count()`
 - relation-property joins, relation object projection, or collection relation projection inside the result selector
