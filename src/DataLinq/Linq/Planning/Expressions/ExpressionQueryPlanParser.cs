@@ -2404,6 +2404,14 @@ internal sealed class ExpressionQueryPlanParser
             return true;
         }
 
+        // A directly forwarded projection member retains its source-slot identity.
+        // Computed projections must still use the general value translator.
+        if (TryGetProjectedValue(expression, out var projected) && projected is QueryPlanColumnValue projectedColumn)
+        {
+            value = projectedColumn;
+            return true;
+        }
+
         value = null!;
         return false;
     }
