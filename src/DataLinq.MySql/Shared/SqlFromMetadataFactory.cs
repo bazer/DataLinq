@@ -9,6 +9,7 @@ using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.MySql;
 
@@ -50,7 +51,14 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         var sql = new MySqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n", NoBackslashEscapes);
         //sql.CreateDatabase(metadata.DbName);
 
-        foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
+        if (!sql.TrySortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table)
+            .Select(x => x.Table).ToList()).TryUnwrap(out var tables, out var failure))
+            return DLOptionFailure.Fail(failure.FailureType,
+                $"{DatabaseType}: {failure.Message} Create the tables before adding their cyclic foreign key constraints.", metadata);
+        if (!sql.TrySortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View)
+            .Select(x => x.Table).Cast<ViewDefinition>().ToList()).TryUnwrap(out var views, out failure))
+            return failure;
+        foreach (var table in tables)
         {
             var tableComment = GetComment(table.Model.Attributes);
             sql.CreateTable(table.DbName, x =>
@@ -59,7 +67,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             }, tableComment == null ? null : $"COMMENT={QuoteSqlString(tableComment)}");
         }
 
-        foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewDefinition>().ToList()))
+        foreach (var view in views)
         {
             sql.CreateView(view.DbName, view.Definition ?? string.Empty);
         }
