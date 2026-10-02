@@ -53,6 +53,7 @@ internal sealed class DatabaseEmissionInput
         }
 
         Add(database.Name);
+        Add(database.UseCache.ToString());
         AddType(database.CsType);
         Add(databaseOptions.UseNullableReferenceTypes.ToString());
         Add(databaseOptions.SupportsReadSourceDatabaseConstruction.ToString());
@@ -94,6 +95,7 @@ internal sealed class DatabaseEmissionInput
         foreach (var table in database.TableModels)
         {
             Add(table.Table.DbName); AddType(table.Model.CsType); Add(table.IsStub.ToString());
+            Add(table.Table.explicitUseCache?.ToString());
             foreach (var item in table.Model.Usings)
                 Add(item.FullNamespaceName);
             Add("/model-usings");

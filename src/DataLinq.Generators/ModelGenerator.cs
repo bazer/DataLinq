@@ -156,8 +156,17 @@ public sealed class ModelGenerator : IIncrementalGenerator
 
         try
         {
+            // Semantic facts can change in another partial file while the parsed
+            // declaration stays cached. Resolve them on a mutable snapshot copy.
+            var semanticMetadata = MetadataDefinitionSnapshot.Copy(db.Value);
+            var cacheFailure = CacheAttributeMetadataResolver.Apply(semanticMetadata, compilation, cancellationToken);
+            if (cacheFailure is not null)
+            {
+                ReportFailureDiagnostics(cacheFailure, compilation, diagnostics.Add);
+                return new PreparedDatabaseInput(null, diagnostics);
+            }
             var scalarMetadataResult = ScalarConverterMetadataResolver.Resolve(
-                db.Value,
+                semanticMetadata,
                 compilation,
                 cancellationToken);
             if (!scalarMetadataResult.TryUnwrap(out var database, out var scalarMetadataFailure))
@@ -165,6 +174,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 ReportFailureDiagnostics(scalarMetadataFailure, compilation, diagnostics.Add);
                 return new PreparedDatabaseInput(null, diagnostics);
             }
+            database.Freeze();
 
             var validationContext = new GeneratorValidationContext();
             foreach (var validator in validators)
