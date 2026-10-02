@@ -170,6 +170,8 @@ public sealed class ModelGenerator : IIncrementalGenerator
             foreach (var validator in validators)
                 validator.Validate(database, compilation, cancellationToken, diagnostics.Add, validationContext);
 
+            var resolvedEnumDefaultValues = ResolveEnumDefaultValues(database, compilation,
+                cancellationToken, validationContext.SuppressedDefaultValueProperties);
             var runtimeValuePropertyTypeNames = ResolveRuntimeValuePropertyTypeNames(
                 database,
                 compilation,
@@ -189,6 +191,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 UseNullableReferenceTypes = nullableReferenceTypes,
                 RuntimeValuePropertyTypeNames = runtimeValuePropertyTypeNames,
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
+                ResolvedEnumDefaultValues = resolvedEnumDefaultValues,
                 ReadSourceConstructorModelTypeNames = readSourceConstructorModelTypeNames,
                 SupportsReadSourceDatabaseConstruction = supportsReadSourceDatabaseConstruction,
             };
@@ -212,6 +215,35 @@ public sealed class ModelGenerator : IIncrementalGenerator
         DatabaseDefinition database,
         GeneratorFileFactoryOptions fileFactoryOptions)
         => EmitGeneratedSources(database, _ => fileFactoryOptions, () => fileFactoryOptions);
+
+    private static IReadOnlyDictionary<ValueProperty, object> ResolveEnumDefaultValues(
+        DatabaseDefinition database, Compilation compilation,
+        System.Threading.CancellationToken cancellationToken,
+        IReadOnlyCollection<ValueProperty> suppressedDefaults)
+    {
+        var values = new Dictionary<ValueProperty, object>();
+        foreach (var property in database.TableModels.SelectMany(table => table.Model.ValueProperties.Values))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(property.GetDefaultAttribute()?.CodeExpression) ||
+                suppressedDefaults.Contains(property) ||
+                !SourceModelSyntaxResolver.TryGetDefaultExpressionContext(property, compilation, cancellationToken, out var context))
+                continue;
+
+            var type = context.PropertyType;
+            if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
+                type = nullable.TypeArguments[0];
+            if (type.TypeKind != TypeKind.Enum)
+                continue;
+
+            // Roslyn returns the enum's underlying integral constant. Keep the source
+            // expression separately for mutable initialization; it is not a metadata value.
+            var constant = context.SemanticModel.GetConstantValue(context.ExpressionSyntax, cancellationToken);
+            if (constant.HasValue && constant.Value is sbyte or byte or short or ushort or int or uint or long or ulong)
+                values[property] = constant.Value;
+        }
+        return values;
+    }
 
     private static IReadOnlyDictionary<ValueProperty, string> ResolveRuntimeValuePropertyTypeNames(
         DatabaseDefinition database,

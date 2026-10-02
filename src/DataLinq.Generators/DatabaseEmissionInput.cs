@@ -106,6 +106,12 @@ internal sealed class DatabaseEmissionInput
                 Add(property.PropertyName);
                 Add(options.RuntimeValuePropertyTypeNames.TryGetValue(property, out var typeName) ? typeName : null);
                 Add(options.SuppressedDefaultValueProperties.Contains(property).ToString());
+                if (options.ResolvedEnumDefaultValues.TryGetValue(property, out var defaultConstant))
+                {
+                    Add(defaultConstant.GetType().FullName);
+                    Add(Convert.ToString(defaultConstant, System.Globalization.CultureInfo.InvariantCulture));
+                }
+                Add("/resolved-enum-default");
                 var mapping = property.Column.ScalarMapping;
                 AddType(mapping.ModelCsType); AddType(mapping.ProviderCsType);
                 Add(mapping.HasConverter.ToString());
