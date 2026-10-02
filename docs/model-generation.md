@@ -64,6 +64,14 @@ That file should live outside `ModelDirectory` if you want regeneration to leave
 
 `datalinq generate models` reads existing model files from `ModelDirectory` before writing refreshed files. That is how supported class names, property names, relation names, and C# property types are preserved.
 
+Regeneration supports separately named foreign keys that connect the same columns,
+including composite keys. It matches constraint names first and preserves each
+navigation property's C# name. A single remaining source/database pair can still
+match after a constraint rename. If several overlapping constraints cannot be
+matched unambiguously, generation returns a diagnostic before writing files.
+Align the `[ForeignKey]` and `[Relation]` constraint names in the existing models
+with the database to resolve that ambiguity.
+
 Use `--fresh` when you intentionally want to ignore the existing model files and recreate the model surface from database metadata and `datalinq.json`.
 
 `--fresh` is destructive to supported C# surface edits because those edits are learned from the existing model files.
