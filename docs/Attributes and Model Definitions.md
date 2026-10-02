@@ -146,6 +146,8 @@ Example:
 public abstract Guid UserId { get; }
 ```
 
+The source generator resolves valid C# constant arguments, including local constants, qualified constants from another class or referenced assembly, and constant expressions. For example, `[Type(DatabaseType.MariaDB, "varchar", ColumnLimits.MaxReferenceLength)]` uses the value of `public const int MaxReferenceLength = 1000;` as the column length. Named constructor arguments follow the same rules. This does not change the database provider's limits on valid column types or lengths.
+
 ### `[ScalarConverter(typeof(...))]`
 
 Maps a model-facing property type to one canonical provider CLR scalar. This is the normal way to expose typed IDs without teaching SQL providers, row caches, or query bindings about the wrapper type.

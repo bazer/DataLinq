@@ -76,7 +76,11 @@ internal sealed class DatabaseEmissionInput
         foreach (var declaration in declarations)
         {
             if (dependencies.Contains((declaration.Snapshot.Namespace, declaration.Snapshot.Name)))
+            {
                 AddSnapshot(declaration.Snapshot);
+                foreach (var value in declaration.TypeAttributeSignature)
+                    Add(value);
+            }
         }
         CanReuse = dependencies.All(dependency => declarations.Any(declaration =>
             declaration.Snapshot.Namespace == dependency.Namespace && declaration.Snapshot.Name == dependency.Name));

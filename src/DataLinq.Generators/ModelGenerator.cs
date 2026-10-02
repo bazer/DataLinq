@@ -42,7 +42,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
         IncrementalValuesProvider<ModelDeclarationInput> modelDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (node, _) => IsModelDeclaration(node),
-                transform: static (syntaxContext, _) => GetModelDeclaration(syntaxContext))
+                transform: static (syntaxContext, cancellationToken) => GetModelDeclaration(syntaxContext, cancellationToken))
             .WithComparer(ModelDeclarationInputComparer.Instance)
             .WithTrackingName(ModelGeneratorTrackingNames.ModelDeclarations);
 
@@ -115,8 +115,8 @@ public sealed class ModelGenerator : IIncrementalGenerator
                classDeclaration.BaseList?.Types.Any(t => SyntaxParser.IsModelInterface(t.Type)) == true;
     }
 
-    private static ModelDeclarationInput GetModelDeclaration(GeneratorSyntaxContext context) =>
-        ModelDeclarationInput.Create((TypeDeclarationSyntax)context.Node);
+    private static ModelDeclarationInput GetModelDeclaration(GeneratorSyntaxContext context, System.Threading.CancellationToken cancellationToken) =>
+        ModelDeclarationInput.Create((TypeDeclarationSyntax)context.Node, context.SemanticModel, cancellationToken);
 
     private static EnumDeclarationInput GetEnumDeclaration(GeneratorSyntaxContext context) =>
         EnumDeclarationInput.Create((EnumDeclarationSyntax)context.Node);
@@ -133,7 +133,12 @@ public sealed class ModelGenerator : IIncrementalGenerator
 
             var syntaxTrees = declarations.Select(static declaration => declaration.Syntax).ToImmutableArray();
             var enumSyntaxTrees = enumDeclarations.Select(static declaration => declaration.Syntax).ToImmutableArray();
-            var metadataFactory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+            var typeAttributes = declarations.SelectMany(static declaration => declaration.TypeAttributes)
+                .ToDictionary(static item => item.Key, static item => item.Value);
+            var metadataFactory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions
+            {
+                TypeAttributeResolver = attribute => typeAttributes.TryGetValue(attribute, out var value) ? value : null
+            });
             return metadataFactory.ReadSyntaxTrees(syntaxTrees, enumSyntaxTrees).ToImmutableArray();
         }
         catch (Exception e)
