@@ -26,6 +26,7 @@ public class MetadataFromInterfacesFactoryOptions
     public Encoding FileEncoding { get; set; } = new UTF8Encoding(false);
     public bool RemoveInterfacePrefix { get; set; } = true;
     public bool AllowMissingTableModels { get; set; }
+    public Func<AttributeSyntax, TypeAttribute?>? TypeAttributeResolver { get; set; }
 }
 
 public class MetadataFromModelsFactory
@@ -43,7 +44,10 @@ public class MetadataFromModelsFactory
         ImmutableArray<TypeDeclarationSyntax> modelSyntaxes,
         ImmutableArray<EnumDeclarationSyntax> enumSyntaxes = default) => DLOptionFailure.CatchAll(() =>
     {
-        var syntaxParser = new SyntaxParser(modelSyntaxes, enumSyntaxes);
+        var syntaxParser = new SyntaxParser(modelSyntaxes, enumSyntaxes)
+        {
+            TypeAttributeResolver = options.TypeAttributeResolver
+        };
 
         // Identify classes implementing the interfaces of interest
         var dbModelClasses = modelSyntaxes
