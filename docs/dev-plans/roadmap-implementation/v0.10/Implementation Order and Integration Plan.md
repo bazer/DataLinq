@@ -96,6 +96,8 @@ Provider differences may be explicit, but they cannot become silent semantic dri
 
 ### D10-3: Host Lifetime And Unit-Of-Work Ownership
 
+**Design progress, 2026-10-01:** [H10-1 through H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) settle existing-package placement, shared singleton read infrastructure, and explicit composable operation ownership. Participant rollback requests, native results, and generated service entry points reuse managed transaction completion. Exact registration/host-disposal mechanics and the bounded signature review remain open; this is not implementation evidence.
+
 Define:
 
 - the reusable provider/database state lifetime
@@ -118,7 +120,7 @@ Define one structured validation result and explicit policies for:
 
 The host adapter consumes this result; it does not invent a second schema comparison model. AAPI-64 through AAPI-67 settle async validation/probe contracts, configuration capture, operational failure versus schema differences, effective database identity, and fresh complete metadata without hidden creation/repair. Propagate startup cancellation, keep command timeout separate from a whole-operation token, and preserve provider/SQLite resource ownership.
 
-AAPI-106 through AAPI-109 fix runtime types in core and hosting separately, immutable result snapshots retaining Info, independent threshold/issue policy, comparison-scoped Include and empty-schema behavior, and null/default, zero/unlimited, rounded positive command timeouts capped at 2,147,483 seconds. The adapter must not discard structured differences to filter logs, fabricate empty schemas from reader failures or silently ignore timeout settings.
+AAPI-106 through AAPI-109, with the [H10-1 package-placement amendment](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages), fix runtime types and hosting integration in core with separate namespaces/responsibilities, immutable result snapshots retaining Info, independent threshold/issue policy, comparison-scoped Include and empty-schema behavior, and null/default, zero/unlimited, rounded positive command timeouts capped at 2,147,483 seconds. The adapter must not discard structured differences to filter logs, fabricate empty schemas from reader failures or silently ignore timeout settings.
 
 ### D10-5: Testing Fidelity Boundary
 
@@ -274,11 +276,21 @@ Exit gate:
 
 ### W4: DI, Hosting, And Unit Of Work
 
+**Design checkpoint, 2026-10-05:** [H10-1](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages) through [H10-10](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-10-existing-instance-ownership-handoff) cover the broad W4 design: existing-package integration, singleton read infrastructure, explicit composable units of work and native results, same-model keyed registrations, ownership/shutdown, nullable/no-value results, generated services, session/owner/factory contracts, typed registration/options precedence, and explicit existing-instance ownership handoff. H10-9 narrows factories to always-container-owned results; borrowed databases use instance registration. H10-10 settles explicit transfer on successful first activation: application ownership before handoff, including never-resolved registrations and activation failure, and container ownership afterward. No further broad architecture discussion is required before preparing implementation. Public overload/annotation/spelling work and activation/disposal, generator, runtime, and dependency evidence remain implementation gates. Basic keyed registration and service generation/result handling belong to W4; live reconfiguration, distributed transactions, native C# union activation, and broader ThrowAway replacement remain outside the slice. This does not start implementation or close W4.
+
 Required work:
 
-- establish the host-integration package boundary and dependency graph
-- implement generated-database/provider registration
+- implement H10-1's existing-package integration boundary and verify the required Microsoft.Extensions dependency graph
+- implement generated-database/provider registration with H10-2 singleton identity and no per-scope read-root construction
+- implement H10-4's model/key registration identity, same-model multi-provider/multi-server selection, coherent keyed services, explicit default aliases, and duplicate/missing-target diagnostics
+- capture and validate configuration on first resolution without provider creation during registration/container construction or live reconfiguration afterward; preserve programmatic registration without required logging/configuration services
+- implement H10-9's typed per-registration options, defaults/binding/code precedence, ordered code callbacks, explicit literal/name connection-source replacement, and ambiguity diagnostics
 - expose read access and explicit unit-of-work factory contracts
+- apply [H10-8](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-8-session-owner-and-factory-contracts), accepted 2026-10-05: separate participant contract, owner inheritance on the existing transaction where practical, synchronous logical creation and owned execution helpers, session-aware model helpers, and distinct business/operational diagnostics
+- implement H10-3's shared transaction veto, native result protocol, and generated owner/participant entry points through shared runtime lifecycle helpers, preserving existing `CommitAsync` behavior
+- apply [H10-6](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-6-nullable-and-no-value-results), accepted 2026-10-05, to nullable/no-value successes, non-null rollback reasons, and invalid-default inspection, keeping the result API limited to the transaction contract
+- implement [H10-7](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-7-generated-service-authoring-and-wiring), accepted 2026-10-05: explicit constructor factory, private business body, matching sync/async wrappers, keyed/default service activation, and explicit application-service lifetimes; participants use the supplied session's database/provider identity
+- implement H10-5/H10-9's always-owned factories and borrowed instances by default, with H10-10 explicit transfer on successful first activation; preserve application ownership until handoff and one container owner across aliases afterward, retaining existing synchronous/asynchronous root cleanup contracts
 - integrate logging and options validation
 - test scopes, concurrent requests, nested service participation, cancellation, terminal failures, and shutdown
 - document ownership without implying EF `DbContext` semantics
@@ -286,8 +298,17 @@ Required work:
 Exit gate:
 
 - ASP.NET Core and Generic Host consumer fixtures resolve and dispose services correctly
+- keyed and default resolutions share the intended registration's existing service graph, with separate caches/settings across registrations and one disposal owner per graph
+- constructed/factory-created databases are container-owned; supplied instances remain application-owned unless explicitly transferred; shutdown evidence covers operation-before-root ordering and preserved cleanup failures
+- constructor injection and dynamic lookup distinguish same-model provider/server targets; settings remain fixed after first resolution, with duplicate/missing-target failures and no implicit default selection
+- bound provider settings and explicit overrides obey H10-9 precedence and remain isolated by registration; explicit connection-source replacement removes the bound alternative, effective ambiguity fails, and supplied instances retain their existing settings
+- H10-10 instance transfer occurs on successful first activation; never-resolved shutdown and failure before handoff leave application ownership intact, later failure leaves container ownership intact, and factories expose no borrowed-result mode
 - transaction state cannot leak across scopes
 - unit-of-work failure semantics match the existing SQL mutable lifecycle
+- full H10-8 interface and generated helper binding preserves transaction return values/constraints and borrowed rights; typed original rollback reasons and existing post-cleanup failure snapshots remain available
+- generated and handwritten nested services preserve rollback requests, map typed failures, reject invalid/default or inconsistent results, and deliver normal results only after successful owner completion/cleanup
+- generated and handwritten nullable/no-value operations preserve their success cases; `TryUnwrap` accepts null successes, reports valid rollback cases, and throws for an uninitialized result; null rollback reasons are rejected
+- primary/traditional-constructor generated services support direct construction and all three chosen lifetimes; keyed/default activation preserves identity, tokens are forwarded, participating wrappers record rollback cases, and invalid authoring shapes produce compiler diagnostics
 
 ### W5: Startup Schema Validation
 
@@ -298,6 +319,7 @@ Required work:
 - propagate cancellation and timeout through provider metadata reads
 - redact secrets and preserve actionable differences
 - test multiple targets, deterministic ordering, partial failures, and host-startup behavior
+- retain H10-4's model/key target identity and reuse existing registrations without duplicate provider construction or validation through default aliases
 
 Exit gate:
 
@@ -386,7 +408,7 @@ Exit gate: all requirements in the [release evidence plan](Release%20Evidence%20
 
 - W7 can run beside W1-W6 after W0.
 - W6A can begin after W1 while provider work continues, but it cannot invent a second query engine.
-- H10 package scaffolding may begin during W3, but public lifetimes cannot freeze until W3 contracts are stable.
+- H10 integration scaffolding may begin during W3, but public lifetimes cannot freeze until W3 contracts are stable; H10-1 places it in existing packages.
 - Release tooling can add new suite/package registrations incrementally, but final evidence waits for W8/W9.
 - Documentation plans and examples may be drafted early; shipped-behavior wording waits for W9.
 

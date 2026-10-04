@@ -6,6 +6,10 @@
 
 **Current owner:** [Dependency Injection and Hosting Integration](Dependency%20Injection%20and%20Hosting%20Integration.md). The newer plan keeps explicit unit-of-work and singleton database-root ideas while deferring the ambient `AsyncLocal` session model proposed here.
 
+**Read-lifetime amendment, 2026-10-01:** [H10-2](Dependency%20Injection%20and%20Hosting%20Integration.md#h10-2-shared-singleton-read-services) also supersedes this draft's scoped read-access registration. The accepted design exposes the existing database, read access, and generated read root as shared singletons; the older scoped/ambient examples below remain historical proposals.
+
+**Unit-of-work amendment, 2026-10-01:** [H10-3](Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) supersedes participant-controlled physical rollback and fixed owner/participant service roles. Participants request rollback on an explicitly shared session; the owner completes it. Native typed results and generated owning/participating entry points allow one service implementation to serve either role. The examples below do not define the accepted W4 API.
+
 #### **1. Introduction & Guiding Philosophy**
 
 DataLinq's core strength lies in its opinionated design: immutability, high-performance reads via an aggressive cache, and explicit, transactional writes. To date, the focus has been on the core ORM mechanics. This document outlines a vision for how to best integrate DataLinq into modern application architectures, ensuring that the patterns we promote are a natural extension of its core philosophy.
