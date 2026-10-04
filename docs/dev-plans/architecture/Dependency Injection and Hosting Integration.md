@@ -4,8 +4,8 @@
 # Specification: Dependency Injection and Hosting Integration
 
 **Status:** Accepted.
-**Release horizon:** DataLinq 0.10 for unnamed registration, explicit unit of work, and startup-host integration; broader host variants remain later work.
-**Last reviewed:** 2026-10-01 (H10-1 package placement, H10-2 singleton read services, and H10-3 explicit composable units of work; remaining registration/ownership questions stay open).
+**Release horizon:** DataLinq 0.10 for unnamed and keyed registration, explicit unit of work, and startup-host integration; broader host variants remain later work.
+**Last reviewed:** 2026-10-04 (H10-4 registration/configuration and keyed database instances, following H10-1 package placement, H10-2 singleton reads, and H10-3 composable units of work; ownership mechanics and bounded API details remain open).
 **Dependency:** The shipped 0.9 backend/source boundary and the 0.10 async contracts must be stable before host integration freezes public service abstractions.
 **Goal:** Make DataLinq straightforward to configure, validate, and consume from ASP.NET Core, generic host, background workers, Blazor, MAUI, Avalonia, and other .NET application surfaces without hiding database I/O or transaction boundaries.
 
@@ -131,6 +131,21 @@ Registration/startup adapters consume the application's services without requiri
 
 ## Public API Shape
 
+### H10-4: Registration, Configuration, And Keyed Instances
+
+**Accepted:** 2026-10-04. Provider selection stays explicit in application code. Registration records a construction recipe; the first resolution captures and validates settings and constructs the singleton database. Both unnamed and keyed registrations belong in W4. This supersedes the earlier unnamed-only scope, configuration-driven provider selection, and container-build-time construction wording. The examples below express the accepted API direction; exact overloads and option types still require API review and implementation evidence.
+
+Each registration is identified by the generated database model type and an optional service key. The provider and connection settings belong to that registration; they are not its lookup identity. Support different providers for one model and multiple instances of the same provider with different connection strings. Apply the same key to the database, existing read services, and unit-of-work factory, as detailed under [Multiple Databases and Names](#multiple-databases-and-names).
+
+#### Configuration And Construction Rules
+
+- Select the provider through `UseMySql`, `UseMariaDb`, or `UseSQLite` in code. Configuration supplies connection strings and typed provider/execution/validation settings; it does not select a provider through a `"Provider"` string or load provider plugins.
+- Support direct connection strings and names resolved from the application's `IConfiguration`, alongside typed provider options/binding. A literal connection string does not require an `IConfiguration` service. Report missing required configuration clearly without exposing connection secrets.
+- Registration records the recipe without constructing a provider or accessing a database. Reject structural registration conflicts before provider construction. At first resolution of any service in a registration, resolve its required configuration, validate and capture settings, and construct one shared database/provider/read-service graph. Building the container alone is not a promise of eager construction or configuration validation.
+- Opt-in W5 startup validation resolves its selected registrations during startup, bringing configuration/construction failures forward. Ordinary first resolution can still perform existing synchronous constructor work: [MariaDB version detection](../../../src/DataLinq.MySql/MariaDB/MariaDBProvider.cs) and [SQLite setup/keep-alive acquisition](../../../src/DataLinq.SQLite/SQLiteProvider.cs) are not converted to async or made I/O-free by DI.
+- Capture immutable effective settings for each constructed registration, including the accepted execution options. Do not mutate or recreate live databases, caches, or factories when configuration reloads. `IOptionsMonitor` does not imply live DataLinq reconfiguration; adopting new settings requires a new explicitly owned database/container lifetime. Externally supplied instances retain their existing settings.
+- Use the host's `ILoggerFactory` when available and retain the existing no-op logging behavior when it is absent. Neither a full host nor logging/configuration services are mandatory for programmatic registration.
+
 ### Basic ASP.NET Core / Generic Host
 
 Recommended shape:
@@ -138,7 +153,7 @@ Recommended shape:
 ```csharp
 builder.Services.AddDataLinq<EmployeesDb>(db =>
 {
-    db.UseMySql(builder.Configuration.GetConnectionString("employees")!);
+    db.UseMySqlConnectionString("employees");
     db.ValidateSchemaOnStartup(validation =>
     {
         validation.FailOnSeverity = SchemaDifferenceSeverity.Error;
@@ -155,7 +170,7 @@ builder.Services
     .ValidateSchemaOnStartup();
 ```
 
-The fluent form should resolve the named connection string from `IConfiguration` when the service provider is built. It should not read secrets at source-generation time.
+The fluent form resolves the named connection string from `IConfiguration` when this registration is first resolved, under H10-4. Direct configuration uses `UseMySql(connectionString)` instead. Neither form reads secrets at source-generation time or introduces a hidden transaction.
 
 ### Options Binding
 
@@ -174,7 +189,6 @@ Possible configuration shape:
 {
   "DataLinq": {
     "Employees": {
-      "Provider": "MySql",
       "ConnectionStringName": "employees",
       "ValidateOnStartup": true,
       "Validation": {
@@ -186,7 +200,7 @@ Possible configuration shape:
 }
 ```
 
-Provider selection from configuration is useful, but it must not become an unbounded plugin loader. The application should still reference the provider package and call the provider registration extension so the supported provider set is explicit.
+The `UseMySql()` call selects the provider. Binding configures that selected provider and the associated validation policy; it cannot change provider type or registration key. Capture effective options at construction under H10-4, without a live reload subscription. Exact binding overloads, option types, and conflicting-setting diagnostics remain API-review details.
 
 ### Minimal API Read Usage
 
@@ -368,12 +382,12 @@ The [2026-09-08 .NET 11 RC1 announcement](https://devblogs.microsoft.com/dotnet/
 This decision closes the ownership/composition question; it does not freeze a complete signature manifest. Before implementation API freeze:
 
 - finalize public names/namespaces, the session/owner/factory mutation and completion inventories, and exception/diagnostic access using existing runtime conventions;
-- specify generator method naming, constructor/factory acquisition, supported sync/async shapes, and diagnostics without changing the one-body/two-entry-point contract;
+- specify generator method naming, constructor/factory acquisition (including H10-4's selected registration key), supported sync/async shapes, and diagnostics without changing the one-body/two-entry-point contract;
 - complete the result surface for nullable payloads, operations with no value, explicit construction/inspection, and unusual generic conversions, preserving distinct cases and invalid-default rejection;
 - prove generated and handwritten composition with consumer-shaped tests, including same-type/string payloads, failure mapping, ignored vetoes, post-veto execution rejection, borrowed completion, cancellation, cleanup errors, and no callback replay;
 - retain separate follow-up for native union compilation/compatibility and for a possible repository-wide ThrowAway replacement.
 
-Exact mechanics may be settled during API review; they must not silently change these accepted semantics. Configuration/registration APIs and container/external-instance disposal ownership remain other H10 questions. W6B fakes consume the final W4 signatures and these behaviors rather than inventing a competing lifecycle.
+Exact mechanics may be settled during API review; they must not silently change these accepted semantics. H10-4 settles registration/configuration behavior; exact overloads and container/external-instance disposal mechanics remain for review. W6B fakes consume the final W4 signatures and these behaviors rather than inventing a competing lifecycle.
 
 ## Service Lifetimes
 
@@ -389,7 +403,7 @@ Expose `ReadOnlyAccess<TDatabase>` directly as well as the generated `TDatabase`
 
 **Owner/gate:** H10/W4. Verify reference identity across repeated resolutions and independent scopes, identity with the provider's read access and `Database.Query()`, no repeated read-root construction per scope, direct consumption by singleton workers, concurrent independent reads and cancellation/failure isolation, and correct scope/host disposal. This is an accepted integration design, not evidence that DI registration is implemented.
 
-Default registrations:
+Services exposed by each registration (unnamed or keyed under H10-4):
 
 | Service | Lifetime | Reason |
 | --- | --- | --- |
@@ -411,10 +425,11 @@ It would imply that every HTTP request, background job scope, or UI operation ge
 
 ## Multiple Databases and Names
 
-DataLinq needs two separate concepts:
+Under H10-4, W4 supports:
 
 - multiple model types, such as `EmployeesDb` and `SalesDb`
-- multiple registrations of the same model type, such as primary and reporting databases
+- multiple providers for the same model type, such as MySQL and SQLite in one test container
+- multiple instances of the same model/provider with different connection strings, such as primary and reporting servers
 
 Different model types are straightforward:
 
@@ -423,34 +438,79 @@ builder.Services.AddDataLinq<EmployeesDb>(db => db.UseMySql("..."));
 builder.Services.AddDataLinq<SalesDb>(db => db.UseSQLite("..."));
 ```
 
-Multiple registrations of the same model type need naming or keyed services:
+Use ordinary .NET service keys, including strings/constants and enum values. A key describes the application role or test target, independently of provider type and the configuration connection-string name. Do not use connection secrets as service keys. For example:
 
 ```csharp
-builder.Services.AddDataLinq<EmployeesDb>("primary", db => db.UseMySql("..."));
-builder.Services.AddDataLinq<EmployeesDb>("reporting", db => db.UseMySql("..."));
+public enum ShopConnection
+{
+    Primary,
+    Reporting,
+    SQLiteTest
+}
+
+services.AddDataLinq<ShopDb>(ShopConnection.Primary)
+    .AsDefault()
+    .UseMySqlConnectionString("ShopPrimary");
+
+services.AddDataLinq<ShopDb>(ShopConnection.Reporting)
+    .UseMySqlConnectionString("ShopReporting");
+
+services.AddDataLinq<ShopDb>(ShopConnection.SQLiteTest)
+    .UseSQLite(sqliteConnectionString);
 ```
 
-On .NET 8+, keyed services are a natural host-level fit:
+Each registration has its own singleton database/provider, read access, generated read root, cache, and captured settings. Repeated resolutions of one registration share those instances; different registrations do not implicitly share DataLinq caches, even when they address the same physical database. This does not change provider-driver connection-pooling behavior.
+
+Use standard [keyed service injection](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection/overview#keyed-services). [`FromKeyedServicesAttribute`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.dependencyinjection.fromkeyedservicesattribute) belongs to `Microsoft.Extensions.DependencyInjection.Abstractions`; this requires no ASP.NET dependency or separate DataLinq integration package.
 
 ```csharp
-app.MapGet("/reports", (
-    [FromKeyedServices("reporting")] EmployeesDb db) =>
-{
-    return db.Employees.Take(100).ToList();
-});
-```
+public sealed class ShopService(
+    [FromKeyedServices(ShopConnection.Primary)]
+    ShopDb primary,
 
-DataLinq should not require keyed services as the only mechanism because libraries and older host surfaces may prefer explicit named factories:
+    [FromKeyedServices(ShopConnection.Reporting)]
+    ShopDb reporting,
 
-```csharp
-public interface IDataLinqDatabaseFactory<TDatabase>
+    [FromKeyedServices(ShopConnection.Primary)]
+    IDataLinqUnitOfWorkFactory<ShopDb> transactions)
 {
-    Database<TDatabase> Get(string name);
-    TDatabase Query(string name);
+    // Independent reads use the selected read root.
+    // The factory creates transactions for the primary registration.
 }
 ```
 
-The first implementation can support unnamed registrations only. The design should leave room for names/keyed services because multi-tenant, read-replica, and reporting scenarios will need them.
+The same key resolves a coherent set of services:
+
+| Service | Selected instance |
+| --- | --- |
+| Generated `TDatabase` | The registration's existing read root. |
+| `ReadOnlyAccess<TDatabase>` | Its existing provider-owned read access. |
+| `Database<TDatabase>` | Its owning database instance. |
+| Concrete provider database type | The same database instance, where that type is exposed. |
+| `IDataLinqUnitOfWorkFactory<TDatabase>` | A factory bound to that database. |
+
+**Default and conflict rules:**
+
+- `AddDataLinq<TDatabase>()` creates the unnamed/default registration.
+- A keyed registration becomes available through ordinary unkeyed injection only by explicit `.AsDefault()` selection. It aliases that registration's services; it does not construct or own a second database.
+- At most one default exists per model, whether registered unnamed or selected through `.AsDefault()`. Do not select the first, last, or only keyed registration implicitly.
+- Registering the same model/key twice is an error, even if provider types differ. The same key can be used independently for different model types. Follow ordinary keyed-service equality semantics.
+- A missing requested key fails clearly without falling back to the default. An unkeyed request without an explicit default also fails.
+- Preserve H10-2's single disposal owner across concrete/base and keyed/default aliases. Exact container bookkeeping remains part of the disposal review.
+
+**Dynamic selection and tests:** test fixtures can choose a registered target using standard keyed resolution:
+
+```csharp
+var database = serviceProvider.GetRequiredKeyedService<ShopDb>(connection);
+var transactions = serviceProvider.GetRequiredKeyedService<
+    IDataLinqUnitOfWorkFactory<ShopDb>>(connection);
+```
+
+Alternatively, build separate test containers with the chosen provider as the default so application constructors remain unchanged. Start with constructor injection and standard keyed lookup; the earlier separate named `IDataLinqDatabaseFactory<TDatabase>` resolver is not required for W4. Add a DataLinq-specific resolver only if concrete usage justifies it.
+
+**Generated service composition:** the selected registration key must flow into generated owner-factory wiring without requiring connection selection in the authored business method. A standalone call uses its selected factory. A participating call uses the explicitly supplied session, including its database/provider identity; it must not open another transaction from its own factory or use an independently injected read root for transactional reads. The same operation can therefore participate against different providers in tests. Transactions from separate registrations do not become one atomic transaction; distributed transactions are outside this decision.
+
+**Remaining API work:** finalize overload/key argument spelling, `.AsDefault()` registration mechanics and diagnostics, typed options/binding conflict rules, and generated service registration/factory wiring. Basic keyed support is accepted W4 scope, not deferred pending a new abstraction. No implementation or consumer verification is claimed by these examples.
 
 ## Startup Validation
 
@@ -479,6 +539,7 @@ builder.Services.AddDataLinqSchemaValidation(validation =>
 Behavior:
 
 - validation targets are explicit
+- targets identify the full model/key registration; a default alias refers to the same target, not another database to construct or validate
 - validation runs from a hosted service during startup
 - validation logs structured results
 - validation never logs connection strings
@@ -623,7 +684,6 @@ Possible option model:
 ```csharp
 public sealed class DataLinqRegistrationOptions<TDatabase>
 {
-    public string? Name { get; set; }
     public string? ConnectionString { get; set; }
     public string? ConnectionStringName { get; set; }
     public bool ValidateOnStartup { get; set; }
@@ -644,18 +704,20 @@ public sealed class MySqlDataLinqOptions<TDatabase>
 
 Avoid stringly-typed provider options in the common path. The configuration binder can populate options from strings, but the programmatic API should be strongly typed.
 
+These are option-shape sketches, not finalized types. The service key belongs to registration in application code, not a mutable/bound `Name` property. H10-4 requires construction-time capture and no live reconfiguration; exact literal-versus-named connection conflicts and binding precedence must be specified before API freeze.
+
 ## Logging
 
 DataLinq already has `DataLinqLoggingConfiguration` and provider constructors that accept `ILoggerFactory`.
 
-DI integration should wire the host `ILoggerFactory` automatically:
+DI integration should wire the host `ILoggerFactory` automatically when available, using the existing no-op configuration otherwise:
 
 ```csharp
-var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+var loggerFactory = sp.GetService<ILoggerFactory>();
 return new MySqlDatabase<EmployeesDb>(connectionString, loggerFactory);
 ```
 
-Users should not need to call `UseLoggerFactory(...)` manually when using DI.
+Users should not need to call `UseLoggerFactory(...)` manually when using DI, or register logging merely to construct a database.
 
 Provider SQL logs, transaction logs, cache logs, startup validation logs, and schema validation logs should flow through the host logging pipeline with stable categories.
 
@@ -682,7 +744,8 @@ This matters because hosted apps often run for a long time, and incorrect dispos
 - Register provider-specific database concrete type as singleton where possible.
 - Register `ReadOnlyAccess<TDatabase>` and generated `TDatabase` read root for injection.
 - Reuse the provider-owned singleton read instances under H10-2; do not construct per-scope/per-request facades.
-- Wire `ILoggerFactory` automatically.
+- Implement H10-4's keyed registration, coherent service selection, explicit default aliases, and duplicate/missing-target diagnostics.
+- Wire optional `ILoggerFactory` automatically.
 - Add unit tests for service resolution, lifetime behavior, and disposal ownership.
 
 ### Slice 2: Provider Registration Extensions
@@ -693,6 +756,7 @@ This matters because hosted apps often run for a long time, and incorrect dispos
 - Add `UseSQLite(...)`.
 - Support direct connection strings and named connection strings.
 - Support provider-specific options binding.
+- Record construction recipes without provider creation; resolve, validate, and capture immutable settings at first resolution under H10-4.
 - Add tests that validate configuration binding and connection-string resolution without connecting to live databases.
 
 ### Slice 3: Explicit Unit of Work API
@@ -702,13 +766,14 @@ This matters because hosted apps often run for a long time, and incorrect dispos
 - Keep physical commit, rollback, and disposal with the owner; add the irreversible participant rollback request and post-veto execution rejection.
 - Add native typed results and an outcome-aware owning helper, preserving existing `CommitAsync` semantics.
 - Extend the bundled generator with opted-in owner/participant service methods that share runtime lifecycle helpers.
+- Bind generated owning factories to the selected registration; participating calls retain the supplied session's database identity under H10-4.
 - Add consumer, generator, and runtime tests for composition, result propagation, completion, cancellation, and cleanup failures.
 
 ### Slice 4: Startup Validation Integration
 
 - Implement this W5 slice in `DataLinq` under a hosting extension namespace, following H10-1.
 - Reuse the runtime validation API from `Schema Validation Hooks.md`.
-- Add database validation target registration.
+- Add database validation target registration, retaining H10-4's model/key identity without duplicating targets through default aliases.
 - Add hosted service startup runner.
 - Add environment/policy options.
 - Add structured logging.
@@ -734,9 +799,15 @@ Unit tests:
 - creating/resolving additional scopes does not reconstruct read access or generated table roots.
 - disposing a child scope does not dispose shared database/provider/read services.
 - host `ILoggerFactory` is passed to provider database creation.
-- named connection strings resolve from `IConfiguration`.
+- programmatic registration works without `ILoggerFactory` or `IConfiguration`, using no-op logging when absent.
+- registration and container construction do not themselves construct providers or access databases; the first resolution validates/captures configuration and constructs one service graph, reused by all aliases and subsequent resolutions.
+- named connection strings resolve from `IConfiguration` at first resolution; missing required configuration fails clearly without secrets.
+- configuration changes after construction do not recreate or reconfigure that registration; changing configuration before first resolution is reflected in the captured settings.
 - missing connection string fails with a clear error.
 - multiple model types can be registered independently.
+- same-model registrations support both different providers and the same provider with different connection strings, with separate read roots/caches/settings and correctly bound factories.
+- enum/string constructor injection and dynamic keyed lookup select the entire matching service set; concrete/base/default aliases preserve identity.
+- duplicate model/key registrations and competing defaults fail; missing keys and absent defaults never use implicit fallback or registration-order selection.
 - disposal happens once for container-owned singleton databases.
 - external database instances are not disposed unless configured.
 
@@ -748,6 +819,7 @@ Unit-of-work tests:
 - participant rollback requests prevent commit and further database execution without prematurely disposing the shared transaction.
 - disposal rolls back uncommitted work according to existing transaction semantics.
 - generated services work both independently and as explicit participants, with one business implementation and no ambient session.
+- generated owning factory resolution honors its selected registration key; participating calls retain the supplied session even when the service's standalone factory targets another registration.
 - string, typed, and same-type success/failure payloads preserve their cases; default results cannot commit.
 - mapped/forwarded child failures preserve the veto; ignored child failures cannot produce outer success.
 - expected rollback results are returned only after confirmed rollback/no started work and successful cleanup; exceptions/cancellation/unknown outcomes still throw.
@@ -760,6 +832,7 @@ Startup validation tests:
 - warning-only differences log without throwing when configured.
 - connection strings are not logged.
 - multiple registered databases produce separate validation summaries.
+- keyed targets resolve their existing database registration; default aliases do not construct another provider or cause duplicate validation.
 
 Integration tests:
 
@@ -774,19 +847,18 @@ Integration tests:
 - **Shared read root:** injected `TDatabase` is shared query infrastructure. Application partial members must not store request-local state, and ordinary reads must not imply transaction participation or snapshot isolation.
 - **Ambient sessions:** `AsyncLocal` can be useful, but it makes transaction ownership less obvious. It should not be first-slice behavior.
 - **Blazor Server scope semantics:** scoped does not mean request-scoped in Blazor Server. Documentation must be blunt about this.
-- **Multiple same-model registrations:** unnamed-only registration is simple but incomplete. Design the types so keyed/named support can be added without breaking the API.
+- **Multiple same-model registrations:** H10-4 requires explicit target selection across reads, factories, generated owners, and startup validation. Shared model types do not imply shared caches or one transaction across registrations.
 - **Startup validation availability:** validation depends on provider metadata readers and live database access. Failures need precise logs or users will disable the feature.
 - **Package dependency creep:** pulling ASP.NET Core into the base runtime would be a mistake. Keep web conveniences optional.
 
 ## Open Questions
 
-- Package placement is resolved by [H10-1](#h10-1-integration-in-existing-packages): existing core/provider packages, extension namespaces, and a separate package only for future ASP.NET-dependent helpers. Exact extension API spelling and options/binding behavior remain to be reviewed.
+- Package placement is resolved by [H10-1](#h10-1-integration-in-existing-packages): existing core/provider packages, extension namespaces, and a separate package only for future ASP.NET-dependent helpers. Exact extension API spelling and packed dependency evidence remain for review.
 - Read-service identity/lifetimes and direct read-access injection are resolved by [H10-2](#h10-2-shared-singleton-read-services): expose the existing database/read-access/generated-root instances as singletons. Container/external-instance disposal ownership mechanics remain to be reviewed.
 - Unit-of-work ownership/composition is resolved by [H10-3](#h10-3-explicit-composable-units-of-work): owner-only physical completion, explicit participants with rollback requests, native results, generated service entry points, and preparation for future native unions. Its bounded signature/generator follow-up is required before API freeze.
-- Should named/keyed registrations be first-slice or second-slice?
+- Registration/configuration and first-slice keyed support are resolved by [H10-4](#h10-4-registration-configuration-and-keyed-instances): explicit provider selection, first-resolution immutable settings, optional logging/configuration dependencies, model/key identity, coherent keyed services, and explicit default aliases. Exact overloads, options conflicts, alias disposal mechanics, and generated factory wiring remain bounded API work.
 - W4 participant sharing is explicit only under H10-3. Any ambient or savepoint scope is a separate later proposal.
 - Should endpoint filters/middleware be included in the ASP.NET package or documented as application code?
-- Should provider registration support connection-string reload through `IOptionsMonitor`, or should database instances stay immutable until app restart?
 
 ## References
 

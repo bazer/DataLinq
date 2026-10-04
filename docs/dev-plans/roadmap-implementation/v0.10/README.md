@@ -122,6 +122,8 @@ Required contract:
 
 - common DI/unit-of-work integration in `DataLinq`, provider registration in the existing provider packages, and W5 hosted startup validation in `DataLinq`, organized under extension namespaces as accepted in [H10-1](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages); no new DI/hosting integration packages
 - service registration for generated database models and current providers
+- unnamed and keyed registrations under [H10-4](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-4-registration-configuration-and-keyed-instances), identified by model/key, supporting different providers or different servers for the same model; all read/database/factory services share that selection, with explicit default aliases and errors for duplicate or missing targets
+- explicit provider selection in code, construction recipes resolved lazily, validated immutable settings captured at first resolution, optional host logging, and configuration required only by configuration-based setup; no live database replacement on options reload
 - shared singleton `Database<TDatabase>`, provider-owned `ReadOnlyAccess<TDatabase>`, and existing generated `TDatabase` read root under [H10-2](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-2-shared-singleton-read-services), with no per-request/per-scope read-facade construction; transactions and units of work remain explicitly created per operation
 - read access separated from explicit mutable unit-of-work ownership
 - explicit owner-controlled transaction creation/completion/cleanup under [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work), with participant rollback requests and no mandatory extra `Begin()` step
@@ -135,6 +137,9 @@ Acceptance summary:
 
 - an ASP.NET Core test host and a worker-style Generic Host can resolve read services and execute one explicit unit of work
 - repeated resolutions and independent scopes share the existing database/read-access/generated-root instances; child scope disposal leaves those services available
+- same-model keyed targets retain separate database/read-root/cache identities and correctly bound factories; defaults alias existing instances without additional construction or disposal ownership
+- registration/container construction performs no provider creation; first resolution captures configuration, and subsequent configuration changes do not mutate or replace the database
+- generated standalone calls use their selected factory; participating calls retain the explicitly supplied session's database/provider identity
 - concurrent scopes do not share transaction state accidentally
 - explicit nested services share one transaction; mapped or ignored rollback requests cannot permit commit or outer success
 - business rejection returns only after confirmed rollback/no started work and successful cleanup; default results and inconsistent success cannot commit
@@ -146,11 +151,12 @@ Explicit non-goals:
 - implicit ambient transactions or an `AsyncLocal` session
 - automatic transaction creation for ordinary reads
 - automatic migrations at startup
-- named/keyed database registrations
+- live connection-string reload or automatic database/provider replacement
+- distributed transactions across registrations
 - XAML-framework-specific packages
 - savepoint/partial-child rollback, repository-wide ThrowAway replacement, and a requirement to activate native C# union support in W4
 
-**Design checkpoint, 2026-10-01:** H10-1 through H10-3 settle package placement, shared read lifetimes, and unit-of-work ownership/composition. Exact registration/options and container/external-instance ownership remain separate H10 questions. H10-3 lists bounded signature/generator follow-up before implementation API freeze; these accepted decisions do not close W4 or release W6B from depending on its final production contracts.
+**Design checkpoint, 2026-10-04:** H10-1 through H10-4 settle package placement, shared read lifetimes, unit-of-work ownership/composition, and registration/configuration behavior. H10-4 deliberately promotes basic keyed registration into W4, superseding the earlier non-goal. Exact registration/options signatures, generated factory wiring, and container/external-instance disposal mechanics remain for review alongside H10-3's bounded result/session details. These accepted decisions do not start implementation, close W4, or release W6B from depending on its final production contracts.
 
 ### V10: Startup Schema Validation
 
@@ -158,7 +164,7 @@ Durable design source: [Schema Validation Hooks](../../providers-and-features/Sc
 
 Required contract:
 
-- opt-in startup validation over registered targets
+- opt-in startup validation over registered targets, retaining H10-4's model/key identity and reusing the same provider through default aliases
 - explicit fail-fast, warning-only, and disabled policies
 - reuse of current provider metadata readers, schema comparer, structured differences, and diagnostics
 - cancellation and timeout support aligned with A10

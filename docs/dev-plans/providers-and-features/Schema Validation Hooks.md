@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for runtime/startup validation; MSBuild/build-time validation remains later work.
-**Last reviewed:** 2026-09-30 (H10-1 package-placement amendment).
+**Last reviewed:** 2026-10-04 (H10-4 keyed-registration target identity, following H10-1 package placement).
 **Dependency:** Runtime validation composes with the 0.10 DI/hosting integration in `DataLinq`, under [H10-1](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages), rather than introducing a competing startup abstraction.
 **Goal:** Let applications and builds explicitly validate DataLinq model metadata against live database schemas so schema drift is caught during development, CI, deployment, and application startup.
 
@@ -259,6 +259,10 @@ builder.Services.AddHostedService<DataLinqSchemaValidationHostedService>();
 ```
 
 The helper registration can add the hosted service internally, but the behavior should be visible from the call site.
+
+Under [H10-4](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-4-registration-configuration-and-keyed-instances), targets identify the full model/key registration. Attach validation to the keyed registration builder or explicitly select the same keyed database/provider in a target factory. An unkeyed target selects the explicit default; it must not choose an arbitrary registration or implicitly validate all instances of that model. A default alias refers to the same target, so it must not create another provider or duplicate validation. Exact keyed convenience overloads remain part of the hosting API review.
+
+Opt-in startup validation resolves selected registrations early, capturing their connection/settings configuration and constructing their singleton providers if not already resolved. It reuses that graph thereafter. Disabled validation must not resolve otherwise-unused databases; this does not promise that a database resolved elsewhere has I/O-free constructors or receives live configuration updates.
 
 ### 4.2. Startup Behavior
 

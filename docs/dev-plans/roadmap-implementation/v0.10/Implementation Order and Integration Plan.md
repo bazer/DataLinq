@@ -276,14 +276,17 @@ Exit gate:
 
 ### W4: DI, Hosting, And Unit Of Work
 
-**Design checkpoint, 2026-10-01:** [H10-1](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages) accepts integration in existing core/provider packages under extension namespaces, including W5 hosted startup validation. [H10-2](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-2-shared-singleton-read-services) accepts shared singleton database/read-access/generated-root instances, reusing the provider-owned objects without per-request facades. [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) accepts owner-only completion, explicit participants with rollback requests, native business results, an outcome-aware helper, and generated composable services. This deliberately adds service generation/result handling to W4; native C# union activation and broader ThrowAway replacement remain later work. Exact registration APIs, container/external-instance disposal mechanics, and H10-3's bounded signature/generator details remain for review; this does not start implementation or close W4.
+**Design checkpoint, 2026-10-04:** [H10-1](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages) accepts integration in existing core/provider packages under extension namespaces, including W5 hosted startup validation. [H10-2](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-2-shared-singleton-read-services) accepts shared singleton database/read-access/generated-root instances, reusing the provider-owned objects without per-request facades. [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) accepts owner-only completion, explicit participants with rollback requests, native business results, an outcome-aware helper, and generated composable services. [H10-4](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-4-registration-configuration-and-keyed-instances) accepts explicit provider selection, first-resolution immutable configuration, optional logging, and keyed same-model registrations with coherent service selection and explicit default aliases. This deliberately brings basic keyed registration and service generation/result handling into W4; live reconfiguration, distributed transactions, native C# union activation, and broader ThrowAway replacement remain outside the slice. Exact overloads/options, container/external-instance disposal mechanics, and bounded result/session/generator details remain for review; this does not start implementation or close W4.
 
 Required work:
 
 - implement H10-1's existing-package integration boundary and verify the required Microsoft.Extensions dependency graph
 - implement generated-database/provider registration with H10-2 singleton identity and no per-scope read-root construction
+- implement H10-4's model/key registration identity, same-model multi-provider/multi-server selection, coherent keyed services, explicit default aliases, and duplicate/missing-target diagnostics
+- capture and validate configuration on first resolution without provider creation during registration/container construction or live reconfiguration afterward; preserve programmatic registration without required logging/configuration services
 - expose read access and explicit unit-of-work factory contracts
 - implement H10-3's shared transaction veto, native result protocol, and generated owner/participant entry points through shared runtime lifecycle helpers, preserving existing `CommitAsync` behavior
+- wire generated owning factories to the selected registration while participating calls use the supplied session's database/provider identity
 - integrate logging and options validation
 - test scopes, concurrent requests, nested service participation, cancellation, terminal failures, and shutdown
 - document ownership without implying EF `DbContext` semantics
@@ -291,6 +294,8 @@ Required work:
 Exit gate:
 
 - ASP.NET Core and Generic Host consumer fixtures resolve and dispose services correctly
+- keyed and default resolutions share the intended registration's existing service graph, with separate caches/settings across registrations and one disposal owner per graph
+- constructor injection and dynamic lookup distinguish same-model provider/server targets; settings remain fixed after first resolution, with duplicate/missing-target failures and no implicit default selection
 - transaction state cannot leak across scopes
 - unit-of-work failure semantics match the existing SQL mutable lifecycle
 - generated and handwritten nested services preserve rollback requests, map typed failures, reject invalid/default or inconsistent results, and deliver normal results only after successful owner completion/cleanup
@@ -304,6 +309,7 @@ Required work:
 - propagate cancellation and timeout through provider metadata reads
 - redact secrets and preserve actionable differences
 - test multiple targets, deterministic ordering, partial failures, and host-startup behavior
+- retain H10-4's model/key target identity and reuse existing registrations without duplicate provider construction or validation through default aliases
 
 Exit gate:
 

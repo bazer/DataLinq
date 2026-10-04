@@ -234,6 +234,8 @@ If an application test does not need to exercise a query at all, stub the applic
 
 The DI/hosting plan accepts explicit unit-of-work ownership/composition under [H10-3](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work). Testing should provide fakes for the final production interfaces after W4 freezes their signatures; the testing surface must preserve participant rollback requests, typed results, and owner-only physical completion.
 
+[H10-4](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-4-registration-configuration-and-keyed-instances), accepted 2026-10-04, brings basic keyed registrations into W4. Test containers can register one model against multiple providers or multiple servers and select its matching read root and transaction factory using standard keyed injection/lookup. Separate containers can instead select their chosen provider as the explicit default without changing application constructors. Future replacement helpers must preserve the entire target registration's read/factory identity and default aliases; they must not redirect only one service or silently replace an unrelated key. Generated owning calls select their configured factory, while participating calls retain the supplied session's database/provider identity. The exact W6B fake/replacement APIs still depend on the final W4 contracts.
+
 Desired API:
 
 ```csharp
