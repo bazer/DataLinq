@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
-**Last reviewed:** 2026-10-01 (H10 package-placement and unit-of-work amendments; remaining T10 design stays open).
+**Last reviewed:** 2026-10-05 (H10-4 through H10-10 registration, ownership/options/handoff, result, generated-service, and interface amendments; remaining T10 design stays open).
 **Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
@@ -234,7 +234,13 @@ If an application test does not need to exercise a query at all, stub the applic
 
 The DI/hosting plan accepts explicit unit-of-work ownership/composition under [H10-3](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work). Testing should provide fakes for the final production interfaces after W4 freezes their signatures; the testing surface must preserve participant rollback requests, typed results, and owner-only physical completion.
 
+[H10-8](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-8-session-owner-and-factory-contracts) settles the three interface roles and operation families: the owner inherits the participant session, so tests can pass it directly without a separate `Session` property. Factories support synchronous logical creation and shared owned execution. Fakes preserve real mutation returns, original typed rollback reasons, and separate operational failure snapshots; complete overload/annotation compatibility still follows the final production inventory.
+
 [H10-4](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-4-registration-configuration-and-keyed-instances), accepted 2026-10-04, brings basic keyed registrations into W4. Test containers can register one model against multiple providers or multiple servers and select its matching read root and transaction factory using standard keyed injection/lookup. Separate containers can instead select their chosen provider as the explicit default without changing application constructors. Future replacement helpers must preserve the entire target registration's read/factory identity and default aliases; they must not redirect only one service or silently replace an unrelated key. Generated owning calls select their configured factory, while participating calls retain the supplied session's database/provider identity. The exact W6B fake/replacement APIs still depend on the final W4 contracts.
+
+[H10-9](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-9-registration-surface-options-precedence-and-factory-ownership) settles typed settings per registration and defaults/binding/code precedence. Test overrides must preserve connection-source replacement and ambiguity diagnostics. Fixture-owned databases use `UseInstance` with application ownership; `UseFactory` always supplies a container-owned result and has no borrowed-result mode. Binding cannot reconfigure an already-created fixture instance.
+
+[H10-10](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-10-existing-instance-ownership-handoff) settles explicit existing-instance transfer on successful first activation. Testing helpers must retain application/fixture ownership until handoff, including never-resolved registrations and activation failure before handoff, and container ownership afterward even if later operations fail. W4 must verify this contract and alias cleanup before W6B relies on its implementation; ordinary borrowed fixtures are never transferred implicitly.
 
 Desired API:
 
@@ -244,7 +250,7 @@ var unit = DataLinqTest.UnitOfWork<EmployeesDb>()
     .Build();
 
 // Exercise the participant path, then complete through the test owner.
-var result = await handler.HandleAsync(command, unit.Session, cancellationToken);
+var result = await handler.HandleAsync(command, unit, cancellationToken);
 await unit.CompleteAsync(result, cancellationToken);
 
 Assert.That(unit.Inserted<Employee>()).HasCount().EqualTo(1);
@@ -263,7 +269,9 @@ The fake unit of work should:
 - record commit/rollback/dispose
 - distinguish a participant's irreversible rollback request from the owner's physical rollback and disposal
 - reject post-veto execution, invalid/default results, and outer success after an ignored child failure, while allowing local failure mapping
+- preserve [H10-6](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-6-nullable-and-no-value-results): nullable/no-value successes remain valid cases, null rollback reasons are rejected, and `TryUnwrap` throws for uninitialized results instead of reporting a business failure
 - mirror generated/handwritten service composition and return expected rejection results only after successful owner rollback/cleanup; operational failures remain exceptions
+- support [H10-7](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-7-generated-service-authoring-and-wiring) direct service construction with a test factory and ordinary dependencies, alongside keyed/default DI fixtures; generated owning/participating methods retain their corresponding lifecycle and matching sync/async behavior
 - optionally apply recorded mutations to testing-owned state after commit once memory mutation semantics exist
 - optionally fail on commit for error-path tests
 

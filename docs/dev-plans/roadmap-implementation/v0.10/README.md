@@ -124,14 +124,19 @@ Required contract:
 - service registration for generated database models and current providers
 - unnamed and keyed registrations under [H10-4](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-4-registration-configuration-and-keyed-instances), identified by model/key, supporting different providers or different servers for the same model; all read/database/factory services share that selection, with explicit default aliases and errors for duplicate or missing targets
 - explicit provider selection in code, construction recipes resolved lazily, validated immutable settings captured at first resolution, optional host logging, and configuration required only by configuration-based setup; no live database replacement on options reload
+- [H10-9](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-9-registration-surface-options-precedence-and-factory-ownership) registration/options surface: typed settings per registration, defaults/binding/code precedence, explicit connection-source replacement and ambiguity diagnostics, always-container-owned factories, and application-owned existing instances unless explicitly transferred
 - shared singleton `Database<TDatabase>`, provider-owned `ReadOnlyAccess<TDatabase>`, and existing generated `TDatabase` read root under [H10-2](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-2-shared-singleton-read-services), with no per-request/per-scope read-facade construction; transactions and units of work remain explicitly created per operation
 - read access separated from explicit mutable unit-of-work ownership
+- [H10-8](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-8-session-owner-and-factory-contracts) participant/owner/factory contracts: a separate session interface, owner inheritance with completion/disposal, synchronous logical `Create`, owned `Execute`/`ExecuteAsync`, existing transaction operation families, and session-aware generated model helpers
 - explicit owner-controlled transaction creation/completion/cleanup under [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work), with participant rollback requests and no mandatory extra `Begin()` step
 - native typed success/rollback results, an outcome-aware owning helper that preserves existing `CommitAsync` semantics, and generated standalone/participating service entry points over one business implementation
+- generated-service authoring/wiring under [H10-7](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-7-generated-service-authoring-and-wiring): explicit constructor factory, private business method, matching sync/async owning/participating wrappers, database-bound keyed/default service registration, and explicit singleton/scoped/transient application-service lifetimes
+- nullable successes and explicit no-value successes under [H10-6](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-6-nullable-and-no-value-results), with non-null rollback reasons and `TryUnwrap` distinguishing valid success/rollback from invalid uninitialized results; exact small API spelling remains for review
 - distinct result case types and typed storage prepared for later C# union integration without requiring .NET 11 or replacing ThrowAway elsewhere in W4
 - documented singleton/scoped/transient ownership for provider state, generated roots, connections, transactions, units of work, and hosted services
 - Generic Host logging integration using the required Microsoft.Extensions dependencies, without an ASP.NET Core dependency; future ASP.NET-dependent helpers require a separate package
-- deterministic shutdown and disposal behavior
+- deterministic shutdown/disposal under [H10-5](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-5-resource-ownership-and-shutdown): container ownership for constructed/factory-created databases, application ownership for existing instances unless explicitly transferred, and one disposal owner across concrete/base/keyed/default aliases
+- explicit existing-instance transfer under [H10-10](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-10-existing-instance-ownership-handoff) on successful first activation; the application retains ownership until handoff, including never-resolved registrations and activation failure, and container ownership persists afterward
 
 Acceptance summary:
 
@@ -139,12 +144,18 @@ Acceptance summary:
 - repeated resolutions and independent scopes share the existing database/read-access/generated-root instances; child scope disposal leaves those services available
 - same-model keyed targets retain separate database/read-root/cache identities and correctly bound factories; defaults alias existing instances without additional construction or disposal ownership
 - registration/container construction performs no provider creation; first resolution captures configuration, and subsequent configuration changes do not mutate or replace the database
+- provider settings are isolated per registration; explicit code overrides bound settings in callback order, connection-source replacement leaves no stale competing source, and effective ambiguity fails clearly
 - generated standalone calls use their selected factory; participating calls retain the explicitly supplied session's database/provider identity
+- generated services support primary/traditional constructors and direct construction, preserve keyed/default identity within the chosen lifetime, and diagnose invalid authoring shapes; participating wrappers preserve forwarded rollback cases
+- owners pass directly as participant sessions without exposing raw provider access through that interface; operation returns and generated helper binding remain compatible, and original rollback reasons stay distinct from operational diagnostics
 - concurrent scopes do not share transaction state accidentally
 - explicit nested services share one transaction; mapped or ignored rollback requests cannot permit commit or outer success
 - business rejection returns only after confirmed rollback/no started work and successful cleanup; default results and inconsistent success cannot commit
+- nullable successes unwrap successfully even when null; no-value operations return an initialized success case; null rollback reasons are rejected and uninitialized result inspection through `TryUnwrap` throws
 - failed commit, cancellation, rollback failure, and disposal paths preserve the existing mutable-instance trust rules
 - application shutdown disposes owned resources exactly once
+- supplied instances survive container disposal unless ownership was explicitly transferred; workers finish dependent transactions/readers before root disposal, preserving synchronous/asynchronous cleanup and failure contracts
+- factory results are always container-owned; explicit instance transfer occurs on successful first activation, with application ownership retained for never-resolved shutdown and failures before handoff, and container ownership retained after later failures
 
 Explicit non-goals:
 
@@ -156,7 +167,7 @@ Explicit non-goals:
 - XAML-framework-specific packages
 - savepoint/partial-child rollback, repository-wide ThrowAway replacement, and a requirement to activate native C# union support in W4
 
-**Design checkpoint, 2026-10-04:** H10-1 through H10-4 settle package placement, shared read lifetimes, unit-of-work ownership/composition, and registration/configuration behavior. H10-4 deliberately promotes basic keyed registration into W4, superseding the earlier non-goal. Exact registration/options signatures, generated factory wiring, and container/external-instance disposal mechanics remain for review alongside H10-3's bounded result/session details. These accepted decisions do not start implementation, close W4, or release W6B from depending on its final production contracts.
+**Design checkpoint, 2026-10-05:** H10-1 through H10-10 cover the broad W4 design topics: package placement, shared read lifetimes, unit-of-work ownership/composition, registration/configuration behavior, resource ownership/shutdown, nullable/no-value results, generated-service authoring/wiring, participant/owner/factory contracts, typed registration/options precedence, and explicit instance ownership handoff. H10-4 deliberately promotes basic keyed registration into W4. H10-9 refines factory results to always be container-owned, with borrowed databases supplied through instance registration. H10-10 settles explicit existing-instance transfer on successful first activation, leaving application ownership intact until handoff and container ownership intact afterward. No further broad architecture discussion is required before preparing implementation. Complete public spelling/overloads/annotations and prove activation, alias disposal, generator, runtime, and dependency behavior during implementation API review. The result work remains limited to the transaction contract, with general option/union features and broader ThrowAway replacement deferred. These accepted decisions do not start implementation, close W4, or release W6B from depending on its final production contracts.
 
 ### V10: Startup Schema Validation
 
