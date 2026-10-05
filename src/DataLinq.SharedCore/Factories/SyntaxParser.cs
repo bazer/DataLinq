@@ -18,6 +18,7 @@ public class SyntaxParser
 {
     private readonly ImmutableArray<TypeDeclarationSyntax> modelSyntaxes;
     private readonly ImmutableArray<EnumDeclarationSyntax> enumSyntaxes;
+    public Func<AttributeSyntax, TypeAttribute?>? TypeAttributeResolver { get; set; }
 
     public static bool IsModelInterface(string interfaceName) =>
         IsDatabaseModelContract(interfaceName) ||
@@ -1099,6 +1100,9 @@ public class SyntaxParser
 
         if (name == "Type")
         {
+            if (TypeAttributeResolver?.Invoke(attributeSyntax) is { } resolvedType)
+                return resolvedType;
+
             Option<Attribute, IDLOptionFailure> FailInvalidTypeArgument(string argumentName, string value) =>
                 FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid TypeAttribute {argumentName} value '{value}'");
 

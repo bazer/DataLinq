@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
@@ -99,10 +100,18 @@ internal sealed class ModelDeclarationInputComparer : IEqualityComparer<ModelDec
     public static ModelDeclarationInputComparer Instance { get; } = new();
 
     public bool Equals(ModelDeclarationInput x, ModelDeclarationInput y)
-        => x.Snapshot.Equals(y.Snapshot);
+        => x.Snapshot.Equals(y.Snapshot) && x.TypeAttributeSignature.SequenceEqual(y.TypeAttributeSignature, StringComparer.Ordinal);
 
     public int GetHashCode(ModelDeclarationInput obj)
-        => obj.Snapshot.GetHashCode();
+    {
+        unchecked
+        {
+            var hash = obj.Snapshot.GetHashCode();
+            foreach (var value in obj.TypeAttributeSignature)
+                hash = hash * 31 + StringComparer.Ordinal.GetHashCode(value);
+            return hash;
+        }
+    }
 }
 
 internal sealed class ModelDeclarationInputArrayComparer : IEqualityComparer<ImmutableArray<ModelDeclarationInput>>
@@ -196,16 +205,43 @@ internal readonly struct EnumDeclarationInput
 internal readonly struct ModelDeclarationInput
 {
     public ModelDeclarationInput(TypeDeclarationSyntax syntax, ModelDeclarationSnapshot snapshot)
+        : this(syntax, snapshot, ImmutableDictionary<AttributeSyntax, TypeAttribute>.Empty, ImmutableArray<string>.Empty)
+    {
+    }
+
+    private ModelDeclarationInput(TypeDeclarationSyntax syntax, ModelDeclarationSnapshot snapshot,
+        IReadOnlyDictionary<AttributeSyntax, TypeAttribute> typeAttributes, ImmutableArray<string> typeAttributeSignature)
     {
         Syntax = syntax;
         Snapshot = snapshot;
+        TypeAttributes = typeAttributes;
+        TypeAttributeSignature = typeAttributeSignature;
     }
 
     public TypeDeclarationSyntax Syntax { get; }
     public ModelDeclarationSnapshot Snapshot { get; }
+    public IReadOnlyDictionary<AttributeSyntax, TypeAttribute> TypeAttributes { get; }
+    public ImmutableArray<string> TypeAttributeSignature { get; }
 
     public static ModelDeclarationInput Create(TypeDeclarationSyntax syntax)
         => new(syntax, ModelDeclarationSnapshot.Create(syntax));
+
+    public static ModelDeclarationInput Create(TypeDeclarationSyntax syntax, SemanticModel semanticModel,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        var attributes = TypeAttributeConstantResolver.Resolve(syntax, semanticModel, cancellationToken);
+        var signature = ImmutableArray.CreateBuilder<string>();
+        foreach (var item in attributes.OrderBy(static item => item.Key.SpanStart))
+        {
+            var value = item.Value;
+            signature.Add(value.DatabaseType.ToString());
+            signature.Add(value.Name);
+            signature.Add(value.Length?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "<null>");
+            signature.Add(value.Decimals?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "<null>");
+            signature.Add(value.Signed?.ToString() ?? "<null>");
+        }
+        return new(syntax, ModelDeclarationSnapshot.Create(syntax), attributes, signature.ToImmutable());
+    }
 }
 
 internal readonly struct ModelDeclarationSnapshot : IEquatable<ModelDeclarationSnapshot>
