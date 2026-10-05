@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
+using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Core.Factories;
 
@@ -128,9 +131,17 @@ public class MetadataTransformer
     }
 
     public DatabaseDefinition TransformDatabaseSnapshot(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
+        => TryTransformDatabaseSnapshot(srcMetadata, destMetadata).ValueOrException();
+
+    /// <summary>
+    /// Merges source model names into a copy of database metadata, returning a diagnostic
+    /// when overlapping constraints cannot be matched without guessing their identity.
+    /// </summary>
+    public Option<DatabaseDefinition, IDLOptionFailure> TryTransformDatabaseSnapshot(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
         var transformedMetadata = MetadataDefinitionSnapshot.Copy(destMetadata);
-        TransformDatabaseInPlace(srcMetadata, transformedMetadata);
+        if (!TransformDatabaseInPlace(srcMetadata, transformedMetadata).TryUnwrap(out _, out var failure))
+            return failure;
 
         return transformedMetadata;
     }
@@ -138,10 +149,10 @@ public class MetadataTransformer
     [Obsolete("Use TransformDatabaseSnapshot to return a merged metadata graph without mutating the provider-derived destination metadata.")]
     public void TransformDatabase(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
-        TransformDatabaseInPlace(srcMetadata, destMetadata);
+        TransformDatabaseInPlace(srcMetadata, destMetadata).ValueOrException();
     }
 
-    private void TransformDatabaseInPlace(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
+    private Option<bool, IDLOptionFailure> TransformDatabaseInPlace(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
         destMetadata.SetAttributesCore(srcMetadata.Attributes);
         destMetadata.SetCacheCore(srcMetadata.UseCache);
@@ -166,19 +177,23 @@ public class MetadataTransformer
                 continue;
             }
 
-            TransformTableInPlace(srcTable, destTable);
+            if (!TransformTableInPlace(srcTable, destTable).TryUnwrap(out _, out var failure))
+                return failure;
             destTable.SetCsPropertyNameCore(srcTable.CsPropertyName);
         }
+        return true;
     }
 
     [Obsolete("Use TransformDatabaseSnapshot to merge metadata without direct table graph mutation.")]
     public void TransformTable(TableModel srcTable, TableModel destTable)
     {
-        TransformTableInPlace(srcTable, destTable);
+        TransformTableInPlace(srcTable, destTable).ValueOrException();
     }
 
-    private void TransformTableInPlace(TableModel srcTable, TableModel destTable)
+    private Option<bool, IDLOptionFailure> TransformTableInPlace(TableModel srcTable, TableModel destTable)
     {
+        if (!MatchRelations(srcTable, destTable).TryUnwrap(out var relationMatches, out var failure))
+            return failure;
         destTable.Model.SetCsTypeCore(TransformCsType(srcTable.Model.CsType, destTable.Model.CsType));
         if (srcTable.Model.CsFile != null)
             destTable.Model.SetCsFileCore(srcTable.Model.CsFile.Value);
@@ -340,53 +355,41 @@ public class MetadataTransformer
             }
         }
 
-        // Create a stable key for a relation based on the DB columns it connects.
-        // Example key: "users.id->orders.user_id"
-        Func<RelationPart, string> stableKeyGenerator = (part) =>
-        {
-            var fkCols = string.Join(",", part.ColumnIndex.Columns.Select(c => c.DbName));
-            var pkCols = string.Join(",", part.GetOtherSide().ColumnIndex.Columns.Select(c => c.DbName));
-            return $"{part.GetOtherSide().ColumnIndex.Table.DbName}.({pkCols})->{part.ColumnIndex.Table.DbName}.({fkCols})";
-        };
-
-        // Map all relations from the source (C# files)
-        var srcRelationsMap = srcTable.Model.RelationProperties.Values
-            .Where(p => p.RelationPart != null)
-            .ToDictionary(p => stableKeyGenerator(p.RelationPart), p => p);
-
-        // Map all relations from the destination (database schema)
-        var destRelationsMap = destTable.Model.RelationProperties.Values
-            .Where(p => p.RelationPart != null)
-            .ToDictionary(p => stableKeyGenerator(p.RelationPart), p => p);
-
         var finalRelations = new List<RelationProperty>();
 
         // Iterate through all relations found in the database. This is the source of truth.
-        foreach (var destRelation in destRelationsMap.Values)
+        foreach (var destRelation in destTable.Model.RelationProperties.Values.Where(p => p.RelationPart != null))
         {
-            var stableKey = stableKeyGenerator(destRelation.RelationPart);
-
             // RELATION EXISTS IN BOTH: Merge them.
-            if (srcRelationsMap.TryGetValue(stableKey, out var srcRelation))
+            if (relationMatches.TryGetValue(destRelation, out var srcRelation))
             {
                 // Decide which constraint name to use based on the option
                 var constraintName = options.UpdateConstraintNames
                     ? srcRelation.RelationPart.Relation.ConstraintName
                     : destRelation.RelationPart.Relation.ConstraintName;
 
-                // Create a new, merged RelationDefinition
-                var mergedRelationDefinition = new RelationDefinition(constraintName, destRelation.RelationPart.Relation.Type);
-                mergedRelationDefinition.SetForeignKeyCore(destRelation.RelationPart.Relation.ForeignKey);
-                mergedRelationDefinition.SetCandidateKeyCore(destRelation.RelationPart.Relation.CandidateKey);
-                mergedRelationDefinition.SetOnUpdateCore(destRelation.RelationPart.Relation.OnUpdate);
-                mergedRelationDefinition.SetOnDeleteCore(destRelation.RelationPart.Relation.OnDelete);
+                // Keep one relation graph shared by its indexed parts and navigation
+                // properties, including when a source name changes the constraint.
+                var mergedRelationDefinition = destRelation.RelationPart.Relation;
+                var previousName = mergedRelationDefinition.ConstraintName;
+                mergedRelationDefinition.SetConstraintNameCore(constraintName);
+                if (previousName != constraintName)
+                    foreach (var column in mergedRelationDefinition.ForeignKey.ColumnIndex.Columns)
+                        column.ValueProperty.SetAttributesCore(column.ValueProperty.Attributes.Select(attribute =>
+                            attribute is ForeignKeyAttribute fk && fk.Name == previousName
+                                ? fk.Ordinal.HasValue
+                                    ? new ForeignKeyAttribute(fk.Table, fk.Column, constraintName, fk.Ordinal.Value, fk.OnUpdate, fk.OnDelete)
+                                    : new ForeignKeyAttribute(fk.Table, fk.Column, constraintName, fk.OnUpdate, fk.OnDelete)
+                                : attribute));
 
                 // Create the final RelationProperty using the C# name from the source
                 var finalRelationProperty = new RelationProperty(
                     srcRelation.PropertyName,
                     destRelation.CsType, // Use the type from the DB for consistency
                     destTable.Model,
-                    srcRelation.Attributes
+                    srcRelation.Attributes.Select(attribute => attribute is RelationAttribute relationAttribute
+                        ? new RelationAttribute(relationAttribute.Table, relationAttribute.Columns, constraintName)
+                        : attribute)
                 );
 
                 // Create a new RelationPart with the merged definition and the C# name
@@ -397,6 +400,12 @@ public class MetadataTransformer
                     srcRelation.PropertyName
                 );
 
+                if (finalRelationPart.Type == RelationPartType.ForeignKey)
+                    mergedRelationDefinition.SetForeignKeyCore(finalRelationPart);
+                else
+                    mergedRelationDefinition.SetCandidateKeyCore(finalRelationPart);
+                var indexedParts = finalRelationPart.ColumnIndex.RelationParts;
+                indexedParts.SetCore(indexedParts.IndexOf(destRelation.RelationPart), finalRelationPart);
                 finalRelationProperty.SetRelationPartCore(finalRelationPart);
                 finalRelationProperty.SetCsNullableCore(GetMergedRelationNullable(srcRelation, destRelation, finalRelationPart));
                 finalRelations.Add(finalRelationProperty);
@@ -409,8 +418,88 @@ public class MetadataTransformer
             }
         }
 
+        var names = new HashSet<string>(destTable.Model.ValueProperties.Keys, StringComparer.Ordinal);
+        foreach (var relation in finalRelations)
+            if (!names.Add(relation.PropertyName))
+                return DLOptionFailure.Fail(DLFailureType.InvalidModel,
+                    $"Regeneration would create duplicate property '{relation.PropertyName}' on model '{destTable.Model.CsType.Name}'. Rename the existing relation property to avoid the collision.", srcTable.Model);
+
         // Replace the old relation properties with the new, correctly merged list.
         destTable.Model.RelationProperties.ClearCore();
         destTable.Model.AddPropertiesCore(finalRelations);
+        return true;
+    }
+
+    private static Option<Dictionary<RelationProperty, RelationProperty>, IDLOptionFailure> MatchRelations(TableModel source, TableModel destination)
+    {
+        var matches = new Dictionary<RelationProperty, RelationProperty>();
+        var sourceGroups = source.Model.RelationProperties.Values.Where(p => p.RelationPart != null)
+            .GroupBy(p => p.RelationPart, RelationEndpointComparer.Instance)
+            .ToDictionary(group => group.Key, group => group.ToArray(), RelationEndpointComparer.Instance);
+        foreach (var destinationGroup in destination.Model.RelationProperties.Values.Where(p => p.RelationPart != null)
+            .GroupBy(p => p.RelationPart, RelationEndpointComparer.Instance))
+        {
+            if (!sourceGroups.TryGetValue(destinationGroup.Key, out var sourceRelations))
+                continue;
+            var used = new HashSet<RelationProperty>();
+            var unmatched = new List<RelationProperty>();
+            // Reserve exact constraint identities before attempting any rename fallback.
+            foreach (var relation in destinationGroup)
+            {
+                var candidates = sourceRelations.Where(candidate =>
+                    candidate.RelationPart.Relation.ConstraintName == relation.RelationPart.Relation.ConstraintName).ToArray();
+                if (candidates.Length > 1 || (candidates.Length == 1 && !used.Add(candidates[0])))
+                    return Ambiguous();
+                if (candidates.Length == 1)
+                    matches.Add(relation, candidates[0]);
+                else
+                    unmatched.Add(relation);
+            }
+            var remaining = sourceRelations.Where(relation => !used.Contains(relation)).ToArray();
+            if (unmatched.Count == 1 && remaining.Length == 1)
+                matches.Add(unmatched[0], remaining[0]);
+            else if (unmatched.Count > 0 && remaining.Length > 0)
+                return Ambiguous();
+
+            IDLOptionFailure Ambiguous()
+            {
+                var part = destinationGroup.Key;
+                var endpoint = $"{part.ColumnIndex.Table.DbName}({string.Join(", ", part.ColumnIndex.Columns.Select(column => column.DbName))}) -> " +
+                    $"{part.GetOtherSide().ColumnIndex.Table.DbName}({string.Join(", ", part.GetOtherSide().ColumnIndex.Columns.Select(column => column.DbName))})";
+                return DLOptionFailure.Fail(DLFailureType.InvalidModel,
+                    $"Cannot unambiguously match relations for '{endpoint}' during regeneration. Existing constraints: {string.Join(", ", sourceRelations.Select(relation => relation.RelationPart.Relation.ConstraintName))}. " +
+                    $"Database constraints: {string.Join(", ", destinationGroup.Select(relation => relation.RelationPart.Relation.ConstraintName))}. " +
+                    "Align the [ForeignKey] and [Relation] constraint names in existing models with the database, or use --fresh to regenerate the model surface.", source.Model);
+            }
+        }
+        return matches;
+    }
+
+    private sealed class RelationEndpointComparer : IEqualityComparer<RelationPart>
+    {
+        public static RelationEndpointComparer Instance { get; } = new();
+
+        public bool Equals(RelationPart? x, RelationPart? y) => ReferenceEquals(x, y) ||
+            x is not null && y is not null && x.Type == y.Type &&
+            x.ColumnIndex.Table.DbName == y.ColumnIndex.Table.DbName &&
+            x.GetOtherSide().ColumnIndex.Table.DbName == y.GetOtherSide().ColumnIndex.Table.DbName &&
+            x.ColumnIndex.Columns.Select(column => column.DbName).SequenceEqual(y.ColumnIndex.Columns.Select(column => column.DbName), StringComparer.Ordinal) &&
+            x.GetOtherSide().ColumnIndex.Columns.Select(column => column.DbName).SequenceEqual(y.GetOtherSide().ColumnIndex.Columns.Select(column => column.DbName), StringComparer.Ordinal);
+
+        public int GetHashCode(RelationPart part)
+        {
+            unchecked
+            {
+                var hash = (int)part.Type;
+                hash = hash * 31 + StringComparer.Ordinal.GetHashCode(part.ColumnIndex.Table.DbName);
+                hash = hash * 31 + StringComparer.Ordinal.GetHashCode(part.GetOtherSide().ColumnIndex.Table.DbName);
+                hash = hash * 31 + part.ColumnIndex.Columns.Count;
+                foreach (var column in part.ColumnIndex.Columns)
+                    hash = hash * 31 + StringComparer.Ordinal.GetHashCode(column.DbName);
+                foreach (var column in part.GetOtherSide().ColumnIndex.Columns)
+                    hash = hash * 31 + StringComparer.Ordinal.GetHashCode(column.DbName);
+                return hash;
+            }
+        }
     }
 }
