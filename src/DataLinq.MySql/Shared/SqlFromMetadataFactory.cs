@@ -162,14 +162,15 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         if (defaultAttr.Value is Guid)
             throw CreateUnsupportedGuidDefaultException(column);
 
+        var dbType = GetDbType(column);
         if (column.ValueProperty.EnumProperty.HasValue)
         {
+            if (dbType.Name.ToLowerInvariant() is "tinyint" or "smallint" or "mediumint" or "int" or "integer" or "bigint")
+                return FormatIntegerEnumDefaultValue(column.ValueProperty, defaultAttr);
             var enumDefaultValue = ResolveEnumDefaultValue(column.ValueProperty, defaultAttr);
             if (enumDefaultValue != null)
                 return QuoteSqlString(enumDefaultValue);
         }
-
-        var dbType = GetDbType(column);
 
         return column.ValueProperty.CsType.Name switch
         {
@@ -278,6 +279,19 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             $"DataLinq will not substitute UUID(), whose UUID version does not match '{attribute.Version}'. " +
             $"Use a provider-scoped [DefaultSql(DatabaseType.{DatabaseType}, \"...\")] only when the provider expression and resulting physical storage are intentional, " +
             "or generate the UUID in client code.");
+
+    private static string FormatIntegerEnumDefaultValue(ValueProperty property, DefaultAttribute attribute)
+    {
+        var value = attribute.Value;
+        if (value is Enum enumValue)
+            value = Convert.ChangeType(enumValue, Enum.GetUnderlyingType(enumValue.GetType()), CultureInfo.InvariantCulture);
+        if (value is sbyte or byte or short or ushort or int or uint or long or ulong)
+            return Convert.ToString(value, CultureInfo.InvariantCulture)!;
+        // Older syntax-derived metadata can retain the symbolic expression as a string.
+        if (value is string && TryGetEnumNumericValue(property.EnumProperty!.Value, attribute, out var numericValue))
+            return numericValue.ToString(CultureInfo.InvariantCulture);
+        throw new InvalidOperationException($"Enum default for integer column '{property.Column.Table.DbName}.{property.Column.DbName}' must resolve to an integral value.");
+    }
 
     private static string? ResolveEnumDefaultValue(ValueProperty property, DefaultAttribute? defaultAttr)
     {
