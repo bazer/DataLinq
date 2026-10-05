@@ -74,6 +74,38 @@ public sealed class PartialCacheGeneratorTests : GeneratorTestBase
     }
 
     [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ExplicitFalseDatabaseAttribute_AddAndRemove_RefreshPublicMetadata(bool initiallyExplicit)
+    {
+        var main = Parse(Model("Cache", "", ""), "Cache.cs");
+        var other = Parse(Model("Other", "", ""), "Other.cs");
+        var partial = Parse(Partials(initiallyExplicit ? "[UseCache(false)]" : "", ""), "Cache.Partial.cs");
+        var compilation = CreateCompilation(main, other, partial);
+        var driver = CreateDriver().RunGenerators(compilation);
+        await AssertNoErrors(compilation, driver);
+        var originalOther = Sources(driver).Where(pair => pair.Key.Contains("Other", StringComparison.Ordinal)).ToArray();
+
+        foreach (var explicitAttribute in new[] { !initiallyExplicit, initiallyExplicit })
+        {
+            var next = Parse(Partials(explicitAttribute ? "[UseCache(false)]" : "", ""), "Cache.Partial.cs");
+            compilation = compilation.ReplaceSyntaxTree(partial, next);
+            partial = next;
+            driver = driver.RunGenerators(compilation);
+
+            await AssertNoErrors(compilation, driver);
+            await AssertCache(driver, false, null);
+            var sources = Sources(driver);
+            var fresh = CreateDriver().RunGenerators(compilation);
+            await AssertNoErrors(compilation, fresh);
+            await Assert.That(sources.ToArray()).IsEquivalentTo(Sources(fresh).ToArray());
+            var metadata = sources.Single(pair => pair.Key.EndsWith("CacheDb.DataLinqMetadata.cs", StringComparison.Ordinal)).Value;
+            await Assert.That(metadata.Contains("UseCacheAttribute(false)", StringComparison.Ordinal)).IsEqualTo(explicitAttribute);
+            await Assert.That(sources.Where(pair => pair.Key.Contains("Other", StringComparison.Ordinal)).ToArray()).IsEquivalentTo(originalOther);
+        }
+    }
+
+    [Test]
     public async Task QualifiedAttributeAndConstantBooleanOnSecondaryDeclaration_AreBoundSemantically()
     {
         var main = Parse(Model("Cache", "", ""), "Cache.cs");
