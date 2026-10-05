@@ -160,9 +160,10 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
             "decimal" => Convert.ToDecimal(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
             "DateOnly" => QuoteSqlString(((DateOnly)defaultAttr.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
             "TimeOnly" => QuoteSqlString(((TimeOnly)defaultAttr.Value).ToString("HH:mm:ss", CultureInfo.InvariantCulture)),
-            "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
-            "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
-            "TimeSpan" => QuoteSqlString(((TimeSpan)defaultAttr.Value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture)),
+            // Match Microsoft.Data.Sqlite's parameter text, retaining full tick precision.
+            "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture)),
+            "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss.FFFFFFFzzz", CultureInfo.InvariantCulture)),
+            "TimeSpan" => QuoteSqlString(((TimeSpan)defaultAttr.Value).ToString("c", CultureInfo.InvariantCulture)),
             _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
         };
     }

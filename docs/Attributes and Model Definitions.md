@@ -288,6 +288,8 @@ The source strings are invariant literal carriers; metadata holds typed values, 
 
 Source parsing normalizes these carriers to base `DefaultAttribute` values without a retained `CodeExpression`. Regeneration emits legal constant attributes with up to seven fractional digits. Custom temporal attribute subtypes or retained initialization expressions cannot be regenerated through this fixed-value contract. These are model defaults, distinct from provider-scoped `DefaultSql` and dynamic `DefaultCurrentTimestamp`; physical SQL precision remains provider-dependent.
 
+SQLite fixed temporal defaults use the same invariant text representation as parameterized values: timestamps retain up to seven fractional digits, offsets remain explicit, and durations retain their sign and day count. Omitting these columns on insert preserves the declared values. As with parameterized SQLite `DateTime` storage, the clock value is stored without a `DateTimeKind` marker.
+
 Fixed `DateOnly` and `TimeOnly` values do not yet have supported attribute carriers. Metadata-to-model generation rejects these defaults explicitly instead of writing a runtime expression that fails compilation. The date/time property types themselves remain supported.
 
 ### `[DefaultCurrentTimestamp]`
