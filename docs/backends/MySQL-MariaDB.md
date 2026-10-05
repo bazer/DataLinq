@@ -25,6 +25,13 @@ The test matrix follows each official image's rolling minor tag within its LTS s
 
 ## Schema Introspection and Type Mapping
 
+Schema generation orders acyclic foreign key dependencies before their dependents
+and supports self-referencing tables. A cycle between distinct tables returns a
+diagnostic identifying the cycle; the current generator does not split creation
+into tables followed by deferred `ALTER TABLE ... ADD CONSTRAINT` statements.
+Such schemas require creating the tables first and then adding the cyclic foreign
+keys. Cyclic dependencies between views also return a diagnostic.
+
 `generate models` reads schema metadata from `information_schema` and maps backend types to C# types. The mapping is aware of signedness, length, defaults, foreign keys, indices, and enum definitions.
 
 | MySQL/MariaDB Type | Maps to C# Type |

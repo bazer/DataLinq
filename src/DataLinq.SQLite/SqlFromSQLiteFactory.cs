@@ -10,6 +10,7 @@ using DataLinq.Metadata;
 using DataLinq.Query;
 using Microsoft.Data.Sqlite;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.SQLite;
 
@@ -18,7 +19,12 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
     public Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
         var sql = new SQLiteGeneration(2, '"', "/* Generated %datetime% by DataLinq */\n\n");
-        foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.Table).ToList()))
+        var tables = sql.TrySortTablesByForeignKeys(metadata.TableModels.Select(x => x.Table)
+            .Where(x => x.Type == TableType.Table).ToList(), allowCycles: true).ValueOrException();
+        if (!sql.TrySortViewsByForeignKeys(metadata.TableModels.Select(x => x.Table)
+            .Where(x => x.Type == TableType.View).Cast<ViewDefinition>().ToList()).TryUnwrap(out var views, out var failure))
+            return failure;
+        foreach (var table in tables)
         {
             sql.CreateTable(table.DbName, x =>
             {
@@ -61,7 +67,7 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
                     index.Columns.Select(x => x.DbName).ToArray());
         }
 
-        foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.View).Cast<ViewDefinition>().ToList()))
+        foreach (var view in views)
         {
             if (string.IsNullOrWhiteSpace(view.Definition))
                 return DLOptionFailure.Fail($"View '{view.DbName}' does not have a Definition, can't create view. Add the 'DefinitionAttribute' to the view.");
