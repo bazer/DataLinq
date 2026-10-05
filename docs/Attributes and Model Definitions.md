@@ -266,6 +266,32 @@ Once provider metadata resolves the column's `[GuidStorage]`, the existing SQLit
 
 `[Default("00112233-4455-6677-8899-aabbccddeeff")]` remains a string default and is invalid for a `Guid` property; DataLinq does not silently coerce it. `DefaultGuid` also does not define converter-backed defaults, source/database merge precedence, static provider-default import, or SQLite expression/BLOB import. Dynamic client generation belongs to `[DefaultNewUUID]`, described below.
 
+### Fixed temporal defaults
+
+Runtime expressions such as `[Default(DateTime.Parse(...))]` are illegal C# attribute arguments. Use the fixed temporal carriers instead:
+
+```csharp
+[DefaultDateTime("1970-01-01T00:00:00.1234567")]
+public abstract DateTime ChangedAt { get; }
+
+[DefaultDateTime("2020-02-03T04:05:06", DateTimeKind.Utc)]
+public abstract DateTime RecordedAt { get; }
+
+[DefaultDateTimeOffset("2020-02-03T04:05:06.7654321+05:30")]
+public abstract DateTimeOffset OffsetAt { get; }
+
+[DefaultTimeSpan("-1.01:00:00.1234567")]
+public abstract TimeSpan Duration { get; }
+```
+
+The source strings are invariant literal carriers; metadata holds typed values, and generated mutable initialization preserves their exact ticks. `DefaultDateTime` accepts an ISO date/time without a timezone suffix and defaults to `DateTimeKind.Unspecified`. Its optional kind labels the same clock value without converting it. MariaDB/MySQL `DATETIME` import remains unspecified regardless of the column name. `DefaultDateTimeOffset` requires an explicit numeric offset and preserves it; `DefaultTimeSpan` uses the invariant `c` format, including signs, days, and fractional seconds.
+
+Source parsing normalizes these carriers to base `DefaultAttribute` values without a retained `CodeExpression`. Regeneration emits legal constant attributes with up to seven fractional digits. Custom temporal attribute subtypes or retained initialization expressions cannot be regenerated through this fixed-value contract. These are model defaults, distinct from provider-scoped `DefaultSql` and dynamic `DefaultCurrentTimestamp`; physical SQL precision remains provider-dependent.
+
+SQLite fixed temporal defaults use the same invariant text representation as parameterized values: timestamps retain up to seven fractional digits, offsets remain explicit, and durations retain their sign and day count. Omitting these columns on insert preserves the declared values. As with parameterized SQLite `DateTime` storage, the clock value is stored without a `DateTimeKind` marker.
+
+Fixed `DateOnly` and `TimeOnly` values do not yet have supported attribute carriers. Metadata-to-model generation rejects these defaults explicitly instead of writing a runtime expression that fails compilation. The date/time property types themselves remain supported.
+
 ### `[DefaultCurrentTimestamp]`
 
 Marks a property as using the provider's current date/time default.

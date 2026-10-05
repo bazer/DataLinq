@@ -433,6 +433,23 @@ public class ModelFileFactory
                 yield return $"{namespaceTab}{tab}[DefaultNewUUID(UUIDVersion.{defaultNewUuid.Version})]";
             else if (defaultAttr is DefaultSqlAttribute defaultSql)
                 yield return $"{namespaceTab}{tab}[DefaultSql(DatabaseType.{defaultSql.DatabaseType}, {SymbolDisplay.FormatLiteral(defaultSql.Expression, quote: true)})]";
+            else if (defaultAttr?.Value is DateTime or DateTimeOffset or TimeSpan)
+            {
+                if (defaultAttr.CodeExpression is not null ||
+                    (defaultAttr.GetType() != typeof(DefaultAttribute) &&
+                     defaultAttr is not (DefaultDateTimeAttribute or DefaultDateTimeOffsetAttribute or DefaultTimeSpanAttribute)))
+                    throw new NotSupportedException("Fixed temporal default regeneration cannot preserve custom attribute subtypes or CodeExpression semantics.");
+                var temporalAttribute = defaultAttr.Value switch
+                {
+                    DateTime date => $"DefaultDateTime({FormatStringLiteral(date.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff", System.Globalization.CultureInfo.InvariantCulture))}, global::System.DateTimeKind.{date.Kind})",
+                    DateTimeOffset date => $"DefaultDateTimeOffset({FormatStringLiteral(date.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffffzzz", System.Globalization.CultureInfo.InvariantCulture))})",
+                    TimeSpan duration => $"DefaultTimeSpan({FormatStringLiteral(duration.ToString("c", System.Globalization.CultureInfo.InvariantCulture))})",
+                    _ => throw new InvalidOperationException()
+                };
+                yield return $"{namespaceTab}{tab}[{temporalAttribute}]";
+            }
+            else if (defaultAttr?.Value.GetType().FullName is "System.DateOnly" or "System.TimeOnly")
+                throw new NotSupportedException("Fixed DateOnly/TimeOnly defaults do not yet have a supported C# attribute representation. Model generation cannot emit them without changing their meaning.");
             else if (defaultAttr?.Value is Guid guid && IsSupportedFixedGuidDefault(defaultAttr))
                 yield return $"{namespaceTab}{tab}[DefaultGuid({FormatStringLiteral(guid.ToString("D").ToLowerInvariant())})]";
             else if (defaultAttr?.Value is Guid)
