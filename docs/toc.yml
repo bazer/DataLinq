@@ -109,6 +109,8 @@
   items:
     - name: Changelog
       href: ../CHANGELOG.md
+    - name: 0.9.3 Release Notes
+      href: releases/0.9.3.md
     - name: 0.9.0 Release Notes
       href: releases/0.9.md
     - name: Roadmap

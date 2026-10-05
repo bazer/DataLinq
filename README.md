@@ -12,7 +12,7 @@
 [![.NET 8, 9, 10](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4?logo=dotnet)](https://github.com/bazer/DataLinq#installation)
 [![Supported targets](https://img.shields.io/badge/targets-SQLite%20%7C%20MySQL%208.4%2F9.7%20%7C%20MariaDB%2010.11%2F11.4%2F11.8%2F12.3-0A7BBB)](https://datalinq.org/)
 
-[Documentation website](https://datalinq.org/) | [Getting started](https://datalinq.org/docs/getting-started/Installation.html) | [DataLinq 0.9.0 release](https://github.com/bazer/DataLinq/releases/tag/0.9.0) | [Changelog](https://datalinq.org/CHANGELOG.html)
+[Documentation website](https://datalinq.org/) | [Getting started](https://datalinq.org/docs/getting-started/Installation.html) | [DataLinq 0.9.3 release](https://github.com/bazer/DataLinq/releases/tag/0.9.3) | [Changelog](https://datalinq.org/CHANGELOG.html)
 
 DataLinq is an immutable-first, source-generated ORM for .NET. It is built for applications where repeated reads, relation traversal, predictable object state, and cache behavior matter more than having an ORM translate every possible LINQ expression.
 
@@ -31,7 +31,7 @@ DataLinq makes a narrower trade:
 - **Honest LINQ support:** documented query shapes are backed by tests; unsupported shapes should fail clearly.
 - **Schema trust tooling:** `validate` and `diff` compare generated model metadata against live provider metadata without pretending to be full migrations.
 
-DataLinq 0.9.0 supports SQLite, MySQL, and MariaDB on .NET 8, .NET 9, and .NET 10. It also ships the experimental, provider-free, read-only [`DataLinq.Memory`](https://www.nuget.org/packages/DataLinq.Memory/0.9.0) backend for explicitly seeded generated models.
+DataLinq 0.9 supports SQLite, MySQL, and MariaDB on .NET 8, .NET 9, and .NET 10. It also ships the experimental, provider-free, read-only [`DataLinq.Memory`](https://www.nuget.org/packages/DataLinq.Memory) backend for explicitly seeded generated models.
 
 ### When It Fits
 
@@ -179,7 +179,7 @@ After that, the deeper working docs are:
 - [Transactions](https://datalinq.org/docs/Transactions.html)
 - [Attributes and Model Definitions](https://datalinq.org/docs/Attributes%20and%20Model%20Definitions.html)
 - [Memory (experimental)](https://datalinq.org/docs/backends/Memory.html)
-- [0.9.0 Release Notes](https://datalinq.org/docs/releases/0.9.html)
+- [0.9.3 Release Notes](https://datalinq.org/docs/releases/0.9.3.html)
 - [Internals](https://datalinq.org/docs/internals/)
 - [Troubleshooting](https://datalinq.org/docs/Troubleshooting.html)
 
