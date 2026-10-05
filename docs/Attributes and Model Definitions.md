@@ -348,6 +348,14 @@ These are advanced attributes. They matter when you want to shape cache behavior
 
 Enables caching on a database, model, or property.
 
+For generated database and table model classes, `[UseCache]` may be placed on any
+partial declaration, including a separate file without a model interface in its
+base list. `[UseCache(false)]` on a table overrides an enabled database cache;
+tables without an explicit flag inherit the database flag. The generator resolves
+the cache attribute across the complete class and updates generated metadata when
+the attribute changes in a partial file. Other attributes and model members still
+follow the existing declaration parsing rules.
+
 ### `[CacheLimit(...)]`
 
 Adds cache limits such as rows, bytes, seconds, minutes, or megabytes.
