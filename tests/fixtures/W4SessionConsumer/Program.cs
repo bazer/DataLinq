@@ -38,6 +38,12 @@ TransactionResult<string?> nullable = (string?)null;
 if (!nullable.TryUnwrap(out var missing, out _) || missing is not null) throw new Exception("Nullable success changed case.");
 TransactionResult<DataLinq.Mutation.Unit> empty = TransactionResult.Success();
 if (!empty.IsSuccess) throw new Exception("No-value success was uninitialized.");
+var markerPayload = new Rollback<string>("marker as data");
+var markerSuccess = TransactionResult<Rollback<string>, string>.FromSuccess(markerPayload);
+var markerFailure = TransactionResult<Rollback<string>, string>.FromRollback(markerPayload);
+TransactionResult<Rollback<string>, string> wrappedMarkerSuccess = TransactionResult.Success(markerPayload);
+if (markerSuccess.SuccessValue.Reason != "marker as data" || markerFailure.IsSuccess || !wrappedMarkerSuccess.IsSuccess)
+    throw new Exception("Explicit marker-shaped result construction changed cases.");
 TransactionResult<string, string> result = session.RequestRollback("business veto");
 if (result.IsSuccess || !owner.TryGetRollbackReason<string>(out var reason) || reason != "business veto")
     throw new Exception("Participant veto was not shared with its owner.");

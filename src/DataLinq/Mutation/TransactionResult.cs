@@ -41,6 +41,8 @@ public static class TransactionResult
 /// <remarks>
 /// Nullable successes are valid. Default results are uninitialized and throw on inspection.
 /// Returning a rollback payload does not veto commit; call the participating session's RequestRollback explicitly.
+/// Use FromSuccess/FromRollback when the success type is itself Rollback&lt;TFailure&gt;, making implicit conversions ambiguous.
+/// Value and HasValue are reserved for a possible future union view; no native union integration is enabled.
 /// </remarks>
 public readonly struct TransactionResult<T, TFailure> where TFailure : notnull
 {
@@ -54,7 +56,7 @@ public readonly struct TransactionResult<T, TFailure> where TFailure : notnull
     /// <summary>Gets whether this initialized result carries a success. Does not report transaction completion.</summary>
     public bool IsSuccess { get { EnsureInitialized(); return kind == 1; } }
     /// <summary>Gets the success payload; throws for rollback or uninitialized results.</summary>
-    public T Value => IsSuccess ? value : throw new InvalidOperationException("The result carries a rollback payload.");
+    public T SuccessValue => IsSuccess ? value : throw new InvalidOperationException("The result carries a rollback payload.");
     /// <summary>Gets the rollback payload; throws for success or uninitialized results.</summary>
     public TFailure Reason => !IsSuccess ? failure : throw new InvalidOperationException("The result carries a success payload.");
 
@@ -80,6 +82,11 @@ public readonly struct TransactionResult<T, TFailure> where TFailure : notnull
         if (kind == 0) throw new InvalidOperationException("The transaction result is uninitialized.");
     }
 
+    /// <summary>Explicitly constructs a success, including marker-shaped or nullable payloads.</summary>
+    public static TransactionResult<T, TFailure> FromSuccess(T value) => new(value);
+    /// <summary>Explicitly constructs rollback data without requesting rollback on a transaction.</summary>
+    public static TransactionResult<T, TFailure> FromRollback(Rollback<TFailure> rollback) => new(rollback);
+
     /// <summary>Constructs a success, including a permitted null payload.</summary>
     public static implicit operator TransactionResult<T, TFailure>(T value) => new(value);
     /// <summary>Constructs a success from its explicit payload.</summary>
@@ -96,13 +103,17 @@ public readonly struct TransactionResult<T>
     /// <summary>Gets the initialized case; does not report transaction completion.</summary>
     public bool IsSuccess => result.IsSuccess;
     /// <summary>Gets the success value; throws for rollback or uninitialized results.</summary>
-    public T Value => result.Value;
+    public T SuccessValue => result.SuccessValue;
     /// <summary>Gets the rollback reason; throws for success or uninitialized results.</summary>
     public string Reason => result.Reason;
     /// <summary>Unwraps an initialized result, permitting null successes.</summary>
     public bool TryUnwrap([MaybeNullWhen(false)] out T value, [MaybeNullWhen(true)] out string failure) => result.TryUnwrap(out value, out failure);
     /// <summary>Invokes the callback for the initialized case without changing transaction state.</summary>
     public TResult Match<TResult>(Func<T, TResult> success, Func<string, TResult> rollback) => result.Match(success, rollback);
+    /// <summary>Explicitly constructs a success, including marker-shaped or nullable payloads.</summary>
+    public static TransactionResult<T> FromSuccess(T value) => new(TransactionResult<T, string>.FromSuccess(value));
+    /// <summary>Explicitly constructs rollback data without requesting rollback on a transaction.</summary>
+    public static TransactionResult<T> FromRollback(Rollback<string> rollback) => new(TransactionResult<T, string>.FromRollback(rollback));
     /// <summary>Constructs a success.</summary>
     public static implicit operator TransactionResult<T>(T value) => new((TransactionResult<T, string>)value);
     /// <summary>Constructs an explicit success.</summary>
