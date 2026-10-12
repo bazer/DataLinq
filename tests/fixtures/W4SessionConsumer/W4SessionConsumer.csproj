@@ -18,6 +18,7 @@
     <PackageReference Include="DataLinq.SQLite" Version="[$(DataLinqCandidateVersion)]" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
     <!-- W3 source remains unchanged and is compiled with the W4 generated surface. -->
     <Compile Include="../AsyncPackageConsumer/AdvancedModels.cs" Link="AdvancedModels.cs" />
     <Compile Include="../AsyncPackageConsumer/GeneratedBindings.cs" Link="W3GeneratedBindings.cs" />

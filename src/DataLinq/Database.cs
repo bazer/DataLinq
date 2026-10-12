@@ -309,6 +309,7 @@ public abstract partial class Database<T> : IDisposable, IDataSourceAccess<T>
     /// </summary>
     public void Dispose()
     {
-        Provider.Dispose();
+        if (System.Threading.Volatile.Read(ref containerDisposal) is { } owned) owned.Dispose();
+        else Provider.Dispose();
     }
 }

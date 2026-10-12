@@ -135,3 +135,27 @@ Verification before this slice's commit:
 The first test compile used a read-only fixture property and an ambiguous test-namespace `Unit` name; both were corrected before the passing runs. The first broad run hit the existing Windows Testing CLI self-lock. After building the generator, unit, Memory and compliance projects outside the running CLI, the successful quick/provider runs used `--no-build`; no failure is counted as passing evidence. All twelve CI checks for the preceding factory commit `7317a767` are green ([run 38256588307](https://github.com/bazer/DataLinq/actions/runs/38256588307)); they do not verify this later working tree.
 
 **Still open:** production ownership and lazy registration/configuration, generated service composition/result opt-in, complete host/shutdown, packed/API and documentation closeout. Result-helper source verification is not W4 completion.
+
+### W4.1 Custom Provider Ownership Mechanism
+
+Before wiring registration, the actual-container proof now covers a non-idempotent custom provider through concrete/base/keyed/default/read aliases and multiple database wrappers. An internal container-ownership guard is enabled only after activation validation. It shares one provider cleanup attempt across database wrappers, preserves original cleanup failures, and leaves ordinary manually owned database behavior unchanged. Async capability is determined from the actual disposal delegate target, without invoking cleanup or scanning members. Legacy async disposal rejects before closing the guard, so later explicit synchronous disposal remains available.
+
+Database subclasses that replace the `IDisposable`/`IAsyncDisposable` dispatch cannot use owned aliases: they could bypass the guard or duplicate arbitrary authored cleanup. Reject that owned combination before handoff. Such instances remain supported as borrowed instance descriptors, which receive no container disposal invocation. Do not rewrite authored disposal.
+
+The Release core builds on net8.0/net9.0/net10.0 without warnings. **11/11** focused container cases passed on the working tree, run `20261012T135443733Z-0ae09c02203f4b9b997e77ce3bb7c292`. One initial test referenced the non-generic read-access surface; its corrected typed access precedes the passing run. Production wiring, disposable generated read roots, all activation entry points, and external runtime consumer evidence remain required before closing the ownership gate.
+
+### W4.4 Lazy Core Registration And Ownership Handoff
+
+`AddDataLinq<TDatabase>` defines an unnamed or keyed identity. `AsDefault` explicitly exposes a keyed identity through unnamed injection. `UseFactory` is lazy and container-owned; `UseInstance` borrows by default and accepts explicit container ownership. Concrete/base database, read-access/model, and factory aliases resolve the same activation. Existing instances expose their actual concrete type, including when supplied through a base variable; factories expose their declared result type. Duplicate identities, conflicting defaults, competing sources, and known borrowed/owned provider conflicts fail without constructing or disposing a provider.
+
+Each container owns an activation holder. Resolving only a non-disposable alias still transfers successful owned activation to that holder; never-selected and failed existing-instance activations retain caller ownership. Borrowed disposable read objects use instance descriptors and receive zero container disposal calls. Arbitrary disposal on owned read objects and database subclasses that replace disposal dispatch are rejected before handoff. A custom non-idempotent provider receives one underlying cleanup attempt across owned aliases. Construction and shutdown are serialized, failed lazy activations do not acquire ownership, and mutation after activation is rejected.
+
+Verification on the final development tree:
+
+- Focused registration cases: **22/22**, run `20261012T142112482Z-ad6bad63bda74fa6854de8c806e714dd`. Cases iterate all twelve keyed/default entry points, both builder orderings, borrowed/transferred/factory ownership and synchronous/asynchronous shutdown, plus failure and conflict paths.
+- Release quick plan: **5,089/5,089**, no failures/skips (107 generator, 4,184 unit, 223 Memory, 575 SQLite compliance); run `20261012T142250469Z-7931b5a719d34d83871e2b2fbb2b2357`.
+- Public non-friend consumer: zero-warning Release build and successful execution on actual **.NET 8.0.31, 9.0.20 and 10.0.12**. It proves lazy keyed/default identity, factory execution, custom-provider once-only cleanup and borrowed disposable generated read-model behavior.
+
+All affected suite projects were freshly built before the final `--no-build` quick run. An earlier incremental build left an old entry-assembly timestamp and the CLI correctly refused stale execution; forced rebuilds supplied the passing final evidence. The public fixture initially lacked its generator-required namespace, corrected before its successful build. All twelve CI checks for `ce816edb` passed ([run 38258331369](https://github.com/bazer/DataLinq/actions/runs/38258331369)); those checks precede this registration commit.
+
+Provider options/configuration/logging, generated service authoring and registration, dependent host shutdown, and packed/API/documentation closeout remain open. The tests above establish core registration ownership, not completion of W4.

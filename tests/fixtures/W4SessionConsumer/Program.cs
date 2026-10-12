@@ -78,4 +78,5 @@ using (var manual = factory.Create())
         throw new Exception("Factory creation eagerly opened a provider transaction.");
     manual.Rollback();
 }
+await RegistrationConsumer.Run();
 Console.WriteLine($"W4 session consumer passed on {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}.");

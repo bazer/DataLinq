@@ -10,7 +10,8 @@ public abstract partial class Database<T> : IAsyncDisposable where T : class, ID
 {
     /// <summary>Releases owned provider resources asynchronously.</summary>
     /// <remarks>There must be no active owned work. Does not silently fall back to synchronous disposal.</remarks>
-    public ValueTask DisposeAsync() => ((IAsyncDisposable)Provider).DisposeAsync();
+    public ValueTask DisposeAsync() => Volatile.Read(ref containerDisposal) is { } owned
+        ? owned.DisposeAsync() : ((IAsyncDisposable)Provider).DisposeAsync();
 
     /// <summary>Runs a callback once in an owned transaction and returns after commit, finalization and cleanup.</summary>
     /// <remarks>The callback must await all of its work and leave completion to this helper. Recovery uses an independent rollback budget.</remarks>
