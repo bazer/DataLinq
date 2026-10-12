@@ -4,6 +4,14 @@ namespace DataLinq.SourceGenerators;
 
 internal static class GeneratorDiagnostics
 {
+    internal static readonly DiagnosticDescriptor InvalidService = new(
+        "DLG005",
+        "Invalid DataLinq service declaration",
+        "Service '{0}' cannot generate managed operations: {1}",
+        "DataLinq.Generators",
+        DiagnosticSeverity.Error,
+        true);
+
     internal static readonly DiagnosticDescriptor AsyncNavigationConflict = new(
         "DLG004",
         "Async navigation member conflict",

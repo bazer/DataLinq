@@ -17,4 +17,6 @@ Run the net9.0 output with an actual .NET 9 host. The development checkout's W3 
 
 `ConfigurationConsumer.cs` exercises typed SQLite configuration, named connection-string replacement of a bound literal, first-resolution capture, independent keyed settings, default aliases and factory execution. The fixture uses the application's configuration implementation; DataLinq itself references only the configuration abstractions.
 
+`ServiceBindings.cs` is shared with the generator compilation tests. It covers primary and traditional constructor factories, optional/keyed constructor dependencies, ordinary/custom/native/no-value sync/async results, named/default/token calls and explicit result-aware opt-in. `ServiceConsumer.cs` executes those generated entry points, including differently bound standalone/participant factories, prepared participation, mapped nested vetoes, nullable/default result handling and concurrent independent owned sessions. Service lifetime registration is verified separately as that layer is added.
+
 By default this fixture references the current source projects. Supplying an exact `DataLinqCandidateVersion` selects package references instead, for later W4 packed-consumer verification. Source-project results alone do not prove the packed dependency graph or analyzer payload.

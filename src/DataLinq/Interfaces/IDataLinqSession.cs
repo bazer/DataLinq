@@ -16,6 +16,9 @@ namespace DataLinq.Interfaces;
 /// <remarks>Returned mutations are provisional until the owner commits. Do not execute concurrent operations on one session.</remarks>
 public interface IDataLinqSession<TDatabase> where TDatabase : class, IDatabaseModel<TDatabase>
 {
+    /// <summary>Validates that a new participating operation may start, without provider I/O or completion.</summary>
+    /// <remarks>Rejects ended, vetoed, poisoned, busy or closed sessions. Each subsequent database operation still performs its own admission checks.</remarks>
+    void ValidateParticipation();
     /// <summary>Gets the transaction-bound model query root.</summary>
     TDatabase Query();
     /// <summary>Looks up a model by canonical provider key.</summary>

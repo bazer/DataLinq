@@ -40,6 +40,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
 
     private void InitializeCore(IncrementalGeneratorInitializationContext context)
     {
+        ServiceGenerator.Initialize(context);
         IncrementalValuesProvider<ModelDeclarationInput> modelDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (node, _) => IsModelDeclaration(node),
