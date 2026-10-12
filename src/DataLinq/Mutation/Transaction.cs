@@ -548,10 +548,12 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
     /// <summary>
     /// Commits the transaction.
     /// </summary>
-    public void Commit()
+    public void Commit() => CommitCore();
+
+    private void CommitCore(TransactionOperationGate.Lease? helperOwner = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
-        var operation = BeginExclusiveOperation("commit", completion: true, operationKind: ExecutionOperationKind.Commit);
+        var operation = helperOwner ?? BeginExclusiveOperation("commit", completion: true, operationKind: ExecutionOperationKind.Commit);
         try
         {
             EnsureTransactionCanComplete("commit", rejectPoisoned: true);
@@ -624,7 +626,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         }
         finally
         {
-            operation.Dispose();
+            if (helperOwner is null) operation.Dispose();
         }
     }
 
@@ -1335,16 +1337,18 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
     /// <summary>
     /// Disposes of the transaction.
     /// </summary>
-    public void Dispose()
+    public void Dispose() => DisposeCore();
+
+    private void DisposeCore(TransactionOperationGate.Lease? helperOwner = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         if (IsDisposed)
         {
-            ExecutionGate.ThrowIfActive("dispose", ExecutionOperationKind.Dispose);
+            if (helperOwner is null) ExecutionGate.ThrowIfActive("dispose", ExecutionOperationKind.Dispose);
             return;
         }
 
-        var operation = BeginExclusiveOperation("dispose", completion: true, operationKind: ExecutionOperationKind.Dispose);
+        var operation = helperOwner ?? BeginExclusiveOperation("dispose", completion: true, operationKind: ExecutionOperationKind.Dispose);
         try
         {
             if (Interlocked.Exchange(ref disposeState, 1) != 0)
@@ -1450,7 +1454,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         {
             if (IsDisposed)
                 UpdateAsyncRecovery(AsyncFailureContext?.Completion ?? ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.None);
-            operation.Dispose();
+            if (helperOwner is null) operation.Dispose();
         }
     }
 

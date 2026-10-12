@@ -103,3 +103,18 @@ The first broad attempt hit a Windows file lock when the Testing CLI tried rebui
 The draft result's success accessor is now `SuccessValue`, keeping `Value` and `HasValue` unclaimed as required by the accepted future-union boundary. No native union integration is enabled. `FromSuccess` and `FromRollback` provide explicit construction when `T` itself is `Rollback<TFailure>`: the two implicit conversions necessarily overlap for that unusual closed generic type. `TransactionResult.Success(marker)` also constructs marker-shaped success data explicitly. These constructors remain data-only and never request rollback.
 
 The expanded result fixture passes **4/4** focused cases (run `20261012T130308022Z-9ca6a16b632c4084893936a45cff2b0d`); the updated non-friend consumer builds without warnings and passes on .NET 8.0.31/9.0.20/10.0.12, including explicit marker-shaped construction. This small API follow-up does not rerun or relabel the earlier broad/provider evidence. Before it, all twelve CI checks at `e77eaf20` completed successfully, including the latest required gate, local suites, both latest server families and dependency audit ([run 38252345771](https://github.com/bazer/DataLinq/actions/runs/38252345771)).
+
+### W4.3 General Factory-Owned Execution
+
+`IDataLinqUnitOfWorkFactory<TDatabase>` and `DataLinqUnitOfWorkFactory<TDatabase>` bind to an existing database without transferring its ownership. `Create` returns the existing lazy logical transaction for caller-controlled completion/disposal. General `Execute` / `ExecuteAsync` callbacks receive participant sessions and accept ordinary/custom/native/no-value payloads. A failure-shaped return alone can commit; an explicit veto instead throws after recovery and cleanup, preserving the original reason.
+
+The async path delegates to the existing managed database callback engine. The synchronous path shares the existing operation gate, synchronous commit/finalization and synchronous disposal. It closes helper admission and drains escaped admitted work before cleanup; only this exceptional escaped-async-work case can require waiting for work already in flight. It does not schedule callbacks on a worker or replace ordinary synchronous provider calls with async calls. Casting a participant back to the concrete owner cannot bypass callback completion/disposal guards.
+
+Verification before this slice's commit:
+
+- Focused controlled factory cases: **10/10**, including all completion/disposal bypass attempts, cancellation, cleanup failure precedence, escaped synchronous readers and pending async work; run `20261012T131411606Z-0e06b5696a81496fabed1b3ca43e8bec`.
+- Release quick plan: **5,033/5,033**, no skips (107 generator, 4,129 unit, 223 Memory, 574 SQLite compliance); run `20261012T131425562Z-6b708d1924874104baeed13c328b7788`.
+- Focused factory compliance across **all eight targets**: **8/8**, no skips; run `20261012T133058214Z-c83e5870fb8b41909b80c3c5300a5c26`, using `run --suite compliance --configuration Release --alias all --filter '/*/*/UnitOfWorkFactoryTests/*'` with the previously documented normal-profile Podman invocation.
+- Updated non-friend factory consumer: zero-warning Release build and successful execution on **.NET 8.0.31, 9.0.20 and 10.0.12**.
+
+The initial synchronous helper build lacked its transaction-status namespace import; the passing runs follow that correction. These are development-tree checks, not clean packed-artifact evidence. Explicit result-aware conveniences are the next W4.3 step; production DI, configuration, generated services, ownership and host/packed/API closeout gates remain open.

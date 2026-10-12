@@ -1,6 +1,6 @@
 # W4 session consumer
 
-This non-friend executable checks the participant and owner contracts against actual .NET 8/9/10 runtimes. It exercises generated mutation helpers, transaction-local prepared scalar/row/sequence queries, invocation snapshots, nullable/no-value results, rollback intent and owner-controlled completion. `Bindings.cs` compiles the same sync/async/named/static/method-group expressions with base, typed, inferred and participant transaction types. The generator tests compile those exact files with C# 12/13/14 and nullable analysis enabled/disabled. The fixture also links the unchanged W3 generated-mutation consumer source.
+This non-friend executable checks the participant, owner and factory contracts against actual .NET 8/9/10 runtimes. It exercises generated mutation helpers, transaction-local prepared scalar/row/sequence queries, invocation snapshots, nullable/no-value results, rollback intent, owner-controlled completion and factory-owned callbacks. `Bindings.cs` compiles the same sync/async/named/static/method-group expressions with base, typed, inferred and participant transaction types. The generator tests compile those exact files with C# 12/13/14 and nullable analysis enabled/disabled. The fixture also links the unchanged W3 generated-mutation consumer source.
 
 From the repository root:
 

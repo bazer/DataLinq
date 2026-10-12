@@ -58,4 +58,16 @@ var independent = await new MutableChild { Tenant = 7, Id = new(18), Name = "typ
     .InsertAsync(changes: row => row.Name = "typed inserted", transaction: typed);
 await independent.SaveAsync(changes: row => row.Name = "typed saved", transaction: typed);
 await typed.RollbackAsync();
+IDataLinqUnitOfWorkFactory<AdvancedDatabase> factory = new DataLinqUnitOfWorkFactory<AdvancedDatabase>(database);
+if (factory.Execute(session => session.Query().Parents.Count()) != 1 ||
+    await factory.ExecuteAsync((session, token) => session.Query().Parents.CountAsync(cancellationToken: token).AsTask()) != 1)
+    throw new Exception("Factory-owned callbacks did not preserve ordinary results.");
+factory.Execute(_ => { });
+await factory.ExecuteAsync(_ => Task.CompletedTask);
+using (var manual = factory.Create())
+{
+    if (((Transaction)manual).Status != DatabaseTransactionStatus.Closed)
+        throw new Exception("Factory creation eagerly opened a provider transaction.");
+    manual.Rollback();
+}
 Console.WriteLine($"W4 session consumer passed on {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}.");
