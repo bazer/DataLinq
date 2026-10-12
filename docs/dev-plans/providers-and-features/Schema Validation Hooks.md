@@ -5,8 +5,8 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for runtime/startup validation; MSBuild/build-time validation remains later work.
-**Last reviewed:** 2026-09-16.
-**Dependency:** Runtime validation composes with the 0.10 DI/hosting package rather than introducing a competing startup abstraction.
+**Last reviewed:** 2026-10-04 (H10-4 keyed-registration target identity, following H10-1 package placement).
+**Dependency:** Runtime validation composes with the 0.10 DI/hosting integration in `DataLinq`, under [H10-1](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages), rather than introducing a competing startup abstraction.
 **Goal:** Let applications and builds explicitly validate DataLinq model metadata against live database schemas so schema drift is caught during development, CI, deployment, and application startup.
 
 **0.10 async contract:** [AAPI-64 through AAPI-67](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-64-async-existence-checks-preserve-their-distinct-probe-semantics) settle existence probes, live metadata async/Option behavior, runtime validation signatures and failure policy, and effective-source ownership/freshness. Async validation belongs in the first implementation, not only as reserved signatures. Capture configuration before suspension, propagate cancellation through metadata reading, and never return canceled or incomplete metadata as a successful comparison.
@@ -78,7 +78,7 @@ database.EnsureSchemaValid(options =>
 
 Accepted public surface (implementation bodies and internal result construction omitted):
 
-The validator, options and result live in `DataLinq.Validation` in the core package; the exception lives in `DataLinq.Exceptions` in core. Hosting stays in the separate integration package. Reuse core comparison/diagnostic types and preserve the existing Tools `SchemaValidationRunResult` without adding a runtime dependency on Tools or source parsing.
+The validator, options and result live in `DataLinq.Validation` in the core package; the exception lives in `DataLinq.Exceptions` in core. Under the accepted 2026-09-30 H10-1 amendment, hosting registration/startup also lives in `DataLinq`, organized under an extension namespace; no separate integration package is required. Reuse core comparison/diagnostic types and preserve the existing Tools `SchemaValidationRunResult` without adding a runtime dependency on Tools or source parsing.
 
 ```csharp
 public sealed class DataLinqSchemaValidationOptions
@@ -260,6 +260,10 @@ builder.Services.AddHostedService<DataLinqSchemaValidationHostedService>();
 
 The helper registration can add the hosted service internally, but the behavior should be visible from the call site.
 
+Under [H10-4](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-4-registration-configuration-and-keyed-instances), targets identify the full model/key registration. Attach validation to the keyed registration builder or explicitly select the same keyed database/provider in a target factory. An unkeyed target selects the explicit default; it must not choose an arbitrary registration or implicitly validate all instances of that model. A default alias refers to the same target, so it must not create another provider or duplicate validation. Exact keyed convenience overloads remain part of the hosting API review.
+
+Opt-in startup validation resolves selected registrations early, capturing their connection/settings configuration and constructing their singleton providers if not already resolved. It reuses that graph thereafter. Disabled validation must not resolve otherwise-unused databases; this does not promise that a database resolved elsewhere has I/O-free constructors or receives live configuration updates.
+
 ### 4.2. Startup Behavior
 
 The hosted service should:
@@ -423,6 +427,6 @@ The source generator should continue validating model self-consistency. Live sch
 ## 8. Open Questions
 
 - Async validation and first-slice cancellation are resolved by AAPI-65/AAPI-66; exact implementation/provider evidence remains required.
-- Runtime types in core and startup adapters in the separate hosting package are resolved by AAPI-106; actual dependency/consumer evidence remains required.
+- Runtime type placement is resolved by AAPI-106, with its separate-hosting-package requirement superseded by [H10-1](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages). Startup adapters belong in core under an extension namespace; actual dependency/consumer evidence remains required.
 - Should MSBuild `FailOn=warning` map warnings to build errors, or should it emit warnings and rely on `TreatWarningsAsErrors`?
 - Should startup validation run before or after application-specific migration tools, when both are registered?

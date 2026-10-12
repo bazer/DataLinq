@@ -14,6 +14,7 @@ TestResults
 *.ncrunchsolution
 *.cache
 *.SdkResolver.*.proj.Backup.tmp
+*.obsidian
 
 /src/_NCrunch_DataLinq
 /src/DataLinq.Tests/*.db

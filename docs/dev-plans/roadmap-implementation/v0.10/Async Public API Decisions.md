@@ -7,7 +7,7 @@
 
 **Target release:** 0.10 / A10 ([issue #107](https://github.com/bazer/DataLinq/issues/107)).
 
-**Last reviewed:** 2026-09-16.
+**Last reviewed:** 2026-10-12 (AAPI-33 cross-reference aligned with H10's explicit rollback intent and optional results; AAPI-34 clarifies synchronous rollback-request admission alongside ordinary execution overlap; other AAPI decisions unchanged).
 
 **Prerequisites:** The [W0 baseline and I/O audit](Implementation%20Order%20and%20Integration%20Plan.md#w0-baseline-and-io-inventory) and W1/W2 provider feasibility evidence remain required before implementation changes shared execution and freezes the complete public surface.
 
@@ -659,6 +659,8 @@ Guide asynchronous transaction work to `CommitAsync`. The current synchronous ge
 
 **Accepted:** 2026-09-04. A `CommitAsync` helper owns its transaction lifecycle. Invoke its callback once and await the returned task; never automatically retry/replay it. The callback borrows the transaction for operations and may pass it to application services. Reject callback attempts to commit, roll back, or dispose the helper-owned transaction before those actions reach the provider. Applications needing manual completion use `Transaction()`.
 
+**W4 extension, 2026-10-01:** [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) adds a participant request to veto commit without physically rolling back or disposing the borrowed transaction. This planned business rollback state is distinct from execution poisoning. It preserves owner-only completion and the existing `CommitAsync` success-means-commit contract; a veto makes that helper fail rather than return ordinary success after rollback.
+
 Transaction operations started by the callback must finish before the callback returns. AAPI-36 and AAPI-38 settle private helper ownership and recovery for unfinished operations/readers and escaped work, including the limits of detecting unawaited completed tasks. Do not commit while tracked work remains active.
 
 | Cancellation boundary | Required behavior |
@@ -678,6 +680,8 @@ Swallowing a mutation failure inside the callback cannot repair a poisoned trans
 
 **Accepted:** 2026-09-04. Deliver callback `TResult` only after callback execution, commit, required finalization, and cleanup have all succeeded. Returning a value from the callback is an intermediate step; a known-committed cleanup failure is reported under AAPI-24 through AAPI-26 instead of returning ordinary success.
 
+**Optional result-aware helper, amended 2026-10-12:** [H10-3](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#explicit-rollback-intent-and-optional-results) accepts ordinary/custom/native/no-value service returns, with explicit `RequestRollback` as the application-level veto. General owning helpers report a veto by exception after rollback/cleanup. An explicitly selected result-aware convenience may instead return a valid business rollback outcome after an actual veto, confirmed rollback (or no provider work started), and successful cleanup. It must not infer a request from returned data. Invalid optional-result inspection may throw but does not independently poison the transaction; caught exceptions leave completion subject to the explicit veto and existing runtime integrity/recovery checks. This does not change `CommitAsync` semantics, convert operational failures/cancellation into business results, or return before required cleanup. Participant returns remain provisional; only the outer owner completes the shared transaction.
+
 Prefer materialized immutable rows, lists/arrays, keys, scalars, and application DTOs. Callers must materialize deferred work bound to the helper's transaction inside the callback. The helper does not automatically enumerate arbitrary returned sequences, inspect whole result graphs, or secretly keep the transaction alive. Deferred work against an independent database root is not thereby made transaction-bound.
 
 Returning immutable rows remains valid, including the accepted later relation transitions to committed reads under AAPI-20 when their source/lifecycle checks permit it. Do not impose a blanket post-transaction invalidity rule on all returned entities. The helper returns completed work and releases its transaction; it does not return an ongoing transaction session.
@@ -689,6 +693,8 @@ Returning immutable rows remains valid, including the accepted later relation tr
 **Accepted:** 2026-09-04. Permit one active managed execution operation per transaction, shared by synchronous and asynchronous APIs. Reject a conflicting call immediately with `InvalidOperationException`; do not implicitly queue it. Cover queries, transaction-bound relation execution, mutations, initialization, and transaction completion, including warm-cache execution. The diagnostic identifies the transaction and attempted/active operations; exact public diagnostic access remains subject to OAPI-7.
 
 Rejecting the second call must neither cancel nor poison the first operation. Preserve ordinary argument/lifecycle validation and AAPI-21's cancellation precedence. Local immutable property reads and processing already materialized collections do not become transaction execution. Independent database-root operations remain eligible for concurrency with independently owned execution resources; do not introduce a database-wide execution lock.
+
+**H10 clarification, 2026-10-12:** [rollback-request admission](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#rollback-request-admission) is a synchronous in-memory state change, not a second execution operation. Accept it during an active command/reader without interrupting that work; normal return guarantees the veto, while requests after completion admission or helper closure throw. Coordinate it with execution/completion admission so a request cannot appear accepted too late to prevent commit. After acceptance, reject new execution but allow already admitted work and its reader to finish under existing ownership, cancellation, overlap, and cleanup rules. AAPI-38's helper-closure/unfinished-work recovery still applies. This planned W4 control-state path does not relax ordinary execution or disposal overlap rejection.
 
 **Owner/gate:** A10, D10-1/D10-2; deterministic W1/W2 tests cover sync/async overlap, warm/cold execution, initialization and completion, diagnostics, unchanged first-operation behavior, and independent database-root concurrency.
 
@@ -1730,7 +1736,7 @@ Retain the standard-settings interface getter and compatible constructor policy.
 
 ### AAPI-106: Runtime Validation Types And Immutable Result Construction
 
-**Accepted:** 2026-09-16. Resolves E04's supporting type placement and construction. Put `DataLinqSchemaValidator`, `DataLinqSchemaValidationOptions` and `DataLinqSchemaValidationResult` in `DataLinq.Validation` in the core package; put `DataLinqSchemaValidationException` in `DataLinq.Exceptions` in core. Hosting registration/startup stays in the separate hosting package. Do not introduce core dependencies on hosting, Tools, CLI configuration or source parsing.
+**Accepted:** 2026-09-16; package placement amended by the user on 2026-09-30 through [H10-1](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages). Resolves E04's supporting type placement and construction. Put `DataLinqSchemaValidator`, `DataLinqSchemaValidationOptions` and `DataLinqSchemaValidationResult` in `DataLinq.Validation` in the core package; put `DataLinqSchemaValidationException` in `DataLinq.Exceptions` in core. The earlier separate-hosting-package requirement is superseded: hosting registration/startup also belongs in `DataLinq`, organized under an extension namespace, with the required Microsoft.Extensions dependencies. Core must still avoid dependencies on ASP.NET Core, Tools, CLI configuration and source parsing. Validation behavior and W5 sequencing are unchanged.
 
 Reuse the existing shared comparer, difference and diagnostic types. Preserve Tools' public `SchemaValidationRunResult` and CLI behavior. Options are sealed, publicly parameterless-constructible and settable, then captured once before execution: `FailOnSeverity` defaults to `Error`, `TreatValidationIssuesAsFailures` to `true`, with nullable `CommandTimeout`, `Include` and `MetadataReaderLog`. AAPI-107 removes informational filtering from these options.
 
