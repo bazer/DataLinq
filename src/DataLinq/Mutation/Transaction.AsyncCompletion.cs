@@ -135,6 +135,9 @@ public partial class Transaction
     private sealed class ManagedAsyncCompletion(Transaction transaction, IAsyncTransactionCompletion provider)
         : IAsyncHelperTransaction
     {
+        public bool HasNoStartedProviderWork => provider.InitializationState == TransactionInitializationState.Unused;
+        public bool CanReturnRollbackResult => !transaction.IsPoisoned && transaction.AsyncFailureContext?.HasCleanupFailure != true;
+
         internal ExecutionCompletion Completion => transaction.AsyncFailureContext?.Completion ??
             transaction.MutableOwnership.Outcome switch
             {
@@ -289,6 +292,7 @@ public partial class Transaction
             using var diagnostics = ExecutionFailureScope.Begin();
             transaction.ExecutionGate.ValidateStep(owner);
             if (Interlocked.Exchange(ref transaction.disposeState, 1) != 0) return;
+            transaction.ExecutionGate.CloseRollbackAdmission();
             var completion = Completion;
             var failures = new ExecutionFailures();
             try { await provider.DisposeTransactionAsync(owner).ConfigureAwait(false); }

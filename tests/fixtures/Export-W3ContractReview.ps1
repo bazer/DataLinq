@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Manifest,
-    [Parameter(Mandatory)][string]$Output
+    [Parameter(Mandatory)][string]$Output,
+    [string]$Label = 'W3',
+    [string[]]$TypePrefixes = @()
 )
 
 # A readable projection of the captured compiled contract. Keep the original JSON
@@ -25,11 +27,14 @@ function Parameter($value) {
     if ($value.MetadataAttributes.Count) { $text += ' metadata=' + (Json $value.MetadataAttributes) }
     return $text
 }
-$lines.Add('# Compiled W3 contract review projection')
-$lines.Add('# Includes selected public/protected async families, their type/constructor/property contracts, diagnostics and generated examples.')
+$lines.Add("# Compiled $Label contract review projection")
+$lines.Add($(if ($Label -eq 'W3') { '# Includes selected public/protected async families, their type/constructor/property contracts, diagnostics and generated examples.' } else { '# Includes selected public/protected families, their type/constructor/property contracts, diagnostics and generated examples.' }))
 $lines.Add('# Assembly identities and exact byte hashes are in the adjacent evidence record; this projection omits build-specific identities.')
 $lines.Add('# Nullable states describe the captured runtime reflection result; raw nullable attributes remain in JSON/ApiCompat snapshots.')
+$exported = 0
 foreach ($type in $contract.Types) {
+    if ($TypePrefixes.Count -and !@($TypePrefixes | Where-Object { $type.Name.StartsWith($_, [StringComparison]::Ordinal) }).Count) { continue }
+    $exported++
     $lines.Add('')
     $lines.Add("type $($type.Name) [$($type.Attributes)] base=$($type.BaseType)")
     $lines.Add('  interfaces=' + (Json $type.Interfaces))
@@ -53,5 +58,6 @@ foreach ($type in $contract.Types) {
     }
     foreach ($value in $type.EnumValues) { $lines.Add("  enum $($value.Name)=$($value.Value)") }
 }
+if ($exported -eq 0) { throw 'No compiled types matched the export selection.' }
 [IO.File]::WriteAllLines([IO.Path]::GetFullPath($Output), $lines, [Text.UTF8Encoding]::new($false))
-Write-Output "Exported $($contract.Types.Count) compiled types to $Output"
+Write-Output "Exported $exported compiled types to $Output"

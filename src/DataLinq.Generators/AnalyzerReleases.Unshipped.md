@@ -10,3 +10,4 @@ DLG001  | DataLinq.Generators | Error | Reports failures while building DataLinq
 DLG002  | DataLinq.Generators | Error | Reports failures while generating DataLinq model source files.
 DLG003  | DataLinq.Generators | Error | Reports source-defined model defaults that are not assignable to the property type.
 DLG004  | DataLinq.Generators | Error | Reports unsafe generated async navigation signatures or call binding.
+DLG005  | DataLinq.Generators | Error | Reports unsupported service declarations, factory selection, operation signatures and generated-name collisions.

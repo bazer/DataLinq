@@ -29,6 +29,14 @@ public class MariaDBDatabaseCreator : IDatabaseProviderCreator
 public class MariaDBDatabase<T> : Database<T>
      where T : class, IDatabaseModel<T>
 {
+    /// <summary>Constructs a database with validated execution settings captured by its provider.</summary>
+    public MariaDBDatabase(string connectionString, string? databaseName, ILoggerFactory? loggerFactory,
+        DataLinqExecutionOptions executionOptions) : base(new MariaDBProvider<T>(connectionString, databaseName,
+            loggerFactory is null ? DataLinqLoggingConfiguration.NullConfiguration : new DataLinqLoggingConfiguration(loggerFactory),
+            executionOptions))
+    {
+    }
+
     /// <summary>
     /// Initializes a new instance of the MySqlDatabase with the specified connection string.
     /// </summary>

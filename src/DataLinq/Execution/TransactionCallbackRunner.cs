@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Exceptions;
 
 namespace DataLinq.Execution;
 
@@ -12,6 +13,8 @@ internal interface IAsyncHelperTransaction : IAsyncTransactionRecovery
     Task CommitAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken);
     void FinalizeCommit(TransactionOperationGate.Step owner);
     ExecutionRecoveryActions Recovery { get; }
+    bool HasNoStartedProviderWork { get; }
+    bool CanReturnRollbackResult { get; }
 }
 
 internal static class TransactionCallbackRunner
@@ -54,6 +57,8 @@ internal static class TransactionCallbackRunner
         // Closing admission and taking the active-work snapshot are one gate transition.
         // A successful callback does not authorize committing work found unfinished here.
         using var owner = await lifetime.CloseAndDrainAsync(failures).ConfigureAwait(false);
+        DataLinqRollbackRequestedException? commitVeto = null;
+        var noStartedProviderWork = false;
         if (failures.Primary is null)
         {
             var dispatched = false;
@@ -81,6 +86,17 @@ internal static class TransactionCallbackRunner
                     completion = ExecutionCompletion.Unknown;
                 failures.AddReported(failure, stage, stage == ExecutionFailureStage.Finalization
                     ? ExecutionFailureCause.LocalFinalizationError : ExecutionFailureCause.Unknown, ExecutionOperationKind.Commit);
+                if (stage == ExecutionFailureStage.Validation && failure is DataLinqRollbackRequestedException veto)
+                {
+                    // Admission is closed and admitted work has settled. Capture
+                    // this before disposal retires the provider initialization state.
+                    try
+                    {
+                        if (resource.CanReturnRollbackResult) commitVeto = veto;
+                        noStartedProviderWork = resource.HasNoStartedProviderWork;
+                    }
+                    catch (Exception inspection) { failures.AddReported(inspection, ExecutionFailureStage.Validation); }
+                }
             }
         }
 
@@ -92,7 +108,12 @@ internal static class TransactionCallbackRunner
         }
         var cleanup = new AutomaticTransactionRecovery(gate, owner, resource, settings, failures,
             completion, recovery, transactionId, timeProvider);
-        await cleanup.DisposeAsync().ConfigureAwait(false);
+        try { await cleanup.DisposeAsync().ConfigureAwait(false); }
+        catch (DataLinqRollbackRequestedException failure) when (ReferenceEquals(failure, commitVeto))
+        {
+            failure.ConfirmHelperRollback(transactionId, cleanup.FailureContext, noStartedProviderWork);
+            throw;
+        }
         return result;
 
         void CheckCancellation(ExecutionOperationKind operationKind)

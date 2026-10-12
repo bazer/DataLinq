@@ -10,7 +10,7 @@ public sealed class AsyncMutationGeneratorTests : GeneratorTestBase
     [Test]
     [Arguments(false)]
     [Arguments(true)]
-    public async Task AllNineteenMutationOverloadsPreserveReceiverNamesAndTypedCallbacks(bool nullable)
+    public async Task MutationOverloadsPreserveReceiverNamesAndTypedCallbacks(bool nullable)
     {
         var source = CSharpSyntaxTree.ParseText($$"""
             #nullable {{(nullable ? "enable" : "disable")}}
@@ -74,7 +74,7 @@ public sealed class AsyncMutationGeneratorTests : GeneratorTestBase
             .Where(m => m.Name is "Insert" or "Update" or "Save").ToArray();
         var asyncMethods = extensions.GetMembers().OfType<IMethodSymbol>()
             .Where(m => m.Name is "InsertAsync" or "UpdateAsync" or "SaveAsync").ToArray();
-        await Assert.That(asyncMethods.Length).IsEqualTo(19);
+        await Assert.That(asyncMethods.Length).IsEqualTo(39);
         foreach (var method in asyncMethods)
         {
             await Assert.That(method.Parameters.Last().Name).IsEqualTo("cancellationToken");

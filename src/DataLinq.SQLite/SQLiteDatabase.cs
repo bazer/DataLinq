@@ -32,6 +32,14 @@ public class SQLiteDatabaseCreator : IDatabaseProviderCreator
 public class SQLiteDatabase<T> : Database<T>
      where T : class, IDatabaseModel<T>
 {
+    /// <summary>Constructs a database with validated execution settings captured by its provider.</summary>
+    public SQLiteDatabase(string connectionString, string? databaseName, ILoggerFactory? loggerFactory,
+        DataLinqExecutionOptions executionOptions) : base(new SQLiteProvider<T>(connectionString, databaseName,
+            loggerFactory is null ? DataLinqLoggingConfiguration.NullConfiguration : new DataLinqLoggingConfiguration(loggerFactory),
+            executionOptions))
+    {
+    }
+
     public SQLiteDatabase(string connectionString, ILoggerFactory? loggerFactory = null) :
         this(connectionString, null, loggerFactory)
     { }

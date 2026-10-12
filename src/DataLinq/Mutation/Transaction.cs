@@ -377,7 +377,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
     /// <param name="model">The model to insert or update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T Save<T>(T model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
+    public T Save<T>(T? model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
     {
         ArgumentNullException.ThrowIfNull(changes);
         var mut = model == null
@@ -394,7 +394,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
     /// <param name="model">The model to insert or update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T Save<T>(Mutable<T> model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
+    public T Save<T>(Mutable<T>? model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
     {
         var mut = model ?? new Mutable<T>();
 
@@ -548,10 +548,12 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
     /// <summary>
     /// Commits the transaction.
     /// </summary>
-    public void Commit()
+    public void Commit() => CommitCore();
+
+    private void CommitCore(TransactionOperationGate.Lease? helperOwner = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
-        var operation = BeginExclusiveOperation("commit", completion: true, operationKind: ExecutionOperationKind.Commit);
+        var operation = helperOwner ?? BeginExclusiveOperation("commit", completion: true, operationKind: ExecutionOperationKind.Commit);
         try
         {
             EnsureTransactionCanComplete("commit", rejectPoisoned: true);
@@ -624,7 +626,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         }
         finally
         {
-            operation.Dispose();
+            if (helperOwner is null) operation.Dispose();
         }
     }
 
@@ -720,6 +722,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
 
     private void FinalizeCommittedState()
     {
+        ExecutionGate.CloseRollbackAdmission();
         try
         {
             Provider.State.ApplyChanges(successfulChanges);
@@ -787,6 +790,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         MutableTransactionOutcome outcome,
         MutableInvalidationReason invalidationReason)
     {
+        ExecutionGate.CloseRollbackAdmission();
         var recoveryFailures = new List<ObservedExecutionFailure>();
 
         try
@@ -827,6 +831,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         MutableTransactionOutcome outcome,
         MutableInvalidationReason invalidationReason)
     {
+        ExecutionGate.CloseRollbackAdmission();
         var cleanupFailures = new List<ObservedExecutionFailure>();
 
         try
@@ -1058,6 +1063,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         object? sender,
         DatabaseTransactionStatusChangeEventArgs args)
     {
+        if (args.Status is DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack)
+            ExecutionGate.CloseRollbackAdmission();
         if (args.Status == DatabaseTransactionStatus.Committed &&
             Volatile.Read(ref managedCommitFinalizationState) != 0)
         {
@@ -1231,6 +1238,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
 
         if (rejectPoisoned)
         {
+            ExecutionGate.ThrowIfRollbackRequested();
             ThrowIfPoisoned(operation);
         }
         EnsureAsyncRecoveryAllowed(operation, rejectPoisoned ? ExecutionRecoveryActions.Continue : ExecutionRecoveryActions.Rollback);
@@ -1329,20 +1337,23 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
     /// <summary>
     /// Disposes of the transaction.
     /// </summary>
-    public void Dispose()
+    public void Dispose() => DisposeCore();
+
+    private void DisposeCore(TransactionOperationGate.Lease? helperOwner = null)
     {
         using var diagnostics = ExecutionFailureScope.Begin();
         if (IsDisposed)
         {
-            ExecutionGate.ThrowIfActive("dispose", ExecutionOperationKind.Dispose);
+            if (helperOwner is null) ExecutionGate.ThrowIfActive("dispose", ExecutionOperationKind.Dispose);
             return;
         }
 
-        var operation = BeginExclusiveOperation("dispose", completion: true, operationKind: ExecutionOperationKind.Dispose);
+        var operation = helperOwner ?? BeginExclusiveOperation("dispose", completion: true, operationKind: ExecutionOperationKind.Dispose);
         try
         {
             if (Interlocked.Exchange(ref disposeState, 1) != 0)
                 return;
+            ExecutionGate.CloseRollbackAdmission();
             using var completionStep = ExecutionGate.EnterStep(operation);
             using var telemetry = DatabaseAccess.DeferSynchronousTransactionTelemetry(completionStep);
 
@@ -1443,7 +1454,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         {
             if (IsDisposed)
                 UpdateAsyncRecovery(AsyncFailureContext?.Completion ?? ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.None);
-            operation.Dispose();
+            if (helperOwner is null) operation.Dispose();
         }
     }
 
@@ -1502,7 +1513,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
 /// Represents a database transaction.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public class Transaction<T> : Transaction, IDataSourceAccess<T>
+public partial class Transaction<T> : Transaction, IDataSourceAccess<T>, IDataLinqUnitOfWork<T>
     where T : class, IDatabaseModel<T>
 {
     /// <summary>

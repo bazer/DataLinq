@@ -14,7 +14,8 @@ internal static class ContractManifest
     private static bool Visible(MethodBase method) => method.IsPublic || method.IsFamily || method.IsFamilyOrAssembly;
     private static bool Async(MethodInfo method) => method.Name.Contains("Async", StringComparison.Ordinal);
     private static bool IncludedMethod(MethodInfo method) => Async(method) ||
-        method.DeclaringType == typeof(DataLinq.Diagnostics.DataLinqFailure) || method.Name == "AsKeyValuePairs";
+        method.DeclaringType == typeof(DataLinq.Diagnostics.DataLinqFailure) || method.Name == "AsKeyValuePairs" ||
+        method.DeclaringType?.Namespace?.EndsWith("Extensions.DependencyInjection", StringComparison.Ordinal) == true;
 
     internal static void Write(string path)
     {
@@ -25,7 +26,14 @@ internal static class ContractManifest
         CheckCount(typeof(IDatabaseAccess), 10);
         CheckCount(typeof(DatabaseAccess), 10);
         CheckCount(typeof(DataLinq.Query.Select<>), 9);
-        CheckCount(typeof(ChildExtensions), 19);
+        // Keep the original nineteen declarations distinct from W4's additive
+        // concrete-transaction and participant overloads.
+        var generated = typeof(ChildExtensions).GetMethods(Declared).Where(method => method.IsPublic && Async(method)).ToArray();
+        bool W4(MethodInfo method) => method.GetParameters().Any(parameter => parameter.ParameterType.IsGenericType &&
+            parameter.ParameterType.GetGenericTypeDefinition().FullName is "DataLinq.Mutation.Transaction`1" or "DataLinq.Interfaces.IDataLinqSession`1");
+        var hasSessions = typeof(Database<>).Assembly.GetType("DataLinq.Interfaces.IDataLinqSession`1") is not null;
+        if (generated.Count(method => !W4(method)) != 19 || generated.Count(W4) != (hasSessions ? 20 : 0))
+            throw new Exception("Original or additive generated mutation declarations changed.");
         foreach (var type in new[] { typeof(DataLinqAsyncQueryableExtensions), typeof(IImmutableRelation<>) })
         {
             foreach (var name in new[] { "SumAsync", "AverageAsync" })
@@ -43,7 +51,7 @@ internal static class ContractManifest
             typeof(AdvancedDatabase).Assembly
         };
         var types = assemblies.SelectMany(assembly => assembly.GetExportedTypes()).Where(type =>
-            type.Namespace == "PackedGenerated" ||
+            type.Namespace == "PackedGenerated" || type.Namespace?.EndsWith("Extensions.DependencyInjection", StringComparison.Ordinal) == true ||
             type == typeof(DatabaseProvider<>) || type == typeof(DataLinq.MySql.MySqlProvider<>) ||
             type == typeof(DataLinq.MariaDB.MariaDBProvider<>) || type == typeof(IImmutableForeignKey<>) ||
             type == typeof(DataLinqExecutionOptions) || type.Name.StartsWith("DataLinqFailure", StringComparison.Ordinal) ||
