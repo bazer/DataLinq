@@ -212,3 +212,13 @@ Verification before this slice's commit:
 - Expanded public consumer: zero-warning builds and successful execution on actual **.NET 8.0.31, 9.0.20 and 10.0.12**, including provider-builder service wiring and disposable transient cleanup.
 
 All twelve CI checks for the preceding generator commit `3e094948` passed ([run 38267840848](https://github.com/bazer/DataLinq/actions/runs/38267840848)). Host/request/shutdown integration, final API/capability reconciliation, packed/old-binary consumer evidence and usage/documentation closeout remain open; W4 is not yet complete.
+
+### W4.6 Generic Host And HTTP Consumers
+
+The non-friend [`W4HostConsumer`](../../../../tests/fixtures/W4HostConsumer/README.md) uses generated application services in real Generic Host and ASP.NET Core applications. Worker shutdown cancels an admitted write, confirms rollback without secondary failure, and completes session cleanup before the container releases its database root. Both `Host.Dispose` and `Host.DisposeAsync` are exercised; Hosting selects asynchronous root cleanup in both cases. This observed dispatch does not replace the direct container synchronous-disposal proof.
+
+The HTTP fixture verifies sixteen concurrent requests through one singleton service, with independent session/transaction identities; request-abort recovery; and graceful shutdown that lets an admitted request commit before disposing the database. It checks lazy construction and automatic host logging. SQLite schema creation is explicit fixture setup, not W5 startup validation.
+
+Verification: zero-warning Release builds for net8.0/net9.0/net10.0; successful Generic Host execution on actual **.NET 8.0.31, 9.0.20 and 10.0.12**; successful Kestrel HTTP execution on **ASP.NET Core 10.0.12**. ASP.NET Core 8/9 execution is not claimed. The initial sandbox restore could not reach NuGet; the same restore outside the sandbox succeeded before these builds/runs.
+
+All twelve CI checks for `eced97bc` passed ([run 38273781003](https://github.com/bazer/DataLinq/actions/runs/38273781003)). This fixture-only checkpoint leaves the final packed/API/dependency evidence and documentation reconciliation open.
