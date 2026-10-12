@@ -39,6 +39,8 @@
       href: Platform Compatibility.md
     - name: Transactions
       href: Transactions.md
+    - name: DI and Unit of Work (0.10 development)
+      href: Dependency Injection and Unit of Work.md
     - name: Attributes and Model Definitions
       href: Attributes and Model Definitions.md
     - name: Scalar Converters and Typed IDs

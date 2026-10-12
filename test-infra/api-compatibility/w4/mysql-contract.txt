@@ -1,0 +1,60 @@
+# Compiled W4 contract review projection
+# Includes selected public/protected families, their type/constructor/property contracts, diagnostics and generated examples.
+# Assembly identities and exact byte hashes are in the adjacent evidence record; this projection omits build-specific identities.
+# Nullable states describe the captured runtime reflection result; raw nullable attributes remain in JSON/ApiCompat snapshots.
+
+type DataLinq.MariaDB.Extensions.DependencyInjection.MariaDBRegistrationExtensions [Public, Abstract, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]","[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method UseMariaDBConnectionString [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,DataLinq.MariaDB.Extensions.DependencyInjection.MariaDBRegistrationOptions>  nullable=NotNull<NotNull,NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> registration nullable=NotNull<NotNull>
+    parameter System.String connectionStringName nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UseMariaDB [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,DataLinq.MariaDB.Extensions.DependencyInjection.MariaDBRegistrationOptions>  nullable=NotNull<NotNull,NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> registration nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UseMariaDB [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,DataLinq.MariaDB.Extensions.DependencyInjection.MariaDBRegistrationOptions>  nullable=NotNull<NotNull,NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> registration nullable=NotNull<NotNull>
+    parameter System.String connectionString nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+
+type DataLinq.MariaDB.Extensions.DependencyInjection.MariaDBRegistrationOptions [Public, Sealed, BeforeFieldInit] base=DataLinq.Extensions.DependencyInjection.DataLinqProviderOptions
+  interfaces=[]
+  generic=[]
+  metadata=[]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+
+type DataLinq.MySql.Extensions.DependencyInjection.MySqlRegistrationExtensions [Public, Abstract, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]","[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method UseMySqlConnectionString [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,DataLinq.MySql.Extensions.DependencyInjection.MySqlRegistrationOptions>  nullable=NotNull<NotNull,NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> registration nullable=NotNull<NotNull>
+    parameter System.String connectionStringName nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UseMySql [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,DataLinq.MySql.Extensions.DependencyInjection.MySqlRegistrationOptions>  nullable=NotNull<NotNull,NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> registration nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UseMySql [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,DataLinq.MySql.Extensions.DependencyInjection.MySqlRegistrationOptions>  nullable=NotNull<NotNull,NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> registration nullable=NotNull<NotNull>
+    parameter System.String connectionString nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+
+type DataLinq.MySql.Extensions.DependencyInjection.MySqlRegistrationOptions [Public, Sealed, BeforeFieldInit] base=DataLinq.Extensions.DependencyInjection.DataLinqProviderOptions
+  interfaces=[]
+  generic=[]
+  metadata=[]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]

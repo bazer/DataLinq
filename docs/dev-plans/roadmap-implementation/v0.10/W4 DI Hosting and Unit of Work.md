@@ -1,6 +1,6 @@
 # W4 DI, Hosting, And Unit Of Work
 
-**Status, 2026-10-12:** implementation started from `3257a184`, after the W3 closeout and the accepted W4 design decisions. The user authorized one draft PR from `codex/0.10-w4` to `v0.10`, collecting coherent implementation/test commits with pushes as needed. Completion, review and merge remain separate checkpoints.
+**Status, 2026-10-12:** W4 implementation and its functional/package/documentation gates are complete, pending review and final PR checks. Work started from `3257a184` after W3 and uses one draft PR from `codex/0.10-w4` to `v0.10`, with the user's authorized incremental commits/pushes. Review acceptance and merge remain separate checkpoints; this does not close those approvals or release 0.10.
 
 **PR:** [#251, Implement W4: DI, hosting and unit of work](https://github.com/bazer/DataLinq/pull/251).
 
@@ -222,3 +222,28 @@ The HTTP fixture verifies sixteen concurrent requests through one singleton serv
 Verification: zero-warning Release builds for net8.0/net9.0/net10.0; successful Generic Host execution on actual **.NET 8.0.31, 9.0.20 and 10.0.12**; successful Kestrel HTTP execution on **ASP.NET Core 10.0.12**. ASP.NET Core 8/9 execution is not claimed. The initial sandbox restore could not reach NuGet; the same restore outside the sandbox succeeded before these builds/runs.
 
 All twelve CI checks for `eced97bc` passed ([run 38273781003](https://github.com/bazer/DataLinq/actions/runs/38273781003)). This fixture-only checkpoint leaves the final packed/API/dependency evidence and documentation reconciliation open.
+
+### W4.6 Package, Contract And Documentation Handoff
+
+The clean `002bf74b` candidate supplies all six public packages and symbols. The [compiled contract/evidence record](../../../../test-infra/api-compatibility/w4/README.md) retains exact report hashes, dependency results and reproduction commands. Package inspection passes with valid clean runner/candidate provenance. Raw ApiCompat retains exactly the thirteen previously accepted W3 diagnostics, matched by fingerprint, with no new cross-framework mismatch. Those raw failures are not suppressed or described as a blanket compatibility pass.
+
+All five candidate fixture projects build without warnings/errors. **Fifteen packed consumer executions pass** on actual .NET 8.0.31/9.0.20/10.0.12: nine existing public async/unchanged-0.9.2-binary/EF/Memory executions and six W4 session/registration/service/host executions. HTTP host coverage remains ASP.NET Core 10 only. The intentional EF import probe reports only the expected CS0121 CountAsync ambiguity on each TFM. Archives, restored graphs and executed DataLinq DLLs are hash-checked. W4 adds only DI/configuration abstractions to core; Memory remains SQL-free and hosts remain application dependencies.
+
+Selected compiled contracts capture 29 core/SQLite/generated-service types and four MySQL/MariaDB registration types. They reconcile participant rights, owner inheritance, factory callbacks, all prepared forms, native results, keyed settings and generated overloads. Nineteen original async mutation methods remain distinct from twenty additive typed-transaction/participant forms. Net9/net10 projections match; the sole net8 nullable reflection difference disappears when the exact net8 bytes execute under runtime 10, as documented in the evidence record.
+
+Memory and graph doubles retain their existing capabilities: neither becomes a SQL transaction owner or receives prepared SQL execution through registration. The participant prepared route delegates to the existing transaction machinery; controlled and all-provider tests above retain its admission/capture/cancellation/reader restrictions. Fake unit-of-work implementations and DI replacements remain W6B.
+
+The [unreleased usage guide](../../../Dependency%20Injection%20and%20Unit%20of%20Work.md) documents registration precedence, identity, manual/callback ownership, explicit vetoes versus result data, prepared participation, generated authoring and supported disposal combinations. DocFX builds with **zero warnings/errors**; generated guide content and navigation are verified in `_site`.
+
+Initial stale report-runner provenance, sandbox NuGet/profile failures and two incorrect namespace strings in the new capture fixtures are retained as failed attempts. Fresh clean tooling and corrected fixture builds produced the final evidence; no product change was needed. The final source-consumer reporting changes are distinct from the clean candidate's product bytes. The last broad production quick run remains **5,155/5,155** at `eced97bc`; subsequent host/capture/documentation changes do not relabel that result or require another identical runtime suite.
+
+| Gate | Disposition |
+| --- | --- |
+| W4.1 ownership/aliases | Complete, including the documented proof-driven disposable singleton/scoped alias restriction and successful-activation ownership handoff. |
+| W4.2 sessions/admission/compatibility | Complete through shared source bindings, deterministic lifecycle tests, all-provider prepared execution, packed consumers and compiled/API reconciliation. |
+| W4.3 owners/results | Complete through general and explicit result-aware callbacks, original/mapped veto reasons, recovery/cleanup precedence and runtime consumer checks. |
+| W4.4 registration/configuration | Complete across SQLite/MySQL/MariaDB, keys/defaults, immutable capture, optional logging/configuration and all-target provider verification. |
+| W4.5 generated composition | Complete for the bounded declaration inventory, both constructor styles, explicit lifetimes, cross-registration participation and diagnostics. |
+| W4.6 integration/evidence/docs | Complete through host/shutdown, package/dependency/old-binary/API evidence and the verified unreleased guide. |
+
+No further W4 implementation item is known open. PR review, its final check receipt and merge remain separate. W5 schema validation, W6B fakes, W8/W9 performance/release acceptance and package publication remain outside this implementation handoff.

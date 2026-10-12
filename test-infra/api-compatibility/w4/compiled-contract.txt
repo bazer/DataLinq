@@ -1,0 +1,1784 @@
+# Compiled W4 contract review projection
+# Includes selected public/protected families, their type/constructor/property contracts, diagnostics and generated examples.
+# Assembly identities and exact byte hashes are in the adjacent evidence record; this projection omits build-specific identities.
+# Nullable states describe the captured runtime reflection result; raw nullable attributes remain in JSON/ApiCompat snapshots.
+
+type DataLinq.Attributes.DataLinqFactoryAttribute [Public, Sealed, BeforeFieldInit] base=System.Attribute
+  interfaces=[]
+  generic=[]
+  metadata=["[System.AttributeUsageAttribute((System.AttributeTargets)384, AllowMultiple = False, Inherited = False)]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+
+type DataLinq.Attributes.DataLinqOperationAttribute [Public, Sealed, BeforeFieldInit] base=System.Attribute
+  interfaces=[]
+  generic=[]
+  metadata=["[System.AttributeUsageAttribute((System.AttributeTargets)64, AllowMultiple = False, Inherited = False)]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+  method get_ResultAware [Public, HideBySig, SpecialName] body=True
+    returns System.Boolean  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method set_ResultAware [Public, HideBySig, SpecialName] body=True
+    returns System.Void  nullable=NotNull
+    parameter System.Boolean value nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  property System.Boolean ResultAware nullable=NotNull get=[Public, HideBySig, SpecialName] set=[Public, HideBySig, SpecialName]
+
+type DataLinq.Exceptions.DataLinqRollbackRequestedException [Public, Sealed, BeforeFieldInit] base=System.InvalidOperationException
+  interfaces=["System.Runtime.Serialization.ISerializable"]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method get_Reason [Public, HideBySig, SpecialName] body=True
+    returns System.Object  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  property System.Object Reason nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+
+type DataLinq.Extensions.DependencyInjection.DataLinqOwnership [Public, Sealed] base=System.Enum
+  interfaces=["System.IComparable","System.IConvertible","System.IFormattable","System.ISpanFormattable"]
+  generic=[]
+  metadata=[]
+  enum Application=0
+  enum Container=1
+
+type DataLinq.Extensions.DependencyInjection.DataLinqProviderOptions [Public, Abstract, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)2)]"]
+  constructor [Family, HideBySig, SpecialName, RTSpecialName]
+  method get_Execution [Public, HideBySig, SpecialName] body=True
+    returns DataLinq.DataLinqExecutionOptions  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method get_ConnectionString [Public, HideBySig, SpecialName] body=True
+    returns System.String  nullable=Nullable
+  method get_ConnectionStringName [Public, HideBySig, SpecialName] body=True
+    returns System.String  nullable=Nullable
+  method get_DatabaseName [Public, HideBySig, SpecialName] body=True
+    returns System.String  nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method set_ConnectionString [Public, HideBySig, SpecialName] body=True
+    returns System.Void  nullable=NotNull
+    parameter System.String value nullable=Nullable
+  method set_ConnectionStringName [Public, HideBySig, SpecialName] body=True
+    returns System.Void  nullable=NotNull
+    parameter System.String value nullable=Nullable
+  method set_DatabaseName [Public, HideBySig, SpecialName] body=True
+    returns System.Void  nullable=NotNull
+    parameter System.String value nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method set_Execution [Public, HideBySig, SpecialName] body=True
+    returns System.Void  nullable=NotNull
+    parameter DataLinq.DataLinqExecutionOptions value nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  property System.String ConnectionString nullable=Nullable get=[Public, HideBySig, SpecialName] set=[Public, HideBySig, SpecialName]
+  property System.String ConnectionStringName nullable=Nullable get=[Public, HideBySig, SpecialName] set=[Public, HideBySig, SpecialName]
+  property System.String DatabaseName nullable=Nullable get=[Public, HideBySig, SpecialName] set=[Public, HideBySig, SpecialName]
+  property DataLinq.DataLinqExecutionOptions Execution nullable=NotNull get=[Public, HideBySig, SpecialName] set=[Public, HideBySig, SpecialName]
+    metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)1)]"]
+
+type DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,TOptions> [Public, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]},{"Name":"TOptions","Attributes":"None","Constraints":["DataLinq.Extensions.DependencyInjection.DataLinqProviderOptions"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method AddScopedService [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,TOptions>  nullable=NotNull<NotNull,Unknown>
+    generic=[{"Name":"TService","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDataLinqService`1<TDatabase>","DataLinq.Interfaces.IDataLinqServiceFactory`2<TDatabase,TService>"],"MetadataAttributes":[]}]
+  method AddSingletonService [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,TOptions>  nullable=NotNull<NotNull,Unknown>
+    generic=[{"Name":"TService","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDataLinqService`1<TDatabase>","DataLinq.Interfaces.IDataLinqServiceFactory`2<TDatabase,TService>"],"MetadataAttributes":[]}]
+  method AddTransientService [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,TOptions>  nullable=NotNull<NotNull,Unknown>
+    generic=[{"Name":"TService","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDataLinqService`1<TDatabase>","DataLinq.Interfaces.IDataLinqServiceFactory`2<TDatabase,TService>"],"MetadataAttributes":[]}]
+  method AsDefault [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,TOptions>  nullable=NotNull<NotNull,Unknown>
+  method Bind [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,TOptions>  nullable=NotNull<NotNull,Unknown>
+    parameter Microsoft.Extensions.Configuration.IConfiguration configuration nullable=NotNull
+  method Configure [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,TOptions>  nullable=NotNull<NotNull,Unknown>
+    parameter System.Action`1<TOptions> configure nullable=NotNull<Unknown>
+  method get_Registration [Public, HideBySig, SpecialName] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>  nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method get_Services [Public, HideBySig, SpecialName] body=True
+    returns Microsoft.Extensions.DependencyInjection.IServiceCollection  nullable=NotNull
+  method get_ServiceKey [Public, HideBySig, SpecialName] body=True
+    returns System.Object  nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)2)]"]
+  property DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> Registration nullable=NotNull/Unknown<NotNull> get=[Public, HideBySig, SpecialName] set=[]
+  property System.Object ServiceKey nullable=Nullable/Unknown get=[Public, HideBySig, SpecialName] set=[]
+    metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+  property Microsoft.Extensions.DependencyInjection.IServiceCollection Services nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+
+type DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> [Public, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method AddScopedService [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TService","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDataLinqService`1<TDatabase>","DataLinq.Interfaces.IDataLinqServiceFactory`2<TDatabase,TService>"],"MetadataAttributes":[]}]
+  method AddSingletonService [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TService","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDataLinqService`1<TDatabase>","DataLinq.Interfaces.IDataLinqServiceFactory`2<TDatabase,TService>"],"MetadataAttributes":[]}]
+  method AddTransientService [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TService","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDataLinqService`1<TDatabase>","DataLinq.Interfaces.IDataLinqServiceFactory`2<TDatabase,TService>"],"MetadataAttributes":[]}]
+  method AsDefault [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>  nullable=NotNull<NotNull>
+  method UseFactory [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TImplementation","Attributes":"None","Constraints":["DataLinq.Database`1<TDatabase>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter System.Func`2<System.IServiceProvider,TImplementation> factory nullable=NotNull<NotNull,Unknown>
+  method UseInstance [Public, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TImplementation","Attributes":"None","Constraints":["DataLinq.Database`1<TDatabase>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TImplementation instance nullable=Unknown
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqOwnership ownership optional default="Application" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method get_Services [Public, HideBySig, SpecialName] body=True
+    returns Microsoft.Extensions.DependencyInjection.IServiceCollection  nullable=NotNull
+  method get_ServiceKey [Public, HideBySig, SpecialName] body=True
+    returns System.Object  nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)2)]"]
+  property System.Object ServiceKey nullable=Nullable/Unknown get=[Public, HideBySig, SpecialName] set=[]
+    metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+  property Microsoft.Extensions.DependencyInjection.IServiceCollection Services nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+
+type DataLinq.Extensions.DependencyInjection.DataLinqServiceCollectionExtensions [Public, Abstract, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]","[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method AddDataLinq [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter Microsoft.Extensions.DependencyInjection.IServiceCollection services nullable=NotNull
+    parameter System.Object serviceKey optional default=null nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]","[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method AddDataLinq [Public, Static, HideBySig] body=True
+    returns Microsoft.Extensions.DependencyInjection.IServiceCollection  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter Microsoft.Extensions.DependencyInjection.IServiceCollection services nullable=NotNull
+    parameter System.Action`1<DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>> configure nullable=NotNull<NotNull<NotNull>>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method AddDataLinq [Public, Static, HideBySig] body=True
+    returns Microsoft.Extensions.DependencyInjection.IServiceCollection  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter Microsoft.Extensions.DependencyInjection.IServiceCollection services nullable=NotNull
+    parameter System.Object serviceKey nullable=NotNull
+    parameter System.Action`1<DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase>> configure nullable=NotNull<NotNull<NotNull>>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+
+type DataLinq.Interfaces.IDataLinqServiceFactory`2<TDatabase,TService> [Public, ClassSemanticsMask, Abstract, BeforeFieldInit] base=
+  interfaces=[]
+  generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]},{"Name":"TService","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDataLinqService`1<TDatabase>"],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method Create [Public, Static, Virtual, HideBySig, Abstract] body=False
+    returns TService  nullable=NotNull
+    parameter System.IServiceProvider services nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<TDatabase> factory nullable=NotNull<NotNull>
+
+type DataLinq.Interfaces.IDataLinqService`1<TDatabase> [Public, ClassSemanticsMask, Abstract, BeforeFieldInit] base=
+  interfaces=[]
+  generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+
+type DataLinq.Interfaces.IDataLinqSession`1<TDatabase> [Public, ClassSemanticsMask, Abstract, BeforeFieldInit] base=
+  interfaces=[]
+  generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method TryGetRollbackReason [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Boolean  nullable=NotNull
+    generic=[{"Name":"TFailure","Attributes":"None","Constraints":[],"MetadataAttributes":[]}]
+    parameter TFailure& reason nullable=Nullable/NotNull metadata=["[System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute((Boolean)False)]","[System.Runtime.InteropServices.OutAttribute()]"]
+  method get_IsRollbackRequested [Public, Virtual, HideBySig, VtableLayoutMask, Abstract, SpecialName] body=False
+    returns System.Boolean  nullable=NotNull
+  method get_FailureContext [Public, Virtual, HideBySig, VtableLayoutMask, Abstract, SpecialName] body=False
+    returns DataLinq.Diagnostics.DataLinqFailureContext  nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)2)]"]
+  method RequestRollback [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns DataLinq.Mutation.Rollback`1<TFailure>  nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+    generic=[{"Name":"TFailure","Attributes":"None","Constraints":[],"MetadataAttributes":[]}]
+    parameter TFailure reason nullable=NotNull
+  method From [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns DataLinq.Query.SqlQuery  nullable=NotNull
+    parameter DataLinq.Metadata.TableDefinition table nullable=NotNull
+  method From [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns DataLinq.Query.SqlQuery  nullable=NotNull
+    parameter System.String tableName nullable=NotNull
+  method From [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns DataLinq.Query.SqlQuery`1<M>  nullable=NotNull<Unknown>
+    generic=[{"Name":"M","Attributes":"None","Constraints":["DataLinq.Interfaces.IModel"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+  method Get [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    generic=[{"Name":"M","Attributes":"None","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.DataLinqKey key nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method Insert [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<M>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+  method Insert [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+  method Insert [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+  method Save [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<M>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+  method Save [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+  method Save [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=Nullable<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 2, 1 })]"]
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+  method Save [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter M model nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+  method Update [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<M>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+  method Update [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+  method Update [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+  method Update [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns M  nullable=NotNull
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter M model nullable=NotNull
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+  method ExecuteAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Collections.Generic.IAsyncEnumerable`1<TElement>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TArgument","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TElement","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Linq.PreparedSequenceQuery`3<TDatabase,TArgument,TElement> prepared nullable=NotNull<NotNull,Nullable,Nullable>
+    parameter TArgument argument nullable=Nullable
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Execute [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Collections.Generic.IEnumerable`1<TElement>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TArgument","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TElement","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Linq.PreparedSequenceQuery`3<TDatabase,TArgument,TElement> prepared nullable=NotNull<NotNull,Nullable,Nullable>
+    parameter TArgument argument nullable=Nullable
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Insert [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Collections.Generic.List`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter System.Collections.Generic.IEnumerable`1<DataLinq.Instances.Mutable`1<M>> models nullable=NotNull<NotNull<NotNull>>
+  method DeleteAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter DataLinq.Instances.IModelInstance model nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method InsertAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<M>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method InsertAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method InsertAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method SaveAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<M>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method SaveAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=Nullable<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 2, 1 })]"]
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method SaveAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method SaveAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter M model nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method UpdateAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<M>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method UpdateAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method UpdateAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method UpdateAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter M model nullable=NotNull
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method InsertAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<System.Collections.Generic.List`1<M>>  nullable=NotNull<NotNull<NotNull>>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter System.Collections.Generic.IEnumerable`1<DataLinq.Instances.Mutable`1<M>> models nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<TResult>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TArgument","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Linq.PreparedQuery`3<TDatabase,TArgument,TResult> prepared nullable=NotNull<NotNull,Nullable,Nullable>
+    parameter TArgument argument nullable=Nullable
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method GetAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.ValueTask`1<M>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 2 })]"]
+    generic=[{"Name":"M","Attributes":"None","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.DataLinqKey key nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method Query [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns TDatabase  nullable=NotNull
+  method Execute [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns TResult  nullable=Nullable
+    generic=[{"Name":"TArgument","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Linq.PreparedQuery`3<TDatabase,TArgument,TResult> prepared nullable=NotNull<NotNull,Nullable,Nullable>
+    parameter TArgument argument nullable=Nullable
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Delete [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Void  nullable=NotNull
+    parameter DataLinq.Instances.IModelInstance model nullable=NotNull
+  method ValidateParticipation [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Void  nullable=NotNull
+  property DataLinq.Diagnostics.DataLinqFailureContext FailureContext nullable=Nullable/Unknown get=[Public, Virtual, HideBySig, VtableLayoutMask, Abstract, SpecialName] set=[]
+    metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+  property System.Boolean IsRollbackRequested nullable=NotNull/Unknown get=[Public, Virtual, HideBySig, VtableLayoutMask, Abstract, SpecialName] set=[]
+
+type DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<TDatabase> [Public, ClassSemanticsMask, Abstract, BeforeFieldInit] base=
+  interfaces=[]
+  generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method Create [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns DataLinq.Interfaces.IDataLinqUnitOfWork`1<TDatabase>  nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.Tasks.Task> action nullable=NotNull<NotNull<NotNull>,NotNull>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter System.Func`3<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.CancellationToken,System.Threading.Tasks.Task> action nullable=NotNull<NotNull<NotNull>,NotNull,NotNull>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<TResult>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.Tasks.Task`1<TResult>> action nullable=NotNull<NotNull<NotNull>,NotNull<Nullable>>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task`1<TResult>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter System.Func`3<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.CancellationToken,System.Threading.Tasks.Task`1<TResult>> action nullable=NotNull<NotNull<NotNull>,NotNull,NotNull<Nullable>>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Execute [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns TResult  nullable=Nullable
+    generic=[{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,TResult> action nullable=NotNull<NotNull<NotNull>,Nullable>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Execute [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Void  nullable=NotNull
+    parameter System.Action`1<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>> action nullable=NotNull<NotNull<NotNull>>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+
+type DataLinq.Interfaces.IDataLinqUnitOfWork`1<TDatabase> [Public, ClassSemanticsMask, Abstract, BeforeFieldInit] base=
+  interfaces=["DataLinq.Interfaces.IDataLinqSession`1<TDatabase>","System.IAsyncDisposable","System.IDisposable"]
+  generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method CommitAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method RollbackAsync [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Commit [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Void  nullable=NotNull
+  method Rollback [Public, Virtual, HideBySig, VtableLayoutMask, Abstract] body=False
+    returns System.Void  nullable=NotNull
+
+type DataLinq.Mutation.DataLinqUnitOfWorkFactoryExtensions [Public, Abstract, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]","[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method ExecuteResult [Public, Static, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<T>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]},{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<TDatabase> factory nullable=NotNull<NotNull>
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,DataLinq.Mutation.TransactionResult`1<T>> action nullable=NotNull<NotNull<NotNull>,NotNull<Nullable>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[5] { 1, 1, 1, 0, 1 })]"]
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method ExecuteResult [Public, Static, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`2<T,TFailure>  nullable=NotNull<Nullable,NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[3] { 0, 1, 1 })]"]
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]},{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TFailure","Attributes":"None","Constraints":[],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<TDatabase> factory nullable=NotNull<NotNull>
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,DataLinq.Mutation.TransactionResult`2<T,TFailure>> action nullable=NotNull<NotNull<NotNull>,NotNull<Nullable,NotNull>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[6] { 1, 1, 1, 0, 1, 1 })]"]
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method ExecuteResultAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`1<T>>  nullable=NotNull<NotNull<Nullable>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[3] { 1, 0, 1 })]"]
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]},{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<TDatabase> factory nullable=NotNull<NotNull>
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`1<T>>> action nullable=NotNull<NotNull<NotNull>,NotNull<NotNull<Nullable>>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[6] { 1, 1, 1, 1, 0, 1 })]"]
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method ExecuteResultAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`1<T>>  nullable=NotNull<NotNull<Nullable>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[3] { 1, 0, 1 })]"]
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]},{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<TDatabase> factory nullable=NotNull<NotNull>
+    parameter System.Func`3<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.CancellationToken,System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`1<T>>> action nullable=NotNull<NotNull<NotNull>,NotNull,NotNull<NotNull<Nullable>>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[6] { 1, 1, 1, 1, 0, 1 })]"]
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method ExecuteResultAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`2<T,TFailure>>  nullable=NotNull<NotNull<Nullable,NotNull>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[4] { 1, 0, 1, 1 })]"]
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]},{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TFailure","Attributes":"None","Constraints":[],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<TDatabase> factory nullable=NotNull<NotNull>
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`2<T,TFailure>>> action nullable=NotNull<NotNull<NotNull>,NotNull<NotNull<Nullable,NotNull>>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[7] { 1, 1, 1, 1, 0, 1, 1 })]"]
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method ExecuteResultAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`2<T,TFailure>>  nullable=NotNull<NotNull<Nullable,NotNull>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[4] { 1, 0, 1, 1 })]"]
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]},{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TFailure","Attributes":"None","Constraints":[],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<TDatabase> factory nullable=NotNull<NotNull>
+    parameter System.Func`3<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.CancellationToken,System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`2<T,TFailure>>> action nullable=NotNull<NotNull<NotNull>,NotNull,NotNull<NotNull<Nullable,NotNull>>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[7] { 1, 1, 1, 1, 0, 1, 1 })]"]
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+
+type DataLinq.Mutation.DataLinqUnitOfWorkFactory`1<TDatabase> [Public, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=["DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<TDatabase>"]
+  generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    DataLinq.Database`1<TDatabase> database nullable=NotNull<NotNull>
+  method Create [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns DataLinq.Interfaces.IDataLinqUnitOfWork`1<TDatabase>  nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.Tasks.Task> action nullable=NotNull<NotNull<NotNull>,NotNull>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter System.Func`3<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.CancellationToken,System.Threading.Tasks.Task> action nullable=NotNull<NotNull<NotNull>,NotNull,NotNull>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<TResult>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.Tasks.Task`1<TResult>> action nullable=NotNull<NotNull<NotNull>,NotNull<Nullable>>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<TResult>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter System.Func`3<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,System.Threading.CancellationToken,System.Threading.Tasks.Task`1<TResult>> action nullable=NotNull<NotNull<NotNull>,NotNull,NotNull<Nullable>>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Execute [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns TResult  nullable=Nullable
+    generic=[{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>,TResult> action nullable=NotNull<NotNull<NotNull>,Nullable>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Execute [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Void  nullable=NotNull
+    parameter System.Action`1<DataLinq.Interfaces.IDataLinqSession`1<TDatabase>> action nullable=NotNull<NotNull<NotNull>>
+    parameter DataLinq.Mutation.TransactionType transactionType optional default="ReadAndWrite" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+
+type DataLinq.Mutation.Rollback`1<TFailure> [Public, SequentialLayout, Sealed, BeforeFieldInit] base=System.ValueType
+  interfaces=[]
+  generic=[{"Name":"TFailure","Attributes":"None","Constraints":[],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.IsReadOnlyAttribute()]","[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    TFailure reason nullable=NotNull
+  method get_Reason [Public, HideBySig, SpecialName] body=True
+    returns TFailure  nullable=NotNull
+  property TFailure Reason nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+
+type DataLinq.Mutation.Success`1<T> [Public, SequentialLayout, Sealed, BeforeFieldInit] base=System.ValueType
+  interfaces=["System.IEquatable`1<DataLinq.Mutation.Success`1<T>>"]
+  generic=[{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+  metadata=["[System.Runtime.CompilerServices.IsReadOnlyAttribute()]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    T Value nullable=Nullable
+  method Equals [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter DataLinq.Mutation.Success`1<T> other nullable=NotNull<Unknown>
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method Equals [Public, Virtual, HideBySig] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter System.Object obj nullable=Unknown
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method op_Equality [Public, Static, HideBySig, SpecialName] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter DataLinq.Mutation.Success`1<T> left nullable=NotNull<Unknown>
+    parameter DataLinq.Mutation.Success`1<T> right nullable=NotNull<Unknown>
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method op_Inequality [Public, Static, HideBySig, SpecialName] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter DataLinq.Mutation.Success`1<T> left nullable=NotNull<Unknown>
+    parameter DataLinq.Mutation.Success`1<T> right nullable=NotNull<Unknown>
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method GetHashCode [Public, Virtual, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method ToString [Public, Virtual, HideBySig] body=True
+    returns System.String  nullable=Unknown
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method get_Value [Public, HideBySig, SpecialName] body=True
+    returns T  nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method Deconstruct [Public, HideBySig] body=True
+    returns System.Void  nullable=NotNull
+    parameter T& Value nullable=Nullable metadata=["[System.Runtime.InteropServices.OutAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method set_Value [Public, HideBySig, SpecialName] body=True
+    returns System.Void  nullable=NotNull
+    parameter T value nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  property T Value nullable=Nullable get=[Public, HideBySig, SpecialName] set=[Public, HideBySig, SpecialName]
+    setter-return-modifiers=["System.Runtime.CompilerServices.IsExternalInit"]
+    metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)1)]"]
+
+type DataLinq.Mutation.Transaction [Public, BeforeFieldInit] base=DataLinq.Mutation.DataSourceAccess
+  interfaces=["DataLinq.Interfaces.IDataLinqIndexRowServices","DataLinq.Interfaces.IDataLinqQueryPlanServices","DataLinq.Interfaces.IDataLinqReadServices","DataLinq.Interfaces.IDataLinqReadSource","DataLinq.Interfaces.IDataLinqSourceRowServices","DataLinq.Interfaces.IDataSourceAccess","DataLinq.Linq.Planning.IExactPrimaryKeyTerminalExecutionServices","System.IAsyncDisposable","System.IDisposable","System.IEquatable`1<DataLinq.Mutation.Transaction>"]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    DataLinq.Interfaces.IDatabaseProvider databaseProvider nullable=NotNull
+    DataLinq.Mutation.TransactionType type nullable=NotNull
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    DataLinq.Interfaces.IDatabaseProvider databaseProvider nullable=NotNull
+    System.Data.IDbTransaction dbTransaction nullable=NotNull
+    DataLinq.Mutation.TransactionType type nullable=NotNull
+  method Equals [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter DataLinq.Mutation.Transaction other nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)2)]"]
+  method Equals [Public, Virtual, HideBySig] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter System.Object obj nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)2)]"]
+  method TryGetRollbackReason [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Boolean  nullable=NotNull
+    generic=[{"Name":"TFailure","Attributes":"None","Constraints":[],"MetadataAttributes":[]}]
+    parameter TFailure& reason nullable=Nullable/NotNull metadata=["[System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute((Boolean)False)]","[System.Runtime.InteropServices.OutAttribute()]"]
+  method get_IsRollbackRequested [Public, Final, Virtual, HideBySig, VtableLayoutMask, SpecialName] body=True
+    returns System.Boolean  nullable=NotNull
+  method get_DatabaseAccess [Public, Virtual, HideBySig, VtableLayoutMask, SpecialName] body=True
+    returns DataLinq.DatabaseTransaction  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]","[System.Runtime.CompilerServices.PreserveBaseOverridesAttribute()]"]
+  method get_Status [Public, HideBySig, SpecialName] body=True
+    returns DataLinq.DatabaseTransactionStatus  nullable=NotNull
+  method get_FailureContext [Public, Final, Virtual, HideBySig, VtableLayoutMask, SpecialName] body=True
+    returns DataLinq.Diagnostics.DataLinqFailureContext  nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)2)]"]
+  method RequestRollback [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns DataLinq.Mutation.Rollback`1<TFailure>  nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+    generic=[{"Name":"TFailure","Attributes":"None","Constraints":[],"MetadataAttributes":[]}]
+    parameter TFailure reason nullable=NotNull
+  method get_Type [Public, HideBySig, SpecialName] body=True
+    returns DataLinq.Mutation.TransactionType  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method GetHashCode [Public, Virtual, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+  method GetFromCommandAsync [Public, Virtual, HideBySig] body=True
+    returns System.Collections.Generic.IAsyncEnumerable`1<T>  nullable=NotNull<Unknown>
+    generic=[{"Name":"T","Attributes":"None","Constraints":["DataLinq.Interfaces.IModel"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter System.Data.IDbCommand dbCommand nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method GetFromQueryAsync [Public, Virtual, HideBySig] body=True
+    returns System.Collections.Generic.IAsyncEnumerable`1<T>  nullable=NotNull<Unknown>
+    generic=[{"Name":"T","Attributes":"None","Constraints":["DataLinq.Interfaces.IModel"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter System.String query nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method GetFromCommand [Public, Virtual, HideBySig] body=True
+    returns System.Collections.Generic.IEnumerable`1<T>  nullable=NotNull<Unknown>
+    generic=[{"Name":"T","Attributes":"None","Constraints":["DataLinq.Interfaces.IModel"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter System.Data.IDbCommand dbCommand nullable=NotNull
+  method GetFromQuery [Public, Virtual, HideBySig] body=True
+    returns System.Collections.Generic.IEnumerable`1<T>  nullable=NotNull<Unknown>
+    generic=[{"Name":"T","Attributes":"None","Constraints":["DataLinq.Interfaces.IModel"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter System.String query nullable=NotNull
+  method get_Changes [Public, HideBySig, SpecialName] body=True
+    returns System.Collections.Generic.List`1<DataLinq.Mutation.StateChange>  nullable=NotNull<NotNull>
+  method Insert [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Collections.Generic.List`1<T>  nullable=NotNull<NotNull>
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter System.Collections.Generic.IEnumerable`1<DataLinq.Instances.Mutable`1<T>> models nullable=NotNull<NotNull<NotNull>>
+  method ToString [Public, Virtual, HideBySig] body=True
+    returns System.String  nullable=NotNull
+  method CommitAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method DeleteAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter DataLinq.Instances.IModelInstance model nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method RollbackAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method InsertAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<M>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method InsertAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method InsertAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method SaveAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<M>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method SaveAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=Nullable<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 2, 1 })]"]
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method SaveAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method SaveAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter M model nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method UpdateAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<M>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method UpdateAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method UpdateAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<M> model nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method UpdateAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<M>  nullable=NotNull<NotNull>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter M model nullable=NotNull
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<M>> changes nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method InsertAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<System.Collections.Generic.List`1<M>>  nullable=NotNull<NotNull<NotNull>>
+    generic=[{"Name":"M","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter System.Collections.Generic.IEnumerable`1<DataLinq.Instances.Mutable`1<M>> models nullable=NotNull<NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method DisposeAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.ValueTask  nullable=NotNull
+  method Insert [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<T>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+  method Insert [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<T> model nullable=NotNull<NotNull>
+  method Insert [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<T> model nullable=NotNull<NotNull>
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<T>> changes nullable=NotNull<NotNull<NotNull>>
+  method Save [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<T>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+  method Save [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<T> model nullable=NotNull<NotNull>
+  method Save [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<T> model nullable=Nullable<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 2, 1 })]"]
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<T>> changes nullable=NotNull<NotNull<NotNull>>
+  method Save [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter T model nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<T>> changes nullable=NotNull<NotNull<NotNull>>
+  method Update [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]},{"Name":"TMutable","Attributes":"None","Constraints":["DataLinq.Instances.Mutable`1<T>"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+    parameter TMutable model nullable=Unknown
+    parameter System.Action`1<TMutable> changes nullable=NotNull<Unknown>
+  method Update [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<T> model nullable=NotNull<NotNull>
+  method Update [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.Mutable`1<T> model nullable=NotNull<NotNull>
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<T>> changes nullable=NotNull<NotNull<NotNull>>
+  method Update [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter T model nullable=NotNull
+    parameter System.Action`1<DataLinq.Instances.Mutable`1<T>> changes nullable=NotNull<NotNull<NotNull>>
+  method get_TransactionID [Public, HideBySig, SpecialName] body=True
+    returns System.UInt32  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method Commit [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Void  nullable=NotNull
+  method Delete [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Void  nullable=NotNull
+    parameter DataLinq.Instances.IModelInstance model nullable=NotNull
+  method Dispose [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Void  nullable=NotNull
+  method Rollback [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Void  nullable=NotNull
+  method add_OnStatusChanged [Public, HideBySig, SpecialName] body=True
+    returns System.Void  nullable=NotNull
+    parameter System.EventHandler`1<DataLinq.Mutation.TransactionStatusChangeEventArgs> value nullable=Nullable<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 2, 1 })]"]
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method remove_OnStatusChanged [Public, HideBySig, SpecialName] body=True
+    returns System.Void  nullable=NotNull
+    parameter System.EventHandler`1<DataLinq.Mutation.TransactionStatusChangeEventArgs> value nullable=Nullable<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 2, 1 })]"]
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method set_Type [Family, HideBySig, SpecialName] body=True
+    returns System.Void  nullable=NotNull
+    parameter DataLinq.Mutation.TransactionType value nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  property System.Collections.Generic.List`1<DataLinq.Mutation.StateChange> Changes nullable=NotNull/Unknown<NotNull> get=[Public, HideBySig, SpecialName] set=[]
+  property DataLinq.DatabaseTransaction DatabaseAccess nullable=NotNull/Unknown get=[Public, Virtual, HideBySig, VtableLayoutMask, SpecialName] set=[]
+  property DataLinq.Diagnostics.DataLinqFailureContext FailureContext nullable=Nullable/Unknown get=[Public, Final, Virtual, HideBySig, VtableLayoutMask, SpecialName] set=[]
+    metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+  property System.Boolean IsRollbackRequested nullable=NotNull/Unknown get=[Public, Final, Virtual, HideBySig, VtableLayoutMask, SpecialName] set=[]
+  property DataLinq.DatabaseTransactionStatus Status nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+  property System.UInt32 TransactionID nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+  property DataLinq.Mutation.TransactionType Type nullable=NotNull get=[Public, HideBySig, SpecialName] set=[Family, HideBySig, SpecialName]
+
+type DataLinq.Mutation.TransactionResult [Public, Abstract, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[]
+  metadata=[]
+  method Success [Public, Static, HideBySig] body=True
+    returns DataLinq.Mutation.Success`1<DataLinq.Mutation.Unit>  nullable=NotNull<NotNull>
+  method Success [Public, Static, HideBySig] body=True
+    returns DataLinq.Mutation.Success`1<T>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+    generic=[{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter T value nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+
+type DataLinq.Mutation.TransactionResult`1<T> [Public, SequentialLayout, Sealed, BeforeFieldInit] base=System.ValueType
+  interfaces=[]
+  generic=[{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+  metadata=["[System.Runtime.CompilerServices.IsReadOnlyAttribute()]","[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method TryUnwrap [Public, HideBySig] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter T& value nullable=Nullable metadata=["[System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute((Boolean)False)]","[System.Runtime.InteropServices.OutAttribute()]"]
+    parameter System.String& failure nullable=Nullable/NotNull metadata=["[System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute((Boolean)True)]","[System.Runtime.InteropServices.OutAttribute()]"]
+  method get_IsSuccess [Public, HideBySig, SpecialName] body=True
+    returns System.Boolean  nullable=NotNull
+  method FromRollback [Public, Static, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<T>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+    parameter DataLinq.Mutation.Rollback`1<System.String> rollback nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+  method FromSuccess [Public, Static, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<T>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+    parameter T value nullable=Nullable
+  method op_Implicit [Public, Static, HideBySig, SpecialName] body=True
+    returns DataLinq.Mutation.TransactionResult`1<T>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+    parameter DataLinq.Mutation.Rollback`1<System.String> rollback nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+  method op_Implicit [Public, Static, HideBySig, SpecialName] body=True
+    returns DataLinq.Mutation.TransactionResult`1<T>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+    parameter DataLinq.Mutation.Success`1<T> success nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+  method op_Implicit [Public, Static, HideBySig, SpecialName] body=True
+    returns DataLinq.Mutation.TransactionResult`1<T>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+    parameter T value nullable=Nullable
+  method get_Reason [Public, HideBySig, SpecialName] body=True
+    returns System.String  nullable=NotNull
+  method get_SuccessValue [Public, HideBySig, SpecialName] body=True
+    returns T  nullable=Nullable
+  method Match [Public, HideBySig] body=True
+    returns TResult  nullable=Nullable
+    generic=[{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter System.Func`2<T,TResult> success nullable=NotNull<Nullable,Nullable>
+    parameter System.Func`2<System.String,TResult> rollback nullable=NotNull<NotNull,Nullable>
+  property System.Boolean IsSuccess nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+  property System.String Reason nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+  property T SuccessValue nullable=Nullable/Unknown get=[Public, HideBySig, SpecialName] set=[]
+
+type DataLinq.Mutation.TransactionResult`2<T,TFailure> [Public, SequentialLayout, Sealed, BeforeFieldInit] base=System.ValueType
+  interfaces=[]
+  generic=[{"Name":"T","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TFailure","Attributes":"None","Constraints":[],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.IsReadOnlyAttribute()]","[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method TryUnwrap [Public, HideBySig] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter T& value nullable=Nullable metadata=["[System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute((Boolean)False)]","[System.Runtime.InteropServices.OutAttribute()]"]
+    parameter TFailure& failure nullable=Nullable/NotNull metadata=["[System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute((Boolean)True)]","[System.Runtime.InteropServices.OutAttribute()]"]
+  method get_IsSuccess [Public, HideBySig, SpecialName] body=True
+    returns System.Boolean  nullable=NotNull
+  method FromRollback [Public, Static, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`2<T,TFailure>  nullable=NotNull<Nullable,NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[3] { 0, 1, 1 })]"]
+    parameter DataLinq.Mutation.Rollback`1<TFailure> rollback nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+  method FromSuccess [Public, Static, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`2<T,TFailure>  nullable=NotNull<Nullable,NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[3] { 0, 1, 1 })]"]
+    parameter T value nullable=Nullable
+  method op_Implicit [Public, Static, HideBySig, SpecialName] body=True
+    returns DataLinq.Mutation.TransactionResult`2<T,TFailure>  nullable=NotNull<Nullable,NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[3] { 0, 1, 1 })]"]
+    parameter DataLinq.Mutation.Rollback`1<TFailure> rollback nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+  method op_Implicit [Public, Static, HideBySig, SpecialName] body=True
+    returns DataLinq.Mutation.TransactionResult`2<T,TFailure>  nullable=NotNull<Nullable,NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[3] { 0, 1, 1 })]"]
+    parameter DataLinq.Mutation.Success`1<T> success nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]"]
+  method op_Implicit [Public, Static, HideBySig, SpecialName] body=True
+    returns DataLinq.Mutation.TransactionResult`2<T,TFailure>  nullable=NotNull<Nullable,NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[3] { 0, 1, 1 })]"]
+    parameter T value nullable=Nullable
+  method get_SuccessValue [Public, HideBySig, SpecialName] body=True
+    returns T  nullable=Nullable
+  method get_Reason [Public, HideBySig, SpecialName] body=True
+    returns TFailure  nullable=NotNull
+  method Match [Public, HideBySig] body=True
+    returns TResult  nullable=Nullable
+    generic=[{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter System.Func`2<T,TResult> success nullable=NotNull<Nullable,Nullable>
+    parameter System.Func`2<TFailure,TResult> rollback nullable=NotNull<NotNull,Nullable>
+  property System.Boolean IsSuccess nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+  property TFailure Reason nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]
+  property T SuccessValue nullable=Nullable/Unknown get=[Public, HideBySig, SpecialName] set=[]
+
+type DataLinq.Mutation.Transaction`1<T> [Public, BeforeFieldInit] base=DataLinq.Mutation.Transaction
+  interfaces=["DataLinq.Interfaces.IDataLinqIndexRowServices","DataLinq.Interfaces.IDataLinqQueryPlanServices","DataLinq.Interfaces.IDataLinqReadServices","DataLinq.Interfaces.IDataLinqReadSource","DataLinq.Interfaces.IDataLinqSession`1<T>","DataLinq.Interfaces.IDataLinqSourceRowServices","DataLinq.Interfaces.IDataLinqUnitOfWork`1<T>","DataLinq.Interfaces.IDataSourceAccess","DataLinq.Interfaces.IDataSourceAccess`1<T>","DataLinq.Linq.Planning.IExactPrimaryKeyTerminalExecutionServices","System.IAsyncDisposable","System.IDisposable","System.IEquatable`1<DataLinq.Mutation.Transaction>"]
+  generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    DataLinq.Interfaces.IDatabaseProvider`1<T> databaseProvider nullable=NotNull<NotNull>
+    DataLinq.Mutation.TransactionType type nullable=NotNull
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    DataLinq.Interfaces.IDatabaseProvider`1<T> databaseProvider nullable=NotNull<NotNull>
+    System.Data.IDbTransaction dbTransaction nullable=NotNull
+    DataLinq.Mutation.TransactionType type nullable=NotNull
+  method From [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns DataLinq.Query.SqlQuery  nullable=NotNull
+    parameter DataLinq.Metadata.TableDefinition table nullable=NotNull
+  method From [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns DataLinq.Query.SqlQuery  nullable=NotNull
+    parameter System.String tableName nullable=NotNull
+  method From [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns DataLinq.Query.SqlQuery`1<V>  nullable=NotNull<Unknown>
+    generic=[{"Name":"V","Attributes":"None","Constraints":["DataLinq.Interfaces.IModel"],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]"]}]
+  method Get [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns M  nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    generic=[{"Name":"M","Attributes":"None","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.DataLinqKey key nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method ExecuteAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Collections.Generic.IAsyncEnumerable`1<TElement>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TArgument","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TElement","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Linq.PreparedSequenceQuery`3<T,TArgument,TElement> prepared nullable=NotNull<NotNull,Nullable,Nullable>
+    parameter TArgument argument nullable=Nullable
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Execute [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Collections.Generic.IEnumerable`1<TElement>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TArgument","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TElement","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Linq.PreparedSequenceQuery`3<T,TArgument,TElement> prepared nullable=NotNull<NotNull,Nullable,Nullable>
+    parameter TArgument argument nullable=Nullable
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ExecuteAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.Task`1<TResult>  nullable=NotNull<Nullable>
+    generic=[{"Name":"TArgument","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Linq.PreparedQuery`3<T,TArgument,TResult> prepared nullable=NotNull<NotNull,Nullable,Nullable>
+    parameter TArgument argument nullable=Nullable
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method GetAsync [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Threading.Tasks.ValueTask`1<M>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 2 })]"]
+    generic=[{"Name":"M","Attributes":"None","Constraints":["DataLinq.Instances.IImmutableInstance"],"MetadataAttributes":[]}]
+    parameter DataLinq.Instances.DataLinqKey key nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method Query [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns T  nullable=NotNull
+  method get_Database [Family, HideBySig, SpecialName] body=True
+    returns T  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method Execute [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns TResult  nullable=Nullable
+    generic=[{"Name":"TArgument","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]},{"Name":"TResult","Attributes":"None","Constraints":[],"MetadataAttributes":["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]}]
+    parameter DataLinq.Linq.PreparedQuery`3<T,TArgument,TResult> prepared nullable=NotNull<NotNull,Nullable,Nullable>
+    parameter TArgument argument nullable=Nullable
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ValidateParticipation [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Void  nullable=NotNull
+  property T Database nullable=NotNull/Unknown get=[Family, HideBySig, SpecialName] set=[]
+
+type DataLinq.Mutation.Unit [Public, SequentialLayout, Sealed, BeforeFieldInit] base=System.ValueType
+  interfaces=["System.IEquatable`1<DataLinq.Mutation.Unit>"]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.IsReadOnlyAttribute()]"]
+  method Equals [Public, Final, Virtual, HideBySig, VtableLayoutMask] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter DataLinq.Mutation.Unit other nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method Equals [Public, Virtual, HideBySig] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter System.Object obj nullable=Unknown
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method op_Equality [Public, Static, HideBySig, SpecialName] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter DataLinq.Mutation.Unit left nullable=NotNull
+    parameter DataLinq.Mutation.Unit right nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method op_Inequality [Public, Static, HideBySig, SpecialName] body=True
+    returns System.Boolean  nullable=NotNull
+    parameter DataLinq.Mutation.Unit left nullable=NotNull
+    parameter DataLinq.Mutation.Unit right nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method GetHashCode [Public, Virtual, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  method ToString [Public, Virtual, HideBySig] body=True
+    returns System.String  nullable=Unknown
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+
+type DataLinq.SQLite.Extensions.DependencyInjection.SQLiteRegistrationExtensions [Public, Abstract, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]","[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method UseSQLiteConnectionString [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,DataLinq.SQLite.Extensions.DependencyInjection.SQLiteRegistrationOptions>  nullable=NotNull<NotNull,NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> registration nullable=NotNull<NotNull>
+    parameter System.String connectionStringName nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UseSQLite [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,DataLinq.SQLite.Extensions.DependencyInjection.SQLiteRegistrationOptions>  nullable=NotNull<NotNull,NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> registration nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UseSQLite [Public, Static, HideBySig] body=True
+    returns DataLinq.Extensions.DependencyInjection.DataLinqProviderRegistrationBuilder`2<TDatabase,DataLinq.SQLite.Extensions.DependencyInjection.SQLiteRegistrationOptions>  nullable=NotNull<NotNull,NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Extensions.DependencyInjection.DataLinqRegistrationBuilder`1<TDatabase> registration nullable=NotNull<NotNull>
+    parameter System.String connectionString nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+
+type DataLinq.SQLite.Extensions.DependencyInjection.SQLiteRegistrationOptions [Public, Sealed, BeforeFieldInit] base=DataLinq.Extensions.DependencyInjection.DataLinqProviderOptions
+  interfaces=[]
+  generic=[]
+  metadata=[]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+
+type DataLinq.SQLite.SQLiteDatabase`1<T> [Public, BeforeFieldInit] base=DataLinq.Database`1<T>
+  interfaces=["DataLinq.Interfaces.IDataLinqReadSource","DataLinq.Interfaces.IDataSourceAccess","DataLinq.Interfaces.IDataSourceAccess`1<T>","System.IAsyncDisposable","System.IDisposable"]
+  generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 1 })]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    System.String connectionString nullable=NotNull
+    System.String databaseName nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    Microsoft.Extensions.Logging.ILoggerFactory loggerFactory nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    DataLinq.DataLinqExecutionOptions executionOptions nullable=NotNull
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    System.String connectionString nullable=NotNull
+    Microsoft.Extensions.Logging.ILoggerFactory loggerFactory optional default=null nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]","[System.Runtime.InteropServices.OptionalAttribute()]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    System.String connectionString nullable=NotNull metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)1)]"]
+    System.String databaseName nullable=Nullable
+    Microsoft.Extensions.Logging.ILoggerFactory loggerFactory optional default=null nullable=Nullable metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+
+type SessionConsumer.BindingService [Public, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=["DataLinq.Interfaces.IDataLinqServiceFactory`2<SessionConsumer.TestDb,SessionConsumer.BindingService>","DataLinq.Interfaces.IDataLinqService`1<SessionConsumer.TestDb>"]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<SessionConsumer.TestDb> transactions nullable=NotNull<NotNull>
+    SessionConsumer.IServicePolicy policy nullable=NotNull
+  method Empty [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<DataLinq.Mutation.Unit>  nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method Empty [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<DataLinq.Mutation.Unit>  nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)1)]"]
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method General [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<System.Int32>  nullable=NotNull<NotNull>
+    parameter System.Boolean veto nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method General [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<System.Int32>  nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)1)]"]
+    parameter System.Boolean veto nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method Invalid [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<System.Int32>  nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method Invalid [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<System.Int32>  nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)1)]"]
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method Native [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<System.Int32>  nullable=NotNull<NotNull>
+    parameter System.Boolean veto nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method Native [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<System.Int32>  nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull> metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)1)]"]
+    parameter System.Boolean veto nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.NullableContextAttribute((Byte)0)]"]
+  method Nullable [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<System.String>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 2 })]"]
+  method Nullable [Public, HideBySig] body=True
+    returns DataLinq.Mutation.TransactionResult`1<System.String>  nullable=NotNull<Nullable> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 0, 2 })]"]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+  method Echo [Public, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Int32 value optional default="7" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Echo [Public, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    parameter System.Int32 value optional default="7" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Prepared [Public, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter DataLinq.Linq.PreparedQuery`3<SessionConsumer.TestDb,System.Int32,System.Int32> prepared nullable=NotNull<NotNull,NotNull,NotNull>
+    parameter System.Int32 value nullable=NotNull
+  method Prepared [Public, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    parameter DataLinq.Linq.PreparedQuery`3<SessionConsumer.TestDb,System.Int32,System.Int32> prepared nullable=NotNull<NotNull,NotNull,NotNull>
+    parameter System.Int32 value nullable=NotNull
+  method Sum [Public, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Int32[] values nullable=NotNull[NotNull] metadata=["[System.ParamArrayAttribute()]"]
+  method Sum [Public, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    parameter System.Int32[] values nullable=NotNull[NotNull] metadata=["[System.ParamArrayAttribute()]"]
+  method Payload [Public, HideBySig] body=True
+    returns SessionConsumer.ServicePayload  nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Int32 value nullable=NotNull
+  method Payload [Public, HideBySig] body=True
+    returns SessionConsumer.ServicePayload  nullable=NotNull
+    parameter System.Int32 value nullable=NotNull
+  method Insert [Public, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Int32 id nullable=NotNull
+    parameter System.String value nullable=NotNull
+  method Insert [Public, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter System.Int32 id nullable=NotNull
+    parameter System.String value nullable=NotNull
+  method TouchAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Func`2<System.Threading.CancellationToken,System.Threading.Tasks.Task> action nullable=NotNull<NotNull,NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.AsyncStateMachineAttribute(typeof(SessionConsumer.BindingService+<TouchAsync>d__29))]"]
+  method TouchAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task  nullable=NotNull
+    parameter System.Func`2<System.Threading.CancellationToken,System.Threading.Tasks.Task> action nullable=NotNull<NotNull,NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method NativeAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`2<System.Int32,System.Int32>>  nullable=NotNull<NotNull<NotNull,NotNull>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 1, 0 })]"]
+    parameter System.Boolean veto nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method NativeAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<DataLinq.Mutation.TransactionResult`2<System.Int32,System.Int32>>  nullable=NotNull<NotNull<NotNull,NotNull>> metadata=["[System.Runtime.CompilerServices.NullableAttribute(new Byte[2] { 1, 0 })]"]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Boolean veto nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.AsyncStateMachineAttribute(typeof(SessionConsumer.BindingService+<NativeAsync>d__47))]"]
+  method InsertAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Int32 id nullable=NotNull
+    parameter System.String value nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.AsyncStateMachineAttribute(typeof(SessionConsumer.BindingService+<InsertAsync>d__39))]"]
+  method InsertAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter System.Int32 id nullable=NotNull
+    parameter System.String value nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method EchoAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<System.Int32>  nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Int32 value nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.AsyncStateMachineAttribute(typeof(SessionConsumer.BindingService+<EchoAsync>d__27))]"]
+  method EchoAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<System.Int32>  nullable=NotNull<NotNull>
+    parameter System.Int32 value nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method ObserveAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<System.Int32>  nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb>,System.Threading.Tasks.Task`1<System.Int32>> action nullable=NotNull<NotNull<NotNull>,NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.AsyncStateMachineAttribute(typeof(SessionConsumer.BindingService+<ObserveAsync>d__31))]"]
+  method ObserveAsync [Public, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<System.Int32>  nullable=NotNull<NotNull>
+    parameter System.Func`2<DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb>,System.Threading.Tasks.Task`1<System.Int32>> action nullable=NotNull<NotNull<NotNull>,NotNull<NotNull>>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Touch [Public, HideBySig] body=True
+    returns System.Void  nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Action action nullable=NotNull
+  method Touch [Public, HideBySig] body=True
+    returns System.Void  nullable=NotNull
+    parameter System.Action action nullable=NotNull
+
+type SessionConsumer.TestRowExtensions [Public, Abstract, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=[]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]","[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  method Mutate [Public, Static, HideBySig] body=True
+    returns SessionConsumer.MutableTestRow  nullable=NotNull
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Mutate [Public, Static, HideBySig] body=True
+    returns SessionConsumer.MutableTestRow  nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Mutate [Public, Static, HideBySig] body=True
+    returns SessionConsumer.MutableTestRow  nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method MutateOrNew [Public, Static, HideBySig] body=True
+    returns SessionConsumer.MutableTestRow  nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    parameter System.Int32 id nullable=NotNull
+    parameter System.String value nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method MutateOrNew [Public, Static, HideBySig] body=True
+    returns SessionConsumer.MutableTestRow  nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=Nullable metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+    parameter System.Int32 id nullable=NotNull
+    parameter System.String value nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Insert [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Insert [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Insert [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Insert [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Insert [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Insert [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Insert [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Insert [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Insert [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Save [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method Update [Public, Static, HideBySig] body=True
+    returns SessionConsumer.TestRow  nullable=NotNull
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method InsertAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method InsertAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method InsertAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method InsertAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method InsertAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method InsertAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method InsertAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method InsertAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method InsertAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method SaveAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction transaction nullable=NotNull
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Interfaces.IDataLinqSession`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"TDatabase","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<TDatabase>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter DataLinq.Mutation.Transaction`1<TDatabase> transaction nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter SessionConsumer.TestRow model nullable=NotNull
+    parameter System.Action`1<SessionConsumer.MutableTestRow> changes nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+  method UpdateAsync [Public, Static, HideBySig] body=True
+    returns System.Threading.Tasks.Task`1<SessionConsumer.TestRow>  nullable=NotNull<NotNull>
+    generic=[{"Name":"T","Attributes":"ReferenceTypeConstraint","Constraints":["DataLinq.Interfaces.IDatabaseModel`1<T>"],"MetadataAttributes":[]}]
+    parameter SessionConsumer.MutableTestRow model nullable=NotNull
+    parameter DataLinq.Database`1<T> database nullable=NotNull<NotNull>
+    parameter System.Threading.CancellationToken cancellationToken optional default=null nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    metadata=["[System.Runtime.CompilerServices.ExtensionAttribute()]"]
+
+type SessionConsumer.TraditionalService [Public, Sealed, BeforeFieldInit] base=System.Object
+  interfaces=["DataLinq.Interfaces.IDataLinqServiceFactory`2<SessionConsumer.TestDb,SessionConsumer.TraditionalService>","DataLinq.Interfaces.IDataLinqService`1<SessionConsumer.TestDb>"]
+  generic=[]
+  metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)0)]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)1)]"]
+  constructor [Public, HideBySig, SpecialName, RTSpecialName]
+    SessionConsumer.IServicePolicy policy nullable=NotNull
+    DataLinq.Interfaces.IDataLinqUnitOfWorkFactory`1<SessionConsumer.TestDb> factory nullable=NotNull<NotNull>
+    System.String label optional default="fallback" nullable=NotNull metadata=["[System.Runtime.InteropServices.OptionalAttribute()]"]
+    SessionConsumer.ServiceDependency dependency optional default=null nullable=Nullable metadata=["[Microsoft.Extensions.DependencyInjection.FromKeyedServicesAttribute(\"explicit\")]","[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]","[System.Runtime.InteropServices.OptionalAttribute()]"]
+  method Echo [Public, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    parameter DataLinq.Interfaces.IDataLinqSession`1<SessionConsumer.TestDb> session nullable=NotNull<NotNull>
+    parameter System.Int32 value nullable=NotNull
+  method Echo [Public, HideBySig] body=True
+    returns System.Int32  nullable=NotNull
+    parameter System.Int32 value nullable=NotNull
+  method get_Dependency [Public, HideBySig, SpecialName] body=True
+    returns SessionConsumer.ServiceDependency  nullable=Nullable
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]","[System.Runtime.CompilerServices.NullableContextAttribute((Byte)2)]"]
+  method get_Label [Public, HideBySig, SpecialName] body=True
+    returns System.String  nullable=NotNull
+    metadata=["[System.Runtime.CompilerServices.CompilerGeneratedAttribute()]"]
+  property SessionConsumer.ServiceDependency Dependency nullable=Nullable/Unknown get=[Public, HideBySig, SpecialName] set=[]
+    metadata=["[System.Runtime.CompilerServices.NullableAttribute((Byte)2)]"]
+  property System.String Label nullable=NotNull/Unknown get=[Public, HideBySig, SpecialName] set=[]

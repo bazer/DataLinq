@@ -11,6 +11,8 @@ The default transaction type is `TransactionType.ReadAndWrite`. There are also `
 
 On the unreleased 0.10 branch, async mutations, transaction callbacks and completion follow the ownership rules below. See [Async Execution](Async%20Execution.md#mutations-and-transaction-ownership) for awaited examples, operation overlap and recovery budgets.
 
+For registration, participant sessions, factory-owned execution and business rollback requests, see [Dependency Injection and Unit of Work](Dependency%20Injection%20and%20Unit%20of%20Work.md), also part of unreleased 0.10 development.
+
 ## Implicit Transactions
 
 Single-operation write helpers open and complete the transaction for you.
