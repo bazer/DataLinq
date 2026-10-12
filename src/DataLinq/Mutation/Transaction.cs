@@ -377,7 +377,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
     /// <param name="model">The model to insert or update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T Save<T>(T model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
+    public T Save<T>(T? model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
     {
         ArgumentNullException.ThrowIfNull(changes);
         var mut = model == null
@@ -394,7 +394,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
     /// <param name="model">The model to insert or update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T Save<T>(Mutable<T> model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
+    public T Save<T>(Mutable<T>? model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
     {
         var mut = model ?? new Mutable<T>();
 
@@ -1509,7 +1509,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
 /// Represents a database transaction.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public class Transaction<T> : Transaction, IDataSourceAccess<T>
+public partial class Transaction<T> : Transaction, IDataSourceAccess<T>, IDataLinqUnitOfWork<T>
     where T : class, IDatabaseModel<T>
 {
     /// <summary>

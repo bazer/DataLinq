@@ -30,7 +30,7 @@ public abstract class GeneratorTestBase
                 .WithNullableContextOptions(nullableContextOptions));
 
         IIncrementalGenerator generator = new ModelGenerator();
-        var driver = CSharpGeneratorDriver.Create(generator.AsSourceGenerator());
+        var driver = CSharpGeneratorDriver.Create([generator.AsSourceGenerator()], parseOptions: parseOptions);
         driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
 
         var generatedTrees = outputCompilation.SyntaxTrees

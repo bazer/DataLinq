@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>12.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(DataLinqCandidateVersion)' == ''">
+    <ProjectReference Include="../../../src/DataLinq/DataLinq.csproj" />
+    <ProjectReference Include="../../../src/DataLinq.SQLite/DataLinq.SQLite.csproj" />
+    <ProjectReference Include="../../../src/DataLinq.Generators/DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DataLinqCandidateVersion)' != ''">
+    <PackageReference Include="DataLinq" Version="[$(DataLinqCandidateVersion)]" />
+    <PackageReference Include="DataLinq.SQLite" Version="[$(DataLinqCandidateVersion)]" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- W3 source remains unchanged and is compiled with the W4 generated surface. -->
+    <Compile Include="../AsyncPackageConsumer/AdvancedModels.cs" Link="AdvancedModels.cs" />
+    <Compile Include="../AsyncPackageConsumer/GeneratedBindings.cs" Link="W3GeneratedBindings.cs" />
+  </ItemGroup>
+</Project>

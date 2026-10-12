@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Execution;
 using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Linq;
 using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Expressions;
@@ -139,7 +140,9 @@ public sealed partial class TransactionMutationFailureTests
     }
 
     [Test]
-    public async Task AsyncQueryPlan_PreparedScalarCapturesArgumentsAndConvertsAfterOwnedCleanup()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task AsyncQueryPlan_PreparedScalarCapturesArgumentsAndConvertsAfterOwnedCleanup(bool participant)
     {
         using var fixture = new ScriptedFixture(captureSql: true);
         using var transaction = fixture.Database.Transaction();
@@ -153,7 +156,8 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncSqlReaders = factory;
         fixture.Scenario.AsyncSqlScalars = factory;
         var ids = new[] { 7 };
-        var pending = plan.ExecuteAsync(transaction, ids);
+        IDataLinqSession<TransactionMutationGuardDb> session = transaction;
+        var pending = participant ? session.ExecuteAsync(plan, ids) : plan.ExecuteAsync(transaction, ids);
         await access.Dispatch.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         ids[0] = 99;
         access.Dispatch.Release();
@@ -370,9 +374,11 @@ public sealed partial class TransactionMutationFailureTests
     }
 
     [Test]
-    [Arguments(false)]
-    [Arguments(true)]
-    public async Task AsyncQueryPlan_PreparedEntityReaderRetainsOwnerBetweenBufferedRowsAndHelperDrainsIt(bool escape)
+    [Arguments(false, false)]
+    [Arguments(true, false)]
+    [Arguments(false, true)]
+    [Arguments(true, true)]
+    public async Task AsyncQueryPlan_PreparedEntityReaderRetainsOwnerBetweenBufferedRowsAndHelperDrainsIt(bool escape, bool participant)
     {
         using var fixture = new ScriptedFixture(captureSql: true);
         var transaction = fixture.Database.Transaction();
@@ -383,13 +389,15 @@ public sealed partial class TransactionMutationFailureTests
         fixture.Scenario.AsyncSqlReaders = new ControlledSqlReaderFactory
             { CreateAccess = _ => new() { ReaderOverride = calls++ == 0 ? keyReader : rowReader, FailureEvidence = TrustedScalarRead } };
         var prepared = fixture.Database.PrepareSequenceQuery(0, minimum => fixture.Database.Query().Rows.Where(row => row.Id > minimum));
+        IDataLinqSession<TransactionMutationGuardDb> session = transaction;
+        IAsyncEnumerable<TransactionMutationGuardRow> Execute() => participant ? session.ExecuteAsync(prepared, 0) : prepared.ExecuteAsync(transaction, 0);
         IAsyncEnumerator<TransactionMutationGuardRow>? rows = null;
         Task<bool>? move = null;
         if (escape)
         {
             var helper = transaction.RunCallbackAsyncCore(_ =>
             {
-                rows = prepared.ExecuteAsync(transaction, 0).GetAsyncEnumerator();
+                rows = Execute().GetAsyncEnumerator();
                 move = rows.MoveNextAsync().AsTask();
                 return Task.FromResult(42);
             }, new());
@@ -403,7 +411,7 @@ public sealed partial class TransactionMutationFailureTests
         else
         {
             using var cancellation = new CancellationTokenSource();
-            rows = prepared.ExecuteAsync(transaction, 0).GetAsyncEnumerator(cancellation.Token);
+            rows = Execute().GetAsyncEnumerator(cancellation.Token);
             move = rows.MoveNextAsync().AsTask();
             await rowReader.Cleanup.Entered.WaitAsync(TimeSpan.FromSeconds(10));
             rowReader.Cleanup.Release();

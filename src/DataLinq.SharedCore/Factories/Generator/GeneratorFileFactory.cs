@@ -1592,7 +1592,58 @@ public class GeneratorFileFactory
         foreach (var row in AsyncMutationExtensionMethods(model))
             yield return row;
 
+        foreach (var row in ParticipatingMutationExtensionMethods(model))
+            yield return row;
+
         yield return namespaceTab + "}";
+    }
+
+    private IEnumerable<string> ParticipatingMutationExtensionMethods(ModelDefinition model)
+    {
+        var name = model.CsType.Name;
+        var mutable = $"Mutable{name}";
+        var action = $"Action<{mutable}> changes";
+        // The concrete overload is required for unchanged typed-transaction callers:
+        // Transaction and IDataLinqSession are unrelated parameter types.
+        foreach (var source in new[] { "Transaction<TDatabase>", "global::DataLinq.Interfaces.IDataLinqSession<TDatabase>" })
+        foreach (var asynchronous in new[] { false, true })
+        {
+            var suffix = asynchronous ? "Async" : "";
+            var token = asynchronous ? ", global::System.Threading.CancellationToken cancellationToken = default" : "";
+            var tokenArgument = asynchronous ? ", cancellationToken" : "";
+            var result = asynchronous ? $"global::System.Threading.Tasks.Task<{name}>" : name;
+            var methods = new (string Name, string Parameters, string Body)[]
+            {
+                ("Insert", $"this {mutable} model, {action}, {source} transaction", $"transaction.Insert{suffix}<{name}, {mutable}>(model, changes{tokenArgument})"),
+                ("Insert", $"this {source} transaction, {mutable} model, {action}", $"transaction.Insert{suffix}<{name}, {mutable}>(model, changes{tokenArgument})"),
+                ("Update", $"this {name} model, {action}, {source} transaction", $"transaction.Update{suffix}<{name}, {mutable}>(model.Mutate(), changes{tokenArgument})"),
+                ("Update", $"this {source} transaction, {name} model, {action}", $"transaction.Update{suffix}<{name}, {mutable}>(model.Mutate(), changes{tokenArgument})"),
+                // Generated immutable Save has always been an Update alias, including null handling.
+                ("Save", $"this {name} model, {action}, {source} transaction", $"transaction.Update{suffix}<{name}, {mutable}>(model.Mutate(), changes{tokenArgument})"),
+                ("Save", $"this {source} transaction, {name} model, {action}", $"transaction.Update{suffix}<{name}, {mutable}>(model.Mutate(), changes{tokenArgument})"),
+                ("Save", $"this {mutable} model, {action}, {source} transaction", $"transaction.Save{suffix}<{name}, {mutable}>(model, changes{tokenArgument})"),
+                ("Save", $"this {mutable} model, {source} transaction", $"transaction.Save{suffix}(model{tokenArgument})"),
+                ("Save", $"this {source} transaction, {mutable} model, {action}", $"transaction.Save{suffix}<{name}, {mutable}>(model, changes{tokenArgument})")
+            };
+            foreach (var method in methods)
+            {
+                yield return $"{namespaceTab}{tab}/// <summary>Participates in the supplied transaction without owning completion or cleanup.</summary>";
+                yield return $"{namespaceTab}{tab}public static {result} {method.Name}{suffix}<TDatabase>({method.Parameters}{token}) where TDatabase : class, IDatabaseModel<TDatabase> =>";
+                yield return $"{namespaceTab}{tab}{tab}{method.Body};";
+            }
+
+            if (source.StartsWith("global::", StringComparison.Ordinal))
+            {
+                // Mutable's existing instance members already handle Transaction. Only
+                // participant-typed callers need no-change Insert/Update extensions.
+                foreach (var operation in new[] { "Insert", "Update" })
+                {
+                    yield return $"{namespaceTab}{tab}/// <summary>Participates in the supplied transaction without owning completion or cleanup.</summary>";
+                    yield return $"{namespaceTab}{tab}public static {result} {operation}{suffix}<TDatabase>(this {mutable} model, {source} transaction{token}) where TDatabase : class, IDatabaseModel<TDatabase> =>";
+                    yield return $"{namespaceTab}{tab}{tab}transaction.{operation}{suffix}(model{tokenArgument});";
+                }
+            }
+        }
     }
 
     private IEnumerable<string> AsyncMutationExtensionMethods(ModelDefinition model)
