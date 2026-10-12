@@ -58,3 +58,23 @@ Verification on the development working tree:
 Commands use the sandbox wrapper and Testing CLI `run --suite unit --filter` with `/*/*/DependencyInjectionOwnershipProofTests/*` and `/*/*/TransactionMutationFailureTests/DiOwnership*`.
 
 **Still open:** actual production registration/generator preservation, custom-provider once-only cleanup, generated read roots with user-added disposal interfaces, .NET 8/9 consumer execution, complete instance handoff failure ordering, dependent operation shutdown ordering and all W4.2-W4.6 work. These initial fixtures are a prerequisite checkpoint, not W4 completion. Session/rollback implementation can proceed independently of registration wiring.
+
+### W4.2 Rollback Admission And Optional Result Values
+
+`Transaction.RequestRollback` now records an irreversible business veto under the existing operation gate. It preserves the first diagnostic reason, accepts requests while an admitted command or reader is active, and rejects fresh execution/commit after acceptance. Already admitted work retains its continuation rights. Completion admission, terminal state, disposal and helper closure reject late requests. No provider I/O occurs just to request rollback.
+
+Optional typed `TransactionResult`, `Success`, `Rollback` and `Unit` values are independent of that control state. Nullable/default success payloads are valid; uninitialized result inspection, wrong-case access and null rollback reasons throw. A returned failure value or a caught inspection exception does not itself prevent commit. Existing general transaction callbacks report an explicit veto by throwing after recovery/cleanup, including when its marker is ignored.
+
+Controlled tests cover request-versus-completion admission, pending mutations and reader moves, open/between-move readers, unused deferred enumerators, concurrent/repeated reasons, escaped-reader draining, helper closure, and rollback failures. Provider tests verify persistence outcomes for manual and callback ownership in both execution modes, failure data without a veto, and continued reader execution after a veto.
+
+Verification before this slice's commit:
+
+- Release core build on **net8.0/net9.0/net10.0**: zero warnings/errors.
+- Release quick plan: **5,009/5,009** passed (101 generator, 4,115 unit, 223 Memory, 570 SQLite compliance), no skips; run `20261012T121816323Z-a13ef4ce9d6940668e370e57935b1bb3`.
+- Focused `RollbackRequestTests` on **all eight provider targets**: **16/16** passed, no skips; run `20261012T123340963Z-c75b8856b4a9464fb2afd97caead1ea6`. Includes SQLite file/memory, MySQL 8.4/9.7, MariaDB 10.11/11.4/11.8/12.3.
+
+Commands for the quick run use `scripts/dotnet-sandbox.ps1` with the built `src/DataLinq.Testing.CLI/bin/Release/net10.0/DataLinq.Testing.CLI.dll`, followed by `run --plan quick --configuration Release --output failures`. Passing the DLL directly preserves the CLI's configuration argument through PowerShell. The provider run uses the same DLL with `run --suite compliance --configuration Release --alias all --filter '/*/*/RollbackRequestTests/*' --output failures` and `DATALINQ_TEST_DB_HOST=127.0.0.1`.
+
+The initial provider attempts could not reach Podman's socket. After the user restarted the containers, all six servers and their loopback ports were confirmed live. The redirected sandbox profile still failed to reach Podman; the successful provider run used ordinary `dotnet` outside the sandbox with the normal Windows profile. These infrastructure failures are not counted as passing provider evidence, and no product or container configuration was changed to conceal them.
+
+**Still open:** participant/owner/factory interfaces, prepared participation and generated helper source compatibility, result-aware owning helpers and generic conversion consumer edge cases, and the W4.1/W4.4-W4.6 ownership/registration/generation/integration gates. This is a rollback-control checkpoint, not completion of W4.2 or W4.3.

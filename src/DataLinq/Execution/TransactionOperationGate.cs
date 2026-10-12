@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
+using DataLinq.Exceptions;
 
 namespace DataLinq.Execution;
 
@@ -17,6 +19,41 @@ internal sealed class TransactionOperationGate(uint? transactionId, string? prov
     private Lease? active;
     private HelperOwner? helper;
     private TaskCompletionSource? changed;
+    private object? rollbackReason;
+    private bool rollbackAdmissionClosed;
+
+    internal bool IsRollbackRequested { get { lock (sync) return rollbackReason is not null; } }
+
+    internal bool TryGetRollbackReason<TFailure>([MaybeNullWhen(false)] out TFailure reason) where TFailure : notnull
+    {
+        lock (sync)
+        {
+            if (rollbackReason is TFailure typed) { reason = typed; return true; }
+            reason = default;
+            return false;
+        }
+    }
+
+    // Control-state admission deliberately bypasses busy execution: already admitted
+    // work owns its continuation rights, while a veto prevents every fresh admission.
+    internal void RequestRollback(object reason)
+    {
+        ArgumentNullException.ThrowIfNull(reason);
+        lock (sync)
+        {
+            if (rollbackAdmissionClosed || helper?.Closed == true || active?.IsCompletion == true)
+                throw Rejected($"Cannot request rollback for transaction {transactionId} after completion admission or the owning lifetime has closed.", ExecutionOperationKind.Unknown);
+            rollbackReason ??= reason;
+        }
+    }
+
+    internal void CloseRollbackAdmission() { lock (sync) rollbackAdmissionClosed = true; }
+
+    internal void ThrowIfRollbackRequested()
+    {
+        lock (sync)
+            if (rollbackReason is not null) throw new DataLinqRollbackRequestedException(rollbackReason);
+    }
 
     internal Lease Enter(string operation, bool completion = false, ExecutionOperationKind operationKind = ExecutionOperationKind.Unknown)
     {
@@ -25,8 +62,8 @@ internal sealed class TransactionOperationGate(uint? transactionId, string? prov
         {
             if (completion && helper is not null)
                 throw Rejected($"Transaction {transactionId} completion is owned by its callback helper.", operationKind);
-            ThrowIfBusyCore(operation, operationKind);
-            return active = new Lease(this, operation, operationKind);
+            ThrowIfBusyCore(operation, operationKind, allowRollbackRequested: completion && operationKind != ExecutionOperationKind.Commit);
+            return active = new Lease(this, operation, operationKind, completion);
         }
     }
 
@@ -45,12 +82,14 @@ internal sealed class TransactionOperationGate(uint? transactionId, string? prov
                 throw Rejected($"Cannot {operation} through transaction {transactionId} while '{active.Operation}' is active.", operationKind);
     }
 
-    private void ThrowIfBusyCore(string operation, ExecutionOperationKind operationKind)
+    private void ThrowIfBusyCore(string operation, ExecutionOperationKind operationKind, bool allowRollbackRequested = false)
     {
         if (helper?.Closed == true)
             throw Rejected($"Cannot {operation} through transaction {transactionId} after its helper callback has ended.", operationKind);
         if (active is not null)
             throw Rejected($"Cannot {operation} through transaction {transactionId} while '{active.Operation}' is active.", operationKind);
+        if (!allowRollbackRequested && rollbackReason is not null)
+            throw new DataLinqRollbackRequestedException(rollbackReason);
     }
 
     // Called under the gate lock. Reporting copies identifiers only and never
@@ -120,7 +159,7 @@ internal sealed class TransactionOperationGate(uint? transactionId, string? prov
                         foreach (var failure in drainedFailures)
                             failures.AddObserved(failure, ExecutionFailureStage.CommandExecution);
                         drainedFailures.Clear();
-                        return gate.active = new Lease(gate, "complete callback helper", ExecutionOperationKind.TransactionCallback);
+                        return gate.active = new Lease(gate, "complete callback helper", ExecutionOperationKind.TransactionCallback, completion: true);
                     }
                     reader = gate.active.Reader;
                     gate.active.Reader = null; // Exactly one helper-owned close per reader.
@@ -196,17 +235,19 @@ internal sealed class TransactionOperationGate(uint? transactionId, string? prov
         private bool released;
         internal string Operation { get; }
         internal ExecutionOperationKind Kind { get; }
+        internal bool IsCompletion { get; }
         internal string? ProviderInstanceId => gate.ProviderInstanceId;
         internal Step? ActiveStep { get; set; }
         internal IHelperTrackedReader? Reader { get; set; }
         private List<ObservedExecutionFailure>? failures;
         private bool readerRegistered;
 
-        internal Lease(TransactionOperationGate gate, string operation, ExecutionOperationKind operationKind)
+        internal Lease(TransactionOperationGate gate, string operation, ExecutionOperationKind operationKind, bool completion = false)
         {
             this.gate = gate;
             Operation = operation;
             Kind = operationKind;
+            IsCompletion = completion;
         }
 
         /// <summary>Hand resource lifetime to a new owner; disposing the old lease is then harmless.</summary>
@@ -215,7 +256,7 @@ internal sealed class TransactionOperationGate(uint? transactionId, string? prov
             lock (gate.sync)
             {
                 gate.RequireIdle(this);
-                var next = new Lease(gate, Operation, Kind);
+                var next = new Lease(gate, Operation, Kind, IsCompletion);
                 next.Reader = Reader;
                 next.failures = failures;
                 next.readerRegistered = readerRegistered;

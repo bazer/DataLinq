@@ -720,6 +720,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
 
     private void FinalizeCommittedState()
     {
+        ExecutionGate.CloseRollbackAdmission();
         try
         {
             Provider.State.ApplyChanges(successfulChanges);
@@ -787,6 +788,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         MutableTransactionOutcome outcome,
         MutableInvalidationReason invalidationReason)
     {
+        ExecutionGate.CloseRollbackAdmission();
         var recoveryFailures = new List<ObservedExecutionFailure>();
 
         try
@@ -827,6 +829,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         MutableTransactionOutcome outcome,
         MutableInvalidationReason invalidationReason)
     {
+        ExecutionGate.CloseRollbackAdmission();
         var cleanupFailures = new List<ObservedExecutionFailure>();
 
         try
@@ -1058,6 +1061,8 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         object? sender,
         DatabaseTransactionStatusChangeEventArgs args)
     {
+        if (args.Status is DatabaseTransactionStatus.Committed or DatabaseTransactionStatus.RolledBack)
+            ExecutionGate.CloseRollbackAdmission();
         if (args.Status == DatabaseTransactionStatus.Committed &&
             Volatile.Read(ref managedCommitFinalizationState) != 0)
         {
@@ -1231,6 +1236,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
 
         if (rejectPoisoned)
         {
+            ExecutionGate.ThrowIfRollbackRequested();
             ThrowIfPoisoned(operation);
         }
         EnsureAsyncRecoveryAllowed(operation, rejectPoisoned ? ExecutionRecoveryActions.Continue : ExecutionRecoveryActions.Rollback);
@@ -1343,6 +1349,7 @@ public partial class Transaction : DataSourceAccess, IDisposable, IAsyncDisposab
         {
             if (Interlocked.Exchange(ref disposeState, 1) != 0)
                 return;
+            ExecutionGate.CloseRollbackAdmission();
             using var completionStep = ExecutionGate.EnterStep(operation);
             using var telemetry = DatabaseAccess.DeferSynchronousTransactionTelemetry(completionStep);
 
