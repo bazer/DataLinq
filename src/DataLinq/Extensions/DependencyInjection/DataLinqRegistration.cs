@@ -14,6 +14,7 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
 {
     private readonly object activationKey = new();
     private readonly List<ServiceDescriptor> aliases = [];
+    private readonly List<IDataLinqServiceRegistration> applicationServices = [];
     private Func<IServiceProvider, Database<TDatabase>>? factory;
     private Database<TDatabase>? instance;
     private ReadOnlyAccess<TDatabase>? borrowedAccess;
@@ -44,9 +45,24 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
         if (Services.Any(descriptor => !descriptor.IsKeyedService && descriptor.ImplementationInstance is DataLinqRegistration<TDatabase> other && other != this && other.IsDefault))
             throw new InvalidOperationException($"Model '{typeof(TDatabase).FullName}' already has an explicit default registration.");
         EnsureAvailable(AliasTypes(), null);
+        foreach (var service in applicationServices) service.Validate(asDefault: true);
         IsDefault = true;
         InstallAliases();
+        foreach (var service in applicationServices) service.Install();
     }
+
+    internal void AddService<TService>(ServiceLifetime lifetime)
+        where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
+    {
+        EnsureMutable();
+        var service = new DataLinqServiceRegistration<TDatabase, TService>(this, lifetime);
+        service.Validate(IsDefault);
+        applicationServices.Add(service);
+        service.Install();
+    }
+
+    internal IDataLinqUnitOfWorkFactory<TDatabase> ResolveFactory(IServiceProvider provider) =>
+        provider.GetRequiredKeyedService<DataLinqActivation<TDatabase>>(activationKey).Get().Factory;
 
     internal void SetFactory(Type implementation, Func<IServiceProvider, Database<TDatabase>> create)
     {

@@ -81,4 +81,5 @@ using (var manual = factory.Create())
 await RegistrationConsumer.Run();
 await ConfigurationConsumer.Run();
 await SessionConsumer.ServiceConsumer.Run();
+await SessionConsumer.ServiceRegistrationConsumer.Run();
 Console.WriteLine($"W4 session consumer passed on {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}.");

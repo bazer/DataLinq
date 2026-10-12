@@ -24,6 +24,33 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     /// <summary>Gets this registration's key.</summary>
     public object? ServiceKey => Registration.ServiceKey;
 
+    /// <summary>Registers a generated application service with singleton lifetime and this registration's factory/key.</summary>
+    /// <remarks>Disposable singleton/scoped services require one identity; keyed-plus-default transients use independent activations.</remarks>
+    public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AddSingletonService<TService>()
+        where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
+    {
+        Registration.Registration.AddService<TService>(ServiceLifetime.Singleton);
+        return this;
+    }
+
+    /// <summary>Registers a generated application service with scoped lifetime and this registration's factory/key.</summary>
+    /// <remarks>Disposable singleton/scoped services require one identity; keyed-plus-default transients use independent activations.</remarks>
+    public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AddScopedService<TService>()
+        where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
+    {
+        Registration.Registration.AddService<TService>(ServiceLifetime.Scoped);
+        return this;
+    }
+
+    /// <summary>Registers a generated application service with transient lifetime and this registration's factory/key.</summary>
+    /// <remarks>Disposable singleton/scoped services require one identity; keyed-plus-default transients use independent activations.</remarks>
+    public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AddTransientService<TService>()
+        where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
+    {
+        Registration.Registration.AddService<TService>(ServiceLifetime.Transient);
+        return this;
+    }
+
     /// <summary>Exposes this keyed registration through unnamed injection.</summary>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AsDefault()
     {

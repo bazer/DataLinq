@@ -24,6 +24,33 @@ public sealed class DataLinqRegistrationBuilder<TDatabase> where TDatabase : cla
     /// <summary>Gets the registration key; null selects the unnamed identity.</summary>
     public object? ServiceKey => Registration.Key;
 
+    /// <summary>Registers a generated application service with singleton lifetime and this registration's factory/key.</summary>
+    /// <remarks>Disposable singleton/scoped services require one identity; keyed-plus-default transients use independent activations.</remarks>
+    public DataLinqRegistrationBuilder<TDatabase> AddSingletonService<TService>()
+        where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
+    {
+        Registration.AddService<TService>(ServiceLifetime.Singleton);
+        return this;
+    }
+
+    /// <summary>Registers a generated application service with scoped lifetime and this registration's factory/key.</summary>
+    /// <remarks>Disposable singleton/scoped services require one identity; keyed-plus-default transients use independent activations.</remarks>
+    public DataLinqRegistrationBuilder<TDatabase> AddScopedService<TService>()
+        where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
+    {
+        Registration.AddService<TService>(ServiceLifetime.Scoped);
+        return this;
+    }
+
+    /// <summary>Registers a generated application service with transient lifetime and this registration's factory/key.</summary>
+    /// <remarks>Disposable singleton/scoped services require one identity; keyed-plus-default transients use independent activations.</remarks>
+    public DataLinqRegistrationBuilder<TDatabase> AddTransientService<TService>()
+        where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
+    {
+        Registration.AddService<TService>(ServiceLifetime.Transient);
+        return this;
+    }
+
     /// <summary>Exposes this keyed registration through unnamed injection without creating another database.</summary>
     public DataLinqRegistrationBuilder<TDatabase> AsDefault()
     {

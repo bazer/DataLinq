@@ -195,3 +195,20 @@ Verification before this slice's commit:
 The first generator fixture lacked its DI abstraction metadata reference, and the first executable fixture lacked the provisioning namespace import; both were corrected before the passing runs. A guard assertion initially confused logical adapter construction with provider I/O; its corrected before/after adapter and command counts precede the final passing quick run. The earlier failed quick run is not passing evidence. All twelve CI checks at the preceding provider registration commit `90f32bc9` passed ([run 38265211508](https://github.com/bazer/DataLinq/actions/runs/38265211508)); they do not verify these later generator changes.
 
 Production singleton/scoped/transient service registration and its disposal restrictions, host/shutdown consumers, full composition/capability and packed/API/documentation closeout remain open.
+
+### W4.5 Generated Service Registration And Provider Composition
+
+Both common and provider builders now expose `AddSingletonService<TService>`, `AddScopedService<TService>` and `AddTransientService<TService>`. Their generated construction bridge receives the selected registration's factory; ordinary constructor dependencies remain ordinary DI dependencies unless explicitly keyed. Non-disposable singleton/scoped keyed/default aliases share one instance in the requested lifetime. Transients use direct independent recipes for each lookup, avoiding duplicate disposable capture through forwarding aliases.
+
+The established restriction is now enforced before activation: disposable singleton/scoped application services cannot have both a key and a default alias. Both fluent orders reject that combination. One unnamed identity or one keyed identity remains supported. Authored sync/async disposal is preserved, counted once per supported activation, and cleanup exceptions propagate without replay. Sync shutdown of an async-only service retains the container's explicit unsupported behavior. Default selection and duplicate-service conflicts fail structurally, without provider construction; standard captive-scope validation remains effective.
+
+Application-service construction first activates the selected DataLinq infrastructure/factory. After that handoff succeeds, a later missing application dependency does not return a transferred database to caller ownership. Never-selected registrations still transfer nothing, and borrowed instances remain borrowed through either failure path.
+
+Verification before this slice's commit:
+
+- Focused service registration: **24/24**, run `20261012T155116282Z-bd8c6fc9c89b4a449e79b57a6d5460a8`. Cases iterate all lifetimes, unnamed/keyed/default identities, both builder/resolution orders and sync/async disposal interfaces, including cleanup failure, unsupported shutdown, scope validation and service-first instance handoff.
+- Generated nested composition: **8/8** across all provider targets, run `20261012T154646665Z-c382e11269ed4555a26755d99effccc8`. A child's standalone method writes to its own database; its participating method sees the parent's transaction-local writes through a plan prepared on the other registration. Sync/async parent helpers preserve the child's first veto reason while returning a mapped result only after owned recovery/cleanup.
+- Release quick plan: **5,155/5,155**, no failures/skips (127 generator, 4,228 unit, 223 Memory, 577 SQLite compliance); run `20261012T155122169Z-24d559898c884f20b9a0f943a6a92ed9`.
+- Expanded public consumer: zero-warning builds and successful execution on actual **.NET 8.0.31, 9.0.20 and 10.0.12**, including provider-builder service wiring and disposable transient cleanup.
+
+All twelve CI checks for the preceding generator commit `3e094948` passed ([run 38267840848](https://github.com/bazer/DataLinq/actions/runs/38267840848)). Host/request/shutdown integration, final API/capability reconciliation, packed/old-binary consumer evidence and usage/documentation closeout remain open; W4 is not yet complete.
