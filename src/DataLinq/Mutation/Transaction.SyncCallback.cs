@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using DataLinq.Execution;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
 
 namespace DataLinq.Mutation;
@@ -37,10 +38,21 @@ public partial class Transaction
         using var owner = lifetime is null
             ? BeginExclusiveOperation("clean up failed callback helper", completion: true, operationKind: ExecutionOperationKind.TransactionCallback)
             : lifetime.CloseAndDrainAsync(failures).GetAwaiter().GetResult();
+        DataLinqRollbackRequestedException? commitVeto = null;
+        var noStartedProviderWork = false;
         if (failures.Primary is null)
         {
             try { CommitCore(owner); }
-            catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Commit, fallbackOperation: ExecutionOperationKind.Commit); }
+            catch (Exception failure)
+            {
+                failures.AddReported(failure, ExecutionFailureStage.Commit, fallbackOperation: ExecutionOperationKind.Commit);
+                if (failure is DataLinqRollbackRequestedException veto && !IsPoisoned && AsyncFailureContext?.HasCleanupFailure != true)
+                {
+                    commitVeto = veto;
+                    try { noStartedProviderWork = DatabaseAccess is IAsyncTransactionCompletion { InitializationState: TransactionInitializationState.Unused }; }
+                    catch (Exception inspection) { failures.AddReported(inspection, ExecutionFailureStage.Validation); }
+                }
+            }
         }
         using (ExecutionFailureScope.Begin())
         {
@@ -69,6 +81,8 @@ public partial class Transaction
                 ExecutionOperationKind.TransactionCallback, ExecutionGate.ProviderInstanceId);
             Volatile.Write(ref asyncFailureContext, context);
             ExecutionFailureContexts.Attach(primary, context);
+            if (ReferenceEquals(primary, commitVeto))
+                commitVeto!.ConfirmHelperRollback(TransactionID, context, noStartedProviderWork);
         }
         failures.ThrowIfAny();
         return result;

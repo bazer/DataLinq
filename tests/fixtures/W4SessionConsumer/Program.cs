@@ -64,6 +64,14 @@ if (factory.Execute(session => session.Query().Parents.Count()) != 1 ||
     throw new Exception("Factory-owned callbacks did not preserve ordinary results.");
 factory.Execute(_ => { });
 await factory.ExecuteAsync(_ => Task.CompletedTask);
+var noValue = factory.ExecuteResult(_ => (TransactionResult<Unit>)TransactionResult.Success());
+if (!noValue.IsSuccess) throw new Exception("No-value success was rejected.");
+var typedOutcome = await factory.ExecuteResultAsync((session, _) =>
+    Task.FromResult((TransactionResult<Unit, int>)session.RequestRollback(17)));
+if (typedOutcome.Reason != 17) throw new Exception("Typed rollback did not survive owned cleanup.");
+var stringOutcome = await factory.ExecuteResultAsync(session =>
+    Task.FromResult((TransactionResult<string?>)session.RequestRollback("mapped")));
+if (stringOutcome.Reason != "mapped") throw new Exception("String rollback did not survive owned cleanup.");
 using (var manual = factory.Create())
 {
     if (((Transaction)manual).Status != DatabaseTransactionStatus.Closed)

@@ -118,3 +118,20 @@ Verification before this slice's commit:
 - Updated non-friend factory consumer: zero-warning Release build and successful execution on **.NET 8.0.31, 9.0.20 and 10.0.12**.
 
 The initial synchronous helper build lacked its transaction-status namespace import; the passing runs follow that correction. These are development-tree checks, not clean packed-artifact evidence. Explicit result-aware conveniences are the next W4.3 step; production DI, configuration, generated services, ownership and host/packed/API closeout gates remain open.
+
+### W4.3 Explicit Result-Aware Convenience
+
+`ExecuteResult` / `ExecuteResultAsync` are opt-in factory extensions for string and typed rollback payloads, with optional explicit async token delivery. They inspect results inside the owned callback, before commit; invalid defaults throw without manufacturing a veto or poisoning the session. A failure payload without a veto can still commit. A veto paired with success data still throws. Mapped rollback payloads preserve the session's first diagnostic reason.
+
+Only the owning completion boundary can confirm a fresh veto as returnable, after confirmed rollback (or initialization proven unused under closed admission) and successful finalization/cleanup. The confirmation is tied to the transaction ID and contains no live resource reference. `NotAttempted` alone is insufficient; failed initialization, poisoned transactions, reused callback-thrown vetoes, secondary failures and cleanup failures cannot become normal typed outcomes. General callback behavior remains unchanged.
+
+Verification before this slice's commit:
+
+- Controlled result-helper cases: **22/22**, run `20261012T134125913Z-af4fa30a9d4b407e8200787f4d621117`.
+- Release quick plan: **5,056/5,056**, no skips (107 generator, 4,151 unit, 223 Memory, 575 SQLite compliance); run `20261012T134439711Z-5d2b4d9a552f4d1ea6b5374d6d208e9b`.
+- Result-aware compliance: **8/8** across all provider targets, run `20261012T134459341Z-eee605d8a8654825bacff3039e73761b`. Each target exercises sync/async execution, both unused and writing transactions, and payloads with/without explicit vetoes.
+- Public consumer: zero-warning build and successful execution on .NET 8.0.31/9.0.20/10.0.12, including typed/string rollback and native no-value success.
+
+The first test compile used a read-only fixture property and an ambiguous test-namespace `Unit` name; both were corrected before the passing runs. The first broad run hit the existing Windows Testing CLI self-lock. After building the generator, unit, Memory and compliance projects outside the running CLI, the successful quick/provider runs used `--no-build`; no failure is counted as passing evidence. All twelve CI checks for the preceding factory commit `7317a767` are green ([run 38256588307](https://github.com/bazer/DataLinq/actions/runs/38256588307)); they do not verify this later working tree.
+
+**Still open:** production ownership and lazy registration/configuration, generated service composition/result opt-in, complete host/shutdown, packed/API and documentation closeout. Result-helper source verification is not W4 completion.

@@ -14,6 +14,8 @@ internal sealed class ControlledHelperTransaction : ControlledTransactionRecover
     internal Action? Committed { get; set; }
     internal int Finalizations { get; private set; }
     public ExecutionRecoveryActions Recovery { get; set; } = ExecutionRecoveryActions.Rollback | ExecutionRecoveryActions.Dispose;
+    public bool HasNoStartedProviderWork { get; set; }
+    public bool CanReturnRollbackResult { get; set; } = true;
 
     public void ValidateCallback()
     {

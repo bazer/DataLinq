@@ -73,5 +73,52 @@ public sealed class UnitOfWorkFactoryTests
         }
     }
 
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ResultAwareCallbacksRequireExplicitVetoAndFinishRecoveryBeforeReturning(TestProviderDescriptor descriptor)
+    {
+        using var scope = EmployeesTestDatabase.CreateIsolated(descriptor, nameof(ResultAwareCallbacksRequireExplicitVetoAndFinishRecoveryBeforeReturning), EmployeesFixtureProfile.TinySeeded);
+        IDataLinqUnitOfWorkFactory<EmployeesDb> factory = new DataLinqUnitOfWorkFactory<EmployeesDb>(scope.Database);
+        foreach (var asynchronous in new[] { false, true })
+        foreach (var write in new[] { false, true })
+        foreach (var veto in new[] { false, true })
+        {
+            IDataLinqSession<EmployeesDb>? captured = null;
+            TransactionResult<int> Result(IDataLinqSession<EmployeesDb> session)
+            {
+                captured = session;
+                if (veto) session.RequestRollback("first diagnostic reason");
+                return new Rollback<string>("mapped outcome");
+            }
+            var result = asynchronous
+                ? await factory.ExecuteResultAsync(async (session, token) =>
+                {
+                    if (write) await session.InsertAsync(NewDepartment(), token);
+                    return Result(session);
+                })
+                : factory.ExecuteResult(session =>
+                {
+                    if (write) session.Insert(NewDepartment());
+                    return Result(session);
+                });
+            await Assert.That(result.Reason).IsEqualTo("mapped outcome");
+            await Assert.That(captured!.IsRollbackRequested).IsEqualTo(veto);
+            if (veto)
+            {
+                await Assert.That(captured.TryGetRollbackReason<string>(out var reason)).IsTrue();
+                await Assert.That(reason).IsEqualTo("first diagnostic reason");
+            }
+            await Assert.That(() => captured.Query()).Throws<ObjectDisposedException>();
+            var row = await scope.Database.GetAsync<Department>(DataLinqKey.FromValue("w480"));
+            if (veto || !write) await Assert.That(row).IsNull();
+            else
+            {
+                await Assert.That(row!.Name).IsEqualTo("factory");
+                await scope.Database.DeleteAsync(row);
+            }
+        }
+    }
+
     private static MutableDepartment NewDepartment() => new() { DeptNo = "w480", Name = "factory" };
 }
