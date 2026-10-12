@@ -82,5 +82,6 @@ await RegistrationConsumer.Run();
 await ConfigurationConsumer.Run();
 await SessionConsumer.ServiceConsumer.Run();
 await SessionConsumer.ServiceRegistrationConsumer.Run();
+await SessionConsumer.ServiceDefaultConsumer.Run();
 Console.WriteLine($"W4 session consumer passed on {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}.");
 if (args.Length == 1) W4ContractManifest.Write(args[0]);

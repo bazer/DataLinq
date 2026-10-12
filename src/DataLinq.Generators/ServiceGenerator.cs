@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -195,16 +196,37 @@ internal static class ServiceGenerator
             ? parameter.HasExplicitDefaultValue ? "__services.GetService(typeof(" + type + "))"
                 : "global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService(__services, typeof(" + type + "))"
             : "global::Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions." + (parameter.HasExplicitDefaultValue ? "GetKeyedService" : "GetRequiredKeyedService") + "(__services, typeof(" + type + "), " + keyed.ConstructorArguments[0].ToCSharpString() + ")";
-        if (parameter.HasExplicitDefaultValue) value += " ?? (object?)(" + Default(parameter) + ")";
+        // A constant such as 3 is implicitly convertible to byte at a call site,
+        // but boxing it first produces Int32 and makes the later unbox fail.
+        if (parameter.HasExplicitDefaultValue) value += " ?? (object?)((" + Type(parameter.Type) + ")(" + Default(parameter) + "))";
         return "(" + Type(parameter.Type) + ")(" + value + ")!";
     }
 
     private static string Default(IParameterSymbol parameter)
     {
         if (parameter.ExplicitDefaultValue is null) return "default(" + Type(parameter.Type) + ")";
-        var literal = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(parameter.ExplicitDefaultValue, quoteStrings: true, useHexadecimalNumbers: false)
-            ?? throw new InvalidOperationException("Unsupported constructor or operation default constant.");
-        return parameter.Type.TypeKind == TypeKind.Enum ? "(" + Type(parameter.Type) + ")" + literal : literal;
+        var literal = parameter.ExplicitDefaultValue switch
+        {
+            float value when float.IsNaN(value) => "global::System.Single.NaN",
+            float value when float.IsPositiveInfinity(value) => "global::System.Single.PositiveInfinity",
+            float value when float.IsNegativeInfinity(value) => "global::System.Single.NegativeInfinity",
+            float value when value == 0 && float.IsNegativeInfinity(1f / value) => "-0.0F",
+            float value => value.ToString("R", CultureInfo.InvariantCulture) + "F",
+            double value when double.IsNaN(value) => "global::System.Double.NaN",
+            double value when double.IsPositiveInfinity(value) => "global::System.Double.PositiveInfinity",
+            double value when double.IsNegativeInfinity(value) => "global::System.Double.NegativeInfinity",
+            double value when value == 0 && double.IsNegativeInfinity(1d / value) => "-0.0D",
+            double value => value.ToString("R", CultureInfo.InvariantCulture) + "D",
+            decimal value => value.ToString(CultureInfo.InvariantCulture) + "M",
+            uint value => value.ToString(CultureInfo.InvariantCulture) + "U",
+            long value => value.ToString(CultureInfo.InvariantCulture) + "L",
+            ulong value => value.ToString(CultureInfo.InvariantCulture) + "UL",
+            var value => Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(value, quoteStrings: true, useHexadecimalNumbers: false)
+                ?? throw new InvalidOperationException("Unsupported constructor or operation default constant.")
+        };
+        var constantType = parameter.Type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+            ? nullable.TypeArguments[0] : parameter.Type;
+        return constantType.TypeKind == TypeKind.Enum ? "(" + Type(constantType) + ")" + literal : literal;
     }
     private static string UniqueName(string name, IMethodSymbol method)
     {

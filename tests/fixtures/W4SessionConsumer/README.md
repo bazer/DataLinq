@@ -21,4 +21,6 @@ Run the net9.0 output with an actual .NET 9 host. The development checkout's W3 
 
 `ServiceRegistrationConsumer.cs` uses the public provider builder's singleton/scoped/transient service methods. It checks both default-selection orders, scoped and singleton alias identity, different same-model registration factories, ordinary optional dependencies and exactly one authored disposal invocation for each disposable transient activation under both shutdown modes.
 
+`ServiceDefaultBindings.cs` also participates in the C# 12/13/14 compilation matrix. `ServiceDefaultConsumer.cs` compares generated DI activation with authored constructor calls, including narrow numeric types, nullable defaults, keyed dependencies and registered overrides under primary/traditional construction. Owning and participating calls omit defaults for float/decimal/nullable enum, NaN/infinity, negative zero, escaped strings/characters and asynchronous entry points.
+
 By default this fixture references the current source projects. Supplying an exact `DataLinqCandidateVersion` selects package references instead, for W4 packed-consumer verification. Source-project results alone do not prove the packed dependency graph or analyzer payload.

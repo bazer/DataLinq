@@ -19,14 +19,14 @@ public sealed class ServiceGeneratorTests : GeneratorTestBase
     public async Task PublicConsumerServicesCompileWithBothConstructorStylesAndAllReturnFamilies(int language, bool nullable)
     {
         var options = new CSharpParseOptions(language switch { 12 => LanguageVersion.CSharp12, 13 => LanguageVersion.CSharp13, _ => LanguageVersion.CSharp14 });
-        var sources = new[] { "BindingModels.cs", "ServiceBindings.cs" }
+        var sources = new[] { "BindingModels.cs", "ServiceBindings.cs", "ServiceDefaultBindings.cs" }
             .Select(file => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(Fixture(), file)), options, file)).ToArray();
         var (compilation, diagnostics, trees) = RunGeneratorWithDiagnostics(sources, options,
             nullable ? NullableContextOptions.Enable : NullableContextOptions.Disable);
         await Assert.That(diagnostics.Concat(compilation.GetDiagnostics()).Where(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning)
             .Select(diagnostic => diagnostic.ToString()).ToArray()).IsEmpty();
         var services = trees.Where(tree => tree.FilePath.EndsWith(".Service.g.cs", StringComparison.Ordinal)).ToArray();
-        await Assert.That(services.Length).IsEqualTo(2);
+        await Assert.That(services.Length).IsEqualTo(4);
         var service = compilation.GetTypeByMetadataName("SessionConsumer.BindingService")!;
         await Assert.That(service.GetMembers("Echo").Length).IsEqualTo(2);
         await Assert.That(service.GetMembers("NativeAsync").Length).IsEqualTo(2);

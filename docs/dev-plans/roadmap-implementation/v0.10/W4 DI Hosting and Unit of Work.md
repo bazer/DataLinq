@@ -247,3 +247,16 @@ Initial stale report-runner provenance, sandbox NuGet/profile failures and two i
 | W4.6 integration/evidence/docs | Complete through host/shutdown, package/dependency/old-binary/API evidence and the verified unreleased guide. |
 
 No further W4 implementation item is known open. PR review, its final check receipt and merge remain separate. W5 schema validation, W6B fakes, W8/W9 performance/release acceptance and package publication remain outside this implementation handoff.
+
+### Review Corrections: Optional Service Defaults
+
+The [review of `e935000e`](https://github.com/bazer/DataLinq/pull/251#issuecomment-6128781743) identified two P2 generator defects. Both are corrected in the subsequent review-fix commit:
+
+- Operation defaults now emit invariant, correctly typed numeric literals, qualified floating-point NaN/infinity constants and explicit enum casts through nullable enum types. Round-trip formatting and signed-zero handling preserve floating-point defaults; decimal and integer suffixes preserve the authored constant type/value.
+- Optional constructor fallbacks convert to the declared parameter type **before boxing**. Missing byte/short and other numeric dependencies therefore receive the authored value rather than failing an invalid unbox. Existing registered dependencies and explicit keyed lookup continue to take precedence.
+
+The 33 new TUnit regressions first produced **28 failures and five passes** against the reviewed implementation (run `20261012T170405215Z-31126461a9094410b70008348fd21270`), then passed **33/33** after correction (run `20261012T170540609Z-563f9eadaa364b01b8ee153866744d86`). Compilation checks compare both public overloads' optional metadata with the authored private method; activation checks compare the generated construction bridge with a direct constructor call. Cases include nullable/large enums, narrow and nullable numbers, numeric limits, decimal precision, special floating-point values, signed zero and null/default values.
+
+Final local verification: **160/160 generator tests**, no failures/skips, run `20261012T170800758Z-0ae74fa810474eb0877a35ff363054e0`. The shared public fixture compiles under C# 12/13/14 with both project nullable settings. Its source-project Release builds have zero warnings/errors and execute successfully on actual **.NET 8.0.31, 9.0.20 and 10.0.12**. Runtime checks cover real DI activation with missing/registered and keyed/unkeyed dependencies, both constructor styles, and omitted defaults through owning/participating sync/async wrappers.
+
+These are generator corrections; transaction/provider behavior and dependencies are unchanged. Earlier packed/API/provider evidence remains tied to its recorded commit and is not relabeled as a rerun of this fix. The review-fix PR checks are recorded on PR #251; acceptance and merge remain separate.
