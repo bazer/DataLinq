@@ -10,6 +10,8 @@
 
 **Unit-of-work amendment, 2026-10-01:** [H10-3](Dependency%20Injection%20and%20Hosting%20Integration.md#h10-3-explicit-composable-units-of-work) supersedes participant-controlled physical rollback and fixed owner/participant service roles. Participants request rollback on an explicitly shared session; the owner completes it. Native typed results and generated owning/participating entry points allow one service implementation to serve either role. The examples below do not define the accepted W4 API.
 
+**Result-convention amendment, 2026-10-12:** [H10-3's explicit rollback intent](Dependency%20Injection%20and%20Hosting%20Integration.md#explicit-rollback-intent-and-optional-results) makes native typed results optional recommended conveniences. Generated services also support ordinary/custom/no-value returns. Only an explicit rollback request records application intent; return-value inspection does not set a veto or permanently poison the transaction. Existing integrity, cancellation, and escaping-exception recovery rules remain in force.
+
 #### **1. Introduction & Guiding Philosophy**
 
 DataLinq's core strength lies in its opinionated design: immutability, high-performance reads via an aggressive cache, and explicit, transactional writes. To date, the focus has been on the core ORM mechanics. This document outlines a vision for how to best integrate DataLinq into modern application architectures, ensuring that the patterns we promote are a natural extension of its core philosophy.

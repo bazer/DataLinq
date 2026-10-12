@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for unnamed and keyed registration, explicit unit of work, and startup-host integration; broader host variants remain later work.
-**Last reviewed:** 2026-10-05 (H10-10 existing-instance ownership handoff, following H10-1 through H10-9; broad W4 design decisions are recorded, with bounded API details and implementation verification remaining).
+**Last reviewed:** 2026-10-12 (PR #250 review dispositions complete, including synchronous rollback-request admission, explicit rollback intent and optional results, participant prepared execution, disposal, and generated-helper compatibility gates; exact API shapes and implementation verification remain open).
 **Dependency:** The shipped 0.9 backend/source boundary and the 0.10 async contracts must be stable before host integration freezes public service abstractions.
 **Goal:** Make DataLinq straightforward to configure, validate, and consume from ASP.NET Core, generic host, background workers, Blazor, MAUI, Avalonia, and other .NET application surfaces without hiding database I/O or transaction boundaries.
 
@@ -13,7 +13,7 @@
 
 **0.10 mutation/callback contract:** [AAPI-27 through AAPI-33](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-27-capture-mutation-inputs-before-the-first-suspension) settle mutation input capture/exclusive lifetime, synchronous local edits, finite multi-model capture, task-returning callback families, borrowed completion restrictions, explicit token delivery, and results after successful commit/finalization/cleanup. Apply those policies to host helpers without hidden transaction retention or callback replay.
 
-**0.10 composable service decision:** [H10-3](#h10-3-explicit-composable-units-of-work) adds participant rollback requests, native typed business results, an outcome-aware owning helper, and generated owner/participant service entry points. Existing `CommitAsync` callbacks retain their success-means-commit contract. This is accepted W4 design, not implemented behavior or a W4 closeout.
+**0.10 composable service decision:** [H10-3](#h10-3-explicit-composable-units-of-work) adds explicit participant rollback requests and generated owner/participant service entry points, with optional native typed results and an explicitly selected result-aware convenience helper. Return values do not determine transaction state. Existing `CommitAsync` callbacks retain their normal-completion-means-attempt-commit contract, subject to the shared veto and runtime safety checks. This is accepted W4 design, not implemented behavior or a W4 closeout.
 
 **0.10 concurrency contract:** [AAPI-34 through AAPI-41](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-34-reject-overlapping-transaction-execution) settle transaction overlap/resource ownership, private internal/mutable/helper rights, busy caller-disposal rejection, unfinished-callback admission/recovery, and cache coordination/isolation. Host helpers must not queue transaction work implicitly, commit unfinished callbacks, propagate ambient cancellation, or promise a hard drain deadline. Exact public surfaces remain under OAPI-7, provider feasibility under OAPI-9, and host lifetimes still require H10 design.
 
@@ -245,6 +245,8 @@ This keeps query services lightweight and avoids generic repository boilerplate.
 
 **Accepted:** 2026-10-01. The ownership, rollback-request, service-composition, native-result, and future union-compatibility decisions below resolve this design question. They supersede this document's earlier participant `Rollback()`, mandatory `Begin()`, scoped current-session proposal, and void-returning mutation sketches. Public spelling and generator wiring still need the bounded API work listed below; this is not a claim that W4 has shipped or that every H10 question is closed.
 
+**Amended:** 2026-10-12. [Explicit rollback intent and optional results](#explicit-rollback-intent-and-optional-results) supersede the earlier mandatory result protocol, automatic observation of returned rollback cases, and invalid-result commit prohibition. `RequestRollback` is the application-level veto; result conventions remain recommended conveniences, while existing transaction-integrity and callback recovery rules remain mandatory.
+
 #### Ownership And Transaction Creation
 
 The participant session exposes transaction-bound reads, the supported mutation surface, and a way to request rollback. It exposes no physical commit, rollback, or disposal operations. The owner controls completion and cleanup. Query and mutation signatures must retain the real runtime's return values and sync/async semantics; for example, immutable mutation results must not be discarded by an interface declaring every mutation `void`.
@@ -286,11 +288,13 @@ Preserve the existing [transaction](../../../src/DataLinq/Mutation/Transaction.c
 | `Query()` | Transaction-bound generated `TDatabase` root. |
 | `Get` / `GetAsync` | Nullable model / `ValueTask` of nullable model. |
 | `From(...)` | Transaction-bound fluent query. |
+| Prepared scalar/row execution | `TResult` / `Task<TResult>`, bound to the supplied session. |
+| Prepared sequence execution | `IEnumerable<TElement>` / `IAsyncEnumerable<TElement>`, enumerated within the supplied session's owning lifetime. |
 | `Insert`, `Update`, `Save` | Immutable model / `Task` of immutable model. |
 | Collection insert | Model list / `Task` of model list. |
 | `Delete` | `void` / `Task`. |
 
-Retain existing change-delegate overloads, generic constraints, finite collection handling, cancellation parameters, and nullable mutation behavior. Generated model helpers currently taking `Transaction` gain appropriate session-taking counterparts so participating callers can use model conveniences without casting to an owner. Existing source-less helpers keep their independent owning behavior; session-taking helpers retain the supplied transaction.
+Retain existing change-delegate overloads, generic constraints, finite collection handling, cancellation parameters, and nullable mutation behavior. Generated model helpers currently taking `Transaction` gain appropriate session-taking counterparts so participating callers can use model conveniences without casting to an owner. Existing source-less helpers keep their independent owning behavior; session-taking helpers retain the supplied transaction. Adding these counterparts must preserve existing source overload resolution as well as API/binary compatibility, under the [generated helper source compatibility gate](#generated-helper-source-compatibility).
 
 The owner extends the session directly:
 
@@ -318,31 +322,95 @@ public interface IDataLinqUnitOfWorkFactory<TDatabase>
     IDataLinqUnitOfWork<TDatabase> Create(
         TransactionType transactionType = TransactionType.ReadAndWrite);
 
-    // Outcome-aware Execute and ExecuteAsync overloads.
+    // General owning Execute and ExecuteAsync overloads.
+    // An explicitly selected result-aware convenience surface is optional to use.
 }
 ```
 
-`Create()` synchronously creates a logical transaction, mirroring `Database.Transaction()` and its existing lazy provider transaction initialization; it introduces no extra `Begin()` step. `Execute` and `ExecuteAsync` use the shared owning helpers for synchronous and asynchronous native-result callbacks, respectively, including explicit session/token delivery on the async path. Apply H10-3's result/veto/completion table and finish required cleanup before returning. Preserve H10-6 nullable/no-value behavior and existing `CommitAsync` callback semantics.
+`Create()` synchronously creates a logical transaction, mirroring `Database.Transaction()` and its existing lazy provider transaction initialization; it introduces no extra `Begin()` step. `Execute` and `ExecuteAsync` use shared owning helpers for synchronous and asynchronous callbacks with ordinary return values or no value, including explicit session/token delivery on the async path. Native results are optional payloads, not a required callback contract. Apply H10-3's state-based completion table and finish required cleanup before returning. Keep any result-aware convenience helper an explicit opt-in with bounded API spelling; preserve H10-6's optional result semantics and existing `CommitAsync` callback behavior.
 
 **Inspection:** `IsRollbackRequested` reports the business veto, not whether commit is otherwise permitted. A typed `TryGetRollbackReason<TFailure>(...)` exposes the original request reason; parent mapping changes the returned business result without replacing that original diagnostic reason. `FailureContext` retains the existing operational failure snapshot. [`DataLinqFailure.GetContext(exception)`](../../../src/DataLinq/Diagnostics/DataLinqFailure.cs) remains available after owning-helper cleanup. Keep business rollback reasons separate from operational cause/outcome/recovery information rather than introducing another general failure/state model.
 
-**Verification gate:** compile the full inherited interface inventory against the existing transaction, verify session-aware generated helper binding and mutation return values, and test manual/generated participation, owner-only completion, sync/async factory execution, original-reason inspection, and post-cleanup operational diagnostics. Final namespace placement, complete overload/nullable annotations, and diagnostics spelling are bounded implementation API work, not reasons to reopen these ownership roles.
+**Verification gate:** compile the full inherited interface inventory against the existing transaction and complete the source compatibility and participant prepared-execution gates below, then test manual/generated participation, owner-only completion, sync/async factory execution, original-reason inspection, and post-cleanup operational diagnostics. Final namespace placement, complete overload/nullable annotations, and diagnostics spelling are bounded implementation API work, not reasons to reopen these ownership roles.
+
+##### Generated Helper Source Compatibility
+
+**Clarified:** 2026-10-11 after [PR #250's overload review](https://github.com/bazer/DataLinq/pull/250#issuecomment-6001667101). Keeping existing declarations is insufficient: the [generated mutation helpers](../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs) accept non-generic `Transaction`, while H10-8 proposes implementing the independent session interface on `Transaction<TDatabase>`. An otherwise equivalent session-taking overload can make an unchanged typed-transaction call ambiguous because its argument converts to both unrelated parameter types. The review's representative compiler probe demonstrates this risk, not the compatibility of the full proposed API.
+
+Concrete typed-transaction forwarding overloads are a **candidate mitigation**, not a frozen signature requirement or an already-proven solution. An exact `Transaction<TDatabase>` parameter can disambiguate the representative call and forward to the appropriate existing/shared implementation. Any forwarding must preserve the selected return type and transaction ownership without creating, committing, or disposing a new unit of work. Select the final overload strategy only after compiling the full generated consumer surface; an isolated successful probe is insufficient.
+
+**Required evidence before API freeze:**
+
+- Compile baseline consumer source unchanged against the proposed generated surface for affected `Insert`, `Update`, and `Save` helpers, both synchronous and asynchronous. Do not fix fixtures with new casts, renamed calls, or altered arguments to hide a compatibility failure.
+- Cover variables statically typed as `Transaction` and `Transaction<TDatabase>`, including inferred typed transactions, plus new consumer calls through `IDataLinqSession<TDatabase>`. Test applicable immutable/mutable receivers, transaction-receiver extension forms, and existing change-delegate overloads.
+- Cover existing generic constraints, nullable mutation forms, named arguments, and optional/explicit cancellation tokens where applicable across the supported .NET 8/9/10 consumer targets and compiler/language configurations.
+- Verify the selected overload's return type and behavior: existing transaction-taking and new session-taking helpers retain the supplied transaction and participant rights, while standalone/source-less helpers retain their independent owning behavior.
+- Keep source-consumer compilation and generator tests alongside API/binary compatibility checks in the active TUnit/consumer test infrastructure. Declaration inventories and old-binary checks alone do not detect overload ambiguity or changed source binding.
+
+##### Prepared Execution Through Participants
+
+**Accepted:** 2026-10-12 after [PR #250's prepared-execution review](https://github.com/bazer/DataLinq/pull/250#issuecomment-6001667101). W4 includes a narrow participant-compatible route for prepared scalar/row and sequence execution, synchronously and asynchronously. Existing [synchronous](../../../src/DataLinq/Linq/PreparedQuery.cs) and [asynchronous](../../../src/DataLinq/Linq/PreparedQuery.Async.cs) prepared methods accept `IDataSourceAccess<TDatabase>`, which the separate participant interface intentionally does not inherit. Callers using only `IDataLinqSession<TDatabase>` must be able to execute a compatible prepared query without a cast to the concrete transaction, raw provider access, or completion/disposal rights.
+
+The exact API shape remains open pending signature, source-compatibility, and runtime verification. Session execution members (illustrated as `session.ExecuteAsync(prepared, argument, token)`) and session-compatible prepared methods (illustrated as `prepared.ExecuteAsync(session, argument, token)`) are candidates, not frozen declarations. Verify any new overloads against existing source-taking calls under the same source-compatibility discipline as the generated helpers; do not assume adding a session overload is harmless.
+
+Execution uses the supplied session's transaction and database/provider registration, even when the service's standalone factory targets a different registration. Reuse existing prepared-plan validation, invocation capture, and managed execution machinery without bypassing the transaction's operation gate. Do not substitute an injected singleton read source, create an independent unit of work, or weaken compatibility checks for a prepared plan and its selected source. Prepared execution remains participation: it never physically commits, rolls back, or disposes the supplied transaction.
+
+**Required evidence before API freeze and W4 closure:**
+
+- Compile and execute participant-only consumers for scalar/row and sequence results in both sync and async forms, preserving the return shapes in the operation inventory. Verify manual and generated service composition without application casts to `Transaction<TDatabase>` or `IDataSourceAccess<TDatabase>`.
+- Verify the selected session's transaction and registration, including transaction-local writes and a service whose standalone factory selects another provider/server registration for the same model. Compatible plans use the supplied target; incompatible plans retain existing validation failures.
+- Preserve prepared argument snapshots at the execution-call boundary, existing cancellation validation/propagation, and sequence invocation/enumerator token behavior. Deferred enumeration must use the captured invocation without introducing a permanent result cache.
+- Preserve active-reader/overlap restrictions, rollback-veto rejection of new execution, and owner-only completion for both immediate execution and later enumeration. Under [rollback-request admission](#rollback-request-admission), an already admitted reader may continue its current enumeration after a veto; merely creating a deferred sequence or unused enumerator does not grant that right. Enumerators release their own resources on completion, early exit, cancellation, or failure; transaction-bound deferred work stays inside the owning lifetime and cannot bypass lifecycle checks by being created earlier.
+- Preserve existing Memory and fake capability limits. A participant API does not make an unsupported backend capable of prepared execution; report unsupported capability explicitly without fallback or a new testing-only query engine.
+- Compile unchanged database/read-access/typed-transaction prepared-query consumers alongside new participant consumers across supported targets/configurations. Check named/token forms, selected return types, and ownership alongside API/binary checks; resolve any source ambiguity before freezing the API.
 
 #### Participant Rollback Requests
 
-Use `session.RequestRollback(failure)` as the illustrative API. It immediately records an irreversible veto on committing the shared managed transaction and returns a typed rollback value. It performs no provider I/O and does not end the owner's lifetime. Expose the same veto semantics through the managed transaction/session surface so manual owners and callback owners cannot disagree about whether commit is allowed.
+Use `session.RequestRollback(failure)` as the illustrative API. It synchronously records an irreversible veto on committing the shared managed transaction and returns a typed rollback value. Normal return guarantees that the veto is recorded; invalid lifecycle usage throws under the admission contract below. It performs no provider I/O, is not awaited, and does not end the owner's lifetime. Expose the same veto semantics through the managed transaction/session surface so manual owners and callback owners cannot disagree about whether commit is allowed.
 
 - A later commit attempt is rejected before provider commit dispatch. For a manual owner, cleanup remains that owner's responsibility; an owning helper performs recovery and cleanup before reporting failure.
-- Once rollback is requested, reject further database execution through that session. Local result construction, failure mapping, and unwinding remain possible, as do owner recovery and cleanup.
+- Once rollback is requested, reject new database execution through that session. Already admitted work may finish, including continuation and cleanup of an active reader under the admission contract below. Local result construction, failure mapping, and unwinding remain possible, as do owner recovery and cleanup.
 - Repeated requests cannot clear the veto. Preserve the original request for diagnostics; a parent can translate the returned business failure without replacing the original reason the transaction became noncommittable.
 - A requested business rollback is distinct from poisoning caused by an execution failure. Exceptions, cancellation, provider failure, and unknown completion do not become ordinary business results.
-- An ordinary returned domain value is not inspected for application-specific success/failure flags. Only the explicit result protocol and transaction state control completion.
+- Returned values, including native or application-defined failure cases, are not interpreted as rollback requests. Only an explicit `RequestRollback` call records the application-level veto; existing runtime integrity, admission, cancellation, and recovery checks still govern completion.
 
 This is a rollback of the whole shared unit. A child that wants to undo only its own writes and let the parent commit would need a separate savepoint design, outside W4.
 
+##### Rollback Request Admission
+
+**Accepted:** 2026-10-12 after [PR #250's lifecycle clarification](https://github.com/bazer/DataLinq/pull/250#issuecomment-6001667101). `RequestRollback` is a synchronous state change that accepts requests during active commands or readers. If it returns normally, `IsRollbackRequested` is true and commit cannot subsequently be admitted. The returned typed marker is optional result data, not an acceptance indicator that callers must inspect. Do not return `false` or a failure marker for a rejected request; throw a clear lifecycle exception. Exact exception/diagnostic spelling remains part of API review.
+
+| State at request admission | Required behavior |
+| --- | --- |
+| Open and idle, including no provider work started | Record the veto and original reason without provider I/O. |
+| Open with an active command, operation, or reader | Record the veto without waiting for, cancelling, interrupting, or disposing the active work. |
+| Veto already recorded within the valid lifetime | Return normally; preserve the first accepted reason and irreversible veto. The returned marker may carry the caller's mapped reason without replacing the original diagnostic reason. |
+| Commit, rollback, or disposal has been admitted/in progress | Throw; do not fabricate an accepted request or rewrite the completion outcome. |
+| Committed, rolled back, disposed, or helper callback admission closed | Throw, even for a repeated request; an escaped reference cannot create a new rollback decision. |
+
+Coordinate request admission, publication of the veto and first reason, new-execution admission, and completion admission through one synchronized state transition discipline. If the request wins against commit admission, no provider commit may be dispatched. If commit admission wins, the request throws; setting a flag afterward cannot undo that commit. A check of `IsRollbackRequested` followed by uncoordinated commit dispatch is insufficient. Keep synchronization limited to in-memory transitions, with no provider work or waiting for an active operation inside it. This requires a control-state admission path coordinated with the existing managed gate, not ordinary execution admission that rejects every busy transaction, and not a second transaction engine.
+
+Already admitted work retains its operation/resource ownership and may complete its required internal work, finalization, and cleanup. An active reader may continue its current enumeration and be disposed normally after any pending move finishes; the veto alone does not stop subsequent moves. This grants no new query, mutation, nested public execution, or fresh enumeration rights. A deferred query/unused enumerator created before the veto still must pass execution admission when it starts. Existing cancellation, failure, reader-overlap, and helper-lifetime restrictions remain in force. In particular, helper callback closure still stops escaped-reader admission and safely drains unfinished work under AAPI-38; recording a veto does not authorize returning with unawaited work or an active reader.
+
+Acceptance guarantees intent, not successful physical rollback. The owner still finishes/releases active resources before recovery and cleanup, with existing provider-failure reporting. An accepted request does not itself close or dispose anything, and a late-request exception does not cancel or undo completion. Null reasons remain invalid under H10-6; a request must not publish a partial veto/reason pair.
+
+**Verification gate:** use deterministic paused-operation/lifecycle fixtures for both request-versus-commit orderings, request-versus-new-execution ordering, helper closure, and rollback/disposal admission. Cover manual and helper owners in sync/async forms, acceptance before provider initialization with no I/O, active commands and readers (including pending moves and between moves), continued admitted work, rejection of new/deferred execution, concurrent/repeated requests preserving the first reason, and terminal requests throwing without outcome changes. Ignoring the returned marker must not weaken the veto. Confirm normal owner recovery after active resources close and preserve unfinished-callback and rollback/cleanup-failure reporting; provider behavior needs runtime/provider evidence, not only fake state assertions.
+
+##### Explicit Rollback Intent And Optional Results
+
+**Accepted:** 2026-10-12 while discussing [PR #250's fourth finding](https://github.com/bazer/DataLinq/pull/250#issuecomment-6001667101). `RequestRollback` is the sole application-level rollback signal, recorded in the shared session and observed through `IsRollbackRequested`. Ordinary values, custom result types, native `TransactionResult` values, and no-value returns are all permitted. Generated and handwritten helpers do not infer a veto from a returned failure case or require a result type to authorize commit.
+
+This does not make a false flag sufficient for commit: poisoned/unusable transactions, invalid lifecycle states, active work, pre-commit cancellation, and existing operational recovery restrictions still apply. An exception escaping the owning callback follows the existing recovery/cleanup and propagation contract. Preserve recoverable-read behavior rather than treating every caught exception as a permanent veto.
+
+A child can write, return an uninitialized optional result, and have an inspection exception caught by its parent. If no rollback was requested and the transaction remains otherwise usable, the parent's normal return may lead to commit, including the child's successful writes. Neither the invalid value nor its inspection exception automatically poisons the shared transaction. The fourth finding's proposed permanent invalid-result prohibition is therefore not adopted. Applications that need those writes discarded must request rollback or let failure escape the owning callback; catching an exception does not undo child writes.
+
+`return session.RequestRollback(reason)` remains a recommended convenience because it both records intent and supplies a typed result marker. Callers using other result types can call `RequestRollback(reason)` separately and return their own value. Ignoring or mapping the returned marker cannot clear an accepted veto; returning a failure created elsewhere cannot set one on this transaction. Result inspection may reject an invalid local value, but does not itself mutate transaction state. When explicitly selected result-aware validation rejects a value, it throws before commit and follows the same ordinary exception/recovery rules, without adding persistent poisoning merely for result misuse.
+
+**Verification gate:** prove normal return/no veto attempts commit subject to existing guards; an explicit veto prevents commit even if its marker is ignored; a failure-shaped return alone does not veto; and a caught child/inspection exception without a veto can leave successful writes committable. Cover generated and handwritten services, sync/async owning callbacks, and manual `Commit`/`CommitAsync`. Preserve poisoned-state rejection, escaping-exception recovery, nullable/no-value returns, and original rollback reasons across result mapping. General owners must report an actual veto by throwing after rollback/cleanup; an explicitly selected result-aware helper may instead deliver a valid rollback outcome under the rules below.
+
 #### Native Result And Conversion Contract
 
-Provide small DataLinq-owned result types, illustrated as `TransactionResult<T>` for a string failure and `TransactionResult<T, TFailure>` for a typed failure. Success and rollback are distinct cases, represented as readonly structs `Success<T>` and `Rollback<TFailure>`. These names are provisional. Keep the implementation small, with typed storage and an explicit discriminator rather than an object-backed general-purpose union library.
+Provide optional, recommended DataLinq-owned result types, illustrated as `TransactionResult<T>` for a string failure and `TransactionResult<T, TFailure>` for a typed failure. Success and rollback are distinct payload cases, represented as readonly structs `Success<T>` and `Rollback<TFailure>`; they are not transaction-state commands. These names are provisional. Keep the implementation small, with typed storage and an explicit discriminator rather than an object-backed general-purpose union library. Applications and generated services may use ordinary values, their own result types, or no value instead.
 
 The public construction rules are:
 
@@ -351,7 +419,7 @@ The public construction rules are:
 | `return value;` where the value is a `T` | Implicitly construct the success case. |
 | `return session.RequestRollback(failure);` | Record the session veto and implicitly construct the rollback case from its typed marker. |
 | A bare `TFailure` | No implicit failure conversion; use the rollback-request form. |
-| `default(TransactionResult<...>)` | Uninitialized and invalid for completing an operation; never permission to commit. |
+| `default(TransactionResult<...>)` | Uninitialized optional result; guarded inspection rejects it, but the value alone does not affect commit eligibility. |
 
 The rollback marker lets the session infer only `TFailure`; the method's return type supplies `T`. Both branches may have the same payload type without confusing their meaning:
 
@@ -365,19 +433,19 @@ return OrderResult.Accepted();
 
 Likewise, `TransactionResult<string>` can accept a plain successful string or a string wrapped by `RequestRollback`. Conversion from `T` constructs `Success<T>` internally; callers need not construct that wrapper. Separate case types also avoid treating a broad success payload such as `object` as the union's failure case solely because of the payload's runtime type.
 
-Expose explicit inspection such as `IsSuccess`, `RequiresRollback`, `TryUnwrap`, and `Match`. Do not add an implicit conversion from the result back to `T` in the initial surface. Keep wrong-case access guarded, and keep an uninitialized result distinguishable from either valid case. The proposed type does not replace ThrowAway across the repository; that broader dependency migration is later work.
+Expose explicit inspection such as `IsSuccess`, `TryUnwrap`, and `Match`. Case flags describe only the returned value; they do not request rollback or report physical completion. Do not add an implicit conversion from the result back to `T` in the initial surface. Keep wrong-case access guarded, and keep an uninitialized result distinguishable from either valid case. The proposed type does not replace ThrowAway across the repository; that broader dependency migration is later work.
 
 #### H10-6: Nullable And No-Value Results
 
-**Accepted:** 2026-10-05. Complete H10-3's transaction-specific result semantics with nullable successes, an explicit success value for operations without a payload, non-null rollback reasons, and guarded inspection of uninitialized results. These belong to W4 because handwritten/generated transaction operations need them. This is not a general-purpose option/union library or broader ThrowAway replacement; exact helper/type spelling remains part of API review.
+**Accepted:** 2026-10-05; **amended:** 2026-10-12 to make the result convention optional under H10-3. For callers choosing native results, support nullable successes, an explicit success value for operations without a payload, non-null rollback reasons, and guarded inspection of uninitialized results. Ordinary nullable returns, `void`, and no-value async methods do not require a result wrapper or `Unit`. This is not a general-purpose option/union library or broader ThrowAway replacement; exact helper/type spelling remains part of API review.
 
 | Result | Meaning |
 | --- | --- |
 | Success containing a value | This operation succeeded with that value. |
 | Success containing `null` for a nullable success type | This operation succeeded with no matching value. |
 | Success with the no-value payload | This operation succeeded and has no value to return. |
-| Rollback containing a non-null reason | Expected business failure, subject to the shared veto and owner completion rules. |
-| Uninitialized/default result | Programming error; never permission to commit. |
+| Rollback containing a non-null reason | Expected business-failure data; actual rollback requires an explicit request on the shared session. |
+| Uninitialized/default result | Invalid for guarded result inspection; no transaction-state change by itself. |
 
 The discriminator selects the case independently of payload nullness or default values. A nullable success payload is valid; it does not imply rollback. Business logic that requires a value explicitly requests rollback when that value is missing. For example:
 
@@ -389,7 +457,7 @@ Order? order = await session.Query().Orders.SingleOrDefaultAsync(
 return order; // A missing order is a successful null result.
 ```
 
-For operations without a return value, use a small DataLinq-owned value illustrated as `Unit` in the existing success slot: `TransactionResult<Unit>` for string failures or `TransactionResult<Unit, OrderError>` for typed failures. An explicit success helper can keep the business body concise:
+For operations choosing native results without a success payload, use a small DataLinq-owned value illustrated as `Unit` in the existing success slot: `TransactionResult<Unit>` for string failures or `TransactionResult<Unit, OrderError>` for typed failures. Ordinary no-value operations can instead use `void` or `Task`. An explicit success helper can keep an opted-in result-returning business body concise:
 
 ```csharp
 // Inside an operation returning TransactionResult<Unit, OrderError>.
@@ -404,11 +472,13 @@ return TransactionResult.Success();
 
 `TryUnwrap` returns `true` for a valid success, including a permitted null payload, and `false` only for a valid rollback case. Inspecting an uninitialized result through `TryUnwrap` throws rather than fabricating a business failure or a successful default value. Keep other wrong-case payload access guarded. Rollback reasons must be non-null; reject a null reason as invalid usage rather than a normal business result. Operational exceptions retain the existing exception/recovery path.
 
-The owner's H10-3 completion table remains unchanged: nullable/no-value successes still require no veto and successful commit/finalization/cleanup before the owner returns normally. Participating success remains provisional. Complete nullable annotations, explicit construction/inspection signatures, generic conversion edge cases, and validation diagnostics during API review; verify them in handwritten and generated consumer examples before freezing the surface. Native .NET 11 union integration remains later work.
+H10-3's amended state-based completion rules apply regardless of return type. Ordinary nullable/no-value returns require no veto and successful commit/finalization/cleanup before the general owner returns normally; participating returns remain provisional. Invalid optional-result inspection can throw, but cannot independently set a veto or poison the transaction. Complete nullable annotations, explicit construction/inspection signatures, generic conversion edge cases, and opt-in validation diagnostics during API review; verify them in handwritten and generated consumer examples before freezing the surface. Native .NET 11 union integration remains later work.
 
 #### H10-7: Generated Service Authoring And Wiring
 
 **Accepted:** 2026-10-05. An opted-in partial service has an ordinary constructor with an explicit transaction-factory dependency, one private authored business method per operation, and two generated public entry points. Extend the existing bundled generator to supply operation wrappers and registration wiring. A marker interface identifies the database and an attribute selects operation methods; `IDataLinqService<TDatabase>` and `[DataLinqOperation]` illustrate those roles. Keep manual construction available and transaction lifecycle behavior in shared runtime helpers.
+
+**Amended:** 2026-10-12 under H10-3's explicit rollback-intent rule: generated wrappers support ordinary/custom/no-value returns as well as optional native results, without interpreting returned cases as vetoes. Result-aware completion requires an explicit opt-in rather than detection of the method's return type.
 
 Register a service against the database whose factory should own its standalone operations:
 
@@ -425,7 +495,9 @@ services.AddDataLinq<ShopDb>(ShopConnection.SQLiteTest)
     .AddSingletonService<OrderService>();
 ```
 
-Service registration binds the transaction factory to that database registration and resolves other constructor dependencies through ordinary DI. Services registered this way inherit its key; an explicitly selected default database also supplies the default service alias. Keyed/default aliases resolve the same service instance within its selected lifetime, without duplicate activation or disposal ownership. Other constructor dependencies do not automatically inherit the database key merely because the service's owning factory is bound to it.
+Service registration binds the transaction factory to that database registration and resolves other constructor dependencies through ordinary DI. Services registered this way inherit its key; an explicitly selected default database also supplies the default service alias. For supported singleton/scoped registrations, keyed/default aliases resolve the same service instance within the selected container/scope lifetime. Each independent transient resolution creates a new activation; alias forwarding within that activation must not duplicate its construction or disposal, and must not cache it for reuse across the scope. Other constructor dependencies do not automatically inherit the database key merely because the service's owning factory is bound to it.
+
+**Alias proof required:** the identity and disposal guarantees are separate requirements. For generated application services implementing `IDisposable` and/or `IAsyncDisposable`, supported registration must invoke the appropriate cleanup member once per owned activation during successful container/scope shutdown, without assuming application cleanup is idempotent. Prove singleton, scoped, and transient behavior under [H10-5's alias registration proof](#alias-registration-proof) before building generated wiring on it. If the supported container APIs cannot meet a combination's identity, lifetime, and ownership promises, record an explicit contract restriction/amendment and diagnostic before exposing that combination; do not silently accept duplicate disposal or change transient lifetime semantics.
 
 ```csharp
 var orders = serviceProvider.GetRequiredService<OrderService>();
@@ -474,9 +546,9 @@ Task<TransactionResult<Order, OrderError>> PlaceAsync(
     CreateOrder command, CancellationToken cancellationToken = default);
 ```
 
-The owning method delegates to the shared outcome-aware helper and returns after commit or expected rollback and cleanup. The participating method also crosses a managed helper boundary: it validates participation and observes returned rollback results so the shared veto is retained, while leaving physical completion with the owner. The business method remains private so callers use these managed entry points.
+The owning method delegates to the shared general helper and returns its ordinary payload only after successful commit and cleanup. An accepted veto instead causes rollback/cleanup and an exception; an explicitly selected result-aware convenience can report a valid rollback outcome normally. The participating method validates participation and forwards its payload without deriving a veto from it, while leaving physical completion with the owner. The business method remains private so callers use these managed entry points. Merely declaring `TransactionResult` does not select result-aware completion; exact opt-in designation remains API-review work.
 
-The standalone method returns the union too: different success/failure types cannot both be returned as a plain `T`. A participating success means that service's work succeeded so far, not that the outer transaction committed. Services can therefore be used independently or stacked under one owner without duplicating their business code. Calling an owning overload from inside another operation still starts an independent unit; callers must use the session-taking overload to participate. Under H10-4, the supplied session determines the participant's database even when its standalone factory targets a different registration.
+In this optional-result example, both entry points retain the authored result type; other services may return ordinary/custom values or no value. A participating success means that service's work succeeded so far, not that the outer transaction committed. Services can therefore be used independently or stacked under one owner without duplicating their business code. Calling an owning overload from inside another operation still starts an independent unit; callers must use the session-taking overload to participate. Under H10-4, the supplied session determines the participant's database even when its standalone factory targets a different registration.
 
 A parent can translate a child's failure while preserving the veto:
 
@@ -496,38 +568,39 @@ return new Checkout(order.Id);
 
 | Authored return type | Generated entry points |
 | --- | --- |
-| `TransactionResult<...>` | Synchronous owning and participating methods. |
-| `Task<TransactionResult<...>>` | Asynchronous owning and participating methods. |
+| `void` | Synchronous no-value owning and participating methods. |
+| `T`, including ordinary/custom/native result values | Synchronous owning and participating methods preserving the return type. |
+| `Task` | Asynchronous no-value owning and participating methods. |
+| `Task<T>`, including ordinary/custom/native result values | Asynchronous owning and participating methods preserving the payload type. |
 
-An async authored method receives an explicit cancellation token; generated async entry points expose an optional token and forward it. Use the corresponding synchronous or asynchronous runtime execution path; do not synthesize sync-over-async or thread-pool wrappers. H10-6's no-value operations still return an explicit transaction result.
+An async authored method receives an explicit cancellation token; generated async entry points expose an optional token and forward it. Use the corresponding synchronous or asynchronous runtime execution path; do not synthesize sync-over-async or thread-pool wrappers. H10-6's native no-value result is optional. Complete the supported awaitable/signature inventory and explicit result-aware opt-in during API review without requiring an application to adopt DataLinq's result type.
 
-Keep all completion/recovery behavior in shared runtime helpers; generated methods forward to those helpers rather than copying rollback/finalization logic. The same protocol must be usable without generation. Compiler diagnostics cover missing `partial`, mismatched database/session types, ambiguous factory selection, unsupported returns such as `async void`, and generated-name collisions. Runtime enforcement remains necessary: generation cannot prove arbitrary application control flow handles every child result correctly.
+Keep all completion/recovery behavior in shared runtime helpers; generated methods forward to those helpers rather than copying rollback/finalization logic. The same lifecycle rules must be usable without generation. Compiler diagnostics cover missing `partial`, mismatched database/session types, ambiguous factory selection, unsupported forms such as `async void`, and generated-name collisions. Enforce explicit veto and transaction-integrity rules at runtime; do not infer application intent from arbitrary child results.
 
-**Verification gate:** compile and execute consumer-shaped primary/traditional-constructor services, direct construction, keyed/default activation, all three application-service lifetimes, sync/async wrappers, cancellation forwarding, and nested failure propagation. Verify that the participating wrapper records forwarded rollback cases and never completes/disposes its owner's transaction. Exact attribute/member designation spelling, registration bridge implementation, and the complete diagnostics/signature inventory remain API/implementation work; the authoring and wiring design is settled.
+**Verification gate:** compile and execute consumer-shaped primary/traditional-constructor services, direct construction, keyed/default activation, all three application-service lifetimes, ordinary/custom/native/no-value return forms, sync/async wrappers, cancellation forwarding, and nested failure propagation. Verify that participating wrappers preserve explicitly recorded vetoes without interpreting returned cases or completing/disposing the owner's transaction. Test general owners separately from explicitly selected result-aware conveniences. Exact attribute/member designation spelling, registration bridge implementation, and the complete diagnostics/signature inventory remain API/implementation work; the authoring and wiring design is settled.
 
 #### Owning Callback Completion
 
-Add an explicit outcome-aware helper, illustrated as `ExecuteAsync`, that receives a session and cancellation token and awaits a `TransactionResult` callback. Generated owning methods use it; manually composed services can use it directly. It invokes the callback once without replay and retains the existing unfinished-work, active-reader, cancellation, recovery, and cleanup policies.
+General `Execute`/`ExecuteAsync` helpers accept ordinary/custom/native values or no value; native result types are not required. Generated owning methods and handwritten composition share these helpers. Invoke the callback once without replay and retain existing unfinished-work, active-reader, cancellation, recovery, and cleanup policies. Return values are data; explicit rollback intent and existing runtime state govern completion.
 
-| Final callback result | Shared rollback veto | Owner behavior |
+| Callback completion | Shared rollback veto | General owner behavior |
 | --- | --- | --- |
-| Success | Absent | Commit, finalize, clean up, then return success. |
-| Rollback | Present or absent | Ensure the veto is recorded, roll back, clean up, then return the typed business failure. |
-| Success | Present | Roll back and clean up, then throw an inconsistent-result exception; never return success for discarded writes. |
-| Uninitialized result | Either | Do not commit; recover/clean up and report invalid result usage. |
-| Exception or cancellation | Either | Preserve the existing failure/recovery contract and throw; do not turn it into a business rejection. |
+| Normal return, regardless of payload | Absent | Attempt commit subject to existing integrity/admission/cancellation checks, finalize and clean up, then return the payload or complete the no-value call. |
+| Normal return, regardless of payload | Present | Roll back and clean up, then throw to report the accepted rollback request; never return ordinary success for discarded writes. |
+| Exception escapes callback or owning validation | Either | Preserve existing recovery/cleanup and exception propagation; do not convert operational failure into business data. |
+| Child/inspection exception caught before owner callback returns normally | Absent | No automatic veto or result-specific poisoning; attempt commit only if existing runtime state permits it. |
 
-Each managed participating boundary must honor a returned rollback case in the shared transaction state, including when a result was forwarded or mapped rather than created locally by `RequestRollback`. The immediate veto from `RequestRollback` must survive an ignored result. Returning a result is never evidence that physical completion has already occurred.
+Every managed participating boundary preserves an accepted explicit veto, including when its marker is ignored or the application maps a returned failure. It does not record a veto from the returned case. A valid failure-shaped return without a request can therefore be delivered after commit; applications that need rollback must request it explicitly. Returning a result is never evidence that physical completion has already occurred.
 
-Return the normal rollback result only after rollback is confirmed, or no provider transaction/work was started, and required cleanup succeeds. A rollback, finalization, or cleanup failure still throws with honest outcome/secondary-failure information. A rolled-back inserted model or generated key is not evidence of persisted data. Transaction-bound deferred work must remain inside its owning lifetime.
+An explicitly selected result-aware convenience helper may validate the optional result before commit and return a valid typed rollback outcome only after an actual session veto, confirmed rollback (or no started provider work), and successful cleanup. It must never infer or manufacture a rollback request from result contents. If a veto exists but no valid rollback outcome can be represented, report it by exception after recovery/cleanup rather than fabricating a success/default payload. Mapping the returned reason must preserve the original session reason. Exact helper/opt-in and exception spelling remain API work. Invalid-result validation follows ordinary exception handling; it does not permanently poison the transaction if caught by a parent.
 
-Existing `CommitAsync` callback contracts remain intact: normal callback completion requests commit, and a veto prevents that commit and causes an exception. Do not reinterpret arbitrary existing callback return types or silently return a normal result after rollback. This new helper is the explicit opt-in for returning expected business failures after successful rollback. It reuses managed lifecycle machinery rather than directly completing the lower-level provider transaction.
+A rollback, finalization, or cleanup failure still throws with honest outcome/secondary-failure information. A rolled-back inserted model or generated key is not evidence of persisted data. Transaction-bound deferred work must remain inside its owning lifetime. Existing `CommitAsync` callback contracts remain intact: normal completion requests commit subject to runtime checks, while a veto prevents commit and causes an exception. Optional result-aware helpers reuse that managed lifecycle rather than directly completing the lower-level provider transaction.
 
 #### C# Union Compatibility
 
 Prepare the case model and member names for C# 15 custom unions while keeping W4 usable on the repository's existing .NET 8/9/10 and C# 14 baseline. Do not make the new service/result API depend on .NET 11 or emit union syntax unconditionally into consumer code.
 
-The [C# union specification](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/proposals/csharp-15.0/unions) permits custom types and distinct case wrappers. Its compiler-facing `Value` represents the active case, and `HasValue` describes non-null contents rather than business success. Reserve those meanings or isolate them through a union-member provider; do not accidentally commit a conflicting public contract. The runtime runner still rejects the uninitialized/default result even if its union view represents empty contents as null.
+The [C# union specification](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/proposals/csharp-15.0/unions) permits custom types and distinct case wrappers. Its compiler-facing `Value` represents the active case, and `HasValue` describes non-null contents rather than business success. Reserve those meanings or isolate them through a union-member provider; do not accidentally commit a conflicting public contract. Guarded result inspection still rejects an uninitialized/default result even if its union view represents empty contents as null; that validation has no independent transaction-state effect.
 
 Prefer typed storage and the [non-boxing custom union access pattern](https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/tutorials/unions#build-a-custom-union-that-avoids-boxing) over the object storage generated by the ordinary `union` shorthand. This avoids requiring a separate allocation for struct cases on the typed path; an object-valued view can still box. Native matching supplements the ordinary inspection API and does not replace transaction ownership or the rollback veto.
 
@@ -538,12 +611,14 @@ The [2026-09-08 .NET 11 RC1 announcement](https://devblogs.microsoft.com/dotnet/
 This decision closes the ownership/composition question; it does not freeze a complete signature manifest. Before implementation API freeze:
 
 - complete the H10-8 overload/nullable inventory and namespace/diagnostic spelling against existing runtime conventions, including session-aware generated model helpers; the three interface roles, core members, inheritance, and operation families are settled;
+- pass H10-8's generated helper source compatibility gate with unchanged baseline consumers and new session consumers; typed forwarding overloads remain a candidate until the complete generated surface preserves binding, return types, and ownership;
+- finalize H10-8's narrow participant prepared-execution route only after its source-binding, target/transaction identity, capture, cancellation, deferred-lifetime, and capability evidence passes; exact member placement and signatures remain open;
 - finalize H10-7's attribute/member designation spelling, constructor-selection and collision diagnostics, and generated registration bridge, preserving its settled constructor/factory, key/lifetime, naming-convention, and sync/async behavior;
-- finalize H10-6's result surface spelling, nullable annotations, explicit construction/inspection, validation diagnostics, and unusual generic conversions; nullable/no-value semantics and invalid-default rejection are settled;
-- prove generated and handwritten composition with consumer-shaped tests, including same-type/string payloads, failure mapping, ignored vetoes, post-veto execution rejection, borrowed completion, cancellation, cleanup errors, and no callback replay;
+- finalize H10-6's optional result surface spelling, nullable annotations, construction/inspection, validation diagnostics, and unusual generic conversions; support ordinary/custom/no-value returns and keep invalid-result inspection separate from transaction state;
+- prove generated and handwritten composition with consumer-shaped tests, including same-type/string payloads, failure mapping, ignored vetoes, rejection of new execution after a veto, borrowed completion, cancellation, cleanup errors, and no callback replay;
 - retain separate follow-up for native union compilation/compatibility and for a possible repository-wide ThrowAway replacement.
 
-Exact mechanics may be settled during API review; they must not silently change these accepted semantics. H10-4 settles registration/configuration behavior, H10-5 settles resource ownership/shutdown rules, H10-9 settles the registration/options surface and factory-ownership refinement, and H10-10 settles the existing-instance transfer boundary. Exact overloads and disposal bookkeeping remain for verification. W6B fakes consume the final W4 signatures and these behaviors rather than inventing a competing lifecycle.
+Exact mechanics may be settled during API review; they must not silently change these accepted semantics. H10-4 settles registration/configuration behavior, H10-5 settles resource ownership/shutdown rules, H10-9 settles the registration/options surface and factory-ownership refinement, and H10-10 settles the existing-instance transfer boundary. Exact overloads remain for verification; H10-5's alias registration proof is a prerequisite for dependent wiring, not routine disposal bookkeeping. W6B fakes consume the final W4 signatures and these behaviors rather than inventing a competing lifecycle.
 
 ## Service Lifetimes
 
@@ -652,7 +727,7 @@ The same key resolves a coherent set of services:
 - At most one default exists per model, whether registered unnamed or selected through `.AsDefault()`. Do not select the first, last, or only keyed registration implicitly.
 - Registering the same model/key twice is an error, even if provider types differ. The same key can be used independently for different model types. Follow ordinary keyed-service equality semantics.
 - A missing requested key fails clearly without falling back to the default. An unkeyed request without an explicit default also fails.
-- Preserve H10-2's single disposal owner across concrete/base and keyed/default aliases under H10-5. Exact container bookkeeping remains an implementation detail requiring verification.
+- Preserve H10-2's single disposal owner across concrete/base and keyed/default aliases under H10-5. The supported registration mechanism must pass the alias registration proof before dependent wiring relies on it; object identity alone is insufficient evidence.
 
 **Dynamic selection and tests:** test fixtures can choose a registered target using standard keyed resolution:
 
@@ -907,7 +982,7 @@ Provider SQL logs, transaction logs, cache logs, startup validation logs, and sc
 
 ### H10-5: Resource Ownership And Shutdown
 
-**Accepted:** 2026-10-04; factory ownership refined by [H10-9](#h10-9-registration-surface-options-precedence-and-factory-ownership) and explicit instance handoff settled by [H10-10](#h10-10-existing-instance-ownership-handoff) on 2026-10-05. Each database/provider lifetime has one disposal owner, regardless of how many service types or keys expose it. Ownership follows how the instance enters registration, with explicit transfer available for externally created instances. These are accepted W4 semantics; exact registration overloads and container disposal bookkeeping remain to be implemented and verified.
+**Accepted:** 2026-10-04; factory ownership refined by [H10-9](#h10-9-registration-surface-options-precedence-and-factory-ownership) and explicit instance handoff settled by [H10-10](#h10-10-existing-instance-ownership-handoff) on 2026-10-05. **Clarified:** 2026-10-11 after [PR #250's disposal review](https://github.com/bazer/DataLinq/pull/250#issuecomment-6001667101). Each database/provider lifetime has one disposal owner, regardless of how many service types or keys expose it. Ownership follows how the instance enters registration, with explicit transfer available for externally created instances. These are accepted W4 goals; the supported alias registration mechanism must be demonstrated before dependent implementation relies on it.
 
 | Registration source | Disposal owner |
 | --- | --- |
@@ -919,13 +994,36 @@ Provider SQL logs, transaction logs, cache logs, startup validation logs, and sc
 
 Factory registration and instance registration make that distinction explicit: `UseFactory` always supplies a container-owned result, while `UseInstance` keeps application ownership unless explicitly transferred. H10-9 supersedes the earlier allowance for a factory to declare a borrowed/external result. H10-10 specifies the existing-instance handoff point, including never-resolved registrations and failed activation. Exact ownership-option spelling and implementation evidence remain for review.
 
-All concrete/base database services, keyed/default aliases, read services, and factories refer back to the same ownership arrangement. Container shutdown disposes an owned database/provider lifetime once, through its owning root; aliases must not cause duplicate root/provider cleanup. Child scope disposal leaves singleton infrastructure available. Startup validation borrows registered databases and never acquires their disposal ownership. Externally owned instances remain usable after container disposal until the application disposes them.
+All concrete/base database services, keyed/default aliases, read services, and factories refer back to the same ownership arrangement. Distinguish a disposal invocation (`Dispose`/`DisposeAsync` being called) from underlying resource cleanup:
+
+| Lifetime | Required guarantee |
+| --- | --- |
+| Container-owned DataLinq database/provider | Once-only underlying root/provider cleanup, with existing cleanup/failure semantics preserved. This is not a blanket promise of exactly one public disposal invocation; any repeated calls must be explicitly documented and proven safe on the supported path. |
+| Application-owned existing database | No container-initiated disposal invocation or resource cleanup through any supported alias. The instance remains usable after container shutdown until the application disposes it. Idempotent cleanup does not make an unwanted first disposal acceptable. |
+| Generated disposable application service | One invocation of the appropriate cleanup member per owned activation during successful shutdown. Arbitrary application cleanup cannot be assumed idempotent; generated alias wiring must prove this guarantee or explicitly restrict the unsupported combination. |
+
+Child scope disposal leaves singleton infrastructure available. Startup validation borrows registered databases and never acquires their disposal ownership. Cleanup failures retain the existing reporting contract; the table does not promise that cleanup succeeds or that shutdown continues past every failure.
 
 **Shutdown ordering:** application workers and operations stop accepting new work, await their in-flight work, and finish/dispose their transactions and readers before the owning database/provider is disposed. Manually created units of work remain caller-owned through `using`/`await using`; generated owning methods and owning callbacks finish completion/cleanup under H10-3, while participants never dispose the borrowed session. Root disposal does not implicitly take over application transaction completion or introduce a new transaction-draining mechanism.
 
 Preserve the existing synchronous and asynchronous cleanup contracts, including failure reporting and once-only root cleanup. Use the appropriate root disposal path for synchronous or asynchronous container shutdown; unsupported async cleanup retains its existing explicit failure behavior rather than silently falling back to synchronous cleanup. H10-5 does not add a hard shutdown deadline or change the accepted cancellation/recovery policies.
 
-**Verification gate:** prove container-created and factory-created ownership, borrowed external instances, explicit ownership transfer, and all concrete/base/keyed/default aliases. Check child-scope versus host disposal, synchronous and asynchronous shutdown, preserved cleanup failures, and dependent operation cleanup before root disposal. Verify H10-10's existing-instance handoff point, including never-resolved registrations and activation failures. Final overload names, alias tracking, and host integration evidence remain open; the ownership policy is settled.
+#### Alias Registration Proof
+
+Ordinary Microsoft DI factory aliases do not enforce these ownership goals automatically. The container [captures disposable factory results without deduplicating object identity](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/Microsoft.Extensions.DependencyInjection/src/ServiceLookup/ServiceProviderEngineScope.cs#L70-L108). Its [singleton resolver captures each registration's result](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/Microsoft.Extensions.DependencyInjection/src/ServiceLookup/CallSiteRuntimeResolver.cs#L66-L92). A factory alias can therefore add a second disposal invocation for an owned object, or capture an application-owned instance that its original instance descriptor leaves untouched. A non-disposable service interface does not hide the returned object's disposal interfaces. An ownership holder alone is not sufficient if alias factories still return the raw disposable object.
+
+Before implementing dependent registration/generator wiring, prove a supported mechanism in small consumer-shaped fixtures using the actual container APIs and versions claimed as supported. Record the descriptor/activation strategy and its supported combinations. The review's isolated DI probes demonstrate a risk in naive registrations, not a passing W4 implementation. If the mechanism cannot meet a promised combination, amend the contract explicitly and reject that combination with a clear diagnostic before exposing it; do not silently weaken borrowed ownership, lazy activation, or service lifetimes. Do not rely on private container tracking internals as the registration mechanism.
+
+**Required evidence:**
+
+- Resolve concrete/base/keyed/default aliases individually and in different orders, including repeated resolutions and independent scopes. Assert both reference identity and activation counts; count disposal invocations and underlying cleanup separately.
+- Resolve borrowed existing instances through every supported alias and verify zero container-initiated disposal calls plus continued usability after both child-scope and root shutdown.
+- Verify container-created and factory-created database roots, including cleanup failures and any repeated disposal invocations allowed by the documented strategy.
+- Exercise generated singleton/scoped/transient application services implementing `IDisposable` only, `IAsyncDisposable` only, and both. Independent transient resolutions must stay distinct; alias forwarding for one activation must not add cleanup calls.
+- Verify synchronous and asynchronous shutdown separately, including explicit unsupported cleanup paths and preserved failure reporting; prove dependent transaction/reader cleanup precedes root cleanup.
+- Cover H10-10 registration/container build without activation, never-resolved shutdown, activation failure before handoff, first successful activation through each alias, and later failure after handoff. Borrowed survival and ownership transfer must hold regardless of resolution order.
+
+Passing identity assertions or idempotent DataLinq provider cleanup alone does not close this gate. Consumer fixtures must prove the registration strategy first; production registration and generated-consumer tests must then preserve that evidence before W4 closure. New repository tests belong in the active TUnit projects.
 
 ### H10-10: Existing-Instance Ownership Handoff
 
@@ -941,9 +1039,11 @@ Preserve the existing synchronous and asynchronous cleanup contracts, including 
 
 The boundary belongs to activation of the DataLinq registration, regardless of which registered service or alias first triggers it. Establish the handoff before publishing successfully activated services to callers, with no ownership gap or duplicate owner. Subsequent aliases do not transfer ownership again. Plain `UseInstance(existing)` remains application-owned throughout; H10-9's always-owned factory results retain their separate construction/cleanup contract.
 
-**Verification gate:** prove that registration/container build alone and never-resolved shutdown leave the supplied instance application-owned. Inject activation failures before handoff and verify that container cleanup does not consume the supplied instance. Verify successful first activation through different aliases, once-only cleanup after handoff, and retained container ownership after later failures for synchronous and asynchronous shutdown. Apply the same final contract to testing helpers; implementation must demonstrate the handoff without silently changing the lazy registration policy.
+**Verification gate:** apply [H10-5's alias registration proof](#alias-registration-proof). Prove that registration/container build alone and never-resolved shutdown leave the supplied instance application-owned, with zero container-initiated disposal invocations. Inject activation failures before handoff and verify that no alias has already captured the supplied instance for container disposal. Verify successful first activation through different aliases, once-only underlying cleanup after handoff, and retained container ownership after later failures for synchronous and asynchronous shutdown. Apply the same final contract to testing helpers; implementation must demonstrate the handoff without silently changing the lazy registration policy.
 
 ## Implementation Slices
+
+**Prerequisite:** complete the [alias registration proof](#alias-registration-proof) and record the supported ownership/lifetime combinations before building the following registration slices or generated service wiring on them. This is a bounded feasibility gate, not authorization to implement W4 from this planning update.
 
 ### Slice 1: Core DI Registration
 
@@ -973,10 +1073,11 @@ The boundary belongs to activation of the DataLinq registration, regardless of w
 
 - Implement H10-3's participant/owner/factory contracts after the bounded signature review.
 - Apply H10-8's separate participant interface, owner inheritance and existing transaction implementation, synchronous logical creation, owned execution helpers, and separate rollback/operational diagnostics.
-- Add session-aware generated model helper overloads while preserving existing standalone ownership and transaction overload behavior.
+- Add session-aware generated model helpers only with H10-8's source compatibility evidence, preserving existing standalone ownership, unambiguous transaction overload resolution, and return types; typed forwarding overloads remain a candidate pending full consumer verification.
+- Add H10-8's participant prepared scalar/row and sequence execution in sync/async forms, reusing the supplied transaction and existing execution machinery; choose the narrow API shape only after signature/consumer verification and preserve backend capability limits.
 - Reuse managed `Transaction<TDatabase>` behavior and return values, without a mandatory extra `Begin()` step or duplicate transaction engine.
-- Keep physical commit, rollback, and disposal with the owner; add the irreversible participant rollback request and post-veto execution rejection.
-- Add native typed results and an outcome-aware owning helper, preserving existing `CommitAsync` semantics.
+- Keep physical commit, rollback, and disposal with the owner; add synchronous participant rollback requests under the accepted admission contract, allowing admitted work to finish and rejecting new execution after a veto.
+- Add general owning helpers for ordinary/custom/native/no-value returns and optional native results with an explicitly selected result-aware convenience; only explicit rollback requests set the application veto, preserving existing `CommitAsync` and integrity/recovery semantics.
 - Extend the bundled generator with opted-in owner/participant service methods that share runtime lifecycle helpers.
 - Apply H10-7's explicit constructor factory, private business method, generated owning/participating wrappers, keyed/default service registration, and chosen application-service lifetime.
 - Bind generated owning factories to the selected registration; participating calls retain the supplied session's database identity under H10-4.
@@ -1024,27 +1125,30 @@ Unit tests:
 - same-model registrations support both different providers and the same provider with different connection strings, with separate read roots/caches/settings and correctly bound factories.
 - enum/string constructor injection and dynamic keyed lookup select the entire matching service set; concrete/base/default aliases preserve identity.
 - duplicate model/key registrations and competing defaults fail; missing keys and absent defaults never use implicit fallback or registration-order selection.
-- disposal happens once for container-created and application-factory-created singleton databases, including concrete/base/keyed/default aliases.
-- externally supplied instances survive container disposal by default; explicit ownership transfer enables container disposal exactly once.
+- container-created and application-factory-created singleton databases satisfy H10-5's once-only underlying cleanup guarantee through concrete/base/keyed/default aliases; tests count disposal invocations separately and verify any documented repeated calls are safe.
+- externally supplied instances receive zero container-initiated disposal invocations and remain usable after resolution through every alias and container shutdown; explicitly transferred instances receive once-only underlying cleanup after successful handoff.
 - `UseFactory` always supplies a container-owned result and has no borrowed-result option; H10-10 transferred instances remain application-owned until successful first activation, including never-resolved shutdown and activation failure before handoff, then remain container-owned after later failures.
 - synchronous/asynchronous shutdown preserves the corresponding root cleanup and failure contracts, with dependent transactions/readers disposed before the root.
+- the complete H10-5 alias registration proof passes against the supported registration mechanism, including resolution order, activation counts, cleanup failures, and generated disposable services across all supported lifetimes/disposal-interface combinations.
 
 Unit-of-work tests:
 
 - factory creates a transaction-backed unit of work.
 - H10-8 owners can be passed directly as sessions, with matching query/mutation return values and session-aware generated model conveniences; the participant interface exposes no provider/raw access or completion/disposal members.
+- H10-8's full generated helper source compatibility matrix compiles unchanged baseline callers and new session callers, covering sync/async `Insert`/`Update`/`Save`, static transaction/session types, receiver/delegate forms, and named/token arguments; behavior checks preserve return values and ownership alongside API/binary checks.
+- H10-8's participant prepared-execution gate covers all four result/execution shapes, supplied target and transaction-local state, incompatible-plan rejection, argument snapshots, cancellation, active readers, veto/lifetime checks during deferred enumeration, explicit unsupported capabilities, and unchanged source-taking consumer compilation.
 - original typed rollback reasons survive parent failure mapping, while operational snapshots remain available through existing transaction/exception diagnostics after helper cleanup.
 - participant interface exposes no physical commit, rollback, or disposal; helper-owned lifecycle also rejects borrowed completion at runtime.
 - coordinator commits once.
-- participant rollback requests prevent commit and further database execution without prematurely disposing the shared transaction.
+- participant rollback requests prevent commit and new database execution without interrupting admitted work or prematurely disposing the shared transaction; the [rollback-request admission matrix](#rollback-request-admission) passes with deterministic request/execution/completion ordering, synchronous acceptance guarantees, first-reason preservation, and lifecycle exceptions.
 - disposal rolls back uncommitted work according to existing transaction semantics.
 - generated services work both independently and as explicit participants, with one business implementation and no ambient session.
 - H10-7 primary/traditional-constructor services support direct construction, matching synchronous/asynchronous wrappers, token forwarding, keyed/default service identity, and singleton/scoped/transient application-service lifetimes; invalid authoring shapes produce compile-time diagnostics.
 - generated owning factory resolution honors its selected registration key; participating calls retain the supplied session even when the service's standalone factory targets another registration.
-- string, typed, and same-type success/failure payloads preserve their cases; default results cannot commit.
-- H10-6 nullable successes unwrap successfully even with a null payload; no-value successes initialize a valid case; null rollback reasons are rejected and uninitialized `TryUnwrap` throws. Verify generated and handwritten paths without treating local success construction as transaction completion.
-- mapped/forwarded child failures preserve the veto; ignored child failures cannot produce outer success.
-- expected rollback results are returned only after confirmed rollback/no started work and successful cleanup; exceptions/cancellation/unknown outcomes still throw.
+- optional string, typed, and same-type success/failure payloads preserve their cases without controlling transaction state; failure/default return values alone do not veto commit.
+- H10-6 optional nullable successes unwrap successfully even with a null payload; opted-in no-value results initialize a valid case; ordinary `void`/`Task` needs no result wrapper; null rollback reasons are rejected and uninitialized `TryUnwrap` throws without persistent poisoning. Verify generated and handwritten paths without treating local result construction/inspection as transaction completion.
+- an ignored or mapped explicit rollback request still prevents commit; a failure merely returned by a child does not set a veto. A caught invalid-result inspection or recoverable child exception can leave earlier writes committable when no veto exists; manual and helper-owned completion both retain integrity/cancellation checks.
+- general owners throw after veto-driven rollback/cleanup regardless of return type; explicitly selected result-aware helpers may return valid rollback outcomes only after an actual veto, confirmed rollback/no started work, and successful cleanup. Operational failures remain exceptions under existing precedence rules.
 - existing `CommitAsync` callbacks retain their contract; new helpers invoke once, await all work, and preserve recovery/finalization rules.
 
 Startup validation tests:
@@ -1076,11 +1180,11 @@ Integration tests:
 ## Open Questions
 
 - Package placement is resolved by [H10-1](#h10-1-integration-in-existing-packages): existing core/provider packages, extension namespaces, and a separate package only for future ASP.NET-dependent helpers. Exact extension API spelling and packed dependency evidence remain for review.
-- Read-service identity/lifetimes and direct read-access injection are resolved by [H10-2](#h10-2-shared-singleton-read-services): expose the existing database/read-access/generated-root instances as singletons. H10-5 settles their ownership rules; concrete alias bookkeeping still requires verification.
-- Unit-of-work ownership/composition is resolved by [H10-3](#h10-3-explicit-composable-units-of-work): owner-only physical completion, explicit participants with rollback requests, native results, generated service entry points, and preparation for future native unions. Its bounded signature/generator follow-up is required before API freeze.
+- Read-service identity/lifetimes and direct read-access injection are resolved by [H10-2](#h10-2-shared-singleton-read-services): expose the existing database/read-access/generated-root instances as singletons. H10-5 settles their ownership goals and requires alias registration proof before dependent wiring.
+- Unit-of-work ownership/composition is resolved by [H10-3](#h10-3-explicit-composable-units-of-work), amended 2026-10-12: owner-only physical completion, explicit rollback requests as the application veto, optional native results, ordinary/custom/no-value generated service returns, and preparation for future native unions. Its bounded signature/generator follow-up is required before API freeze.
 - Registration/configuration and first-slice keyed support are resolved by [H10-4](#h10-4-registration-configuration-and-keyed-instances): explicit provider selection, first-resolution immutable settings, optional logging/configuration dependencies, model/key identity, coherent keyed services, and explicit default aliases. H10-7/H10-9 settle generated-service wiring and options/connection conflict behavior; exact overloads and activation/disposal mechanics still require implementation evidence.
 - Resource ownership/shutdown is resolved by [H10-5](#h10-5-resource-ownership-and-shutdown): container ownership for constructed/factory-created databases, application ownership for supplied instances unless explicitly transferred, one owner across aliases, and dependent operations completed before root disposal. Exact ownership option spelling and container implementation evidence remain required.
-- Nullable/no-value result semantics are resolved by [H10-6](#h10-6-nullable-and-no-value-results): nullable successes, a small explicit no-value success payload, non-null rollback reasons, and invalid-default rejection including `TryUnwrap`. Exact public spelling/annotations and generic conversion evidence remain part of API review.
+- Nullable/no-value result semantics are resolved by [H10-6](#h10-6-nullable-and-no-value-results), amended 2026-10-12: optional nullable/no-value success payloads, non-null rollback reasons, and guarded invalid-default inspection without independent transaction-state effects. Ordinary values and no-value methods require no result wrapper. Exact spelling/annotations and generic conversion evidence remain part of API review.
 - Generated-service authoring/wiring is resolved by [H10-7](#h10-7-generated-service-authoring-and-wiring): explicit constructor factory, private business methods with two generated public entry points, matching sync/async forms, database-bound keyed/default service activation, and explicit service lifetimes. Exact designation syntax, registration bridge, and diagnostics/signature evidence remain implementation/API work.
 - Session/owner/factory contracts are resolved by [H10-8](#h10-8-session-owner-and-factory-contracts): separate participant interface, owner inheritance with completion/disposal, synchronous `Create` plus owned `Execute`/`ExecuteAsync`, existing transaction operation families, session-aware model helpers, and separate business/operational diagnostics. The complete overload/annotation manifest and consumer evidence remain implementation gates.
 - Registration/options surface and factory ownership are resolved by [H10-9](#h10-9-registration-surface-options-precedence-and-factory-ownership): typed per-registration provider settings, defaults/binding/code precedence, explicit connection-source replacement and ambiguity diagnostics, always-owned factory results, and borrowed existing instances unless explicitly transferred.
@@ -1090,10 +1194,14 @@ W4 design checkpoint:
 
 H10-1 through H10-10 cover the broad W4 design topics and the explicit existing-instance handoff question. No further broad architecture discussion is required before preparing implementation. Public API completion and implementation evidence remain necessary; this is design agreement, not a W4 closeout.
 
+**PR #250 review checkpoint, 2026-10-12:** all four findings and the additional rollback-request lifecycle clarification have recorded design dispositions. Ownership/alias proof, source compatibility, and participant prepared execution are required gates. The fourth finding's proposed permanent invalid-result prohibition is not adopted: explicit rollback intent and existing runtime safety rules govern completion, with optional result conventions. Rollback requests are accepted during active work and reject invalid lifetimes by exception. The review discussion is complete; these decisions still require the implementation evidence below.
+
 Remaining implementation/API work:
 
 - Finish the public overload/nullable/constraint manifest, builder/options/ownership names, result helper spelling, and generator attribute/member designation and diagnostic details.
-- Verify generated service activation and concrete/base/keyed/default alias identity and disposal, including H10-10's transfer boundary, across supported consumers.
+- Verify explicit rollback intent independently of optional results across generated/handwritten and manual/helper-owned completion, including general-owner rollback exceptions and explicitly selected result-aware outcomes; implement and prove the accepted synchronous [rollback-request admission contract](#rollback-request-admission).
+- Prove unchanged generated-helper consumer source remains compatible before freezing the session overload strategy; typed forwarding overloads are a candidate, with complete source, return-type, ownership, and API/binary evidence still required.
+- First prove a supported concrete/base/keyed/default alias registration strategy under H10-5, including H10-10's transfer boundary and generated disposable service lifetimes. Document supported combinations and explicitly amend/restrict any unachievable promise before building dependent wiring; do not treat this as routine alias bookkeeping.
 - Complete consumer, generator, runtime, dependency, and disposal tests/evidence before W4 closure. These checks may reveal necessary corrections; they are not additional broad design questions or permission to silently change accepted semantics.
 
 Startup schema comparison/policy execution remains W5. W6B fakes depend on the final production contracts. This design checkpoint does not authorize implementation or close W4.
