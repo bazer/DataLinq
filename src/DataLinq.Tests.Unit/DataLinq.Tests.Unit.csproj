@@ -9,6 +9,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="TUnit" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="ThrowAway" />
 	</ItemGroup>
 

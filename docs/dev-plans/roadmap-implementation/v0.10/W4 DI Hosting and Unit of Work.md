@@ -2,6 +2,8 @@
 
 **Status, 2026-10-12:** implementation started from `3257a184`, after the W3 closeout and the accepted W4 design decisions. The user authorized one draft PR from `codex/0.10-w4` to `v0.10`, collecting coherent implementation/test commits with pushes as needed. Completion, review and merge remain separate checkpoints.
 
+**PR:** [#251, Implement W4: DI, hosting and unit of work](https://github.com/bazer/DataLinq/pull/251).
+
 ## Scope And Boundaries
 
 The [integration specification](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md), H10-1 through H10-10, and the [W4 integration gates](Implementation%20Order%20and%20Integration%20Plan.md#w4-di-hosting-and-unit-of-work) own the contract. Implement integration in the existing core/provider packages, explicit participant/owner/factory contracts over the existing transaction engine, synchronous rollback intent, optional native results, and generated service composition.
@@ -28,4 +30,31 @@ Each slice records actual commands, source identities, results and remaining lim
 
 ## Evidence
 
-The opening plan contains no implementation or completed exit-gate claim. W4.1 is the first verification target.
+### W4.1 Initial Container Proof
+
+Consumer-shaped TUnit fixtures use `Microsoft.Extensions.DependencyInjection` **10.0.11**, added only to the unit test project. The production dependency graph is unchanged. `DependencyInjectionOwnershipProofTests` covers all 24 resolution orders of concrete/interface and keyed/default identities, repeated resolution, independent scopes, all three lifetimes and sync/async shutdown. `TransactionMutationFailureTests.DiOwnership` exercises actual `Database<T>` dispatch over the existing controlled root cleanup machinery, including the original cleanup exception and public failure snapshot.
+
+Observed descriptor behavior:
+
+| Pattern | Evidence and disposition |
+| --- | --- |
+| Borrowed existing instance with instance descriptors for every disposable alias | All aliases share identity and receive zero container disposal calls. A factory returning that borrowed object is unsafe, even through a non-disposable interface. |
+| Lazy owned singleton with factory aliases | One activation, four disposal invocations when all four descriptors resolve. The existing owned-root guard performs one underlying cleanup attempt. Shutdown stops at a throwing disposal and preserves the original failure. This alone is not proof for arbitrary custom provider cleanup. |
+| Explicit transfer through a canonical factory | No activation at container construction or never-resolved shutdown; a throwing activation is not captured. Successful aliases share the activation. Production wiring must place all activation validation before publishing the disposable object. |
+| One service identifier, singleton/scoped/transient | Correct lifetime and one appropriate disposal invocation per activation. Sync-only services use sync cleanup during either shutdown mode. Async-only services require async shutdown; sync shutdown throws without inventing a sync fallback. |
+| Non-disposable singleton/scoped keyed/default aliases | Shared identity within the expected lifetime, without disposal capture. |
+| Disposable transient keyed/default entry points | Independent factories invoke the same recipe directly, creating distinct activations with one disposal each. Forwarding one captured disposable transient through another factory is not this pattern. |
+| Disposable singleton/scoped keyed/default aliases | Ordinary factories duplicate cleanup calls. The implementation restriction below is required before dependent generated registration wiring. |
+
+**W4 implementation restriction:** generated application services implementing `IDisposable` or `IAsyncDisposable` may use a single unnamed registration or a keyed registration without a default alias for singleton/scoped lifetimes. Reject keyed-plus-default aliasing for these disposable lifetimes with a clear registration diagnostic, independent of fluent call order. Non-disposable singleton/scoped services retain alias identity; disposable transients use direct independent activation recipes. This explicitly narrows H10-7 under its authorized proof-driven restriction rule; it does not silently assume application disposal is idempotent or modify authored disposal members. The diagnostic and generated consumer evidence remain required before exposing production registration.
+
+Verification on the development working tree:
+
+- Release unit project build: zero warnings/errors.
+- Container proof: **14/14** cases passed, run `20261012T112831021Z-d195ed5f37b440538a85e2c552a21c14`.
+- Controlled DataLinq root proof: **6/6** cases passed, run `20261012T112847043Z-5ab0e05d3ccd4b0e9f6cf7d74f8e8ba4`.
+- An initial fixture build failed because `ServiceCollection.Add` is explicitly implemented; the fixtures now use `IServiceCollection` for direct descriptor insertion. No failed run is counted as evidence.
+
+Commands use the sandbox wrapper and Testing CLI `run --suite unit --filter` with `/*/*/DependencyInjectionOwnershipProofTests/*` and `/*/*/TransactionMutationFailureTests/DiOwnership*`.
+
+**Still open:** actual production registration/generator preservation, custom-provider once-only cleanup, generated read roots with user-added disposal interfaces, .NET 8/9 consumer execution, complete instance handoff failure ordering, dependent operation shutdown ordering and all W4.2-W4.6 work. These initial fixtures are a prerequisite checkpoint, not W4 completion. Session/rollback implementation can proceed independently of registration wiring.

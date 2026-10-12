@@ -1025,6 +1025,12 @@ Before implementing dependent registration/generator wiring, prove a supported m
 
 Passing identity assertions or idempotent DataLinq provider cleanup alone does not close this gate. Consumer fixtures must prove the registration strategy first; production registration and generated-consumer tests must then preserve that evidence before W4 closure. New repository tests belong in the active TUnit projects.
 
+#### W4 Initial Proof Restriction
+
+**Implementation evidence, 2026-10-12:** the [W4 container proof](../roadmap-implementation/v0.10/W4%20DI%20Hosting%20and%20Unit%20of%20Work.md#w41-initial-container-proof) confirms duplicate disposal capture with Microsoft DI 10.0.11 factory aliases. Under the proof-driven restriction rule above, generated disposable singleton/scoped application services support a single unnamed or keyed identity, but cannot also have a keyed/default alias. Registration must reject that combination before activation, regardless of builder call order. Non-disposable singleton/scoped services retain keyed/default identity sharing. Transient keyed/default registrations can invoke the same activation recipe independently, retaining distinct instances and one disposal per activation. Authored application disposal is not rewritten or assumed idempotent. Production diagnostics and generated consumer verification remain required; this is not W4 closeout.
+
+Borrowed disposable database aliases must use instance descriptors, never raw-object factory aliases. Owned DataLinq roots can receive repeated disposal invocations only where once-only underlying cleanup is proven; arbitrary custom providers and complete production handoff ordering still require evidence.
+
 ### H10-10: Existing-Instance Ownership Handoff
 
 **Accepted:** 2026-10-05. For an existing database registered with explicit container ownership, illustrated as `UseInstance(existing, ownership: DataLinqOwnership.Container)`, disposal responsibility transfers on **successful first activation of the DataLinq registration**. Registering the instance or merely building the container does not transfer ownership. This resolves H10-9's remaining lifecycle question; it is an accepted contract, not evidence of implemented container tracking.
