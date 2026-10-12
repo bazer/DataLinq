@@ -51,6 +51,14 @@ public class MySqlDatabaseCreator : IDatabaseProviderCreator
 public class MySqlDatabase<T> : Database<T>
      where T : class, IDatabaseModel<T>
 {
+    /// <summary>Constructs a database with validated execution settings captured by its provider.</summary>
+    public MySqlDatabase(string connectionString, string? databaseName, ILoggerFactory? loggerFactory,
+        DataLinqExecutionOptions executionOptions) : base(new MySqlProvider<T>(connectionString, databaseName,
+            loggerFactory is null ? DataLinqLoggingConfiguration.NullConfiguration : new DataLinqLoggingConfiguration(loggerFactory),
+            executionOptions))
+    {
+    }
+
     /// <summary>
     /// Initializes a new instance of the MySqlDatabase with the specified connection string.
     /// </summary>

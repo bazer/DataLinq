@@ -15,4 +15,6 @@ Run the net9.0 output with an actual .NET 9 host. The development checkout's W3 
 
 `RegistrationConsumer.cs` uses the public registration API and Microsoft DI 10.0.11 to check lazy construction, keyed/default identity, scope survival, sync/async shutdown and a custom provider whose disposal is deliberately counted before its own guard. It also compiles a generated read model with authored disposal: borrowed aliases must receive zero container disposal calls, and an owned registration must reject that unsupported combination.
 
+`ConfigurationConsumer.cs` exercises typed SQLite configuration, named connection-string replacement of a bound literal, first-resolution capture, independent keyed settings, default aliases and factory execution. The fixture uses the application's configuration implementation; DataLinq itself references only the configuration abstractions.
+
 By default this fixture references the current source projects. Supplying an exact `DataLinqCandidateVersion` selects package references instead, for later W4 packed-consumer verification. Source-project results alone do not prove the packed dependency graph or analyzer payload.

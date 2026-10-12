@@ -159,3 +159,20 @@ Verification on the final development tree:
 All affected suite projects were freshly built before the final `--no-build` quick run. An earlier incremental build left an old entry-assembly timestamp and the CLI correctly refused stale execution; forced rebuilds supplied the passing final evidence. The public fixture initially lacked its generator-required namespace, corrected before its successful build. All twelve CI checks for `ce816edb` passed ([run 38258331369](https://github.com/bazer/DataLinq/actions/runs/38258331369)); those checks precede this registration commit.
 
 Provider options/configuration/logging, generated service authoring and registration, dependent host shutdown, and packed/API/documentation closeout remain open. The tests above establish core registration ownership, not completion of W4.
+
+### W4.4 Provider Configuration And Logging
+
+`UseSQLite`, `UseMySql` and `UseMariaDB` explicitly select provider construction; their literal and `ConnectionString`-suffixed named forms remain separate. Typed provider builders expose `Bind`, `Configure`, `AsDefault` and the common `Registration`. Options support `ConnectionString`, `ConnectionStringName`, `DatabaseName` and `Execution`. Bindings run in order before all code callbacks, regardless of fluent call order. Code connection selection replaces both bound alternatives as a whole. An ambiguous or missing effective source fails; a named source requires the application's `IConfiguration`, while a literal requires none.
+
+Each container activation creates fresh options, resolves and validates its connection string, captures immutable execution settings and then constructs the provider with an optional host `ILoggerFactory`. Configuration reload or retained-option mutation cannot change an activated database. Driver parse failures discard potentially sensitive messages and inner exceptions. Invalid settings fail before SQLite file/setup work or MariaDB's existing synchronous version probe. Existing constructor signatures remain; additive four-argument database constructors forward execution options to the existing provider constructors. Core adds only `Configuration.Abstractions`; concrete configuration and DI implementations are consumer/test dependencies. No live options monitor, provider selection through configuration, startup validation or new hosting package is introduced.
+
+Verification before this slice's commit:
+
+- Focused configuration tests: **18/18**, run `20261012T143817272Z-686a79127c5a4582af3c65b7689663ec`. Includes precedence, per-key/container isolation, optional logging, named/literal replacement, retained options, safe diagnostics, pre-setup validation and never-resolved SQLite file creation checks.
+- Provider registration compliance: **8/8** across all eight targets, run `20261012T144104083Z-b7d37a75661d4a819b1b2cb2e63b58fb`. Exercises actual selected providers, aliases, immutable settings, sync/async owned commit/veto paths, and independent provider survival after container shutdown.
+- Release quick plan: **5,108/5,108**, no failures/skips (107 generator, 4,202 unit, 223 Memory, 576 SQLite compliance); run `20261012T144236709Z-ba8b936811a64f79bf456fd005ec53c3`.
+- Provider libraries and public consumer build without warnings/errors on net8.0/net9.0/net10.0; the expanded public consumer executes successfully on actual **.NET 8.0.31, 9.0.20 and 10.0.12**.
+
+The initial build lacked restored assets for the new abstraction reference; explicit sandboxed restore succeeded and all recorded builds/runs follow it. The quick run used prebuilt suites with `--no-build`; all-target verification used the previously documented normal-profile Podman invocation. All twelve CI checks at the preceding core registration commit `f399f916` passed ([run 38263533626](https://github.com/bazer/DataLinq/actions/runs/38263533626)); this does not relabel them as checks of the provider-options commit.
+
+Generated service authoring/registration and its ownership restrictions, dependent host/shutdown tests, remaining composition/capability checks, packed/API compatibility, and usage/documentation closeout remain open.
