@@ -1,19 +1,19 @@
 {
   "SchemaVersion": "v0.9.testing-shard-count-baseline.v1",
   "Epoch": 1,
-  "CommitSha": "e07cea8496a32b0eb3379b139384f451e57991f5",
+  "CommitSha": "58aeb5d5e9f3fa35418d9847bfa030ac983510b7",
   "Shards": [
     {
       "Suite": "generators",
       "TargetId": null,
       "ProviderAffinityRole": null,
-      "Cases": 101
+      "Cases": 160
     },
     {
       "Suite": "unit",
       "TargetId": null,
       "ProviderAffinityRole": null,
-      "Cases": 4079
+      "Cases": 4228
     },
     {
       "Suite": "memory",
@@ -25,49 +25,49 @@
       "Suite": "compliance",
       "TargetId": "sqlite-file",
       "ProviderAffinityRole": "AnchorWithInvariant",
-      "Cases": 568
+      "Cases": 577
     },
     {
       "Suite": "compliance",
       "TargetId": "sqlite-memory",
       "ProviderAffinityRole": "TargetSpecific",
-      "Cases": 425
+      "Cases": 434
     },
     {
       "Suite": "compliance",
       "TargetId": "mysql-8.4",
       "ProviderAffinityRole": "TargetSpecific",
-      "Cases": 431
+      "Cases": 440
     },
     {
       "Suite": "compliance",
       "TargetId": "mysql-9.7",
       "ProviderAffinityRole": "TargetSpecific",
-      "Cases": 431
+      "Cases": 440
     },
     {
       "Suite": "compliance",
       "TargetId": "mariadb-10.11",
       "ProviderAffinityRole": "TargetSpecific",
-      "Cases": 431
+      "Cases": 440
     },
     {
       "Suite": "compliance",
       "TargetId": "mariadb-11.4",
       "ProviderAffinityRole": "TargetSpecific",
-      "Cases": 431
+      "Cases": 440
     },
     {
       "Suite": "compliance",
       "TargetId": "mariadb-11.8",
       "ProviderAffinityRole": "TargetSpecific",
-      "Cases": 431
+      "Cases": 440
     },
     {
       "Suite": "compliance",
       "TargetId": "mariadb-12.3",
       "ProviderAffinityRole": "TargetSpecific",
-      "Cases": 431
+      "Cases": 440
     },
     {
       "Suite": "mysql",
