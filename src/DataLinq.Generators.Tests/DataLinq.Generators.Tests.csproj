@@ -15,6 +15,7 @@
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="All" />
 		<PackageReference Include="TUnit" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+		<PackageReference Include="ThrowAway" />
 	</ItemGroup>
 
 	<ItemGroup>

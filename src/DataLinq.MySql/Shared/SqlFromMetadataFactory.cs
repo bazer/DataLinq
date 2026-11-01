@@ -9,6 +9,7 @@ using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.MySql;
 
@@ -50,7 +51,14 @@ public abstract partial class SqlFromMetadataFactory : ISqlFromMetadataFactory
         var sql = new MySqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n", NoBackslashEscapes);
         //sql.CreateDatabase(metadata.DbName);
 
-        foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
+        if (!sql.TrySortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table)
+            .Select(x => x.Table).ToList()).TryUnwrap(out var tables, out var failure))
+            return DLOptionFailure.Fail(failure.FailureType,
+                $"{DatabaseType}: {failure.Message} Create the tables before adding their cyclic foreign key constraints.", metadata);
+        if (!sql.TrySortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View)
+            .Select(x => x.Table).Cast<ViewDefinition>().ToList()).TryUnwrap(out var views, out failure))
+            return failure;
+        foreach (var table in tables)
         {
             var tableComment = GetComment(table.Model.Attributes);
             sql.CreateTable(table.DbName, x =>
@@ -59,7 +67,7 @@ public abstract partial class SqlFromMetadataFactory : ISqlFromMetadataFactory
             }, tableComment == null ? null : $"COMMENT={QuoteSqlString(tableComment)}");
         }
 
-        foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewDefinition>().ToList()))
+        foreach (var view in views)
         {
             sql.CreateView(view.DbName, view.Definition ?? string.Empty);
         }
@@ -85,13 +93,14 @@ public abstract partial class SqlFromMetadataFactory : ISqlFromMetadataFactory
             if (!NoLengthTypes.Contains(dbType.Name.ToLower()) && dbType.Length.HasValue && dbType.Length != 0)
                 sql.TypeLength(dbType.Length, dbType.Decimals);
 
+            sql.Unsigned(string.Equals(dbType.Name, "uuid", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : dbType.Signed);
+
             var defaultValue = GetDefaultValue(column);
             if (defaultValue != null)
                 row.DefaultValue(defaultValue);
 
-            sql.Unsigned(string.Equals(dbType.Name, "uuid", StringComparison.OrdinalIgnoreCase)
-                ? null
-                : dbType.Signed);
             sql.Nullable(column.Nullable)
                 .Autoincrement(column.AutoIncrement);
 
@@ -162,14 +171,15 @@ public abstract partial class SqlFromMetadataFactory : ISqlFromMetadataFactory
         if (defaultAttr.Value is Guid)
             throw CreateUnsupportedGuidDefaultException(column);
 
+        var dbType = GetDbType(column);
         if (column.ValueProperty.EnumProperty.HasValue)
         {
+            if (dbType.Name.ToLowerInvariant() is "tinyint" or "smallint" or "mediumint" or "int" or "integer" or "bigint")
+                return FormatIntegerEnumDefaultValue(column.ValueProperty, defaultAttr);
             var enumDefaultValue = ResolveEnumDefaultValue(column.ValueProperty, defaultAttr);
             if (enumDefaultValue != null)
                 return QuoteSqlString(enumDefaultValue);
         }
-
-        var dbType = GetDbType(column);
 
         return column.ValueProperty.CsType.Name switch
         {
@@ -189,7 +199,7 @@ public abstract partial class SqlFromMetadataFactory : ISqlFromMetadataFactory
             "decimal" => Convert.ToDecimal(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
             "DateOnly" => QuoteSqlString(((DateOnly)defaultAttr.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
             "TimeOnly" => QuoteSqlString(((TimeOnly)defaultAttr.Value).ToString("HH:mm:ss", CultureInfo.InvariantCulture)),
-            "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
+            "DateTime" => QuoteSqlString(FormatDateTimeDefaultValue((DateTime)defaultAttr.Value)),
             "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
             "TimeSpan" => QuoteSqlString(FormatTimeSpanDefaultValue((TimeSpan)defaultAttr.Value)),
             _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
@@ -234,6 +244,13 @@ public abstract partial class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return FormattableString.Invariant($"{(value.Ticks < 0 ? "-" : "")}{hours:D2}:{minutes:D2}:{seconds:D2}{fraction}");
     }
 
+    private static string FormatDateTimeDefaultValue(DateTime value)
+    {
+        if (value.Ticks % 10 != 0)
+            throw new InvalidOperationException("MySQL/MariaDB DATETIME defaults cannot represent fractions smaller than one microsecond.");
+        return value.ToString("yyyy-MM-dd HH:mm:ss.FFFFFF", CultureInfo.InvariantCulture);
+    }
+
     private static string FormatBooleanDefaultValue(object value, DatabaseColumnType dbType)
     {
         var boolValue = Convert.ToBoolean(value, CultureInfo.InvariantCulture);
@@ -271,6 +288,19 @@ public abstract partial class SqlFromMetadataFactory : ISqlFromMetadataFactory
             $"DataLinq will not substitute UUID(), whose UUID version does not match '{attribute.Version}'. " +
             $"Use a provider-scoped [DefaultSql(DatabaseType.{DatabaseType}, \"...\")] only when the provider expression and resulting physical storage are intentional, " +
             "or generate the UUID in client code.");
+
+    private static string FormatIntegerEnumDefaultValue(ValueProperty property, DefaultAttribute attribute)
+    {
+        var value = attribute.Value;
+        if (value is Enum enumValue)
+            value = Convert.ChangeType(enumValue, Enum.GetUnderlyingType(enumValue.GetType()), CultureInfo.InvariantCulture);
+        if (value is sbyte or byte or short or ushort or int or uint or long or ulong)
+            return Convert.ToString(value, CultureInfo.InvariantCulture)!;
+        // Older syntax-derived metadata can retain the symbolic expression as a string.
+        if (value is string && TryGetEnumNumericValue(property.EnumProperty!.Value, attribute, out var numericValue))
+            return numericValue.ToString(CultureInfo.InvariantCulture);
+        throw new InvalidOperationException($"Enum default for integer column '{property.Column.Table.DbName}.{property.Column.DbName}' must resolve to an integral value.");
+    }
 
     private static string? ResolveEnumDefaultValue(ValueProperty property, DefaultAttribute? defaultAttr)
     {

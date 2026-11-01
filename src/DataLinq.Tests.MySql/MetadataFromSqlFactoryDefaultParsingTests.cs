@@ -146,6 +146,7 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(TimeSpan)), TimeSpan.FromHours(-1), "'-01:00:00'");
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(TimeSpan)), TimeSpan.FromHours(25) + TimeSpan.FromTicks(1234560), "'25:00:00.123456'");
         yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(DateTime)), new DateTime(2024, 1, 2, 3, 4, 5), "'2024-01-02 03:04:05'");
+        yield return () => new SqlLiteralFormattingCase(new CsTypeDeclaration(typeof(DateTime)), new DateTime(2024, 1, 2, 3, 4, 5).AddTicks(1234560), "'2024-01-02 03:04:05.123456'");
     }
 
     public static IEnumerable<Func<GuidDefaultScenario>> GuidDefaultScenarios()
@@ -327,15 +328,31 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         await Assert.That(((DefaultAttribute)defaultAttr!).Value).IsTypeOf<int>();
         await Assert.That((int)((DefaultAttribute)defaultAttr).Value).IsEqualTo(2);
 
-        var (_, columnWithDefault, propertyWithDefault) = CreateEnumProperty(
-            "tier",
-            "TierValue",
-            enumProperty,
-            [(DefaultAttribute)defaultAttr]);
+        var (_, columnWithDefault, propertyWithDefault) = CreateProperty(
+            "tier", new CsTypeDeclaration("TierValue", "TestNamespace", ModelCsType.Enum),
+            [(DefaultAttribute)defaultAttr], enumProperty,
+            dbTypes: [new DatabaseColumnType(DataLinq.DatabaseType.MariaDB, "enum")]);
         await Assert.That(propertyWithDefault.GetDefaultValueCode()).IsEqualTo("TierValue.Premium");
 
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(columnWithDefault);
         await Assert.That(sqlDefault).IsEqualTo("'premium'");
+    }
+
+    [Test]
+    public async Task GetDefaultValue_IntegerEnumsPreserveIntegralValues()
+    {
+        var enumProperty = new EnumProperty([], [("Inactive", 1), ("Negative", -7)], declaredInClass: false);
+        foreach (var (value, expected) in new (object, string)[]
+        {
+            (1, "1"), (1U, "1"), (1L, "1"), (1UL, "1"), (-7, "-7")
+        })
+        foreach (var provider in new[] { DataLinq.DatabaseType.MySQL, DataLinq.DatabaseType.MariaDB })
+        {
+            var (_, column, _) = CreateProperty("status", new CsTypeDeclaration("RowStatus", "TestNamespace", ModelCsType.Enum),
+                [new DefaultAttribute(value)], enumProperty,
+                dbTypes: [new DatabaseColumnType(provider, "bigint")]);
+            await Assert.That(SqlFromMetadataFactory.GetFactoryFromDatabaseType(provider).GetDefaultValue(column)).IsEqualTo(expected);
+        }
     }
 
     [Test]
@@ -351,6 +368,17 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
 
         await Assert.That(sqlDefault).IsEqualTo(testCase.ExpectedSqlDefault);
+    }
+
+    [Test]
+    public async Task DateTimeDefaultsRejectSubMicrosecondSqlLiterals()
+    {
+        var (_, column, _) = CreateProperty(
+            "timestamp", new CsTypeDeclaration(typeof(DateTime)),
+            [new DefaultAttribute(new DateTime(1970, 1, 1).AddTicks(1))],
+            dbTypes: [new DatabaseColumnType(DataLinq.DatabaseType.MariaDB, "datetime", 6)]);
+        await Assert.That(() => SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB)
+            .GetDefaultValue(column)).Throws<InvalidOperationException>();
     }
 
     [Test]

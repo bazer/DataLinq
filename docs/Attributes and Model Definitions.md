@@ -146,6 +146,8 @@ Example:
 public abstract Guid UserId { get; }
 ```
 
+The source generator resolves valid C# constant arguments, including local constants, qualified constants from another class or referenced assembly, and constant expressions. For example, `[Type(DatabaseType.MariaDB, "varchar", ColumnLimits.MaxReferenceLength)]` uses the value of `public const int MaxReferenceLength = 1000;` as the column length. Named constructor arguments follow the same rules. This does not change the database provider's limits on valid column types or lengths.
+
 ### `[ScalarConverter(typeof(...))]`
 
 Maps a model-facing property type to one canonical provider CLR scalar. This is the normal way to expose typed IDs without teaching SQL providers, row caches, or query bindings about the wrapper type.
@@ -249,6 +251,8 @@ public abstract string Status { get; }
 public abstract AccountStatus Status { get; }
 ```
 
+For a legal enum constant, the source generator stores its resolved underlying integral value in runtime metadata and retains the C# expression separately in `CodeExpression`. Mutable initialization still uses the expression; integer SQL columns use the integral default. MySQL/MariaDB native `ENUM` columns retain their mapped quoted labels. This also covers enum casts and flags combinations. Changing a referenced constant updates generated metadata even when the model declaration itself is unchanged. Provider enum-by-name mappings and their supported numeric ranges still apply.
+
 ### `[DefaultGuid(...)]`
 
 Declares one fixed `Guid` model value using a legal C# attribute argument:
@@ -265,6 +269,32 @@ The argument must be an actual string literal in the exact 36-character Guid `D`
 Once provider metadata resolves the column's `[GuidStorage]`, the existing SQLite, MySQL, and MariaDB codecs encode the canonical `Guid` into the same Text36, Text32, native UUID, little-endian binary, or RFC-order binary representation used by runtime writes. The bounded provider matrix covers all 13 direct-`Guid` format combinations.
 
 `[Default("00112233-4455-6677-8899-aabbccddeeff")]` remains a string default and is invalid for a `Guid` property; DataLinq does not silently coerce it. `DefaultGuid` also does not define converter-backed defaults, source/database merge precedence, static provider-default import, or SQLite expression/BLOB import. Dynamic client generation belongs to `[DefaultNewUUID]`, described below.
+
+### Fixed temporal defaults
+
+Runtime expressions such as `[Default(DateTime.Parse(...))]` are illegal C# attribute arguments. Use the fixed temporal carriers instead:
+
+```csharp
+[DefaultDateTime("1970-01-01T00:00:00.1234567")]
+public abstract DateTime ChangedAt { get; }
+
+[DefaultDateTime("2020-02-03T04:05:06", DateTimeKind.Utc)]
+public abstract DateTime RecordedAt { get; }
+
+[DefaultDateTimeOffset("2020-02-03T04:05:06.7654321+05:30")]
+public abstract DateTimeOffset OffsetAt { get; }
+
+[DefaultTimeSpan("-1.01:00:00.1234567")]
+public abstract TimeSpan Duration { get; }
+```
+
+The source strings are invariant literal carriers; metadata holds typed values, and generated mutable initialization preserves their exact ticks. `DefaultDateTime` accepts an ISO date/time without a timezone suffix and defaults to `DateTimeKind.Unspecified`. Its optional kind labels the same clock value without converting it. MariaDB/MySQL `DATETIME` import remains unspecified regardless of the column name. `DefaultDateTimeOffset` requires an explicit numeric offset and preserves it; `DefaultTimeSpan` uses the invariant `c` format, including signs, days, and fractional seconds.
+
+Source parsing normalizes these carriers to base `DefaultAttribute` values without a retained `CodeExpression`. Regeneration emits legal constant attributes with up to seven fractional digits. Custom temporal attribute subtypes or retained initialization expressions cannot be regenerated through this fixed-value contract. These are model defaults, distinct from provider-scoped `DefaultSql` and dynamic `DefaultCurrentTimestamp`; physical SQL precision remains provider-dependent.
+
+SQLite fixed temporal defaults use the same invariant text representation as parameterized values: timestamps retain up to seven fractional digits, offsets remain explicit, and durations retain their sign and day count. Omitting these columns on insert preserves the declared values. As with parameterized SQLite `DateTime` storage, the clock value is stored without a `DateTimeKind` marker.
+
+Fixed `DateOnly` and `TimeOnly` values do not yet have supported attribute carriers. Metadata-to-model generation rejects these defaults explicitly instead of writing a runtime expression that fails compilation. The date/time property types themselves remain supported.
 
 ### `[DefaultCurrentTimestamp]`
 
@@ -317,6 +347,14 @@ These are advanced attributes. They matter when you want to shape cache behavior
 ### `[UseCache]`
 
 Enables caching on a database, model, or property.
+
+For generated database and table model classes, `[UseCache]` may be placed on any
+partial declaration, including a separate file without a model interface in its
+base list. `[UseCache(false)]` on a table overrides an enabled database cache;
+tables without an explicit flag inherit the database flag. The generator resolves
+the cache attribute across the complete class and updates generated metadata when
+the attribute changes in a partial file. Other attributes and model members still
+follow the existing declaration parsing rules.
 
 ### `[CacheLimit(...)]`
 

@@ -530,6 +530,17 @@ public class ModelFileFactoryTests
             "public abstract decimal Amount { get; }");
     }
 
+    [Test]
+    public async Task CreateModelFiles_FixedDateOnlyAndTimeOnlyDefaults_FailBeforeEmittingIllegalAttributes()
+    {
+        foreach (var value in new object[] { new DateOnly(2020, 2, 3), new TimeOnly(4, 5, 6) })
+        {
+            var database = CreateDatabaseWithDefaultValue(new CsTypeDeclaration(value.GetType()), value);
+            await Assert.That(() => new ModelFileFactory(new ModelFileFactoryOptions()).CreateModelFiles(database).ToArray())
+                .Throws<NotSupportedException>();
+        }
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(CsTypeDeclaration propertyType, object defaultValue)
     {
         var draft = new MetadataDatabaseDraft(

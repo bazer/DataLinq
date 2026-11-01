@@ -3,7 +3,7 @@
 DataLinq is an immutable-first, source-generated ORM for .NET. It is designed around a narrow but useful idea: push model shape and metadata into generated code so runtime reads, relations, mutations, validation, and caching can be explicit and predictable.
 
 > [!NOTE]
-> [DataLinq 0.9.0](https://github.com/bazer/DataLinq/releases/tag/0.9.0) is the current published release. It includes explicit scalar converters and UUID storage, reusable prepared queries, hardened transaction recovery, and the experimental `DataLinq.Memory` backend.
+> [DataLinq 0.9.3](https://github.com/bazer/DataLinq/releases/tag/0.9.3) is the current published release. It fixes inner-join composition, generated defaults, partial cache attributes, and schema regeneration.
 
 It is a strong fit when you want:
 
@@ -59,7 +59,7 @@ If you are new to DataLinq, this is the shortest sensible path:
 2. [Installation](docs/getting-started/Installation.md)
 3. [Configuration and Model Generation](docs/getting-started/Configuration%20and%20Model%20Generation.md)
 4. [Your First Query and Update](docs/getting-started/Your%20First%20Query%20and%20Update.md)
-5. [0.9.0 Release Notes](docs/releases/0.9.md)
+5. [0.9.3 Release Notes](docs/releases/0.9.3.md)
 
 ## What Makes It Different
 

@@ -91,6 +91,12 @@ For unsupported expression-shaped defaults, DataLinq warns and skips the default
 
 ## SQL Generation
 
+Schema generation orders acyclic foreign key dependencies before their dependents.
+Self-references and cycles between tables are also supported: SQLite permits
+foreign keys to reference tables created later in the script. These constraints
+remain enforced when foreign key enforcement is enabled on the connection.
+Cyclic dependencies between views return a diagnostic instead of a schema script.
+
 When generating a schema for SQLite from DataLinq models:
 
 - `Guid` maps to `TEXT`

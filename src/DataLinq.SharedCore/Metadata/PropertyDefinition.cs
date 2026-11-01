@@ -261,6 +261,11 @@ public class ValueProperty : PropertyDefinition
         if (defaultAttr.Value is Guid guid)
             return $"global::System.Guid.Parse({CSharpLiteralFormatter.FormatString(guid.ToString("D"))})";
 
+        if (defaultAttr.Value is DateTime date)
+            return $"new global::System.DateTime({date.Ticks.ToString(CultureInfo.InvariantCulture)}L, global::System.DateTimeKind.{date.Kind})";
+        if (defaultAttr.Value is DateTimeOffset offset)
+            return $"new global::System.DateTimeOffset({offset.Ticks.ToString(CultureInfo.InvariantCulture)}L, global::System.TimeSpan.FromTicks({offset.Offset.Ticks.ToString(CultureInfo.InvariantCulture)}L))";
+
         if (EnumProperty != null)
             return FormatEnumDefaultValue(defaultAttr.Value);
 

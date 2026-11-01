@@ -235,6 +235,50 @@ public class EmployeesNullablePredicateTests
         await Assert.That(columnFirstAnyMatches).IsEquivalentTo(mixedMatches);
     }
 
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task JoinedNullablePredicates_ResolveProjectedColumnsFromBothSources(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(JoinedNullablePredicates_ResolveProjectedColumnsFromBothSources),
+            EmployeesFixtureProfile.TinySeeded);
+        var database = databaseScope.Database;
+        SetupNullablePredicateRows(database);
+
+        var joined = database.Query().Employees.Join(
+            database.Query().Employees,
+            left => left.emp_no!.Value,
+            right => right.emp_no!.Value,
+            (left, right) => new
+            {
+                Id = left.emp_no,
+                LeftLogin = left.last_login,
+                RightCreated = right.created_at
+            });
+
+        var present = joined.Where(x => x.Id >= 2020 && x.Id <= 2022 &&
+            x.Id.HasValue && x.LeftLogin.HasValue && x.RightCreated.HasValue);
+        var missingLeft = joined.Where(x => x.Id >= 2020 && x.Id <= 2022 && !x.LeftLogin.HasValue);
+        var missingRight = joined.Where(x => x.Id >= 2020 && x.Id <= 2022 && !x.RightCreated.HasValue);
+        var combined = joined.Where(x => x.Id.HasValue && EmployeeNumbers.Contains(x.Id.Value) &&
+            x.LeftLogin.HasValue && x.LeftLogin.Value == LoginA && x.RightCreated.HasValue);
+
+        await Assert.That(present.ToArray().Select(x => x.Id!.Value)).IsEquivalentTo(new[] { 2020, 2022 });
+        await Assert.That(missingLeft.ToArray().Select(x => x.Id!.Value)).IsEquivalentTo(new[] { 2021 });
+        await Assert.That(missingRight.ToArray().Select(x => x.Id!.Value)).IsEquivalentTo(new[] { 2021 });
+        await Assert.That(combined.ToArray().Select(x => x.Id!.Value)).IsEquivalentTo(new[] { 2020 });
+
+        var presentSql = CurrentQueryTranslationInspection.BuildSql(database, present).Text;
+        var missingSql = CurrentQueryTranslationInspection.BuildSql(database, missingRight).Text;
+        await Assert.That(presentSql).Contains("IS NOT NULL");
+        await Assert.That(missingSql).Contains("IS NULL");
+        var quote = database.Provider.Constants.EscapeCharacter;
+        await Assert.That(presentSql).Contains($"{quote}t0{quote}.");
+        await Assert.That(presentSql).Contains($"{quote}t1{quote}.");
+    }
+
     private static Employee[] SetupNullablePredicateRows(Database<EmployeesDb> employeesDatabase)
     {
         employeesDatabase.Commit(transaction =>

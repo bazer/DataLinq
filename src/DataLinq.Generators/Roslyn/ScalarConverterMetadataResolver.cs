@@ -19,15 +19,13 @@ internal static class ScalarConverterMetadataResolver
     private const string ConverterBaseName = "DataLinqScalarConverter";
 
     public static Option<DatabaseDefinition, IDLOptionFailure> Resolve(
-        DatabaseDefinition source,
+        DatabaseDefinition database,
         Compilation compilation,
         System.Threading.CancellationToken cancellationToken)
     {
         var registrationsResult = ReadRegistrations(compilation, cancellationToken);
         if (!registrationsResult.TryUnwrap(out var registrations, out var registrationFailure))
             return registrationFailure;
-
-        var database = MetadataDefinitionSnapshot.Copy(source);
 
         foreach (var column in database.TableModels
             .Where(static tableModel => !tableModel.IsStub)
@@ -134,7 +132,6 @@ internal static class ScalarConverterMetadataResolver
         if (!guidStorageResult.TryUnwrap(out _, out var guidStorageFailure))
             return guidStorageFailure;
 
-        database.Freeze();
         return database;
     }
 
