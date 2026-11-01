@@ -7,7 +7,7 @@
 
 **Target release:** 0.10 / A10 ([issue #107](https://github.com/bazer/DataLinq/issues/107)).
 
-**Last reviewed:** 2026-10-12 (AAPI-33 cross-reference aligned with H10's explicit rollback intent and optional results; AAPI-34 clarifies synchronous rollback-request admission alongside ordinary execution overlap; other AAPI decisions unchanged).
+**Last reviewed:** 2026-11-01 (AAPI-107 refined by accepted W5-D07 to require known limitation reporting and narrow comparison handling; the 2026-10-31 AAPI-108/W5-D06 amendment and 2026-10-12 AAPI-33/AAPI-34 rollback-intent/admission clarifications remain unchanged. Other AAPI decisions unchanged).
 
 **Prerequisites:** The [W0 baseline and I/O audit](Implementation%20Order%20and%20Integration%20Plan.md#w0-baseline-and-io-inventory) and W1/W2 provider feasibility evidence remain required before implementation changes shared execution and freezes the complete public surface.
 
@@ -1754,11 +1754,17 @@ The sealed exception has `public DataLinqSchemaValidationException(DataLinqSchem
 
 Cancellation, timeout, connection failure and incomplete/failed metadata acquisition remain operational failures under AAPI-66. `EnsureSchemaValid[Async]` throws the validation exception with the complete result only after a completed comparison fails policy. Do not cast between the differently ordered difference/diagnostic severity enums, parse log text into typed issues, or turn a failed metadata Option into a successful issue-only result. An empty issue list is appropriate when the successful reader supplies no typed issues. Captured synchronous logging callbacks retain the accepted application-callback exception behavior.
 
-**Owner/gate:** V10/A10, D10-4; threshold/issue truth-table tests, retained Info and issue snapshots, operational-failure separation, callback behavior and host presentation parity.
+**Accepted refinement, 2026-11-01 ([W5-D07](W5%20Startup%20Schema%20Validation.md#w5-d07-typed-issues-from-successful-but-limited-metadata-reads)):** W5 must produce structured issues for the accepted catalogue of detected representation limits, including SQLite generated/hidden-column detection, independently of logging. An empty collection remains valid when no scoped issues exist; the earlier no-typed-issues allowance is not permission to leave the accepted catalogue as log-only omissions. Retain typed owner/object/aspect identity internally, keep database-wide/unknown-scope and selected-object issues, and omit only proven unrelated out-of-scope issues. Withhold only comparison claims invalidated by a known omission, while retaining every provable difference; this is evidence-aware comparison, not presentation filtering. Preserve original messages under D05, complete-result snapshots and operational failure. `TreatValidationIssuesAsFailures = true` remains the default and is independent of difference severity; disabling it retains issues. Exact internal transport/categories remain implementation details, with no general SQL feature-support expansion or public metadata extension protocol.
+
+**Owner/gate:** V10/A10, D10-4; threshold/issue truth-table tests, retained Info and issue snapshots, accepted limitation catalogue and SQLite detection, typed scope/aspect comparison tests, operational-failure separation, callback behavior and host presentation parity.
 
 ### AAPI-108: Validation Include Is Comparison Scope And Empty Schemas Are Valid Input
 
-**Accepted:** 2026-09-16. `Include` selects exact finalized-model database table/view names (`Table.DbName`), not C# names, patterns or SQL. Null/empty selects the full comparison. Before I/O, reject blank/unknown model names, deduplicate with the provider-aware comparison name comparer and capture the list.
+**Accepted:** 2026-09-16, with the 2026-10-31 W5-D06 amendment below. `Include` selects finalized-model database table/view names (`Table.DbName`), not C# names, patterns or SQL. Null/empty selects the full comparison.
+
+**Accepted amendment, 2026-10-31 ([W5-D06](W5%20Startup%20Schema%20Validation.md#w5-d06-server-name-comparison-and-before-io-include-validation)):** before validation metadata I/O, reject blank/unknown names, capture the list and deduplicate selections. MySQL/MariaDB entries must match exact canonical database spelling in the compiled model, using ordinal selection/deduplication; SQLite retains its known provider comparer. Resolve live server identity rules afterward by reading `@@lower_case_table_names` on the same owned metadata session, within timeout/cancellation/cleanup boundaries. Use those rules consistently for live scoping/comparison and embedded identifiers, and reject ambiguous identities. Failure to read/interpret the setting is operational failure, not permission to guess. This supersedes the original requirement to use the live server-aware comparer for pre-I/O Include validation/deduplication; it adds no public casing setting and leaves CLI/import semantics unchanged. Existing provider construction effects remain outside the before-metadata-I/O guarantee.
+
+Runtime selection uses the provider's finalized compiled metadata and explicit options; no `datalinq.json`, companion configuration or model source files are required. For a model table named `Orders`, selecting `Orders` may match a live `orders` table on a case-insensitive server; selecting `orders` before the read is invalid unless that exact name exists in the model.
 
 Apply identical scope to model and live objects; counts reflect objects actually compared. Do not mutate finalized metadata. Compare foreign keys owned by selected tables with their referenced identities without automatically including all referenced tables. Scope does not promise fewer metadata commands or suppression of read errors elsewhere.
 
@@ -1766,7 +1772,7 @@ Do not forward runtime `Include` directly to current import readers, which rejec
 
 Reuse provider metadata readers through an explicit runtime-validation path while preserving existing import/CLI behavior. Never fabricate empty metadata from failed Options or create a missing SQLite file/database. Internal plumbing belongs to W1/D10-4; this adds no general public extension protocol.
 
-**Owner/gate:** V10/A10, D10-4; selected/full scope, name validation/capture, scoped counts/foreign keys, empty-versus-missing/unreadable databases, no creation and import compatibility on real providers.
+**Owner/gate:** V10/A10, D10-4; selected/full scope, exact compiled-model server Include selection before metadata I/O, live case-sensitive/insensitive identifier matching and collisions, scoped counts/foreign keys, empty-versus-missing/unreadable databases, no creation, file-free published runtime validation and import compatibility on real providers.
 
 ### AAPI-109: Runtime Validation Command Timeout Units And Bounds
 

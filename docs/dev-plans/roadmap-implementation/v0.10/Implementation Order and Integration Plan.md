@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-10-12 (W4 review dispositions complete, including synchronous rollback-request admission, explicit rollback intent and optional results, participant prepared execution, disposal/alias proof, and source compatibility gates; other workstream decisions unchanged).
+**Last reviewed:** 2026-11-01 (all seven W5 design decisions accepted; W5 contract/base verification and implementation remain pending. The 2026-10-12 W4 review dispositions, including rollback-request admission, ownership and compatibility gates, remain unchanged).
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -119,6 +119,20 @@ Define one structured validation result and explicit policies for:
 - disabled/no database access
 
 The host adapter consumes this result; it does not invent a second schema comparison model. AAPI-64 through AAPI-67 settle async validation/probe contracts, configuration capture, operational failure versus schema differences, effective database identity, and fresh complete metadata without hidden creation/repair. Propagate startup cancellation, keep command timeout separate from a whole-operation token, and preserve provider/SQLite resource ownership.
+
+**W5-D01 accepted, 2026-10-31:** warning-only permits startup after completed comparison findings that fail policy, preserving the result's flags/severities/issues. Configuration, activation, unsupported capability, connection, incomplete-read and timeout failures still block startup in either enabled mode. Cancellation propagates after owned work settles. No best-effort operational-failure continuation is included. See the [decision and outcome matrix](W5%20Startup%20Schema%20Validation.md#w5-d01-what-warning-only-permits).
+
+**W5-D02 accepted, 2026-10-31:** attached and central selection reuse canonical W4 model/key registrations. Defaults precede host defaults and target overrides; global Disabled wins. Deduplicate aliases/unconfigured repetitions, require one explicit configuration owner per target, and reject missing targets or enabled setup without selections. Supplied databases use W4 instance/factory ownership; arbitrary provider-factory targets are deferred. Retain normal provider activation effects and freeze validation settings before execution. See the [target/configuration decision](W5%20Startup%20Schema%20Validation.md#w5-d02-target-api-settings-precedence-and-duplicates).
+
+**W5-D03 accepted, 2026-10-31:** use one internal `IHostedLifecycleService.StartingAsync` adapter to gate normal hosted workers and web-server startup, including concurrent startup. Finish application-owned migrations before `host.StartAsync` or at deployment time; custom sequencing uses the direct validator with the automatic hook disabled. Preserve constructor/independent callback side-effect limits and cooperative cancellation with owned-resource settlement. See the [startup phase and migration decision](W5%20Startup%20Schema%20Validation.md#w5-d03-startup-phase-and-external-migrations).
+
+**W5-D04 accepted, 2026-10-31:** collect target outcomes sequentially in canonical first-selection order, continuing to independent targets after completed comparisons and isolated operational failures once owned work settles. Apply D01 and reject startup with one public host exception carrying read-only ordered outcomes, including successes and separate operational failures. Configuration, callback/logger and orchestration errors stop scheduling while preserving completed outcomes; cancellation propagates as cancellation after settlement. Do not fabricate unread-target results or add retries, parallel execution or a persistent report cache. See the [multi-target execution and failure contract](W5%20Startup%20Schema%20Validation.md#w5-d04-multi-target-execution-and-the-host-failure-contract).
+
+**W5-D05 accepted, 2026-10-31:** preserve actual error/comparison messages without sanitization, with concise logs and full in-process results, original exceptions/stacks, failure trees and secondary cleanup context. Preserve ordinary host exception chaining, cancellation and callback-origin classification; avoid recursive failed-logger reporting. Reserve the result exception for completed policy failure. No restricted diagnostic accessor or MariaDB message-sanitization change is required. Application logging controls filtering and framework verbosity. See the [diagnostic and exception contract](W5%20Startup%20Schema%20Validation.md#w5-d05-operational-exceptions-and-actionable-diagnostics).
+
+**W5-D06 accepted, 2026-10-31:** read the live server's `lower_case_table_names` once per owned metadata read and apply identifier-specific matching consistently, rejecting ambiguities and unreadable settings. AAPI-108 is amended to require exact compiled-model MySQL/MariaDB Include spelling before validation metadata I/O, with SQLite retaining its known comparer. Runtime validation remains independent of `datalinq.json` and model source files; no new casing option or CLI/import behavior change is introduced. See the [identifier/Include decision](W5%20Startup%20Schema%20Validation.md#w5-d06-server-name-comparison-and-before-io-include-validation).
+
+**W5-D07 accepted, 2026-11-01:** emit structured issues for the accepted detected-omission catalogue, independently of logging, including SQLite generated/hidden-column detection. Use typed owner/object/aspect identities for scope and narrow withholding of unprovable comparison claims; retain all provable differences and operational failures. Keep the default independent issue-failure policy and original messages, preserving CLI/import behavior. See the [limitation issue decision](W5%20Startup%20Schema%20Validation.md#w5-d07-typed-issues-from-successful-but-limited-metadata-reads). All seven W5 behavioral decisions are accepted; exact public declarations, implementation and verification remain pending.
 
 AAPI-106 through AAPI-109, with the [H10-1 package-placement amendment](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages), fix runtime types and hosting integration in core with separate namespaces/responsibilities, immutable result snapshots retaining Info, independent threshold/issue policy, comparison-scoped Include and empty-schema behavior, and null/default, zero/unlimited, rounded positive command timeouts capped at 2,147,483 seconds. The adapter must not discard structured differences to filter logs, fabricate empty schemas from reader failures or silently ignore timeout settings.
 
@@ -326,19 +340,22 @@ Exit gate:
 
 ### W5: Startup Schema Validation
 
+**Planning checkpoint, 2026-11-01:** [W5 Startup Schema Validation](W5%20Startup%20Schema%20Validation.md) records the completed source audit and acceptance of all seven design decisions. D01–D06 were accepted on 2026-10-31; D07 on 2026-11-01. Next complete W5.0's integration-base/public-contract verification, then W5.1's synchronous observational reads, server comparison context and typed omission transport/detection. The 120 focused metadata/SQLite/comparer foundation cases passed on the audited source during planning; they are not W5 implementation or candidate evidence. No W5 code or closeout is claimed.
+
 Required work:
 
 - expose the structured runtime validation service
-- integrate fail-fast/warning/disabled host policies
+- integrate fail-startup/warning-only/disabled host policies with D04's sequential collection and public outcomes
 - propagate cancellation and timeout through provider metadata reads
-- redact secrets and preserve actionable differences
+- implement D05's accepted exception/diagnostic contract: actual messages without sanitization, concise logs, full in-process context, normal exception chaining and preserved cancellation
+- verify direct and hosted validation in a published app without `datalinq.json`, companion config or model source files; use compiled provider metadata and runtime options, and ignore unrelated tooling configuration
 - test multiple targets, deterministic ordering, partial failures, and host-startup behavior
 - retain H10-4's model/key target identity and reuse existing registrations without duplicate provider construction or validation through default aliases
 
 Exit gate:
 
 - startup validation proves no hidden database access when disabled
-- fail-fast and warning policies consume one semantic result
+- fail-startup and warning-only policies consume one semantic result
 - no migration or repair path exists in the host adapter
 
 ### W6: Testing Support
