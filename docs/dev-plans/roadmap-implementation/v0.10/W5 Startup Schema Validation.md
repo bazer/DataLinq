@@ -9,6 +9,8 @@
 
 **Status, 2026-11-01:** Implementation started on `codex/0.10-w5` from `v0.10` commit `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464`, containing completed W4 (#251), the accepted W5 plan (#252), and the master integration (#253). One draft PR against `v0.10` collects incremental implementation commits and their evidence, following W4. The user explicitly authorized W5 commits and pushes. Exact public declarations and all implementation/verification gates remain open; review acceptance, merge and publication remain separate.
 
+**PR:** [#254, Implement W5: startup schema validation](https://github.com/bazer/DataLinq/pull/254).
+
 W5 lets an application compare its finalized DataLinq model with fresh live database metadata, inspect a complete structured result, and optionally prevent host startup. W4 supplies the registration identity and ownership model. W1/W2 supply substantial async metadata execution; W5 must connect those foundations without confusing import behavior, comparison findings, and operational failure.
 
 The audit is of this checkout, not a new assertion about remote PR acceptance or integration. The [W4 execution record](W4%20DI%20Hosting%20and%20Unit%20of%20Work.md) preserves its own implementation and review evidence. Before implementation, establish the actual W5 base on `v0.10`; do not relabel historical evidence as a run on this checkout.
@@ -378,3 +380,23 @@ Next, complete W5.0's base/contract verification and implement W5.1's observatio
 The dedicated branch starts at `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464`, verified equal to freshly fetched `origin/v0.10` with a clean working tree. The earlier 120-case foundation receipt remains historical; new baseline and implementation results will be recorded here against their actual source. The accepted D01–D07 contracts and all W5.0–W5.7 gates above remain the scope of this PR.
 
 Keep the PR description current as slices land. Do not count the opening tracking commit as runtime implementation or claim public contracts compile until their consumer fixtures exist.
+
+### Fresh foundation baseline
+
+Source `abb36938a95b8edd1186d318371626d791327a0f` contains only the opening record above the integration base; production/test sources are unchanged. All 120 focused cases pass with no failures or skips, verified from each run's TRX:
+
+| Filter | Passed / total | Run ID |
+| --- | --- | --- |
+| `/*/*/*/MetadataRead_*` | 58 / 58 | `20261101T115710016Z-3fc4bf1cba36415283e0c54cf2d74bbb` |
+| `/*/*/SQLiteNativeAsyncMetadataTests/*` | 14 / 14 | `20261101T115841769Z-c51a800c26054021847a5962094dc5eb` |
+| `/*/*/SchemaComparer*/*` | 48 / 48 | `20261101T115856243Z-eb0350f4607e4f66bce70c4b6852f1f0` |
+
+The initial sandboxed metadata run was canceled after remaining silent through startup/build; it provides no completed test receipt. Retrying that command outside the sandbox passed (76.7-second build, 3.4-second suite). The SQLite/comparer runs subsequently passed inside the sandbox using the existing Testing CLI build. This establishes the integration baseline, not completion of W5.0's public consumer compilation or any new runtime behavior.
+
+### W5.0/W5.2 initial supporting contracts
+
+Added the accepted public options, internally constructed result, and result-based exception in core, with no dependency changes. Internal capture validates defined difference thresholds, timeout bounds and malformed Include entries, copies Include, and invokes configuration synchronously once. Model-name resolution and provider execution are still pending. Results retain every difference, snapshot issue context and collection membership, preserve difference references, and calculate failure flags from captured policy independently of diagnostic severity. The exception preserves the exact result.
+
+`SchemaValidationContractTests` passes **35/35**, no failures/skips, in run `20261101T120259686Z-8c094432f2d74c5b8a82632c483e9afe` on the implementation working tree above `abb36938`. Cases cover the difference/issue policy truth tables, undefined thresholds, timeout boundaries, malformed Include, callback identity/timing, subsequent input/option mutation, read-only snapshots and public construction restrictions. The first 34-case pass is superseded by this strengthened mutation coverage. Core Release builds pass on net8.0/net9.0/net10.0 with zero warnings/errors.
+
+This is the supporting-contract portion only. Direct entry points, complete consumer-shaped overload compilation, observational sync reads, D06/D07 comparison behavior and hosting remain open; no W5 stage is declared complete by these tests.
