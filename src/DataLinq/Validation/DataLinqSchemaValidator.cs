@@ -52,6 +52,8 @@ internal sealed class SchemaValidationInvocation
     }
 
     internal Exception? CallbackFailure { get; private set; }
+    internal Exception? ConfigurationFailure { get; private set; }
+    internal Exception? InvariantFailure { get; private set; }
 
     internal static SchemaValidationInvocation Capture(IDatabaseProvider provider, CapturedSchemaValidationOptions options)
     {
@@ -82,13 +84,27 @@ internal sealed class SchemaValidationInvocation
     private DataLinqSchemaValidationResult Complete(Option<DatabaseDefinition, IDLOptionFailure> acquired)
     {
         if (!acquired.TryUnwrap(out var live, out var failure)) SchemaValidationReadFailure.Throw(failure);
-        var identifiers = settings.Identifiers ?? throw new InvalidOperationException("Metadata acquisition did not supply identifier rules.");
-        if (identifiers.DatabaseType != databaseType)
-            throw new InvalidOperationException("Metadata acquisition supplied rules for a different database type.");
-        var selected = scope.Resolve(live, identifiers);
-        var evidence = settings.Limitations!.Capture(identifiers,
-            selected.Model.Concat(selected.Database).Select(table => table.Table.DbName));
-        var differences = new SchemaComparer(identifiers, evidence).CompareRuntime(selected.Model, selected.Database);
-        return new(databaseName, databaseType, selected.Model.Count, selected.Database.Count, differences, evidence.Issues, options);
+        var identifiers = settings.Identifiers;
+        if (identifiers is null || identifiers.DatabaseType != databaseType)
+        {
+            InvariantFailure = new InvalidOperationException("Metadata acquisition did not supply identifier rules for the provider's database type.");
+            throw InvariantFailure;
+        }
+        try
+        {
+            var selected = scope.Resolve(live, identifiers);
+            var evidence = settings.Limitations!.Capture(identifiers,
+                selected.Model.Concat(selected.Database).Select(table => table.Table.DbName));
+            var differences = new SchemaComparer(identifiers, evidence).CompareRuntime(selected.Model, selected.Database);
+            return new(databaseName, databaseType, selected.Model.Count, selected.Database.Count, differences, evidence.Issues, options);
+        }
+        catch (ArgumentException comparisonFailure)
+        {
+            // These pure comparison routines use ArgumentException for invalid
+            // compiled-model identities, and InvalidOperationException for an
+            // inconsistent live catalog. No application callback runs here.
+            ConfigurationFailure = comparisonFailure;
+            throw;
+        }
     }
 }

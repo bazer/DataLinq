@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DataLinq.Extensions.DependencyInjection;
 
 internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection services, object? key)
+    : IDataLinqRegistration
     where TDatabase : class, IDatabaseModel<TDatabase>
 {
     private readonly object activationKey = new();
@@ -22,9 +23,15 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     private Type? implementationType;
     private DataLinqOwnership ownership = DataLinqOwnership.Container;
     private bool frozen;
+    private bool providerFactory;
     internal IServiceCollection Services { get; } = services;
     internal object? Key { get; } = key;
     internal bool IsDefault { get; private set; } = key is null;
+    Type IDataLinqRegistration.ModelType => typeof(TDatabase);
+    object? IDataLinqRegistration.Key => Key;
+    bool IDataLinqRegistration.IsDefault => IsDefault;
+    IDatabaseProvider IDataLinqRegistration.ResolveProvider(IServiceProvider provider) =>
+        provider.GetRequiredKeyedService<DataLinqActivation<TDatabase>>(activationKey).Get().Database.Provider;
 
     internal void Register()
     {
@@ -64,12 +71,13 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     internal IDataLinqUnitOfWorkFactory<TDatabase> ResolveFactory(IServiceProvider provider) =>
         provider.GetRequiredKeyedService<DataLinqActivation<TDatabase>>(activationKey).Get().Factory;
 
-    internal void SetFactory(Type implementation, Func<IServiceProvider, Database<TDatabase>> create)
+    internal void SetFactory(Type implementation, Func<IServiceProvider, Database<TDatabase>> create, bool providerFactory = false)
     {
         EnsureSourceAvailable(implementation);
         RejectDisposableOwnedModel();
         implementationType = implementation;
         factory = create;
+        this.providerFactory = providerFactory;
         InstallAliases();
     }
 
@@ -183,10 +191,17 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
         var owns = ownership == DataLinqOwnership.Container;
         return new(() =>
         {
-            var database = existing ?? create?.Invoke(provider) ?? throw new InvalidOperationException("This DataLinq registration has no provider or its factory returned null.");
+            Database<TDatabase> database;
+            try { database = existing ?? create?.Invoke(provider) ?? throw new InvalidOperationException("This DataLinq registration has no provider or its factory returned null."); }
+            catch (Exception failure)
+            {
+                if (!providerFactory || create is null) DataLinqActivationFailureScope.ReportConfiguration(failure);
+                throw;
+            }
             // Reject a factory that returns a known borrowed provider before taking
             // any ownership. Disposing that conflicting result would harm its caller.
-            EnsureProviderOwnership(database, ownership);
+            try { EnsureProviderOwnership(database, ownership); }
+            catch (Exception failure) { DataLinqActivationFailureScope.ReportConfiguration(failure); throw; }
             try
             {
                 var access = borrowedAccess ?? database.Provider.ReadOnlyAccess;
@@ -197,8 +212,10 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
                 if (owns) database.EnableContainerOwnership();
                 return result;
             }
-            catch (Exception failure) when (existing is null)
+            catch (Exception failure)
             {
+                DataLinqActivationFailureScope.ReportConfiguration(failure);
+                if (existing is not null) throw;
                 // Factory results are owned even when validation fails. Supplied
                 // instances retain application ownership until successful handoff.
                 using var diagnostics = ExecutionFailureScope.Begin();

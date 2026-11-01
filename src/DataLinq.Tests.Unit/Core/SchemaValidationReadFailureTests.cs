@@ -4,11 +4,32 @@ using DataLinq.ErrorHandling;
 using DataLinq.Exceptions;
 using DataLinq.Execution;
 using DataLinq.Validation;
+using DataLinq.Core.Factories;
+using DataLinq.Metadata;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
 public sealed class SchemaValidationReadFailureTests
 {
+    [Test]
+    public async Task DefinitionContextRemainsInTheSummaryAndOriginalExceptionKeepsItsStack()
+    {
+        Exception original;
+        try { ThrowOriginal(); throw new InvalidOperationException("unreachable"); }
+        catch (InvalidOperationException originalFailure) { original = originalFailure; }
+        var definition = new MetadataDefinitionFactory().BuildProviderMetadata(
+            new MetadataDatabaseDraft("DefinitionDb", new("DefinitionDb", "Tests", ModelCsType.Class))).ValueOrException();
+        var tree = DLOptionFailure.Fail(DLFailureType.Exception, original, definition);
+        var failure = await Assert.That(() => SchemaValidationReadFailure.Throw(tree)).Throws<DataLinqSchemaReadException>();
+        await Assert.That(failure!.Message).Contains("DefinitionDb");
+        await Assert.That(failure.Message).Contains(original.Message);
+        await Assert.That(failure.Message.Contains(nameof(ThrowOriginal), StringComparison.Ordinal)).IsFalse();
+        await Assert.That(failure.InnerException).IsSameReferenceAs(original);
+        await Assert.That(original.StackTrace!).Contains(nameof(ThrowOriginal));
+        await Assert.That(failure.Failure).IsSameReferenceAs(tree);
+    }
+
     [Test]
     public async Task PlainExceptionKeepsIdentityStackAndExecutionEvidence()
     {
