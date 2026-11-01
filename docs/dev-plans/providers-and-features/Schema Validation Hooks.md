@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for runtime/startup validation; MSBuild/build-time validation remains later work.
-**Last reviewed:** 2026-10-04 (H10-4 keyed-registration target identity, following H10-1 package placement).
+**Last reviewed:** 2026-11-01 (all W5-D01–D07 accepted, including structured limitation issues, scoped comparison handling and independent failure policy; H10-4 identity and H10-1 package placement retained. Implementation and verification remain pending).
 **Dependency:** Runtime validation composes with the 0.10 DI/hosting integration in `DataLinq`, under [H10-1](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages), rather than introducing a competing startup abstraction.
 **Goal:** Let applications and builds explicitly validate DataLinq model metadata against live database schemas so schema drift is caught during development, CI, deployment, and application startup.
 
@@ -156,7 +156,9 @@ Invoke database configuration synchronously once, then capture effective options
 
 Under AAPI-109, a null timeout preserves the provider-configured default, zero disables command timeout and positive durations round up to whole seconds. Reject negatives (including `Timeout.InfiniteTimeSpan`) and values greater than `TimeSpan.FromSeconds(2_147_483)` before I/O; use checked/integer normalization. This is neither a wall-clock validation deadline nor a connection-opening timeout. Honor an explicit setting in actual execution or report unsupported custom-reader capability rather than silently ignoring it.
 
-Under AAPI-108, `Include` scopes the comparison to exact model database table/view names (`Table.DbName`). Null/empty means all. Before I/O, reject blank/unknown model names and deduplicate using the provider-aware comparison name comparer. Scope both sides identically without mutating finalized metadata; counts describe the compared objects. Compare selected tables' foreign keys with their referenced identities without implicitly expanding the selected set. Scope does not promise reduced metadata I/O or suppression of other read failures.
+Under AAPI-108 as amended by accepted W5-D06, `Include` scopes comparison using finalized compiled-model database table/view names (`Table.DbName`). Null/empty means all. Before validation metadata I/O, reject blank/unknown names and capture/deduplicate selections: MySQL/MariaDB require exact canonical model spelling, while SQLite retains its known comparer. After reading the server setting, apply live identifier rules to scope and compare both sides without mutating finalized metadata. Counts describe compared objects. Compare selected tables' foreign keys with their referenced identities without implicitly expanding the selected set. Scope does not promise reduced metadata I/O or suppression of other read failures.
+
+**Accepted W5-D06 identifier contract, 2026-10-31:** read `@@lower_case_table_names` once per MySQL/MariaDB validation read on the same owned session, within command-timeout/cancellation/cleanup boundaries. Apply rules by identifier kind, including names embedded in relationships/indexes, without changing literal expressions or metadata spelling. Reject ambiguous model/live identities and fail operationally if the server setting cannot be read/interpreted. Preserve SQLite's existing rules and existing CLI/import semantics. The [accepted decision](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d06-server-name-comparison-and-before-io-include-validation) and [AAPI-108 amendment](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-108-validation-include-is-comparison-scope-and-empty-schemas-are-valid-input) record the distinction between exact model selection and live identity matching; no new public case-sensitivity option is added.
 
 ```mermaid
 flowchart TD
@@ -171,6 +173,8 @@ flowchart TD
 ```
 
 The important choice is that runtime validation starts from the finalized generated metadata already attached to the provider. It should not call the tooling-layer `SchemaValidator`, because that type reads model files from `datalinq.json`. Runtime code already has a better source of truth: the same `DatabaseDefinition` the provider uses for actual queries and mutations.
+
+**Deployment clarification, 2026-10-31:** runtime/startup validation requires no `datalinq.json`, user companion file or model source files on the server. Runtime `Include` selects names from `provider.Metadata` and comes from explicit validation options; it does not load the tooling configuration's Include list. Omit it to compare the full model. Provider connection settings come from the existing registration, and validation mode/threshold/timeout come from code/defaults or application-selected configuration sources. `IConfiguration` does not imply a particular file. D06's accepted server-name rule is read from the database itself. Add isolated published-consumer proof that missing or unrelated tooling configuration does not affect runtime validation; W5 implementation remains pending.
 
 ### 3.3. Provider Metadata Reading
 
@@ -188,7 +192,7 @@ AAPI-67 requires the provider's effective normalized database identity. Do not r
 
 ### 3.4. Failure Policy
 
-Default policy should be strict enough to catch real breakage but not so strict that benign production metadata causes startup failure.
+Default policy rejects proven error-level differences and known validation limitations. Applications can choose a different difference threshold or disable issue-based failure while retaining the complete scoped evidence.
 
 Accepted defaults and result policy:
 
@@ -212,72 +216,68 @@ The exact classification should come from existing `SchemaDifferenceSeverity`; t
 
 Under AAPI-66, `ValidateSchemaAsync` returns a completed comparison with supported diagnostic issues; `EnsureSchemaValidAsync` throws `DataLinqSchemaValidationException` when that result fails the configured policy. Cancellation, connection failure, and command timeout remain operational failures. A failed metadata read is not evidence that a specific column differs.
 
-AAPI-107 defines `HasDifferences` as any difference and `HasFailures` as a difference meeting the captured threshold or any typed issue while issue-based failure is enabled. Reject undefined threshold values. Never compare `SchemaDifferenceSeverity` and `DataLinqDiagnosticSeverity` by numeric cast: their order differs. Do not parse human logs into typed issues or turn failed metadata Options into successful issue-only results. No structured issues from a successful reader means an empty list. Synchronous log-callback failures retain the accepted application-callback policy.
+AAPI-107 defines `HasDifferences` as any difference and `HasFailures` as a difference meeting the captured threshold or any typed issue while issue-based failure is enabled. Reject undefined threshold values. Never compare `SchemaDifferenceSeverity` and `DataLinqDiagnosticSeverity` by numeric cast: their order differs. Do not parse human logs into typed issues or turn failed metadata Options into successful issue-only results. An issue-free successful read has an empty list; accepted D07 below requires structured reporting for its known limitation catalogue. Synchronous log-callback failures retain the accepted application-callback policy.
+
+**Accepted W5-D07 limitation contract, 2026-11-01:** emit `DataLinqDiagnosticIssue` snapshots for detected unsupported generated columns, index forms/defaults and dependent-object omissions in the [accepted catalogue](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d07-typed-issues-from-successful-but-limited-metadata-reads), including SQLite generated/hidden-column detection through `table_xinfo` information. Issue production is independent of logging and preserves useful messages without sanitization. Keep typed ownership/object/aspect identity internally: retain global/unknown-scope and selected-object issues, omit only proven unrelated out-of-scope issues, and withhold only comparison claims invalidated by a known omission. Do not report an observed-but-unrepresented index as missing; an omitted default must not hide independent column differences. Preserve all provable differences and operational failures. Issues fail policy by default even when their severity is Warning; disabling issue-based failure retains them, while warning-only hosting permits a completed policy-failing result under D01. No general SQL feature-support expansion or CLI/import behavior change is included. The reader/transport/comparison tests remain implementation gates.
 
 ## 4. Startup Hook
 
 ### 4.1. Public Surface
 
-For generic host / ASP.NET Core applications, the integration should be explicit registration:
+**Accepted target/configuration contract, 2026-10-31 ([W5-D02](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d02-target-api-settings-precedence-and-duplicates)):** support both registration-attached and central explicit validation selection. Both operate on existing W4 model/key registrations and share one adapter. The examples show accepted API direction; exact overloads, option types and public mode spelling remain subject to consumer compilation and API review.
+
+Attach validation to the common registration builder or its provider-typed builder:
 
 ```csharp
-builder.Services.AddDataLinqSchemaValidation(options =>
-{
-    options.ValidateOnStartup = true;
-    options.Validation.FailOnSeverity = SchemaDifferenceSeverity.Error;
-});
+builder.Services.AddDataLinq<EmployeesDb>("primary")
+    .AsDefault()
+    .UseMySqlConnectionString("employees")
+    .ValidateSchemaOnStartup();
 ```
 
-Hosting registration can use a wrapping options type:
-
-```csharp
-public sealed class DataLinqSchemaValidationHostingOptions
-{
-    public bool ValidateOnStartup { get; set; } = true;
-    public DataLinqSchemaValidationOptions Validation { get; } = new();
-}
-```
-
-Registration should not guess databases out of thin air. Applications should provide the database instances or provider factories they want validated:
+Alternatively, select already-registered targets centrally (this example assumes primary/default and reporting registrations exist):
 
 ```csharp
 builder.Services.AddDataLinqSchemaValidation()
-    .ValidateDatabase<EmployeesDb>();
+    .ValidateDatabase<EmployeesDb>()
+    .ValidateDatabase<EmployeesDb>("reporting");
 ```
 
-or:
+- An unkeyed selection resolves the unnamed registration or explicit default; it never chooses an arbitrary key or implicitly selects every registration of a model. Resolve selections after registration is complete, so central declarations may precede provider registration without activating it early.
+- Deduplicate repeated unconfigured selections and actual key/default aliases. Distinct registrations remain distinct targets even when they share a supplied provider or connection string. Preserve canonical first-selection order and use key equality, not key stringification.
+- Apply built-in defaults, then host-wide defaults, then target-specific overrides. Global Disabled is a master switch; targets may also be individually disabled. Capture immutable effective settings before validation execution and before the first target activation, with model-name Include checks after metadata becomes available but before validation I/O. No live reload changes an in-progress run.
+- Allow one explicit configuration owner per canonical target. A second explicit configuration is an error even if values match; repeated unconfigured selection is harmless. Global defaults do not count as a competing target owner.
+- Missing/ambiguous selections and enabled setup without selected targets are configuration errors. Global disablement does not resolve otherwise-unused databases, invoke their factories or resolve their connection secrets.
+- Represent externally supplied databases through W4 `UseInstance`/`UseFactory`, preserving their ownership rules. Arbitrary `ValidateProvider(Func<IServiceProvider, IDatabaseProvider>)` hosting targets are deferred; the direct provider-level runtime validator remains available without DI.
 
-```csharp
-builder.Services.AddDataLinqSchemaValidation()
-    .ValidateProvider(sp => sp.GetRequiredService<EmployeesDatabase>().Provider);
-```
+This supersedes the earlier boolean-only hosting-options and raw provider-factory target sketches. Hosting has explicit fail-startup, warning-only and disabled modes; severity thresholds remain a separate comparison policy. Under accepted W5-D03, the registration helpers install one internal `IHostedLifecycleService` adapter that validates in `StartingAsync`; applications do not register an adapter class directly.
 
-For hosted applications where DataLinq database instances are already registered:
-
-```csharp
-builder.Services.AddHostedService<DataLinqSchemaValidationHostedService>();
-```
-
-The helper registration can add the hosted service internally, but the behavior should be visible from the call site.
-
-Under [H10-4](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-4-registration-configuration-and-keyed-instances), targets identify the full model/key registration. Attach validation to the keyed registration builder or explicitly select the same keyed database/provider in a target factory. An unkeyed target selects the explicit default; it must not choose an arbitrary registration or implicitly validate all instances of that model. A default alias refers to the same target, so it must not create another provider or duplicate validation. Exact keyed convenience overloads remain part of the hosting API review.
-
-Opt-in startup validation resolves selected registrations early, capturing their connection/settings configuration and constructing their singleton providers if not already resolved. It reuses that graph thereafter. Disabled validation must not resolve otherwise-unused databases; this does not promise that a database resolved elsewhere has I/O-free constructors or receives live configuration updates.
+Under [H10-4](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-4-registration-configuration-and-keyed-instances), enabled startup validation resolves selected registrations, capturing their connection/settings configuration and constructing singleton providers if needed. It reuses that graph thereafter. D02 explicitly retains existing constructor effects, including SQLite setup: the observational reader does not create databases or change journal mode, but activating a normal provider is not promised to be observational. Disabled validation does not cause that activation; a database resolved elsewhere retains its ordinary lifecycle.
 
 ### 4.2. Startup Behavior
 
+**Accepted host policy, 2026-10-31 ([W5-D01](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d01-what-warning-only-permits)):** fail-startup rejects completed results with `HasFailures`; warning-only reports those same results and permits startup without changing severities, issues or result flags. Both enabled modes reject startup when validation cannot complete, including missing/invalid configuration, activation/capability failures, connection failures, incomplete metadata reads and command timeouts. Cancellation stops further validation and propagates after owned work settles. Disabled mode skips validation without activating otherwise-unused databases. No best-effort startup continuation after operational failure is included in W5. D04/D05 below separately settle collection, public outcomes and failure projection/reporting; exact public names/members remain API review.
+
+**Accepted startup phase and migration ordering, 2026-10-31 ([W5-D03](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d03-startup-phase-and-external-migrations)):** the internal adapter validates in `IHostedLifecycleService.StartingAsync`, before normal hosted-service `StartAsync` methods, including web-server startup, even with concurrent service startup enabled. Its constructor receives descriptors/services rather than resolved databases. Hosted-service constructors and other lifecycle callbacks may have independent side effects; the gate does not prevent those. Forward host startup cancellation, settle owned work before propagating it, and keep command timeouts separate from the cooperative host deadline. Arbitrary synchronous factories and constructor probes cannot be forcibly interrupted.
+
+Application-owned migrations must complete before `host.StartAsync`, or run at deployment time. A migration in another hosted service's `StartAsync` is too late; other `StartingAsync` callbacks are not a supported ordering mechanism. Custom orchestration may call the direct runtime validator with the automatic hook disabled. DataLinq does not discover migration tools, reorder hosted services or provide a startup-dependency scheduler. Real host/listener fixtures remain required implementation evidence.
+
+**Accepted multi-target execution and host failure contract, 2026-10-31 ([W5-D04](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d04-multi-target-execution-and-the-host-failure-contract)):** validate enabled canonical targets sequentially in first-selection order. After a completed comparison or isolated target operational failure, settle owned resources and continue to independent targets. Apply D01 at the end and reject startup with one public host-specific exception carrying read-only ordered outcomes, including successful comparisons and separate operational failures. Never fabricate a comparison for an unread target. Configuration, callback/logger or orchestration failures stop scheduling while preserving completed outcomes; detect configuration errors in preflight wherever possible. Cancellation stops scheduling and propagates as cancellation after settlement, with earlier results available through already-emitted diagnostics. W5 adds no automatic retries, parallel execution or persistent report cache. Exact failure projection and diagnostic presentation remain D05; exact public names/members remain API review.
+
+**Accepted W5-D05 diagnostic/exception contract, 2026-10-31:** do not sanitize diagnostic output or replace actual errors with generic messages. Keep logs concise and useful while preserving original exceptions/stacks, complete failure trees, comparison results and secondary cleanup evidence in process. Rethrow an original runtime exception when no evidence is lost; use an operational wrapper for composite/exception-free failures. Preserve normal host exception chaining and public outcome properties. Reserve the result exception for completed policy failure; cancellation remains cancellation, and callback/logger failure classification follows D04 without recursive logging. This supersedes earlier promises that no connection text could ever appear in validation logs: DataLinq does not append a connection configuration dump, but received messages remain unchanged. Application logging controls filtering and framework verbosity. No special restricted accessor, log-only cancellation wrapper or MariaDB message-sanitization change is required. See the [accepted decision and verification gates](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d05-operational-exceptions-and-actionable-diagnostics); exact API members remain review details.
+
 The hosted service should:
 
-- validate all registered validation targets during application startup
+- validate enabled selected targets sequentially in the accepted startup phase and canonical first-selection order
 - log every issue and difference with database name, provider, path, severity, and message
-- throw when policy marks the result as failed
+- reject startup on completed policy failure in fail-startup mode, or on operational validation failure in either enabled mode
 - avoid continuing to serve traffic after required validation fails
 
 Recommended output posture:
 
 - one concise summary per database
 - individual warnings/errors as structured logs
-- no connection strings in logs
+- original error and comparison messages without sanitization; no independently appended connection configuration dump
 - no generated SQL suggestions during startup unless explicitly requested later
 
 ### 4.3. Environment Policy
@@ -285,19 +285,20 @@ Recommended output posture:
 Applications need different policy per environment:
 
 ```csharp
-builder.Services.AddDataLinqSchemaValidation(options =>
+if (builder.Environment.IsDevelopment()
+    || builder.Environment.IsStaging()
+    || builder.Configuration.GetValue<bool>("DataLinq:ValidateSchemaOnStartup"))
 {
-    options.ValidateOnStartup = builder.Environment.IsDevelopment()
-        || builder.Environment.IsStaging()
-        || builder.Configuration.GetValue<bool>("DataLinq:ValidateSchemaOnStartup");
-
-    options.Validation.FailOnSeverity = builder.Environment.IsProduction()
-        ? SchemaDifferenceSeverity.Error
-        : SchemaDifferenceSeverity.Warning;
-});
+    builder.Services.AddDataLinqSchemaValidation(options =>
+    {
+        options.Validation.FailOnSeverity = builder.Environment.IsProduction()
+            ? SchemaDifferenceSeverity.Error
+            : SchemaDifferenceSeverity.Warning;
+    }).ValidateDatabase<EmployeesDb>();
+}
 ```
 
-That is intentionally application code, not DataLinq magic. Production deployments vary. Some teams want startup failure on drift; others want a canary job to fail before app rollout. DataLinq should provide the mechanism and sane defaults, not pretend there is one universally correct deployment policy.
+This sketch conditionally registers validation; applications may instead register it consistently and choose the global Disabled mode. D02's global master switch overrides individual targets. The callback/options spelling remains illustrative. Production deployments vary: some teams want startup failure on drift, while others want a deployment job to validate before rollout. Application code chooses that policy under D01's accepted operational-failure boundary.
 
 ## 5. MSBuild / Build-Time Hook
 
@@ -429,4 +430,4 @@ The source generator should continue validating model self-consistency. Live sch
 - Async validation and first-slice cancellation are resolved by AAPI-65/AAPI-66; exact implementation/provider evidence remains required.
 - Runtime type placement is resolved by AAPI-106, with its separate-hosting-package requirement superseded by [H10-1](../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages). Startup adapters belong in core under an extension namespace; actual dependency/consumer evidence remains required.
 - Should MSBuild `FailOn=warning` map warnings to build errors, or should it emit warnings and rely on `TreatWarningsAsErrors`?
-- Should startup validation run before or after application-specific migration tools, when both are registered?
+- All seven W5 design decisions are accepted, including D07's typed limitation issues and comparison interaction. Exact public declarations, reader/comparer/host implementation and provider/consumer evidence remain open implementation work; the detailed W5 plan records the entry gates and sequence. MSBuild remains outside W5.

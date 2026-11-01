@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-10-12 (H10 review dispositions complete, including synchronous rollback-request admission, explicit rollback intent and optional results, participant prepared execution, disposal/alias proof, and source compatibility gates; other workstream decisions unchanged).
+**Last reviewed:** 2026-11-01 (all seven W5 design decisions accepted; runtime/startup implementation and verification remain pending. The 2026-10-12 H10 review dispositions and other workstream scope remain unchanged).
 
 **Prerequisite:** DataLinq 0.9.2 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -184,21 +184,26 @@ Explicit non-goals:
 
 Durable design source: [Schema Validation Hooks](../../providers-and-features/Schema%20Validation%20Hooks.md).
 
+**W5 planning, 2026-11-01:** [Source audit and detailed implementation plan](W5%20Startup%20Schema%20Validation.md) now records all seven accepted decisions (D01–D06 on 2026-10-31, D07 on 2026-11-01). Next complete the W5.0 contract/base gate and W5.1 metadata foundation. W5 is not implemented; public declaration, provider, host and package-consumer evidence remains required.
+
 Required contract:
 
 - opt-in startup validation over registered targets, retaining H10-4's model/key identity and reusing the same provider through default aliases
-- explicit fail-fast, warning-only, and disabled policies
+- no runtime dependency on `datalinq.json`, companion configuration or model source files: compare finalized compiled provider metadata with live metadata using explicit runtime options and the existing connection
+- D06's live server identifier rules and amended exact compiled-model MySQL/MariaDB Include selection, with SQLite's known comparer retained and ambiguous identities rejected
+- D07's structured detected-limitation issues, independent of logging, with typed scope/aspect handling, narrowly withheld unprovable differences and the accepted default issue-failure policy
+- explicit fail-startup, warning-only, and disabled policies
 - reuse of current provider metadata readers, schema comparer, structured differences, and diagnostics
 - cancellation and timeout support aligned with A10
 - clear outcomes for missing secrets, connectivity, metadata read, drift, unsupported differences, and cancellation
-- structured logging without emitted connection secrets
+- concise structured logging of actual error/comparison messages without sanitization, with D05's accepted full in-process context, normal exception chaining and cancellation semantics
 
 Acceptance summary:
 
 - a configured host can fail startup on actionable drift
-- warning-only policy reports the same structured differences and continues
+- warning-only policy reports the same completed comparison findings and continues; failure to complete validation still blocks startup
 - disabled policy performs no database access
-- multiple registered validation targets have deterministic ordering and failure aggregation
+- enabled validation targets execute sequentially in canonical first-selection order, with D04's continuation/stopping rules and a public startup exception carrying ordered comparison/operational outcomes, including successes
 - validation never generates or applies a migration
 
 Explicit non-goals:

@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for unnamed and keyed registration, explicit unit of work, and startup-host integration; broader host variants remain later work.
-**Last reviewed:** 2026-10-12 (PR #250 review dispositions complete, including synchronous rollback-request admission, explicit rollback intent and optional results, participant prepared execution, disposal, and generated-helper compatibility gates; exact API shapes and implementation verification remain open).
+**Last reviewed:** 2026-11-01 (W5-D01–D07 accepted, including structured limitation issues and their scoped comparison/policy behavior. The 2026-10-12 H10 review dispositions, including rollback-request admission, explicit rollback intent, optional results, participant prepared execution, disposal and generated-helper compatibility gates, remain unchanged; W5 implementation verification remains open).
 **Dependency:** The shipped 0.9 backend/source boundary and the 0.10 async contracts must be stable before host integration freezes public service abstractions.
 **Goal:** Make DataLinq straightforward to configure, validate, and consume from ASP.NET Core, generic host, background workers, Blazor, MAUI, Avalonia, and other .NET application surfaces without hiding database I/O or transaction boundaries.
 
@@ -48,7 +48,7 @@ That is simple, but it does not scale cleanly across real application surfaces:
 - ASP.NET Core applications expect `IServiceCollection`, `IConfiguration`, `IHostApplicationBuilder`, logging, hosted services, and environment-specific options.
 - Minimal APIs and controllers should be able to inject read access without hand-rolled static database holders.
 - Background services need a safe way to create operation scopes and short-lived transactions.
-- Startup validation should be opt-in and fail-fast when the application chooses that policy.
+- Startup validation should be opt-in and block startup when the application chooses fail-startup policy; D04 collects independent target failures before rejecting startup.
 - Multiple databases or multiple registrations of the same model should be possible without naming hacks.
 - Platform apps such as MAUI and Avalonia should use the same core DI primitives rather than separate magic APIs.
 
@@ -174,7 +174,7 @@ The fluent form resolves the named connection string from `IConfiguration` when 
 
 ### Options Binding
 
-Applications should be able to bind provider and validation settings from normal host configuration:
+Applications can bind provider settings from normal host configuration. Validation selection and settings follow the separate accepted W5-D02 contract below:
 
 ```csharp
 builder.Services
@@ -189,18 +189,13 @@ Possible configuration shape:
 {
   "DataLinq": {
     "Employees": {
-      "ConnectionStringName": "employees",
-      "ValidateOnStartup": true,
-      "Validation": {
-        "FailOnSeverity": "Error",
-        "TreatValidationIssuesAsFailures": true
-      }
+      "ConnectionStringName": "employees"
     }
   }
 }
 ```
 
-The `UseMySql()` call selects the provider. Binding configures that selected provider and the associated validation policy; it cannot change provider type or registration key. Capture effective options at construction under H10-4, without a live reload subscription. H10-9 settles typed provider configuration, binding/override precedence, and connection-source conflict behavior; exact overload/type and diagnostic spelling remains API-review work. Startup validation execution remains W5.
+The `UseMySql()` call selects the provider. Provider binding configures that selection; it cannot change provider type or registration key. Capture effective provider options at construction under H10-4, without a live reload subscription. H10-9 settles typed provider configuration, binding/override precedence, and connection-source conflict behavior. The earlier combined validation JSON sketch is superseded by W5-D02's explicit modes, target selection and defaults/overrides; the provider `Bind` call above does not itself enable validation or imply automatic validation-section binding. Applications may read configuration in explicit validation callbacks; exact validation options/binding declarations remain an implementation API-review gate.
 
 ### Minimal API Read Usage
 
@@ -747,6 +742,16 @@ Alternatively, build separate test containers with the chosen provider as the de
 
 Startup validation should build on `Schema Validation Hooks.md`.
 
+**Runtime deployment boundary:** validation reuses the selected provider's finalized compiled model metadata and effective connection. It does not load `datalinq.json`, a user companion file, model sources or the tooling validator. Runtime Include/mode/threshold/timeout settings use explicit options/defaults or configuration supplied by the application; no particular configuration file is required. Named connection strings use the existing application's `IConfiguration`, while direct connection/factory/instance registrations retain their existing paths. A published application must validate with no development configuration/source files deployed.
+
+**Accepted W5-D01 policy, 2026-10-31:** warning-only permits completed comparison failures, including policy-failing typed issues, while preserving the structured result. It still blocks startup when validation cannot complete. Cancellation propagates after owned work settles; disabled validation does not activate otherwise-unused registrations. See the [accepted policy](../providers-and-features/Schema%20Validation%20Hooks.md#42-startup-behavior).
+
+**Accepted W5-D02 target/configuration contract, 2026-10-31:** attached and central selections share canonical W4 model/key identity, deduplicate aliases and unconfigured repetitions, and permit one explicit configuration owner per target. Apply defaults, host defaults and target overrides in that order, with global Disabled as a master switch; freeze settings before execution. Missing targets or enabled setup without selections fail configuration. Use W4 instance/factory ownership for supplied databases; arbitrary provider-factory validation targets are deferred. Enabled activation retains existing constructor effects. See the [accepted target contract](../providers-and-features/Schema%20Validation%20Hooks.md#41-public-surface).
+
+**Accepted W5-D03 startup phase/migration ordering, 2026-10-31:** one internal `IHostedLifecycleService` adapter validates in `StartingAsync`, before normal hosted workers and web-server `StartAsync`, including concurrent service startup. Finish application-owned migrations before `host.StartAsync` or at deployment time; custom sequencing can use the direct validator with the automatic hook disabled. Other hosted services' `StartAsync` migrations run too late, and other `StartingAsync` callbacks do not provide a supported ordering mechanism. Constructor/independent callback side effects remain outside the gate. Forward startup cancellation and settle owned work; synchronous activation and command timeouts do not become a hard host deadline. See the [accepted lifecycle contract](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d03-startup-phase-and-external-migrations).
+
+**Accepted W5-D04 multi-target/failure contract, 2026-10-31:** validate enabled targets sequentially in canonical first-selection order. Settle each target's owned work before continuing after completed comparisons or isolated operational failures. Apply D01 and reject startup with one public host exception carrying read-only ordered outcomes, including successes and separate operational failures; unread targets have no fabricated comparison. Configuration, callback/logger and orchestration errors stop scheduling while retaining completed outcomes. Cancellation stays cancellation after settlement; earlier results remain in already-emitted diagnostics. No retries, parallel target execution or persistent report cache. See the [accepted collection and stopping rules](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d04-multi-target-execution-and-the-host-failure-contract). D05–D07 separately settle diagnostics, identifiers and limitation issues below; exact public API declarations remain an implementation-review gate.
+
 Registration should be attached to the database registration:
 
 ```csharp
@@ -760,20 +765,27 @@ builder.Services.AddDataLinq<EmployeesDb>(db =>
 or registered centrally:
 
 ```csharp
-builder.Services.AddDataLinqSchemaValidation(validation =>
+builder.Services.AddDataLinqSchemaValidation(options =>
 {
-    validation.ValidateDatabase<EmployeesDb>();
-    validation.FailOnSeverity = SchemaDifferenceSeverity.Error;
-});
+    options.Validation.FailOnSeverity = SchemaDifferenceSeverity.Error;
+}).ValidateDatabase<EmployeesDb>();
 ```
+
+These show accepted API direction, not implemented or signature-frozen APIs.
+
+**Accepted W5-D05 diagnostic/exception contract, 2026-10-31:** preserve actual error and metadata comparison messages without sanitization, with concise logs and full in-process failure context. Retain original exceptions/stacks, failure trees and ordered cleanup evidence; rethrow originals without evidence loss or use an operational wrapper when needed. Use normal host exception chaining and inspectable public outcomes; the framework may log full exceptions. Preserve cancellation and callback-origin classification, and do not recursively call a failed logger. Do not append connection configuration dumps or scrub details already in received messages. The earlier blanket validation-log secrecy requirement is superseded; W4 configuration handling and SQL parameter logging remain unchanged. No restricted diagnostic accessor or MariaDB message-sanitization change is required. See the [accepted D05 record](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d05-operational-exceptions-and-actionable-diagnostics); exact public names/members remain API review.
+
+**Accepted W5-D06 identifier/Include contract, 2026-10-31:** resolve MySQL/MariaDB name comparison from the live server's `lower_case_table_names` during the owned metadata read. Require exact compiled-model spelling for server Include selections before validation metadata I/O; SQLite retains its known comparer. Apply identifier-specific rules to live scope/comparison and reject ambiguous identities; unreadable settings are operational failures. No tooling configuration file or new application casing option is required. See the [accepted D06 record and AAPI-108 amendment](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d06-server-name-comparison-and-before-io-include-validation).
+
+**Accepted W5-D07 typed-issue contract, 2026-11-01:** successful reads report detected representation limits as structured issues even with logging disabled. Apply typed ownership/aspect scoping, retain global/unknown and relevant selected-object issues, and withhold only comparison claims invalidated by known omissions. Include SQLite generated/hidden-column detection and the accepted unsupported column/index/default/relationship catalogue without expanding general SQL support. Issues contribute to `HasFailures` by default independently of difference severity; disabling that contribution retains the issues. Failed acquisition remains operational failure, and D01 governs startup after completed issue-bearing results. See the [accepted D07 record](../roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md#w5-d07-typed-issues-from-successful-but-limited-metadata-reads). All seven W5 decisions are accepted; implementation and evidence remain pending.
 
 Behavior:
 
 - validation targets are explicit
 - targets identify the full model/key registration; a default alias refers to the same target, not another database to construct or validate
-- validation runs from a hosted service during startup
+- validation runs in the internal adapter's `StartingAsync` phase before normal hosted-service startup
 - validation logs structured results
-- validation never logs connection strings
+- validation preserves received diagnostic text without sanitization and does not independently dump connection configuration
 - validation throws only when policy says it should
 - validation does not create, migrate, or repair schema
 - validation can be disabled or softened by environment
@@ -1099,7 +1111,7 @@ The boundary belongs to activation of the DataLinq registration, regardless of w
 - Add hosted service startup runner.
 - Add environment/policy options.
 - Add structured logging.
-- Add tests for pass, warning-only, fail-fast, and metadata-read failure cases.
+- Add tests for pass, warning-only, fail-startup, sequential mixed-target collection, callback/logger aborts and metadata-read failure cases.
 
 ### Slice 5: Samples and Documentation
 
@@ -1164,7 +1176,7 @@ Startup validation tests:
 - registered validation target runs at startup.
 - validation failure prevents host startup when policy requires it.
 - warning-only differences log without throwing when configured.
-- connection strings are not logged.
+- original validation error/comparison messages are retained without sanitization, and full failure context is inspectable without separately dumping connection configuration.
 - multiple registered databases produce separate validation summaries.
 - keyed targets resolve their existing database registration; default aliases do not construct another provider or cause duplicate validation.
 
