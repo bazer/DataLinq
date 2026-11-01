@@ -1,6 +1,25 @@
 # W5 compiled contract and candidate evidence
 
-W5 runtime/startup validation is implemented for review in [PR #254](https://github.com/bazer/DataLinq/pull/254). Candidate **`0.10.0-w5.9479fe97`** was packed from clean commit **`9479fe9760a796fa1cbe18334160759cf869b182`** using `publish-nuget.ps1 -PackOnly`. No package was published. The strict package/API/platform runners were rebuilt non-incrementally at that same clean revision. Later verifier/evidence changes do not change the candidate's runtime, provider, generator or consumer bytes.
+W5 runtime/startup validation is implemented for review in [PR #254](https://github.com/bazer/DataLinq/pull/254). Candidate **`0.10.0-w5.9479fe97`** was packed from clean commit **`9479fe9760a796fa1cbe18334160759cf869b182`** using `publish-nuget.ps1 -PackOnly`. No package was published. The strict package/API/platform runners were rebuilt non-incrementally at that same clean revision. Verifier/evidence commits through `2defe71f` preserved those candidate bytes. The subsequent SQLite review corrections change runtime code; the original packed/platform/full-matrix evidence below remains evidence for that earlier candidate.
+
+## SQLite review corrections, 2026-11-01
+
+Both findings in the [review of `2defe71f`](https://github.com/bazer/DataLinq/pull/254#issuecomment-6560957298) are corrected:
+
+- Sync and async runtime acquisition share a catalog query excluding the reserved `sqlite_` prefix. `ANALYZE` statistics and sequence tables cannot enter the application graph. The literal underscore preserves ordinary tables such as `sqliteXstatistics`.
+- SQLite runtime comparison folds ASCII A–Z only, consistently across table/column/index/constraint identities, Include resolution, ambiguity checks, omission evidence and reference canonicalization. Runtime column lookup uses that comparer instead of the legacy Unicode lookup. Non-ASCII case variants remain distinct; server rules and legacy import/CLI behavior retain their existing contracts.
+
+Fourteen new public validation/startup cases first failed against the reviewed implementation: receipt `20261101T170325212Z-479cecf749c24081ac3a0c2b1fddc1fc`. After the fixes, Release quick passes **5,459/5,459**, zero failures/skips: generators 199, unit 4,456, Memory 223, SQLite-file compliance 581. Receipt: `20261101T170659359Z-3d89a283fe904e8e974dc4d29fed43f8`. TRX counters were checked. This includes **22 new regression cases**: file/memory sync/async validation after ANALYZE, both startup modes, non-ASCII table/column rename drift, Include selection, ASCII collisions, distinct non-ASCII names and native foreign-key/index canonicalization.
+
+Reproduce the quick run from the repo root with a Debug Testing CLI runner and Release tests:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --no-build --configuration Debug --project src/DataLinq.Testing.CLI "--" run --plan quick --configuration Release --output failures
+```
+
+Non-incremental Release builds of `DataLinq.SQLite` and its core/generator dependencies pass on net8.0/net9.0/net10.0 (generator: netstandard2.0), with zero warnings/errors. `docfx build docfx.json` also passes with zero warnings/errors; the generated runtime guide contains the ASCII identifier and internal-object guidance.
+
+These are working-tree regression receipts, not a replacement packed candidate or certified full release evidence. No package, deployment or platform report has been relabeled as covering the corrections.
 
 ## Functional and consumer evidence
 

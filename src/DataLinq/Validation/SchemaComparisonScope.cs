@@ -23,7 +23,7 @@ internal sealed class SchemaComparisonScope
         ArgumentNullException.ThrowIfNull(model);
         var tables = ComparableTables(model);
         if (include is null || include.Count == 0) return new(tables, null);
-        var comparer = type == DatabaseType.SQLite ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        var comparer = type == DatabaseType.SQLite ? SchemaIdentifierRules.SQLite.TableNames : StringComparer.Ordinal;
         var names = new HashSet<string>(comparer);
         foreach (var requested in include)
         {
@@ -33,7 +33,8 @@ internal sealed class SchemaComparisonScope
                 throw new ArgumentException($"Include name '{requested}' resolves to multiple compiled model objects.", nameof(include));
             if (matches.Length == 0)
             {
-                var similar = tables.Where(table => StringComparer.OrdinalIgnoreCase.Equals(table.Table.DbName, requested)).ToArray();
+                var hintComparer = type == DatabaseType.SQLite ? comparer : StringComparer.OrdinalIgnoreCase;
+                var similar = tables.Where(table => hintComparer.Equals(table.Table.DbName, requested)).ToArray();
                 var hint = similar.Length == 1 ? $" Use the exact compiled-model spelling '{similar[0].Table.DbName}'." : "";
                 throw new ArgumentException($"Include name '{requested}' does not identify a compiled model table or view.{hint}", nameof(include));
             }

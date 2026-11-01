@@ -21,7 +21,7 @@ public sealed class DataLinqSchemaValidationOptions
 
     /// <summary>Gets or sets finalized-model database table/view names to compare. Null or empty compares all objects.</summary>
     /// <remarks>This is comparison scope, not an import filter. Server names require exact model spelling;
-    /// SQLite selection is case-insensitive. Selection does not reduce metadata I/O.</remarks>
+    /// SQLite selection ignores ASCII letter case only. Selection does not reduce metadata I/O.</remarks>
     public IReadOnlyList<string>? Include { get; set; }
 
     /// <summary>Gets or sets an optional synchronous metadata diagnostic callback. Callback failures propagate.</summary>

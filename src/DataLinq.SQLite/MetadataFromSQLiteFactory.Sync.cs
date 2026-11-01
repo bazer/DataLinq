@@ -52,7 +52,7 @@ public partial class MetadataFromSQLiteFactory
             new CsTypeDeclaration(request.CsTypeName, request.CsNamespace, ModelCsType.Class), request.DatabaseName);
         var catalog = context.Read(new Sql(limitations is null
             ? "SELECT type, tbl_name, sql FROM sqlite_master WHERE type <> 'index' AND tbl_name <> 'sqlite_sequence'"
-            : "SELECT type, tbl_name, sql FROM sqlite_master WHERE type IN ('table', 'view') AND tbl_name <> 'sqlite_sequence' ORDER BY tbl_name"),
+            : RuntimeCatalogSql),
             row => (Type: row.GetString(0), Name: row.GetString(1), Definition: row.IsDbNull(2) ? null : row.GetString(2)));
         var failures = new List<IDLOptionFailure>();
         foreach (var item in catalog.Where(row => IsTableOrViewNameInOptionsList(row.Name)))

@@ -12,8 +12,8 @@ public partial class MetadataFromSQLiteFactory
 {
     private SchemaReadLimitations? limitations;
 
-    private bool NativeNamesEqual(string? left, string? right) => string.Equals(left, right,
-        limitations is null ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
+    private bool NativeNamesEqual(string? left, string? right) =>
+        (limitations is null ? StringComparer.Ordinal : SchemaIdentifierRules.SQLite.TableNames).Equals(left, right);
 
     private void ReportRelationLimitation(SQLiteProviderTableDraft table, CatalogRelation row, IReadOnlyList<CatalogRelation>? group,
         SchemaReadLimitationReason reason, string message)

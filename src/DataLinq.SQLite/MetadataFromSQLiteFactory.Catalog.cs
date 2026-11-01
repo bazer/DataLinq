@@ -10,6 +10,10 @@ namespace DataLinq.SQLite;
 
 public partial class MetadataFromSQLiteFactory
 {
+    // SQLite reserves sqlite_ for internal schema objects, including ANALYZE
+    // statistics and the AUTOINCREMENT sequence. GLOB keeps '_' literal.
+    private const string RuntimeCatalogSql = "SELECT type, tbl_name, sql FROM sqlite_master WHERE type IN ('table', 'view') AND tbl_name NOT GLOB 'sqlite_*' ORDER BY tbl_name";
+
     // Snapshot catalog rows while their reader is alive. Both execution modes
     // use the same local interpretation, warning and unsupported-feature policy.
     private sealed record CatalogIndex(string Name, string Origin, IndexCharacteristic Characteristic, bool Partial)

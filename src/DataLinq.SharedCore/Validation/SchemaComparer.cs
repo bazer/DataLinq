@@ -128,10 +128,16 @@ public sealed partial class SchemaComparer
         var databaseColumns = databaseTable.Columns
             .OrderBy(x => x.DbName, StringComparer.Ordinal)
             .ToList();
+        // Runtime names can use SQLite's ASCII-only folding, which the legacy
+        // TableDefinition StringComparison lookup cannot represent.
+        var modelColumnLookup = identifiers is null ? null : modelColumns.ToDictionary(column => column.DbName, identifiers.ColumnNames);
+        var databaseColumnLookup = identifiers is null ? null : databaseColumns.ToDictionary(column => column.DbName, identifiers.ColumnNames);
 
         foreach (var modelColumn in modelColumns)
         {
-            if (databaseTable.TryGetColumnByDbName(modelColumn.DbName, columnComparison, out var databaseColumn))
+            if (databaseColumnLookup is not null
+                ? databaseColumnLookup.TryGetValue(modelColumn.DbName, out var databaseColumn)
+                : databaseTable.TryGetColumnByDbName(modelColumn.DbName, columnComparison, out databaseColumn))
             {
                 CompareColumnShape(modelColumn, databaseColumn, differences);
                 continue;
@@ -151,7 +157,8 @@ public sealed partial class SchemaComparer
 
         foreach (var databaseColumn in databaseColumns)
         {
-            if (modelTable.TryGetColumnByDbName(databaseColumn.DbName, columnComparison, out _))
+            if (modelColumnLookup is not null ? modelColumnLookup.ContainsKey(databaseColumn.DbName)
+                : modelTable.TryGetColumnByDbName(databaseColumn.DbName, columnComparison, out _))
                 continue;
 
             var path = $"{databaseTable.DbName}.{databaseColumn.DbName}";
