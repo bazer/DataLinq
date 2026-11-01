@@ -7,7 +7,7 @@
 
 **Audited source:** `967fbc17bf98f05098d5892f3db95c8043293158` on `codex/0.10-w4`, initially clean.
 
-**Status:** Audit and design discussion complete. W5-D01–D06 were accepted on 2026-10-31; W5-D07 was accepted on 2026-11-01. Ready to enter W5.0 contract/base verification and W5.1 metadata implementation. Exact public declarations and all implementation/verification gates remain open. No production code changed for this plan.
+**Status, 2026-11-01:** Implementation started on `codex/0.10-w5` from `v0.10` commit `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464`, containing completed W4 (#251), the accepted W5 plan (#252), and the master integration (#253). One draft PR against `v0.10` collects incremental implementation commits and their evidence, following W4. The user explicitly authorized W5 commits and pushes. Exact public declarations and all implementation/verification gates remain open; review acceptance, merge and publication remain separate.
 
 W5 lets an application compare its finalized DataLinq model with fresh live database metadata, inspect a complete structured result, and optionally prevent host startup. W4 supplies the registration identity and ownership model. W1/W2 supply substantial async metadata execution; W5 must connect those foundations without confusing import behavior, comparison findings, and operational failure.
 
@@ -370,3 +370,11 @@ Use Testing CLI server targets from its current inventory. Set `DATALINQ_TEST_DB
 All seven design decisions are settled. W5 has a usable comparison engine, substantial async metadata behavior, and established DI identity/ownership, but neither the public runtime validation layer nor the startup integration is implemented, and its synchronous observational path is still missing. D07 now fixes the typed-omission catalogue, scoping, comparison interaction and independent failure policy alongside D01–D06's accepted contracts. Exact public declarations, implementation details and evidence remain engineering work rather than unresolved architecture.
 
 Next, complete W5.0's base/contract verification and implement W5.1's observational metadata foundation: true synchronous reads, shared server comparison context, typed omission transport/detection and owned cleanup. Follow with W5.2/W5.3 comparison/results and public runtime APIs, W5.4/W5.5 registration/hosting, then W5.6/W5.7 provider/package/deployment evidence and documentation. Implementing only extension methods and a hosted service would leave the audited correctness gaps unresolved. No implementation work or candidate verification has been performed in this planning task; no commits, pushes, PR, merge or publication are implied.
+
+## 8. Implementation evidence
+
+### W5.0 opening checkpoint
+
+The dedicated branch starts at `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464`, verified equal to freshly fetched `origin/v0.10` with a clean working tree. The earlier 120-case foundation receipt remains historical; new baseline and implementation results will be recorded here against their actual source. The accepted D01–D07 contracts and all W5.0–W5.7 gates above remain the scope of this PR.
+
+Keep the PR description current as slices land. Do not count the opening tracking commit as runtime implementation or claim public contracts compile until their consumer fixtures exist.
