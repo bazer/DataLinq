@@ -26,6 +26,7 @@ public abstract partial class MetadataFromSqlFactory
             Include = request.Settings.Include.ToList(),
             Log = request.Settings.Log
         }, type);
+        parser.limitations = request.Settings.Limitations;
         return new NativeSyncMetadataPlan(parser, request, createSession, validateLifecycle);
     }
 
@@ -105,10 +106,10 @@ public abstract partial class MetadataFromSqlFactory
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"No tables or views found in database '{database.DbName}'. Please check the connection string and database name.");
 
         var keys = context.Read(Query("""
-            SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME, CONSTRAINT_NAME, ORDINAL_POSITION
+            SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME, CONSTRAINT_NAME, ORDINAL_POSITION
             FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = @schema AND REFERENCED_TABLE_NAME IS NOT NULL
             ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION
-            """), row => new NativeKey(Text(row, "TABLE_NAME"), Text(row, "COLUMN_NAME"), Text(row, "REFERENCED_TABLE_NAME"),
+            """), row => new NativeKey(Text(row, "TABLE_NAME"), Text(row, "COLUMN_NAME"), Text(row, "REFERENCED_TABLE_SCHEMA"), Text(row, "REFERENCED_TABLE_NAME"),
                 Text(row, "REFERENCED_COLUMN_NAME"), Text(row, "CONSTRAINT_NAME"), Number(row, "ORDINAL_POSITION")));
         var indexes = context.Read(Query($"""
             SELECT TABLE_NAME, INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX, INDEX_TYPE, NON_UNIQUE, SUB_PART, COLLATION,
@@ -130,19 +131,29 @@ public abstract partial class MetadataFromSqlFactory
                 Update: ParseReferentialAction(Text(row, "UPDATE_RULE")), Delete: ParseReferentialAction(Text(row, "DELETE_RULE"))));
         var actions = rules.ToDictionary(row => ((string?)row.Table, (string?)row.Constraint), row => (row.Update, row.Delete),
             identifiers is null ? null : new CatalogObjectComparer(identifiers, identifiers.ConstraintNames));
+        ValidateRuntimeKeyCompleteness(database, keys, identifiers, failures);
+        if (failures.Count != 0) return Combine(failures);
         foreach (var key in keys)
         {
             if (!string.IsNullOrWhiteSpace(key.Table) && !IsTableOrViewImported(database, key.Table)) continue;
             if (!ParseForeignKeyReference(database.DbName, key.Table, key.Column, key.ReferencedTable, key.ReferencedColumn, key.Constraint)
                 .TryUnwrap(out var reference, out var failure)) { failures.Add(failure); continue; }
+            if (ReportExternalReference(database, key, identifiers)) continue;
             var column = database.TableModels.SingleOrDefault(x => x.Table.DbName == reference.TableName)?
                 .Table.Columns.SingleOrDefault(x => x.Column.DbName == reference.ColumnName);
-            if (column is null) continue;
+            if (column is null)
+            {
+                if (limitations is not null)
+                    ReportForeignKeyLimitation(key, keys, identifiers, SchemaReadLimitationReason.UnrepresentedForeignKeySource,
+                        $"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because source column '{reference.ColumnName}' was not imported.");
+                continue;
+            }
             var target = database.TableModels.SingleOrDefault(x => x.Table.DbName == reference.ReferencedTableName)?
                 .Table.Columns.SingleOrDefault(x => x.Column.DbName == reference.ReferencedColumnName);
             if (target is null)
             {
-                options.Log?.Invoke($"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because referenced column '{reference.ReferencedTableName}.{reference.ReferencedColumnName}' was not imported.");
+                ReportForeignKeyLimitation(key, keys, identifiers, SchemaReadLimitationReason.UnrepresentedForeignKeyTarget,
+                    $"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because referenced column '{reference.ReferencedTableName}.{reference.ReferencedColumnName}' was not imported.");
                 continue;
             }
             actions.TryGetValue((reference.TableName, reference.ConstraintName), out var action);

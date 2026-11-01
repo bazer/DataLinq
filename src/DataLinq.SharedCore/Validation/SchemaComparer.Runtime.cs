@@ -8,9 +8,14 @@ namespace DataLinq.Validation;
 public sealed partial class SchemaComparer
 {
     private readonly SchemaIdentifierRules? identifiers;
+    private readonly ISchemaComparisonEvidence? evidence;
 
-    internal SchemaComparer(SchemaIdentifierRules identifiers)
-        : this(SchemaComparisonOptions.For(identifiers.DatabaseType)) => this.identifiers = identifiers;
+    internal SchemaComparer(SchemaIdentifierRules identifiers, ISchemaComparisonEvidence? evidence = null)
+        : this(SchemaComparisonOptions.For(identifiers.DatabaseType))
+    {
+        this.identifiers = identifiers;
+        this.evidence = evidence;
+    }
 
     internal IReadOnlyList<SchemaDifference> CompareRuntime(IReadOnlyList<TableModel> model, IReadOnlyList<TableModel> database)
     {

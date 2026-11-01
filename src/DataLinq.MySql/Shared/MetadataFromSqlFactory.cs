@@ -10,6 +10,7 @@ using DataLinq.Extensions.Helpers;
 using DataLinq.MariaDB;
 using DataLinq.Metadata;
 using DataLinq.MySql.Shared;
+using DataLinq.Validation;
 using MySqlConnector;
 using ThrowAway;
 using ThrowAway.Extensions;
@@ -93,7 +94,8 @@ public abstract partial class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
         if (IsGeneratedColumn(dbColumns))
         {
-            options.Log?.Invoke($"Warning: Skipping unsupported {databaseType} generated column '{table.DbName}.{dbColumns.COLUMN_NAME}'.");
+            ReportLimitation(table.DbName, dbColumns.COLUMN_NAME, SchemaReadAspect.Column, SchemaReadLimitationReason.GeneratedColumn,
+                $"Warning: Skipping unsupported {databaseType} generated column '{table.DbName}.{dbColumns.COLUMN_NAME}'.");
             return new ProviderColumnImport(null);
         }
 
@@ -397,6 +399,16 @@ public abstract partial class MetadataFromSqlFactory : IMetadataFromSqlFactory
             return new DefaultAttribute(property.CsType.Type == typeof(bool) ? (object)(bitValue != 0) : bitValue);
         }
 
+        // MySQL exposes date defaults without quotes. Runtime observation must
+        // detect the unsupported zero-date value before the legacy raw-SQL
+        // fallback can disguise it as a fully represented default expression.
+        if (limitations is not null && IsUnsupportedZeroDateDefault(NormalizeSqlLiteral(normalizedExpression), property))
+        {
+            ReportLimitation(table.DbName, dbColumns.COLUMN_NAME, SchemaReadAspect.ColumnDefault, SchemaReadLimitationReason.ZeroDateDefault,
+                $"Warning: Skipping unsupported zero date default '{dbColumns.COLUMN_DEFAULT}' for {table.DbName}.{dbColumns.COLUMN_NAME}.");
+            return null;
+        }
+
         if (!IsTypedSqlLiteralDefault(normalizedExpression, property))
             return new DefaultSqlAttribute(databaseType, FormatRawDefaultExpression(dbColumns.COLUMN_DEFAULT.Trim(), normalizedExpression));
 
@@ -404,7 +416,8 @@ public abstract partial class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
         if (IsUnsupportedZeroDateDefault(normalizedDefault, property))
         {
-            options.Log?.Invoke($"Warning: Skipping unsupported zero date default '{dbColumns.COLUMN_DEFAULT}' for {table.DbName}.{dbColumns.COLUMN_NAME}.");
+            ReportLimitation(table.DbName, dbColumns.COLUMN_NAME, SchemaReadAspect.ColumnDefault, SchemaReadLimitationReason.ZeroDateDefault,
+                $"Warning: Skipping unsupported zero date default '{dbColumns.COLUMN_DEFAULT}' for {table.DbName}.{dbColumns.COLUMN_NAME}.");
             return null;
         }
 

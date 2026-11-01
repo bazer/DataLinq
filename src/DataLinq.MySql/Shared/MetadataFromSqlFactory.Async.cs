@@ -54,6 +54,7 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
             Include = request.Settings.Include.ToList(),
             Log = request.Settings.Log
         }, type);
+        parser.limitations = request.Settings.Limitations;
         return new NativeMetadataPlan(parser, request, createSession, validateLifecycle);
     }
 
@@ -135,10 +136,10 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"No tables or views found in database '{database.DbName}'. Please check the connection string and database name.");
 
         var keys = await context.ReadAsync(Query("""
-            SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME, CONSTRAINT_NAME, ORDINAL_POSITION
+            SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME, CONSTRAINT_NAME, ORDINAL_POSITION
             FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = @schema AND REFERENCED_TABLE_NAME IS NOT NULL
             ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION
-            """), row => new NativeKey(Text(row, "TABLE_NAME"), Text(row, "COLUMN_NAME"), Text(row, "REFERENCED_TABLE_NAME"),
+            """), row => new NativeKey(Text(row, "TABLE_NAME"), Text(row, "COLUMN_NAME"), Text(row, "REFERENCED_TABLE_SCHEMA"), Text(row, "REFERENCED_TABLE_NAME"),
                 Text(row, "REFERENCED_COLUMN_NAME"), Text(row, "CONSTRAINT_NAME"), Number(row, "ORDINAL_POSITION"))).ConfigureAwait(false);
         var indexes = await context.ReadAsync(Query($"""
             SELECT TABLE_NAME, INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX, INDEX_TYPE, NON_UNIQUE, SUB_PART, COLLATION,
@@ -160,20 +161,30 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
                 Update: ParseReferentialAction(Text(row, "UPDATE_RULE")), Delete: ParseReferentialAction(Text(row, "DELETE_RULE")))).ConfigureAwait(false);
         var actions = rules.ToDictionary(row => ((string?)row.Table, (string?)row.Constraint), row => (row.Update, row.Delete),
             identifiers is null ? null : new CatalogObjectComparer(identifiers, identifiers.ConstraintNames));
+        ValidateRuntimeKeyCompleteness(database, keys, identifiers, failures);
+        if (failures.Count != 0) return Combine(failures);
         foreach (var key in keys)
         {
             token.ThrowIfCancellationRequested();
             if (!string.IsNullOrWhiteSpace(key.Table) && !IsTableOrViewImported(database, key.Table)) continue;
             if (!ParseForeignKeyReference(database.DbName, key.Table, key.Column, key.ReferencedTable, key.ReferencedColumn, key.Constraint)
                 .TryUnwrap(out var reference, out var failure)) { failures.Add(failure); continue; }
+            if (ReportExternalReference(database, key, identifiers)) continue;
             var column = database.TableModels.SingleOrDefault(x => x.Table.DbName == reference.TableName)?
                 .Table.Columns.SingleOrDefault(x => x.Column.DbName == reference.ColumnName);
-            if (column is null) continue;
+            if (column is null)
+            {
+                if (limitations is not null)
+                    ReportForeignKeyLimitation(key, keys, identifiers, SchemaReadLimitationReason.UnrepresentedForeignKeySource,
+                        $"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because source column '{reference.ColumnName}' was not imported.");
+                continue;
+            }
             var target = database.TableModels.SingleOrDefault(x => x.Table.DbName == reference.ReferencedTableName)?
                 .Table.Columns.SingleOrDefault(x => x.Column.DbName == reference.ReferencedColumnName);
             if (target is null)
             {
-                options.Log?.Invoke($"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because referenced column '{reference.ReferencedTableName}.{reference.ReferencedColumnName}' was not imported.");
+                ReportForeignKeyLimitation(key, keys, identifiers, SchemaReadLimitationReason.UnrepresentedForeignKeyTarget,
+                    $"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because referenced column '{reference.ReferencedTableName}.{reference.ReferencedColumnName}' was not imported.");
                 continue;
             }
             actions.TryGetValue((reference.TableName, reference.ConstraintName), out var action);
@@ -215,7 +226,17 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
                 : columns.Any(item => string.Equals(item.Visible, "NO", StringComparison.OrdinalIgnoreCase)) ? databaseType == DatabaseType.MySQL ? "invisible" : "ignored" : null;
             if (unsupported is not null)
             {
-                options.Log?.Invoke($"Warning: Skipping unsupported {databaseType} {unsupported} index '{index.Name}' on table '{index.Table}'.");
+                var reason = unsupported switch
+                {
+                    "expression" => SchemaReadLimitationReason.ExpressionIndex,
+                    "prefix-length" => SchemaReadLimitationReason.PrefixLengthIndex,
+                    "descending" => SchemaReadLimitationReason.DescendingIndex,
+                    "invisible" => SchemaReadLimitationReason.InvisibleIndex,
+                    "ignored" => SchemaReadLimitationReason.IgnoredIndex,
+                    _ => throw new InvalidOperationException("Unknown detected index limitation.")
+                };
+                ReportLimitation(index.Table, index.Name, SchemaReadAspect.Index, reason,
+                    $"Warning: Skipping unsupported {databaseType} {unsupported} index '{index.Name}' on table '{index.Table}'.");
                 continue;
             }
             if (!ParseIndexType(index.Type, index.Table, index.Name).TryUnwrap(out var type, out var failure)) { failures.Add(failure); continue; }
@@ -225,7 +246,8 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
                 var property = database.TableModels.SingleOrDefault(x => x.Table.DbName == item.Table)?.Table.Columns.SingleOrDefault(x => x.Column.DbName == item.Column);
                 if (property is null)
                 {
-                    options.Log?.Invoke($"Warning: Skipping {databaseType} index '{index.Name}' on table '{index.Table}' because column '{item.Column}' was not imported.");
+                    ReportLimitation(index.Table, index.Name, SchemaReadAspect.Index, SchemaReadLimitationReason.UnrepresentedIndexColumn,
+                        $"Warning: Skipping {databaseType} index '{index.Name}' on table '{index.Table}' because column '{item.Column}' was not imported.");
                     properties.Clear();
                     break;
                 }
@@ -269,7 +291,7 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
     private static ulong? ULong(IDataLinqDataReader row, string name) => row.IsDbNull(row.GetOrdinal(name)) ? null : Convert.ToUInt64(row.GetValue(row.GetOrdinal(name)), CultureInfo.InvariantCulture);
     private static int Number(IDataLinqDataReader row, string name) => Convert.ToInt32(row.GetValue(row.GetOrdinal(name)), CultureInfo.InvariantCulture);
     private sealed record NativeTable(string Name, string? Type, string? Comment);
-    private sealed record NativeKey(string? Table, string? Column, string? ReferencedTable, string? ReferencedColumn, string? Constraint, int Ordinal);
+    private sealed record NativeKey(string? Table, string? Column, string? ReferencedSchema, string? ReferencedTable, string? ReferencedColumn, string? Constraint, int Ordinal);
     private sealed record NativeIndex(string? Table, string? Name, string? Column, int Ordinal, string Type, int NonUnique, ulong? Prefix, string? Collation, string? Expression, string? Visible);
 
     private sealed record NativeColumn(string? TABLE_SCHEMA, string? TABLE_NAME, string? DATA_TYPE, string COLUMN_TYPE,

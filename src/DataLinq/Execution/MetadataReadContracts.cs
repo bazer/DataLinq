@@ -18,6 +18,7 @@ internal sealed class MetadataReadSettings
         TimeSpan? commandTimeout)
     {
         Purpose = purpose;
+        Limitations = purpose == MetadataReadPurpose.RuntimeValidation ? new() : null;
         CapitaliseNames = options.CapitaliseNames;
         DeclareEnumsInClass = options.DeclareEnumsInClass;
         Include = Array.AsReadOnly(options.Include?.ToArray() ?? []);
@@ -32,6 +33,7 @@ internal sealed class MetadataReadSettings
     internal Action<string>? Log { get; }
     internal int? CommandTimeoutSeconds { get; }
     internal SchemaIdentifierRules? Identifiers { get; private set; }
+    internal SchemaReadLimitations? Limitations { get; }
 
     // A request owns its observation; never reuse or cache a server setting
     // across reads. Consumers publish it only alongside a settled complete read.

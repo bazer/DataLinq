@@ -137,6 +137,7 @@ public sealed partial class SchemaComparer
                 continue;
             }
 
+            if (evidence?.IsColumnOmitted(modelTable.DbName, modelColumn.DbName) == true) continue;
             var path = $"{modelTable.DbName}.{modelColumn.DbName}";
             differences.Add(new SchemaDifference(
                 SchemaDifferenceKind.MissingColumn,
@@ -247,7 +248,7 @@ public sealed partial class SchemaComparer
                 databaseColumn);
         }
 
-        if (options.Capabilities.CompareDefaults)
+        if (options.Capabilities.CompareDefaults && evidence?.IsDefaultOmitted(modelColumn.Table.DbName, modelColumn.DbName) != true)
         {
             AddMismatchIfDifferent(
                 differences,
@@ -290,6 +291,7 @@ public sealed partial class SchemaComparer
         {
             if (databaseIndexes.ContainsKey(IndexComparisonKey(modelIndex)))
                 continue;
+            if (evidence?.IsIndexOmitted(modelTable.DbName, modelIndex.Name) == true) continue;
 
             differences.Add(new SchemaDifference(
                 SchemaDifferenceKind.MissingIndex,
@@ -349,6 +351,7 @@ public sealed partial class SchemaComparer
                 continue;
             }
 
+            if (evidence?.IsForeignKeyOmitted(modelForeignKey.Relation) == true) continue;
             differences.Add(new SchemaDifference(
                 SchemaDifferenceKind.MissingForeignKey,
                 SchemaDifferenceSeverity.Error,

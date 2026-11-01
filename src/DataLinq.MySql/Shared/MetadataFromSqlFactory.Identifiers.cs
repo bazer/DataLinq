@@ -49,8 +49,10 @@ public abstract partial class MetadataFromSqlFactory
         {
             Table = CanonicalTable(database, key.Table, identifiers),
             Column = CanonicalColumn(database, key.Table, key.Column, identifiers),
-            ReferencedTable = CanonicalTable(database, key.ReferencedTable, identifiers),
-            ReferencedColumn = CanonicalColumn(database, key.ReferencedTable, key.ReferencedColumn, identifiers)
+            ReferencedTable = identifiers.DatabaseNames.Equals(key.ReferencedSchema, database.DbName)
+                ? CanonicalTable(database, key.ReferencedTable, identifiers) : key.ReferencedTable,
+            ReferencedColumn = identifiers.DatabaseNames.Equals(key.ReferencedSchema, database.DbName)
+                ? CanonicalColumn(database, key.ReferencedTable, key.ReferencedColumn, identifiers) : key.ReferencedColumn
         }).ToArray();
 
     private static IReadOnlyList<NativeIndex> CanonicalIndexes(ProviderDatabaseDraft database, IReadOnlyList<NativeIndex> indexes, SchemaIdentifierRules? identifiers) =>
