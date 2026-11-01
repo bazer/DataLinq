@@ -18,9 +18,11 @@ internal static class HostScenarios
         foreach (var drift in new[] { false, true })
         foreach (var concurrent in new[] { false, true })
         foreach (var validationFirst in new[] { false, true })
+        foreach (var scoped in new[] { false, true })
         {
             using var store = Fixture.Database();
             Fixture.CreateSchema(store);
+            store.Provider.DatabaseAccess.ExecuteNonQuery("CREATE TABLE unrelated(id INTEGER PRIMARY KEY)");
             if (drift) store.Provider.DatabaseAccess.ExecuteNonQuery("ALTER TABLE rows RENAME COLUMN value TO wrong");
             var starts = new Worker();
             var log = new RecordingLog();
@@ -35,7 +37,7 @@ internal static class HostScenarios
                     services.AddDataLinqSchemaValidation(options => options.Mode = mode);
                     services.AddDataLinq<TestDb>("selected").UseSQLiteConnectionString("AppDatabase")
                         .Configure(options => { configured++; options.DatabaseName = store.Provider.DatabaseName; })
-                        .AsDefault().ValidateSchemaOnStartup(options => { targetConfigured++; options.Validation.Include = ["rows"]; });
+                        .AsDefault().ValidateSchemaOnStartup(options => { targetConfigured++; options.Validation.Include = scoped ? ["rows"] : null; });
                     // All these selections refer to the one configured target.
                     services.AddDataLinqSchemaValidation().ValidateDatabase<TestDb>().ValidateDatabase<TestDb>("selected");
                     if (validationFirst) services.AddSingleton<IHostedService>(starts);
@@ -59,6 +61,9 @@ internal static class HostScenarios
                 "Canonical registration was configured repeatedly or while disabled.");
             if (drift && mode != DataLinqSchemaStartupMode.Disabled)
                 Fixture.Check(log.Messages.Any(message => message.Contains("value", StringComparison.Ordinal)), "Drift path was lost in logs.");
+            if (mode != DataLinqSchemaStartupMode.Disabled)
+                Fixture.Check(log.Messages.Any(message => message.Contains($"1 model objects, {(scoped ? 1 : 2)} database objects", StringComparison.Ordinal)),
+                    "Host comparison did not retain its full/Include scope and counts.");
         }
         // An application factory error is a run-level failure even when it has
         // a provider-like exception type; WarningOnly cannot permit startup.
@@ -70,7 +75,7 @@ internal static class HostScenarios
         }).Build();
         var rejected = await Fixture.ExpectAsync<DataLinqSchemaStartupException>(() => failing.StartAsync());
         Fixture.Check(ReferenceEquals(rejected.RunFailure, original) && rejected.Outcomes.Count == 0, "Factory failure was misclassified or replaced.");
-        Console.WriteLine("Generic Host: 24 mode/order/concurrency cases and callback provenance passed.");
+        Console.WriteLine("Generic Host: 48 mode/order/concurrency/scope cases and callback provenance passed.");
     }
 
     internal sealed class Worker : IHostedService

@@ -18,6 +18,8 @@ Construction is lazy. Resolving the database, read model, read access or unit-of
 
 Registration does not provision or validate a schema. Perform application setup explicitly before querying.
 
+To opt into validation before workers and HTTP listeners start, attach `.ValidateSchemaOnStartup()` or select registrations through `AddDataLinqSchemaValidation()`. [Runtime Schema Validation](Runtime%20Schema%20Validation.md) explains modes, keyed/default selection, common settings, operational failures and migration ordering. Complete migrations before entering host startup; an ordinary hosted migration service runs after the validation barrier.
+
 ## Configuration and keys
 
 ```csharp

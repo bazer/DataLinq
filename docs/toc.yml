@@ -49,6 +49,8 @@
       href: model-generation.md
     - name: Schema Validation and Diff
       href: Schema Validation and Diff.md
+    - name: Runtime Schema Validation (0.10 development)
+      href: Runtime Schema Validation.md
     - name: CLI Documentation
       href: CLI Documentation.md
     - name: Configuration Files

@@ -1,5 +1,5 @@
 > [!WARNING]
-> Implementation planning and source audit. All seven W5 design decisions are accepted. W5 runtime/startup validation is not implemented; API compilation, implementation and verification gates remain open.
+> Implementation plan and execution record. All seven W5 design decisions are accepted and runtime/startup validation is implemented on the W5 branch. Final candidate, compatibility/platform, broad regression and review-handoff gates remain open; implementation evidence is recorded below.
 
 # W5: Startup Schema Validation
 
@@ -7,7 +7,7 @@
 
 **Audited source:** `967fbc17bf98f05098d5892f3db95c8043293158` on `codex/0.10-w4`, initially clean.
 
-**Status, 2026-11-01:** Implementation started on `codex/0.10-w5` from `v0.10` commit `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464`, containing completed W4 (#251), the accepted W5 plan (#252), and the master integration (#253). One draft PR against `v0.10` collects incremental implementation commits and their evidence, following W4. The user explicitly authorized W5 commits and pushes. Exact public declarations and all implementation/verification gates remain open; review acceptance, merge and publication remain separate.
+**Status, 2026-11-01:** Implementation is on `codex/0.10-w5` from `v0.10` commit `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464`, containing completed W4 (#251), the accepted W5 plan (#252), and the master integration (#253). One draft PR against `v0.10` collects incremental implementation commits and their evidence, following W4. The user explicitly authorized W5 commits and pushes. W5.0's integration baseline and public source-consumer compilation are complete; functional slices are implemented with focused native/controlled evidence. Consolidated candidate and integration gates remain open. Review acceptance, merge and publication remain separate.
 
 **PR:** [#254, Implement W5: startup schema validation](https://github.com/bazer/DataLinq/pull/254).
 
@@ -369,6 +369,8 @@ Use Testing CLI server targets from its current inventory. Set `DATALINQ_TEST_DB
 
 ## 7. Readiness assessment
 
+This section records the planning handoff. The current implementation status and receipts are in section 8; its original pending statements are not a claim that the subsequently implemented APIs are absent.
+
 All seven design decisions are settled. W5 has a usable comparison engine, substantial async metadata behavior, and established DI identity/ownership, but neither the public runtime validation layer nor the startup integration is implemented, and its synchronous observational path is still missing. D07 now fixes the typed-omission catalogue, scoping, comparison interaction and independent failure policy alongside D01–D06's accepted contracts. Exact public declarations, implementation details and evidence remain engineering work rather than unresolved architecture.
 
 Next, complete W5.0's base/contract verification and implement W5.1's observational metadata foundation: true synchronous reads, shared server comparison context, typed omission transport/detection and owned cleanup. Follow with W5.2/W5.3 comparison/results and public runtime APIs, W5.4/W5.5 registration/hosting, then W5.6/W5.7 provider/package/deployment evidence and documentation. Implementing only extension methods and a hosted service would leave the audited correctness gaps unresolved. No implementation work or candidate verification has been performed in this planning task; no commits, pushes, PR, merge or publication are implied.
@@ -538,3 +540,11 @@ Both containers requested mode 2 but reported mode 0 on their Linux filesystem. 
 The initial case run (`fde03e38-development`) exposed textual CHECK differences: the server added identifier quoting and enclosing parentheses. The fixture now spells the identifier quoting explicitly. Runtime comparison strips redundant complete enclosing parentheses and folds whitespace only outside quoted text; it preserves literal whitespace, identifier quoting, comments and backslash-sensitive expressions. It deliberately does not parse arbitrary SQL equivalence. Legacy import/CLI normalization is unchanged. Comparer regressions pass **86/86**, no failures/skips, with verified TRX counters in `20261101T152939671Z-e9bfe55935de4286b30d76e013d9aa1b`. The consumer and its provider dependencies build all three TFMs with zero warnings/errors.
 
 The public consumer also adds anonymous-memory identity/keeper checks. Source executions on actual .NET 8/9/10 passed before the final text-normalization adjustment; final candidate executions will cover the combined tree. Initial case-fixture compilation required explicit authored relation navigation properties, consistent with the existing generator contract. No production generator changes were made. Final packed/deployed/API/platform checks, broad regressions and shipped documentation remain open.
+
+### Runtime guide and full/scoped host deployment contracts, 2026-11-01
+
+The working tree above `69af124d` adds the normal runtime validation guide, links it from the CLI and DI pages, and places it in Usage navigation. The guide separates compiled runtime metadata from tooling configuration, specifies policy/scope/ownership and exception inspection, documents migration ordering before host startup, and states conservative SQL/metadata limits. `docfx build docfx.json` passes with zero warnings/errors; generated `_site/docs/Runtime Schema Validation.html` and `_site/docs/toc.html` were inspected for the content, cross-links and navigation.
+
+The public host consumer now covers full and explicit Include scope in each mode/order/concurrency case, using an unrelated table to prove count exclusion. All **48 combinations**, direct checks (including anonymous memory), and callback provenance pass on actual **.NET 8.0.33, 9.0.20 and 10.0.14** after a zero-warning/error three-TFM source build. The .NET 10 HTTP scenarios also pass. `artifacts/w5-contract-scope-net{8,9,10}.json` retains the captures. A reproducible W5 package/publish workflow is documented under `tests/fixtures/W5 Consumers.md`; package execution remains pending.
+
+The initial full-plan attempt (`20261101T153750774Z-e26378ef951140a686303f3dce813f00`) failed before tests because a Release Testing CLI runner held DLLs that the Release unit dependency graph rebuilt. The retry uses the Debug runner with Release tests. Its unit suite reached only the ten known sandbox junction/socket-path failures; these are not product failures or a passing full gate. Full verification outside that sandbox remains required and will be recorded separately.
