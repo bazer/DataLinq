@@ -59,6 +59,8 @@ internal sealed class SchemaValidationInvocation
     {
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(options);
+        if (provider is not ISyncProviderMetadataSource && provider is not IAsyncProviderMetadataSource)
+            throw new NotSupportedException("This provider does not support runtime schema validation metadata reads.");
         return new(provider, options);
     }
 

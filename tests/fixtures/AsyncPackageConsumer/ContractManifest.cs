@@ -17,7 +17,7 @@ internal static class ContractManifest
         method.DeclaringType == typeof(DataLinq.Diagnostics.DataLinqFailure) || method.Name == "AsKeyValuePairs" ||
         method.DeclaringType?.Namespace?.EndsWith("Extensions.DependencyInjection", StringComparison.Ordinal) == true;
 
-    internal static void Write(string path)
+    internal static void Write(string path, bool w5 = false)
     {
         CheckCount(typeof(DataLinqAsyncQueryableExtensions), 41);
         CheckCount(typeof(IImmutableRelation<>), 46);
@@ -58,10 +58,13 @@ internal static class ContractManifest
             type.Name is "DataLinqSecondaryFailure" or "DataLinqOperationKind" or "DataLinqCompletionOutcome" or "DataLinqRecoveryActions" ||
             type.GetMethods(Declared).Any(method => Async(method) && (Visible(method) || type.IsInterface)))
             .OrderBy(type => type.FullName, StringComparer.Ordinal).ToArray();
-        if (assemblies[0].GetType("DataLinq.Validation.DataLinqSchemaValidator") is not null)
+        var hasValidation = assemblies[0].GetType("DataLinq.Validation.DataLinqSchemaValidator") is not null;
+        if (hasValidation && !w5)
             throw new Exception("W5 validation unexpectedly entered the W3 candidate.");
+        if (w5 && !hasValidation) throw new Exception("W5 fixture mode requires the W5 validation surface.");
         var manifest = new {
             SchemaVersion = "w3.compiled-contract-manifest.v1",
+            FixtureMode = w5 ? "w5" : "w3-w4",
             Framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
             Assemblies = assemblies.Select(assembly => new { assembly.FullName, assembly.ManifestModule.ModuleVersionId,
                 Sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assembly.Location))).ToLowerInvariant() }),

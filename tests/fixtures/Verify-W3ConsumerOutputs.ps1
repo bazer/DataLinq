@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory)][string]$CandidateVersion,
     [Parameter(Mandatory)][string]$BaselineDirectory,
     [Parameter(Mandatory)][string]$DotNet9,
-    [Parameter(Mandatory)][string]$OutputDirectory
+    [Parameter(Mandatory)][string]$OutputDirectory,
+    [ValidateSet('W3W4','W5')][string]$FixtureMode = 'W3W4'
 )
 
 # Run after restoring/building the four fixtures described in W3 Consumers.md.
@@ -22,7 +23,7 @@ $packageRecords = [Collections.Generic.List[object]]::new()
 $binaryRecords = [Collections.Generic.List[object]]::new()
 $sourceRecords = [Collections.Generic.List[object]]::new()
 $lock = Get-Content (Join-Path $repo 'test-infra/api-compatibility/v0.9.2-packages.json') -Raw | ConvertFrom-Json
-$report = [ordered]@{ SchemaVersion = 'w3.consumer-output-verification.v1'; Passed = $false; CandidateVersion = $CandidateVersion }
+$report = [ordered]@{ SchemaVersion = 'w3.consumer-output-verification.v1'; Passed = $false; CandidateVersion = $CandidateVersion; FixtureMode = $FixtureMode }
 
 function Hash([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
 function CheckGraph([string]$fixture, [string]$version, [string]$feed) {
@@ -83,6 +84,7 @@ try {
             if ((Hash $runtimeCore) -ne (Hash $packageCore)) { throw 'Executed core does not match the restored candidate.' }
             $arguments = @($dll)
             if ($fixture -eq 'AsyncPackageConsumer') { $arguments += @($frozen, (Join-Path $output "contract-$tfm.json")) }
+            if ($fixture -eq 'AsyncPackageConsumer' -and $FixtureMode -eq 'W5') { $arguments += '--w5' }
             $log = Join-Path $output "$fixture-$tfm.log"
             if ($tfm -eq 'net9.0') { $lines = @(& $runtime9 @arguments 2>&1) }
             else { $lines = @(& (Join-Path $repo 'scripts/dotnet-sandbox.ps1') @arguments 2>&1) }
