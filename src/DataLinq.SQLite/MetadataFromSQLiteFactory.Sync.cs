@@ -8,6 +8,7 @@ using DataLinq.Execution;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.Query;
+using DataLinq.Validation;
 using ThrowAway;
 using ThrowAway.Extensions;
 
@@ -40,6 +41,8 @@ public partial class MetadataFromSQLiteFactory
     private Option<DatabaseDefinition, IDLOptionFailure> ReadNativeMetadata(
         SyncMetadataReadContext context, MetadataImportRequest request)
     {
+        if (request.Settings.Purpose == MetadataReadPurpose.RuntimeValidation)
+            request.Settings.SetIdentifiers(SchemaIdentifierRules.SQLite);
         // Session opening never creates a file or acquires an owning keeper.
         // Even connection visibility setup goes through the context so an
         // explicit metadata timeout reaches every actual native command.

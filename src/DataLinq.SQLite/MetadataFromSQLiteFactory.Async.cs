@@ -9,6 +9,7 @@ using DataLinq.Execution;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.Query;
+using DataLinq.Validation;
 using Microsoft.Data.Sqlite;
 using ThrowAway;
 using ThrowAway.Extensions;
@@ -69,6 +70,8 @@ public partial class MetadataFromSQLiteFactory : IAsyncMetadataFactory
     private async Task<Option<DatabaseDefinition, IDLOptionFailure>> ReadNativeMetadataAsync(
         MetadataReadContext context, MetadataImportRequest request, CancellationToken token)
     {
+        if (request.Settings.Purpose == MetadataReadPurpose.RuntimeValidation)
+            request.Settings.SetIdentifiers(SchemaIdentifierRules.SQLite);
         // Session opening never creates a file or acquires an owning keeper.
         // Even connection visibility setup goes through the context so an
         // explicit metadata timeout reaches every actual native command.

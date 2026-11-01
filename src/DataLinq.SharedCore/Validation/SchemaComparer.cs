@@ -9,7 +9,7 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Validation;
 
-public sealed class SchemaComparer
+public sealed partial class SchemaComparer
 {
     private readonly SchemaComparisonOptions options;
 
@@ -32,21 +32,21 @@ public sealed class SchemaComparer
         var differences = new List<SchemaDifference>();
 
         if (options.Capabilities.CompareTables)
-            CompareTables(model, database, differences);
+            CompareTables(GetComparableTables(model), GetComparableTables(database), differences);
 
         return differences;
     }
 
     private void CompareTables(
-        DatabaseDefinition model,
-        DatabaseDefinition database,
+        IEnumerable<TableModel> model,
+        IEnumerable<TableModel> database,
         List<SchemaDifference> differences)
     {
-        var tableComparer = options.Capabilities.TableNameComparer;
-        var modelTables = GetComparableTables(model)
+        var tableComparer = identifiers?.TableNames ?? options.Capabilities.TableNameComparer;
+        var modelTables = model
             .OrderBy(x => x.Table.DbName, StringComparer.Ordinal)
             .ToList();
-        var databaseTables = GetComparableTables(database)
+        var databaseTables = database
             .OrderBy(x => x.Table.DbName, StringComparer.Ordinal)
             .ToList();
         var modelTableLookup = BuildTableLookup(modelTables, tableComparer);
@@ -282,13 +282,13 @@ public sealed class SchemaComparer
         List<SchemaDifference> differences)
     {
         var modelIndexes = GetComparableIndexes(modelTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(IndexComparisonKey);
         var databaseIndexes = GetComparableIndexes(databaseTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(IndexComparisonKey);
 
         foreach (var modelIndex in modelIndexes.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (databaseIndexes.ContainsKey(modelIndex.Key))
+            if (databaseIndexes.ContainsKey(IndexComparisonKey(modelIndex)))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -303,7 +303,7 @@ public sealed class SchemaComparer
 
         foreach (var databaseIndex in databaseIndexes.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (modelIndexes.ContainsKey(databaseIndex.Key))
+            if (modelIndexes.ContainsKey(IndexComparisonKey(databaseIndex)))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -323,20 +323,20 @@ public sealed class SchemaComparer
         List<SchemaDifference> differences)
     {
         var modelForeignKeys = GetComparableForeignKeys(modelTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(x => ForeignKeyComparisonKey(x, shapeOnly: false));
         var databaseForeignKeys = GetComparableForeignKeys(databaseTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(x => ForeignKeyComparisonKey(x, shapeOnly: false));
         var modelForeignKeysByShape = GetComparableForeignKeys(modelTable)
-            .ToDictionary(x => x.ShapeKey, StringComparer.Ordinal);
+            .ToDictionary(x => ForeignKeyComparisonKey(x, shapeOnly: true));
         var databaseForeignKeysByShape = GetComparableForeignKeys(databaseTable)
-            .ToDictionary(x => x.ShapeKey, StringComparer.Ordinal);
+            .ToDictionary(x => ForeignKeyComparisonKey(x, shapeOnly: true));
 
         foreach (var modelForeignKey in modelForeignKeys.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (databaseForeignKeys.ContainsKey(modelForeignKey.Key))
+            if (databaseForeignKeys.ContainsKey(ForeignKeyComparisonKey(modelForeignKey, shapeOnly: false)))
                 continue;
 
-            if (databaseForeignKeysByShape.TryGetValue(modelForeignKey.ShapeKey, out var databaseForeignKey))
+            if (databaseForeignKeysByShape.TryGetValue(ForeignKeyComparisonKey(modelForeignKey, shapeOnly: true), out var databaseForeignKey))
             {
                 differences.Add(new SchemaDifference(
                     SchemaDifferenceKind.ForeignKeyActionMismatch,
@@ -361,10 +361,10 @@ public sealed class SchemaComparer
 
         foreach (var databaseForeignKey in databaseForeignKeys.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (modelForeignKeys.ContainsKey(databaseForeignKey.Key))
+            if (modelForeignKeys.ContainsKey(ForeignKeyComparisonKey(databaseForeignKey, shapeOnly: false)))
                 continue;
 
-            if (modelForeignKeysByShape.ContainsKey(databaseForeignKey.ShapeKey))
+            if (modelForeignKeysByShape.ContainsKey(ForeignKeyComparisonKey(databaseForeignKey, shapeOnly: true)))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -384,13 +384,13 @@ public sealed class SchemaComparer
         List<SchemaDifference> differences)
     {
         var modelChecks = GetEffectiveChecks(modelTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(CheckComparisonKey);
         var databaseChecks = GetEffectiveChecks(databaseTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(CheckComparisonKey);
 
         foreach (var modelCheck in modelChecks.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (databaseChecks.ContainsKey(modelCheck.Key))
+            if (databaseChecks.ContainsKey(CheckComparisonKey(modelCheck)))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -405,7 +405,7 @@ public sealed class SchemaComparer
 
         foreach (var databaseCheck in databaseChecks.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (modelChecks.ContainsKey(databaseCheck.Key))
+            if (modelChecks.ContainsKey(CheckComparisonKey(databaseCheck)))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -494,7 +494,8 @@ public sealed class SchemaComparer
                 relation.CandidateKey.ColumnIndex.Table.DbName,
                 string.Join(",", relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName)),
                 relation.OnUpdate,
-                relation.OnDelete));
+                relation.OnDelete,
+                relation));
     }
 
     private IEnumerable<CheckSignature> GetEffectiveChecks(TableDefinition table)
@@ -1037,7 +1038,8 @@ public sealed class SchemaComparer
             string candidateKeyTable,
             string candidateKeyColumns,
             ReferentialAction onUpdate,
-            ReferentialAction onDelete)
+            ReferentialAction onDelete,
+            RelationDefinition relation)
         {
             ConstraintName = constraintName;
             ForeignKeyTable = foreignKeyTable;
@@ -1046,6 +1048,7 @@ public sealed class SchemaComparer
             CandidateKeyColumns = candidateKeyColumns;
             OnUpdate = onUpdate;
             OnDelete = onDelete;
+            Relation = relation;
         }
 
         public string ConstraintName { get; }
@@ -1055,6 +1058,7 @@ public sealed class SchemaComparer
         public string CandidateKeyColumns { get; }
         public ReferentialAction OnUpdate { get; }
         public ReferentialAction OnDelete { get; }
+        public RelationDefinition Relation { get; }
         public string ShapeKey => $"{ConstraintName}|{ForeignKeyTable}|{ForeignKeyColumns}|{CandidateKeyTable}|{CandidateKeyColumns}";
         public string Key => $"{ConstraintName}|{ForeignKeyTable}|{ForeignKeyColumns}|{CandidateKeyTable}|{CandidateKeyColumns}|{OnUpdate}|{OnDelete}";
     }

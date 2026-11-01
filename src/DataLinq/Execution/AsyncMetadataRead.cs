@@ -30,9 +30,14 @@ internal static class AsyncMetadataRead
 
     internal static Task<Option<DatabaseDefinition, IDLOptionFailure>> ReadValidationMetadataAsyncCore(
         this IDatabaseProvider provider, TimeSpan? commandTimeout = null, Action<string>? log = null, CancellationToken token = default)
+        => ReadValidationMetadataAsyncCore(provider, MetadataReadSettings.Runtime(commandTimeout, log), token);
+
+    internal static Task<Option<DatabaseDefinition, IDLOptionFailure>> ReadValidationMetadataAsyncCore(
+        this IDatabaseProvider provider, MetadataReadSettings settings, CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(provider);
-        var settings = MetadataReadSettings.Runtime(commandTimeout, log);
+        ArgumentNullException.ThrowIfNull(settings);
+        if (settings.Purpose != MetadataReadPurpose.RuntimeValidation) throw new ArgumentException("Runtime metadata settings are required.", nameof(settings));
         var capability = provider as IAsyncProviderMetadataSource
             ?? throw new NotSupportedException("This provider does not support asynchronous validation metadata reads.");
         return Begin(capability.CaptureValidationMetadata(settings), settings, token, provider.TelemetryInstanceId);

@@ -11,9 +11,14 @@ internal static class SyncMetadataRead
 {
     internal static Option<DatabaseDefinition, IDLOptionFailure> ReadValidationMetadataCore(
         this IDatabaseProvider provider, TimeSpan? commandTimeout = null, Action<string>? log = null)
+        => ReadValidationMetadataCore(provider, MetadataReadSettings.Runtime(commandTimeout, log));
+
+    internal static Option<DatabaseDefinition, IDLOptionFailure> ReadValidationMetadataCore(
+        this IDatabaseProvider provider, MetadataReadSettings settings)
     {
         ArgumentNullException.ThrowIfNull(provider);
-        var settings = MetadataReadSettings.Runtime(commandTimeout, log);
+        ArgumentNullException.ThrowIfNull(settings);
+        if (settings.Purpose != MetadataReadPurpose.RuntimeValidation) throw new ArgumentException("Runtime metadata settings are required.", nameof(settings));
         var capability = provider as ISyncProviderMetadataSource
             ?? throw new NotSupportedException("This provider does not support synchronous validation metadata reads.");
         var plan = capability.CaptureValidationMetadata(settings);

@@ -12,6 +12,7 @@ using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.MySql.Shared;
 using DataLinq.Query;
+using DataLinq.Validation;
 using MySqlConnector;
 using ThrowAway;
 using ThrowAway.Extensions;
@@ -68,19 +69,29 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
     private async Task<Option<DatabaseDefinition, IDLOptionFailure>> ReadNativeMetadataAsync(
         MetadataReadContext context, MetadataImportRequest request, CancellationToken token)
     {
+        SchemaIdentifierRules? identifiers = null;
+        if (request.Settings.Purpose == MetadataReadPurpose.RuntimeValidation)
+        {
+            identifiers = SchemaIdentifierRules.Server(databaseType, await context.ExecuteScalarAsync(new Sql("SELECT @@lower_case_table_names")).ConfigureAwait(false));
+            request.Settings.SetIdentifiers(identifiers);
+        }
         var database = new ProviderDatabaseDraft(request.Name,
             new CsTypeDeclaration(request.CsTypeName, request.CsNamespace, ModelCsType.Class), request.DatabaseName);
-        Sql Query(string text) => new Sql(text).AddParameter("@schema", request.DatabaseName);
+        var schema = identifiers is null ? request.DatabaseName
+            : RuntimeSchemaName(await context.ReadAsync(new Sql("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA"), row => Text(row, "SCHEMA_NAME")!).ConfigureAwait(false), request.DatabaseName, identifiers);
+        Sql Query(string text) => new Sql(identifiers is null ? text : RuntimeCatalogQuery(text)).AddParameter("@schema", schema);
 
         // An empty result from information_schema alone cannot distinguish an
         // existing empty schema from a missing/inaccessible schema.
-        var exists = await context.ExecuteScalarAsync(Query("SELECT 1 FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = @schema LIMIT 1")).ConfigureAwait(false);
+        var exists = identifiers is null ? await context.ExecuteScalarAsync(Query("SELECT 1 FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = @schema LIMIT 1")).ConfigureAwait(false) : schema;
         if (exists is null || exists == DBNull.Value)
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Database '{request.DatabaseName}' does not exist or is not visible to this connection.");
 
         var tables = await context.ReadAsync(Query("SELECT TABLE_NAME, TABLE_TYPE, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = @schema ORDER BY TABLE_NAME"),
             row => new NativeTable(Text(row, "TABLE_NAME")!, Text(row, "TABLE_TYPE"), Text(row, "TABLE_COMMENT"))).ConfigureAwait(false);
         var failures = new List<IDLOptionFailure>();
+        if (identifiers is not null)
+            SchemaIdentifierRules.RequireUnambiguous(tables.Select(table => table.Name), identifiers.TableNames, "table/view", model: false);
         foreach (var item in tables.Where(item => IsTableOrViewNameInOptionsList(item.Name)))
         {
             token.ThrowIfCancellationRequested();
@@ -94,7 +105,7 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
             var model = new ProviderTableModelDraft(csName, new CsTypeDeclaration(csName, database.CsType.Namespace, ModelCsType.Class), table);
             if (!string.IsNullOrWhiteSpace(item.Comment)) model.ModelAttributes.Add(new CommentAttribute(item.Comment));
             if (table.Type == TableType.View)
-                table.Definition = await ReadViewAsync(context, database.DbName, table.DbName).ConfigureAwait(false);
+                table.Definition = await ReadViewAsync(context, schema!, table.DbName, identifiers is not null).ConfigureAwait(false);
             var columns = await context.ReadAsync(Query($"""
                 SELECT TABLE_SCHEMA, TABLE_NAME, DATA_TYPE, COLUMN_TYPE, NUMERIC_PRECISION, NUMERIC_SCALE,
                     CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_KEY, EXTRA, GENERATION_EXPRESSION,
@@ -103,6 +114,8 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
                 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
                 ORDER BY ORDINAL_POSITION
                 """).AddParameter("@table", table.DbName), NativeColumn.Read).ConfigureAwait(false);
+            if (identifiers is not null)
+                SchemaIdentifierRules.RequireUnambiguous(columns.Select(column => column.COLUMN_NAME!), identifiers.ColumnNames, $"column in '{table.DbName}'", model: false);
             foreach (var column in columns)
             {
                 token.ThrowIfCancellationRequested();
@@ -135,7 +148,9 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
             """), row => new NativeIndex(Text(row, "TABLE_NAME"), Text(row, "INDEX_NAME"), Text(row, "COLUMN_NAME"),
                 Number(row, "SEQ_IN_INDEX"), Text(row, "INDEX_TYPE")!, Number(row, "NON_UNIQUE"),
                 ULong(row, "SUB_PART"), Text(row, "COLLATION"), Text(row, "EXPRESSION"), Text(row, "IS_VISIBLE"))).ConfigureAwait(false);
-        ParseNativeIndexes(database, indexes, keys, failures);
+        keys = CanonicalKeys(database, keys, identifiers);
+        indexes = CanonicalIndexes(database, indexes, identifiers);
+        ParseNativeIndexes(database, indexes, keys, failures, identifiers);
         if (failures.Count != 0) return Combine(failures);
 
         var rules = await context.ReadAsync(Query("""
@@ -143,7 +158,8 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
             FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = @schema
             """), row => (Table: Text(row, "TABLE_NAME")!, Constraint: Text(row, "CONSTRAINT_NAME")!,
                 Update: ParseReferentialAction(Text(row, "UPDATE_RULE")), Delete: ParseReferentialAction(Text(row, "DELETE_RULE")))).ConfigureAwait(false);
-        var actions = rules.ToDictionary(row => (row.Table, row.Constraint), row => (row.Update, row.Delete));
+        var actions = rules.ToDictionary(row => ((string?)row.Table, (string?)row.Constraint), row => (row.Update, row.Delete),
+            identifiers is null ? null : new CatalogObjectComparer(identifiers, identifiers.ConstraintNames));
         foreach (var key in keys)
         {
             token.ThrowIfCancellationRequested();
@@ -167,27 +183,25 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
         }
         if (failures.Count != 0) return Combine(failures);
 
-        var checks = await context.ReadAsync(Query("""
-            SELECT tc.TABLE_NAME, cc.CONSTRAINT_NAME, cc.CHECK_CLAUSE
-            FROM information_schema.TABLE_CONSTRAINTS tc
-            JOIN information_schema.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
-            WHERE tc.TABLE_SCHEMA = @schema AND tc.CONSTRAINT_TYPE = 'CHECK'
-            ORDER BY tc.TABLE_NAME, cc.CONSTRAINT_NAME
-            """), row => (Table: Text(row, "TABLE_NAME"), Constraint: Text(row, "CONSTRAINT_NAME")!, Clause: Text(row, "CHECK_CLAUSE")!)).ConfigureAwait(false);
+        var checks = await context.ReadAsync(Query(NativeCheckQuery(identifiers is not null)),
+            row => (Table: Text(row, "TABLE_NAME"), Constraint: Text(row, "CONSTRAINT_NAME")!, Clause: Text(row, "CHECK_CLAUSE")!)).ConfigureAwait(false);
         foreach (var check in checks)
-            database.TableModels.SingleOrDefault(x => x.Table.DbName == check.Table)?.ModelAttributes
+            database.TableModels.SingleOrDefault(x => identifiers is null ? x.Table.DbName == check.Table : identifiers.TableNames.Equals(x.Table.DbName, check.Table))?.ModelAttributes
                 .Add(new CheckAttribute(databaseType, check.Constraint, NormalizeCheckClause(check.Clause)));
         token.ThrowIfCancellationRequested();
         return new MetadataDefinitionFactory().BuildProviderMetadata(database.ToMetadataDraft());
     }
 
     private void ParseNativeIndexes(ProviderDatabaseDraft database, IReadOnlyList<NativeIndex> indexes,
-        IReadOnlyList<NativeKey> keys, List<IDLOptionFailure> failures)
+        IReadOnlyList<NativeKey> keys, List<IDLOptionFailure> failures, SchemaIdentifierRules? identifiers)
     {
-        foreach (var group in indexes.Where(index => !keys.Any(key => key.Table == index.Table && key.Column == index.Column && key.Constraint == index.Name))
-            .GroupBy(index => (index.Table, index.Name)))
+        var indexNames = identifiers?.IndexNames ?? StringComparer.Ordinal;
+        foreach (var group in indexes.Where(index => !keys.Any(key => key.Table == index.Table && key.Column == index.Column && indexNames.Equals(key.Constraint, index.Name)))
+            .GroupBy(index => (index.Table, index.Name), identifiers is null ? null : new CatalogObjectComparer(identifiers, identifiers.IndexNames)))
         {
             var index = group.First();
+            if (identifiers is not null)
+                SchemaIdentifierRules.RequireUnambiguous(group.Select(item => item.Name!).Distinct(StringComparer.Ordinal), identifiers.IndexNames, $"index in '{index.Table}'", model: false);
             if (string.IsNullOrWhiteSpace(index.Table) || string.IsNullOrWhiteSpace(index.Name))
             {
                 failures.Add(DLOptionFailure.Fail(DLFailureType.InvalidModel, $"{databaseType} index metadata is missing a table or index name in database '{database.DbName}'."));
@@ -224,9 +238,10 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
         }
     }
 
-    private static async Task<string> ReadViewAsync(MetadataReadContext context, string database, string view)
+    private static async Task<string> ReadViewAsync(MetadataReadContext context, string database, string view, bool runtime)
     {
-        var definitions = await context.ReadAsync(new Sql("SELECT VIEW_DEFINITION FROM information_schema.VIEWS WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @view")
+        const string viewQuery = "SELECT VIEW_DEFINITION FROM information_schema.VIEWS WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @view";
+        var definitions = await context.ReadAsync(new Sql(runtime ? RuntimeCatalogQuery(viewQuery) : viewQuery)
             .AddParameter("@schema", database).AddParameter("@view", view), row => Text(row, "VIEW_DEFINITION")).ConfigureAwait(false);
         var definition = definitions.FirstOrDefault();
         if (string.IsNullOrWhiteSpace(definition))

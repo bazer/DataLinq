@@ -9,7 +9,7 @@ using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
-public class SchemaComparerTests
+public partial class SchemaComparerTests
 {
     [Test]
     public async Task Compare_TablePresence_ReturnsDeterministicDifferences()
