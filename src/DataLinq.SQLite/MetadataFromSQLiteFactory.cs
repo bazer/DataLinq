@@ -9,6 +9,7 @@ using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Logging;
 using DataLinq.Metadata;
+using DataLinq.Validation;
 using ThrowAway;
 using ThrowAway.Extensions;
 
@@ -254,13 +255,15 @@ public partial class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         if (IsBlobLiteral(normalizedExpression))
         {
-            options.Log?.Invoke($"Warning: Skipping unsupported SQLite blob default '{rawDefault}' for {tableName}.{columnName}.");
+            ReportLimitation(tableName, columnName, SchemaReadAspect.ColumnDefault, SchemaReadLimitationReason.BlobDefault,
+                $"Warning: Skipping unsupported SQLite blob default '{rawDefault}' for {tableName}.{columnName}.");
             return null;
         }
 
         if (!TryConvertDefaultValue(normalizedExpression, csType, enumProperty, out var value))
         {
-            options.Log?.Invoke($"Warning: Skipping unsupported SQLite default '{rawDefault}' for {tableName}.{columnName}.");
+            ReportLimitation(tableName, columnName, SchemaReadAspect.ColumnDefault, SchemaReadLimitationReason.UnsupportedDefault,
+                $"Warning: Skipping unsupported SQLite default '{rawDefault}' for {tableName}.{columnName}.");
             return null;
         }
 

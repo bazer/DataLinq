@@ -1,5 +1,5 @@
 > [!WARNING]
-> Implementation planning and source audit. All seven W5 design decisions are accepted. W5 runtime/startup validation is not implemented; API compilation, implementation and verification gates remain open.
+> Implementation plan and execution record. W5 implementation and its functional, consumer and documentation work are complete for review. Candidate evidence and explicit platform/compatibility dispositions are recorded below. Reviewer acceptance, merge and final release acceptance remain separate.
 
 # W5: Startup Schema Validation
 
@@ -7,7 +7,9 @@
 
 **Audited source:** `967fbc17bf98f05098d5892f3db95c8043293158` on `codex/0.10-w4`, initially clean.
 
-**Status:** Audit and design discussion complete. W5-D01–D06 were accepted on 2026-10-31; W5-D07 was accepted on 2026-11-01. Ready to enter W5.0 contract/base verification and W5.1 metadata implementation. Exact public declarations and all implementation/verification gates remain open. No production code changed for this plan.
+**Status, 2026-11-01:** Implementation is complete for review on `codex/0.10-w5`, based on `v0.10` commit `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464` containing W4 (#251), W5 planning (#252) and master integration (#253). The user-authorized incremental commits and pushes are collected in one PR against `v0.10`. Candidate `0.10.0-w5.9479fe97` has complete functional/provider/package/consumer evidence and explicit compatibility/platform dispositions. The raw strict platform report remains failed on independently audited friend-metadata token matches; it is not certified release evidence. Review acceptance, merge, W8/W9 release obligations and publication remain separate.
+
+**PR:** [#254, Implement W5: startup schema validation](https://github.com/bazer/DataLinq/pull/254).
 
 W5 lets an application compare its finalized DataLinq model with fresh live database metadata, inspect a complete structured result, and optionally prevent host startup. W4 supplies the registration identity and ownership model. W1/W2 supply substantial async metadata execution; W5 must connect those foundations without confusing import behavior, comparison findings, and operational failure.
 
@@ -367,6 +369,205 @@ Use Testing CLI server targets from its current inventory. Set `DATALINQ_TEST_DB
 
 ## 7. Readiness assessment
 
+This section records the planning handoff. The current implementation status and receipts are in section 8; its original pending statements are not a claim that the subsequently implemented APIs are absent.
+
 All seven design decisions are settled. W5 has a usable comparison engine, substantial async metadata behavior, and established DI identity/ownership, but neither the public runtime validation layer nor the startup integration is implemented, and its synchronous observational path is still missing. D07 now fixes the typed-omission catalogue, scoping, comparison interaction and independent failure policy alongside D01–D06's accepted contracts. Exact public declarations, implementation details and evidence remain engineering work rather than unresolved architecture.
 
 Next, complete W5.0's base/contract verification and implement W5.1's observational metadata foundation: true synchronous reads, shared server comparison context, typed omission transport/detection and owned cleanup. Follow with W5.2/W5.3 comparison/results and public runtime APIs, W5.4/W5.5 registration/hosting, then W5.6/W5.7 provider/package/deployment evidence and documentation. Implementing only extension methods and a hosted service would leave the audited correctness gaps unresolved. No implementation work or candidate verification has been performed in this planning task; no commits, pushes, PR, merge or publication are implied.
+
+## 8. Implementation evidence
+
+### W5.0 opening checkpoint
+
+The dedicated branch starts at `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464`, verified equal to freshly fetched `origin/v0.10` with a clean working tree. The earlier 120-case foundation receipt remains historical; new baseline and implementation results will be recorded here against their actual source. The accepted D01–D07 contracts and all W5.0–W5.7 gates above remain the scope of this PR.
+
+Keep the PR description current as slices land. Do not count the opening tracking commit as runtime implementation or claim public contracts compile until their consumer fixtures exist.
+
+### Fresh foundation baseline
+
+Source `abb36938a95b8edd1186d318371626d791327a0f` contains only the opening record above the integration base; production/test sources are unchanged. All 120 focused cases pass with no failures or skips, verified from each run's TRX:
+
+| Filter | Passed / total | Run ID |
+| --- | --- | --- |
+| `/*/*/*/MetadataRead_*` | 58 / 58 | `20261101T115710016Z-3fc4bf1cba36415283e0c54cf2d74bbb` |
+| `/*/*/SQLiteNativeAsyncMetadataTests/*` | 14 / 14 | `20261101T115841769Z-c51a800c26054021847a5962094dc5eb` |
+| `/*/*/SchemaComparer*/*` | 48 / 48 | `20261101T115856243Z-eb0350f4607e4f66bce70c4b6852f1f0` |
+
+The initial sandboxed metadata run was canceled after remaining silent through startup/build; it provides no completed test receipt. Retrying that command outside the sandbox passed (76.7-second build, 3.4-second suite). The SQLite/comparer runs subsequently passed inside the sandbox using the existing Testing CLI build. This establishes the integration baseline, not completion of W5.0's public consumer compilation or any new runtime behavior.
+
+### W5.0/W5.2 initial supporting contracts
+
+Added the accepted public options, internally constructed result, and result-based exception in core, with no dependency changes. Internal capture validates defined difference thresholds, timeout bounds and malformed Include entries, copies Include, and invokes configuration synchronously once. Model-name resolution and provider execution are still pending. Results retain every difference, snapshot issue context and collection membership, preserve difference references, and calculate failure flags from captured policy independently of diagnostic severity. The exception preserves the exact result.
+
+`SchemaValidationContractTests` passes **35/35**, no failures/skips, in run `20261101T120259686Z-8c094432f2d74c5b8a82632c483e9afe` on the implementation working tree above `abb36938`. Cases cover the difference/issue policy truth tables, undefined thresholds, timeout boundaries, malformed Include, callback identity/timing, subsequent input/option mutation, read-only snapshots and public construction restrictions. The first 34-case pass is superseded by this strengthened mutation coverage. Core Release builds pass on net8.0/net9.0/net10.0 with zero warnings/errors.
+
+This is the supporting-contract portion only. Direct entry points, complete consumer-shaped overload compilation, observational sync reads, D06/D07 comparison behavior and hosting remain open; no W5 stage is declared complete by these tests.
+
+### W5.1 synchronous observational metadata foundation
+
+Added a private synchronous provider capability, owned-session coordinator and buffered command context. SQLite, MySQL and MariaDB now have internal runtime observation paths using native synchronous open/execute/read/dispose calls. These paths retain effective provider identity, use read-only SQLite file connections, borrow neither application transactions nor root/keeper ownership, and accept a readable empty schema. Existing public import APIs are unchanged. The native command construction and local catalog interpretation are shared with the async path; execution and cleanup remain genuinely synchronous.
+
+The context applies explicit timeouts after command ownership transfers, settles each reader/command before the next command, rejects reentry, retains swallowed command failures, and preserves ordered reader/command/session cleanup evidence. A failed metadata Option remains a failed Option even when cleanup adds another failure. The coordinator never publishes incomplete metadata or successful metadata whose cleanup failed. Native command/row diagnostics use provider evidence without replacing callback/materialization causes.
+
+Verification on the implementation working tree above `c4147837`:
+
+| Check | Result | Run ID |
+| --- | --- | --- |
+| `/*/*/*/SyncMetadata_*`, unit | 30/30, no failures/skips | `20261101T123051019Z-da2634f347eb46e8a7ca5dafa4b727fd` |
+| Complete SQLite native metadata class, including old async/import tests | 25/25, no failures/skips | `20261101T123444505Z-5cda1630ce5444ce93e40a053e8b2082` |
+| Existing controlled `MetadataRead_*` regressions | 58/58, no failures/skips | `20261101T123635696Z-fb9815a8028142598da1629043b8bad7` |
+| Server `SyncMetadata_*`, MySQL 9.7 and MariaDB 12.3 | 8/8, no failures/skips | `20261101T123756292Z-55fd3f5da03841f5a7c482b5bee4cba1` |
+| Server native metadata/import/fallback regressions plus sync cases, latest targets | 26/26, no failures/skips | `20261101T123935362Z-5784af299f1545f6b19dbf69340d859f` |
+
+Counts were checked against TRX; the rows overlap and are not a unique-case aggregate. Core and both SQL provider projects build in Release on net8.0/net9.0/net10.0 with zero warnings/errors. Controlled cases verify native synchronous call/thread use, timeout boundaries, no fallback, complete-result/failed-Option separation, reentry and exact failure identities/cleanup order. SQLite fixtures cover file/shared-memory identity, freshness, empty/missing distinction, transaction independence, every command's effective timeout, and real scalar/reader lock timeouts. Server fixtures cover metadata/warning parity, effective schema override, freshness, empty/missing distinction, command defaults/overrides, native timeout and one-connection-pool reuse.
+
+Retained failed attempts: initial test-fixture placement/renaming compilation errors were corrected before test execution. The 30-case run `20261101T122840608Z-bd392dcbdb9e458a98d58d64902de882` passed 28 and failed both SQLite lock-timeout cases because a nested Unknown cause masked provider classification; the native evidence correction produced the passing receipt above. Server commands through the profile-isolated wrapper could not reach Podman, including outside the sandbox. Normal-profile Podman inspection succeeded and showed stopped targets. The same Testing CLI, invoked with normal-profile `dotnet` inside the sandbox and `DATALINQ_TEST_DB_HOST=127.0.0.1`, successfully started the latest targets and ran the server checks. No tooling configuration was changed.
+
+This completes a bounded synchronous foundation slice, not W5.1's entire exit gate. D06 server identifier context and D07 typed omission transport/detection remain next, followed by scoped comparison/public entry points and hosting. All-server/case-setting fixtures, isolated deployment, packed compatibility and final candidate gates remain open.
+
+### Runtime identifier and scope foundation, 2026-11-01
+
+Implementation working tree above `ea1149c1` adds immutable runtime identifier rules and non-mutating comparison scope. Server readers observe `@@lower_case_table_names` once on their owned session, using the ordinary command timeout/token/cleanup path. They resolve the effective requested schema against visible catalog names, then use exact catalog predicates to avoid merging case-sensitive objects. A provider's effective schema can legitimately differ from its connection's default database. Runtime MariaDB check acquisition also joins the owning table, so equal constraint names on distinct tables do not cross-match; [MariaDB's catalog contract](https://mariadb.com/docs/server/reference/system-tables/information-schema/information-schema-tables/information-schema-check_constraints-table) exposes this owner. Existing import defaults and queries retain their contract.
+
+Runtime comparison applies identifier-specific rules to table lookup, index columns, foreign-key endpoints and constraint names. It compares signature components directly, preserving original spelling, SQL literals, defaults and comments. Ambiguous relevant model names are configuration errors; inconsistent live names are operational errors. Include resolves exact server model spelling before observation, deduplicates selections, and scopes both sides after the live rules are known. SQLite retains its known case-insensitive selection. The selected tables retain their original finalized relations; foreign-key targets outside Include neither expand counts nor lose their identities, and ambiguity affecting those references is rejected.
+
+| Verification | Result | Run receipt |
+| --- | --- | --- |
+| Comparer regressions and new runtime identifier/scope cases | 66/66, no failures/skips | `20261101T125929917Z-ebf6ee94d16d4bf9b74f89e3b84f6180` |
+| Server native metadata/import/fallback cases, latest targets | 30/30, no failures/skips | `20261101T130151324Z-197f14094c364b1ea67db22f73272d3c` |
+| Full SQLite native metadata cases | 25/25, no failures/skips | `20261101T130306288Z-7268e5aaded641e58eeddd5b782f7a34` |
+| Existing controlled async metadata cases | 58/58, no failures/skips | `20261101T130619569Z-229e0f6414724842a3d1ca0bf0590306` |
+| Controlled synchronous metadata cases | 19/19, no failures/skips | `20261101T130619569Z-758868ec2b1b45f6b902529e5b41fd66` |
+| Targeted native identifiers with observed-setting output | 4/4, no failures/skips; overlaps the server row | `20261101T130704841Z-51c02f336f1d4b3e9f8b78966fb5eec1` |
+
+Counters were checked against TRX. Core and both SQL provider Release builds pass on net8.0/net9.0/net10.0 with zero warnings/errors. Native cases verify fresh per-read rules, distinct `Orders`/`orders` and non-ASCII names, case-insensitive column references, scoped foreign-key retention, MariaDB check ownership, strict invalid-setting failure before catalog acquisition, timeout propagation and one-slot-pool reuse. The current latest Linux targets provide mode-0 evidence. Modes 1/2 have controlled comparer coverage only; dedicated native case-setting fixtures, mode-2 platform disposition and the full provider matrix remain W5.6 work. This is a foundation slice, not completion of D06's entire verification gate or any W5 stage.
+
+Retained corrections: the initial build found a local variable-name collision. The first comparer run (`20261101T125316800Z-a8393030441d4d3cb4ee714574e8c652`) passed 55/63; new test fixtures incorrectly omitted required primary keys and were corrected. A subsequent build-only attempt was rejected by the CLI's stale-graph guard after a source edit; it is not a test receipt. The first native run (`20261101T125701244Z-d2e505c1c5c941d88cd4733e614e7fba`) passed 26/30 and exposed the erroneous assumption that the effective schema must equal `SELECT DATABASE()`; explicit catalog identity resolution fixed all four effective-schema regressions. Passing receipts above cover the corrections. Public runtime entry points, D07 typed omission reporting and comparison, hosting, packed/deployment checks and shipped usage documentation remain open.
+
+Execution sequencing clarification: internal foundation work overlaps the still-open W5.0 contract gate. Full consumer-shaped compilation will close that gate with the real runtime/host entry-point wiring; the verified options/result declarations alone do not freeze the remaining public surface or satisfy the complete entry gate.
+
+### Typed omission transport and comparison, 2026-11-01
+
+The working tree above `9baf400a` adds request-owned typed omissions, independent of the optional string logger. Completed snapshots retain original messages, owner/object identities and affected aspects, deterministically deduplicate and scope them, and expose immutable diagnostic collections. Runtime comparison suppresses only claims made unprovable by a matching omission. Unrelated missing columns/indexes, nullability and known foreign-key endpoint/action disagreements remain differences. Database-wide or unknown-owner issues remain visible; selected relationships retain issues concerning targets outside Include.
+
+SQLite runtime reads use `table_xinfo` to detect generated and hidden columns, exclude trigger catalog rows, and retain typed partial/expression/descending index, default and unrepresented dependency omissions. MySQL/MariaDB capture generated columns, supported unsupported-index branches, zero-date defaults and unrepresented dependencies. External-schema foreign keys are explicitly reported and cannot masquerade as local relationships. MySQL's unquoted zero-date catalog defaults require runtime detection before the importer's raw-SQL fallback. Existing import behavior is preserved. Native SQLite automatic-index identities retain their observed diagnostic name and a separate comparison alias.
+
+Additional omission dispositions: external-schema relationships yield a typed issue but do not suppress a missing expected-local relationship; partial composite relationships remain operational acquisition failures rather than publishing a reduced shape. SQLite virtual-table hidden-column detection does not turn an otherwise unsupported model into a successful result. Neither issue policy nor Include suppresses failed acquisition. These decisions narrow unsupported evidence without claiming support for generated columns, expression/partial indexes, virtual-table models or composite relationships rejected by the current model.
+
+| Check | Result | Run receipt |
+| --- | --- | --- |
+| Comparer regressions and typed omission cases, including known endpoint disagreement | 69/69, no failures/skips | `20261101T134427993Z-227efbf128f54318a9bcd0748e12df91` |
+| Native server metadata/import/fallback cases, latest targets | 34/34, no failures/skips | `20261101T134757944Z-ff6bd5f93d234f56bd3607e321b3d27f` |
+| Complete SQLite native metadata cases, sequential rerun | 32/32, no failures/skips | `20261101T134948401Z-a7c2a8d88833489d867b11fcf332d030` |
+| Options/result contract regression (before final endpoint-evidence tightening) | 35/35, no failures/skips | `20261101T134035529Z-f415bed4efad4756bd284756d9e88002` |
+
+Counters above were checked against TRX. Core and both SQL provider Release builds pass on net8.0/net9.0/net10.0 with zero warnings/errors. Earlier 5/5 and 8/8 focused omission runs and the 32/32 SQLite run `20261101T133555338Z-0284b317f52a437ba5a61fd457850e94` predate the final endpoint-evidence correction and are not substituted for the rerun.
+
+Retained failed attempts: an initial SQLite build found misplaced using declarations, corrected before testing. Native server runs first passed 2/4 (`20261101T132526037Z-ee74a85cf16e4b87adc6c912135418a3`) and 3/4 (`20261101T132700794Z-0c7c267f99f240508a575018eb95405e`); fixture index rebuilding needed the same permissive session SQL mode as zero-date creation, and replacing a foreign key needed separate ALTER statements. The focused 1/2 run `20261101T132954041Z-67a9a4f923814411b1c02b589461d15c` confirmed the remaining MySQL unquoted-zero-date detection defect; the runtime correction passes the complete server suite above. A concurrent unit/server build collided on the Windows generator DLL (`20261101T134758224Z-63799257e27942baa118456a87c082af`, MSB3021/MSB3027); no tests ran in that failed build attempt.
+
+This is the bounded D07 transport/detection/comparison slice. Public runtime APIs, compiled-model/native roundtrip normalization, operational exception adaptation, hosting and the provider/package/deployment/documentation gates remain open.
+
+### Public runtime validation and native roundtrips, 2026-11-01
+
+The implementation working tree above `b91ea1f5` wires all accepted direct entry points: `Database<T>.ValidateSchema`, `EnsureSchemaValid`, their async counterparts, and `DataLinqSchemaValidator.Validate[Async]`. Calls capture policy, Include and callbacks before async suspension; resolve scope from compiled provider metadata; run the existing owned synchronous or asynchronous observation path; and publish a completed immutable result only after cleanup. Ensure methods reserve the result exception for a completed policy failure. No DI, host, tooling configuration, source parsing or provider reconstruction is involved in direct validation.
+
+`DataLinqSchemaReadException` retains an original failed metadata tree plus a read-only ordered exception snapshot and normal exception chaining when a single rethrow would lose evidence. Plain coordinator exception leaves rethrow the original object with its stack/execution context. Exception-free model acquisition failures and composites remain operational failures, with original metadata messages and cleanup causes inspectable; they never become issue-only results. Invocation-owned callback provenance records the boundary that threw rather than inferring callback origin from its exception type.
+
+Compiled-model/native fixtures exposed comparison differences that live-to-live imports cannot expose. Runtime foreign-key comparison now consumes exact matches before pairing changed actions, retains duplicate relationship multiplicity, and treats SQLite's PRAGMA IDs as diagnostic labels rather than declared constraint names. Server constraint names still participate in identity. Omitted DataLinq referential actions normalize to RESTRICT because both provider `GetCreateSql` paths use `GetCreateTables(..., true)`; explicitly selected NO ACTION remains distinct. One omitted constraint can suppress at most one missing relationship even when it produces several diagnostics. Runtime SQLite type comparison ignores numeric type arguments/sign metadata, which do not impose SQLite storage constraints; declared type names remain significant. Legacy CLI comparison is unchanged. See [SQLite type affinity](https://www.sqlite.org/datatype3.html) and [foreign-key catalog](https://www.sqlite.org/pragma.html#pragma_foreign_key_list).
+
+**Additional D07 disposition:** native SQLite view catalog rows do not establish projected-column nullability. Runtime acquisition now emits a typed `ColumnNullability` limitation for each view column and suppresses only that unprovable nullability claim. View/table counts, column presence, physical types and other supported comparisons remain active. These issues fail the default issue policy; callers can explicitly choose `TreatValidationIssuesAsFailures = false` or scope to tables. Tests prove that excluding a view removes its owned issues, while Include does not suppress operational acquisition of an invalid view. This does not claim that SQLite view nullability is supported.
+
+Initial implementation receipts (final post-review receipts follow): public native/controlled entry points pass 6/6 (`20261101T140230734Z-14d33fb6dd194808ab9058659c4870eb`); schema/comparer/CLI/contracts pass 158/158 (`20261101T140545157Z-e19fbab6b03f45528666ddaf4554cb9e`); complete SQLite metadata passes 35/35 (`20261101T140646148Z-d175fba403f1413faa968066bcec6f22`); latest-server metadata passes 38/38 (`20261101T140712428Z-647e3998a0974c40b25d0dfe96bd4a6f`). All have zero failures/skips, with overlapping cases. These precede the final bounded-omission count/cancellation controls.
+
+Final post-review checks pass **159/159** schema/comparer/CLI/contracts (`20261101T140946841Z-bd4a75e44e9d42d18356e2ee8da79618`) and **7/7** public native/controlled entry points (`20261101T141241385Z-d90e37405bb449e186c488659746efb4`), with zero failures/skips verified from TRX. The new controls prove bounded omission multiplicity and cancellation propagation only after owned cleanup settles. Core and SQL provider Release builds pass on net8.0/net9.0/net10.0 with zero warnings/errors. These remain implementation-tree receipts, not the final packed/deployed W5 candidate gate.
+
+Retained failed attempts: initial public fixture compilation used unsupported fluent exception-identity assertions and passed a Sql where a string was required; corrected before testing. A combined filter containing `|` unexpectedly selected the full unit suite. Its sandbox run (`20261101T135655326Z-f18aea5ef60e41899f9c61176e76c723`) passed 4353/4366, with ten junction/socket permission failures and three new validation failures. The same command outside the sandbox (`20261101T135931608Z-3711aedbb25c447394a99fcf77e64e0b`) passed 4363/4366; only the new cases still failed. Those cases exposed the SQLite comparison gaps above and a fixture that had not deleted its provider-created file before testing a missing database. The fixture now explicitly clears pools/deletes its own file; subsequent focused runs use single tree filters.
+
+Public packed-consumer contracts, Memory isolation, final provider/case-setting/deployment evidence, host registration/lifecycle/aggregation and shipped documentation still remain. No W5 stage is closed by this intermediate runtime slice.
+
+### Canonical registration and host startup barrier, 2026-11-01
+
+The implementation working tree above `787ef415` adds attached common/provider-typed registration and central explicit target selection. Selection resolves the existing W4 registration identity, so keyed/default aliases collapse while distinct registrations sharing one provider remain distinct targets. Defaults run once, are copied before target callbacks, and all selection/option preflight completes before activation. Global Disabled skips target callbacks and activation. Repeated unconfigured selection is idempotent; a second explicit target configuration is rejected. Separate containers capture and activate independently. Core adds only Hosting.Abstractions; full Hosting is a test/consumer dependency.
+
+One internal `IHostedLifecycleService.StartingAsync` runner observes enabled targets sequentially in first-selection order. The [Generic Host implementation](https://github.com/dotnet/runtime/blob/v10.0.11/src/libraries/Microsoft.Extensions.Hosting/src/Internal/Host.cs) awaits this phase before any ordinary `StartAsync`, including concurrent startup. Completed policy failures and independent operational failures settle all remaining targets. Configuration, application callback, logger and orchestration failures abort scheduling while retaining settled outcomes. WarningOnly softens only completed policy rejection. Cancellation propagates after owned metadata cleanup and prevents subsequent activation. W4 container/borrowed ownership remains authoritative.
+
+Public startup outcomes expose canonical model/key/ordinal identity, captured mode, and exactly one completed result or operational failure. The startup exception keeps ordered outcomes including successful targets, run-level failures, original exceptions and nested cleanup evidence through ordinary exception chaining. Logging retains every difference/issue and original messages, paths and severities; arbitrary key `ToString` is never invoked. Read-failure summaries preserve metadata object/source paths while avoiding duplicate stack traces in the summary; original failure trees and inner exception stacks remain inspectable.
+
+| Check | Result | Run receipt |
+| --- | --- | --- |
+| Startup controls, real Generic Host ordering/modes and native SQLite ownership | 45/45, no failures/skips | `20261101T144959628Z-8fa25646094c44bb8c0214a858f9fa75` |
+| Schema/comparer/CLI/contracts, including definition-path diagnostics | 160/160, no failures/skips | `20261101T145119300Z-0a34cba3090f415f91810371ee7fd416` |
+| Direct public native/controlled entry-point regressions | 7/7, no failures/skips | `20261101T145217064Z-10941a6a90304a91a05ab51033220803` |
+| W4 registration-related cases (overlaps startup controls) | 53/53, no failures/skips | `20261101T143945968Z-ef9fcb308d4d43d391bd337f114d0686` |
+| W4 DI ownership proofs | 14/14, no failures/skips | `20261101T144211823Z-10d77518db2a45b2a5f151f41d0db99f` |
+
+TRX counters were checked. Core Release builds pass on net8.0/net9.0/net10.0 with zero warnings/errors. The final diagnostic-summary adjustment follows the startup/registration receipts and is covered by the final schema/direct runs. No HTTP listener or packed/deployment claim is made by these implementation-tree tests.
+
+Retained corrections: initial compilation found local-name collisions and an incorrectly typed ordered-array assertion. The first executing startup run (`20261101T143116676Z-eca3d5aa80eb4a0e80eaf4c299e3d78f`) passed 23/33; all ten failures came from async disposal of the controlled fixture's deliberately sync-only root. Those containers now use synchronous disposal; separate native SQLite cases verify both disposal paths and borrowed/transferred ownership. Subsequent 37/37 and 44/44 runs precede the final 45-case run. The 159/160 schema run (`20261101T144529410Z-8172865038184f6cabea68021a3157ac`) exposed a missing database path in a definition-backed exception summary; the final 160-case run verifies the correction. A missing namespace import was corrected before that run.
+
+Remaining gates include complete public compiled/packed contracts on actual .NET 8/9/10, native case-setting/all-server evidence, isolated published deployment, HTTP startup, compatibility/dependency/platform checks and shipped documentation. Memory is a separate read-only `MemoryDatabase<T>` architecture, not an `IDatabaseProvider`; its gate must verify inapplicability of SQL validation and continued SQL-free packaging rather than invent a Memory SQL provider.
+
+### External consumer and deployment verifier foundation, 2026-11-01
+
+The working tree above `472f5c22` adds `tests/fixtures/W5Consumer`, a non-friend application compiling static/database method groups, omitted/null/named/token-last calls, common and SQLite/MySQL/MariaDB typed registration, central selection and public exception/outcome inspection. Its direct execution covers compiled-model roundtrip, captured Include, freshness, drift, typed issue policy, empty/missing databases and legacy capability rejection. Public validation now rejects an entirely unsupported provider before reading its identity or metadata properties; the original external legacy provider makes every such member throw, proving that rejection cannot silently use a legacy route.
+
+Source-project Release builds pass on all three TFMs with zero warnings/errors. Executions pass on **actual .NET 8.0.33, 9.0.20 and 10.0.14**. Each runs 24 Generic Host mode/drift/order/concurrency combinations plus callback provenance and direct checks. The .NET 10 executable additionally passes four Kestrel scenarios: a native SQLite metadata diagnostic pauses observation, verifies no ordinary worker start and TCP refusal, then permits a real HTTP response only after a successful comparison; completed policy failure keeps the listener closed. Public contract manifests are retained under `artifacts/w5-contract-development-net{8,9,10}.json`. Direct unit regressions pass 7/7 without failures/skips in `20261101T150004907Z-bea4c24a183c47f98783daf09a06008f` after the capability correction. Latest CI #709 passes for the preceding host commit.
+
+The new W5 verifier checks candidate archive/runtime hashes and is prepared to execute framework-dependent published copies outside the checkout, first with no tooling/model files and then with malformed `datalinq.json` and `datalinq.user.json`. It has only syntax validation at this point; packed and isolated runs remain pending. The W3 verifier gains an explicit W5 mode while its default still rejects an unexpected validation surface. Original binding sources and locked-binary probes are unchanged. The Memory consumer adds a reflection check that its separate root exposes neither `IDatabaseProvider` nor SQL validation methods; package execution and SQL-free graph verification remain pending with the common candidate.
+
+This completes initial consumer-shaped compilation and source-based HTTP evidence, not the final W5.6 package/deployment/platform gate. Native case-setting/all-server checks, final package/API compatibility, shipped documentation and candidate consolidation remain open.
+
+### Omitted relationship actions and complete native server matrix, 2026-11-01
+
+The working tree above `f017a292` closes an additional D07 evidence gap: a skipped relationship previously retained raw endpoints but not its observed referential actions. SQLite/MySQL/MariaDB now retain those actions, and comparison reports a proven action mismatch even when an endpoint cannot be represented. Matching consumes each observed constraint once, preferring known compatible actions before pairing disagreements or using unknown-action evidence. Multiple diagnostic entries cannot reuse one omitted constraint to hide multiple model relationships. A server foreign key with no corresponding referential-action catalog row is now an incomplete acquisition failure in the runtime path; legacy import behavior is unchanged.
+
+| Check | Result | Run receipt |
+| --- | --- | --- |
+| Comparer regressions, including known/unknown action matching and multiplicity | 77/77, no failures/skips | `20261101T151353458Z-cb4a13ddbbc24d60a76cc02725a0650b` |
+| Complete SQLite native metadata class, including startup ownership | 40/40, no failures/skips | `20261101T151552850Z-9fbd6af5b0cd4eafacb84491495db401` |
+| Native metadata/import/public validation across all six server versions | 126/126, no failures/skips, three 42-case batches | `20261101T151442277Z-1c63b441f75244d987cdf0cfe12797aa` |
+
+TRX counters were checked. Server targets are MySQL 8.4/9.7 and MariaDB 10.11/11.4/11.8/12.3. Native cases verify the omitted-action correction, and controlled empty catalog queries over real owned sessions verify incomplete-acquisition rejection and pool reuse. Core and MySQL/MariaDB Release builds pass on net8.0/net9.0/net10.0 with zero warnings/errors. The initial comparer run (`20261101T151026909Z-fcc6d753bed847c4957c2c9729ec8c3a`) passed 74/77; all three failures were an assertion expecting uppercase action names while existing diagnostics use enum spelling. The corrected assertions pass above; diagnostic formatting was not changed for the test.
+
+All normal server targets remain available, with complete runtime inventory preserved. These are complete native metadata-class receipts across the supported server matrix, not the broad full-suite or final candidate gate. Dedicated case-insensitive native configurations, anonymous-memory public proof, final packed/deployed/API/platform verification and shipped documentation remain open.
+
+### Native insensitive configurations and conservative SQL text comparison, 2026-11-01
+
+The working tree above `fde03e38` adds dedicated disposable MySQL/MariaDB configurations without changing the Testing CLI matrix. `artifacts/w5-server-cases/fde03e38-development-2/report.json` records native mode-1 passes on MySQL **9.7.2** and MariaDB **12.3.2**, with image/container identities and server logs. Both sync and async validation pass compiled mixed-case/non-ASCII tables, indexes, checks, foreign keys and an effective schema override. Exact model Include spelling remains required; selecting Child retains its external-scope parent relation and counts one object. Lowercase default/comment changes are still reported as two differences.
+
+Both containers requested mode 2 but reported mode 0 on their Linux filesystem. Each individual result is explicitly `NativeModeAvailable=false, Passed=false`; the aggregate passes only the required mode-1 checks and explicit unsupported-mode dispositions. This is **not native mode-2 evidence**. Controlled mode-2 comparer tests remain the only mode-2 proof here. This matches the documented filesystem restriction ([MySQL](https://dev.mysql.com/doc/refman/9.7/en/server-system-variables.html), [MariaDB](https://mariadb.com/docs/server/server-management/variables-and-modes/server-system-variables)). A supported case-insensitive filesystem is still required for a native mode-2 run; W5 does not claim that platform was tested.
+
+The initial case run (`fde03e38-development`) exposed textual CHECK differences: the server added identifier quoting and enclosing parentheses. The fixture now spells the identifier quoting explicitly. Runtime comparison strips redundant complete enclosing parentheses and folds whitespace only outside quoted text; it preserves literal whitespace, identifier quoting, comments and backslash-sensitive expressions. It deliberately does not parse arbitrary SQL equivalence. Legacy import/CLI normalization is unchanged. Comparer regressions pass **86/86**, no failures/skips, with verified TRX counters in `20261101T152939671Z-e9bfe55935de4286b30d76e013d9aa1b`. The consumer and its provider dependencies build all three TFMs with zero warnings/errors.
+
+The public consumer also adds anonymous-memory identity/keeper checks. Source executions on actual .NET 8/9/10 passed before the final text-normalization adjustment; final candidate executions will cover the combined tree. Initial case-fixture compilation required explicit authored relation navigation properties, consistent with the existing generator contract. No production generator changes were made. Final packed/deployed/API/platform checks, broad regressions and shipped documentation remain open.
+
+### Runtime guide and full/scoped host deployment contracts, 2026-11-01
+
+The working tree above `69af124d` adds the normal runtime validation guide, links it from the CLI and DI pages, and places it in Usage navigation. The guide separates compiled runtime metadata from tooling configuration, specifies policy/scope/ownership and exception inspection, documents migration ordering before host startup, and states conservative SQL/metadata limits. `docfx build docfx.json` passes with zero warnings/errors; generated `_site/docs/Runtime Schema Validation.html` and `_site/docs/toc.html` were inspected for the content, cross-links and navigation.
+
+The public host consumer now covers full and explicit Include scope in each mode/order/concurrency case, using an unrelated table to prove count exclusion. All **48 combinations**, direct checks (including anonymous memory), and callback provenance pass on actual **.NET 8.0.33, 9.0.20 and 10.0.14** after a zero-warning/error three-TFM source build. The .NET 10 HTTP scenarios also pass. `artifacts/w5-contract-scope-net{8,9,10}.json` retains the captures. A reproducible W5 package/publish workflow is documented under `tests/fixtures/W5 Consumers.md`; package execution remains pending.
+
+The initial full-plan attempt (`20261101T153750774Z-e26378ef951140a686303f3dce813f00`) failed before tests because a Release Testing CLI runner held DLLs that the Release unit dependency graph rebuilt. The retry uses the Debug runner with Release tests. Its unit suite reached only the ten known sandbox junction/socket-path failures; these are not product failures or a passing full gate. Full verification outside that sandbox remains required and will be recorded separately.
+
+### Consolidated W5 candidate and review handoff, 2026-11-01
+
+The [compiled contract and candidate record](../../../../test-infra/api-compatibility/w5/README.md) identifies clean source **`9479fe9760a796fa1cbe18334160759cf869b182`**, exact candidate **`0.10.0-w5.9479fe97`**, commands, hashes, raw failures and their bounded dispositions. Six public package/symbol pairs pass strict inspection. All six external consumer projects build cleanly on net8/net9/net10. W3's nine executions (including unchanged locked 0.9.2 binaries), W4's six and W5's three pass on actual .NET 8.0.33/9.0.20/10.0.14. W5 additionally passes six isolated published executions outside the checkout: without tooling inputs and with invalid tooling inputs, with full/Include direct and hosted pass/drift checks and net10 HTTP barriers. The verifier correction preserves the original deployment environment and records its own/linked-source hashes; candidate product and consumer bytes are unchanged.
+
+Release **full passes 9,532/9,532** in `20261101T155641760Z-b3495c0cf21a461a905f6a4cfd5506de`; Release **quick passes 5,437/5,437** in `20261101T161535475Z-571b3a8913da472aa399c7cc62637d8b`. TRX counters confirm zero failures/skips. These supersede the sandbox-only full failure, whose ten junction/socket cases pass outside that sandbox. Dedicated native mode-1/mode-2-disposition checks also pass against the same packed consumer. [CI #713](https://github.com/bazer/DataLinq/actions/runs/41322894894) passes on the candidate source.
+
+The W5 contract export contains 13 actual types with identical projections across all three runtimes; A05–A07 and B16 are reconciled. ApiCompat retains exactly the 13 accepted W3 fingerprints, 1,065 additive/compatible findings, two inherited divergences and zero new framework mismatches. The dependency/analyzer and Memory-only graph checks pass; core adds only Hosting.Abstractions and no Tools/full Hosting/ASP.NET dependency.
+
+All eight constrained-runtime targets publish and run, including browser no-AOT/AOT smoke. The **raw strict platform gate remains failed**, with valid clean provenance, on 14 Memory byte-token findings. A reproducible metadata audit proves the exact hits are pre-existing core friend-assembly declarations, not provider references; complete Memory restore graphs contain no SQL packages. The scanner and raw report are unchanged. Both SQLite browser lanes retain the known 13 WASM0001 diagnostic lines for varargs imports. These bounded dispositions support W5 dependency-graph integration, not final release certification or proof that every validation API runs under each constrained runtime. Native mode 2 remains unavailable on the tested Linux filesystem. Final metadata-aware payload acceptance, SQLite provider warnings, W8 performance and W9 release approval remain explicit later obligations.
+
+| W5 slice | Implementation handoff |
+| --- | --- |
+| W5.0 | Accepted D01–D07, verified integrated base, actual public consumer contracts. |
+| W5.1 | Owned sync/native-async observational reads, effective identities, timeout/cancellation settlement, typed omissions; import and complete provider regressions pass. |
+| W5.2 | Captured immutable policy/results, scoped counts, live identifier rules, narrow evidence-aware comparison and unchanged legacy comparison behavior verified. |
+| W5.3 | Direct/static sync/async entry points, original operational evidence, unsupported capability, compiled-model and isolated deployment proof complete. |
+| W5.4 | Canonical registrations, defaults/overrides, alias deduplication, disabled activation, per-container state and W4 ownership verified. |
+| W5.5 | StartingAsync barrier, mode truth table, ordered settlement, diagnostic fidelity, cancellation, Generic Host and real HTTP proof complete. |
+| W5.6 | One candidate joins provider/compatibility/packed/deployed evidence; exact API/platform differences and unavailable mode-2 coverage are explicitly dispositioned above. No blanket raw compatibility/platform pass is claimed. |
+| W5.7 | Runtime guide, CLI/DI links, generated navigation inspection, exported inventory, roadmap reconciliation and review handoff complete. Reviewer acceptance is not asserted. |
+
+Verifier/audit/record commits through `2defe71f` did not change the tested candidate binaries. Subsequent review found two SQLite runtime defects: internal ANALYZE statistics entered the metadata graph, and Unicode case folding merged distinct native identifiers. Both are corrected with a shared internal-object catalog filter and ASCII-only runtime identifier rules, including column lookup, Include and reference resolution. The [review correction record](../../../../test-infra/api-compatibility/w5/README.md#sqlite-review-corrections-2026-11-01) records 22 added regressions and the passing 5,459-case Release quick run. Earlier packed/full-matrix/platform evidence remains bound to `9479fe97`, not these later runtime changes. The PR remains the single review vehicle; no merge or package publication has been performed.

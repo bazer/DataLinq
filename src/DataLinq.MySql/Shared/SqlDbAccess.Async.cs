@@ -57,7 +57,9 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
                     throw new NotSupportedException("Captured MySQL/MariaDB parameters must be MySqlConnector parameters.");
         }
 
-        public IAsyncOwnedCommand Create()
+        public IAsyncOwnedCommand Create() => new NativeOwnedCommand(CreateCommand());
+
+        internal MySqlCommand CreateCommand()
         {
             var command = new MySqlCommand(statement.Text);
             try
@@ -65,7 +67,7 @@ public partial class SqlDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReaderFac
                 foreach (var parameter in statement.Parameters)
                     command.Parameters.Add(parameter.ProviderParameter ??
                         new MySqlParameter(parameter.ParameterName, parameter.Value ?? DBNull.Value));
-                return new NativeOwnedCommand(command);
+                return command;
             }
             catch
             {

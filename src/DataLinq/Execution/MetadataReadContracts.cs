@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
+using DataLinq.Validation;
 using ThrowAway;
 
 namespace DataLinq.Execution;
@@ -17,6 +18,7 @@ internal sealed class MetadataReadSettings
         TimeSpan? commandTimeout)
     {
         Purpose = purpose;
+        Limitations = purpose == MetadataReadPurpose.RuntimeValidation ? new() : null;
         CapitaliseNames = options.CapitaliseNames;
         DeclareEnumsInClass = options.DeclareEnumsInClass;
         Include = Array.AsReadOnly(options.Include?.ToArray() ?? []);
@@ -30,6 +32,17 @@ internal sealed class MetadataReadSettings
     internal IReadOnlyList<string> Include { get; }
     internal Action<string>? Log { get; }
     internal int? CommandTimeoutSeconds { get; }
+    internal SchemaIdentifierRules? Identifiers { get; private set; }
+    internal SchemaReadLimitations? Limitations { get; }
+
+    // A request owns its observation; never reuse or cache a server setting
+    // across reads. Consumers publish it only alongside a settled complete read.
+    internal void SetIdentifiers(SchemaIdentifierRules identifiers)
+    {
+        if (Purpose != MetadataReadPurpose.RuntimeValidation || Identifiers is not null)
+            throw new InvalidOperationException("Runtime identifier rules must be observed exactly once per validation read.");
+        Identifiers = identifiers;
+    }
 
     private static Action<string> CaptureLog(Action<string> log) => message =>
     {

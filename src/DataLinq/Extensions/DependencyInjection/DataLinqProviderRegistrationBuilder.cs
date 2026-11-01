@@ -84,14 +84,19 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     {
         ArgumentNullException.ThrowIfNull(registration);
         var builder = new DataLinqProviderRegistrationBuilder<TDatabase, TOptions>(registration);
-        registration.UseFactory(provider =>
+        registration.Registration.SetFactory(typeof(TImplementation), provider =>
         {
-            var options = defaults();
-            foreach (var binding in builder.bindings) options.Bind(binding);
-            foreach (var configure in builder.configurations) configure(options);
-            var settings = options.Capture(provider, validateConnectionString);
+            DataLinqProviderSettings settings;
+            try
+            {
+                var options = defaults();
+                foreach (var binding in builder.bindings) options.Bind(binding);
+                foreach (var configure in builder.configurations) configure(options);
+                settings = options.Capture(provider, validateConnectionString);
+            }
+            catch (Exception failure) { DataLinqActivationFailureScope.ReportConfiguration(failure); throw; }
             return create(settings, provider.GetService<ILoggerFactory>());
-        });
+        }, providerFactory: true);
         return builder;
     }
 }

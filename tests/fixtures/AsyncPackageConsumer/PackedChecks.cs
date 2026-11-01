@@ -14,7 +14,8 @@ internal static class PackedChecks
 {
     internal static async Task RunAsync(string[] args)
     {
-        if (args.Length is < 1 or > 2) throw new ArgumentException("Supply the matching-TFM 0.9.2 consumer DLL and optional manifest output path.");
+        if (args.Length is < 1 or > 3 || args.Length == 3 && args[2] != "--w5")
+            throw new ArgumentException("Supply the matching-TFM 0.9.2 consumer DLL, optional manifest output path and optional --w5 mode.");
         var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(args[0]));
         var exports = assembly.GetType("Legacy092Consumer.LegacyExports", throwOnError: true)!;
         T Old<T>(string name) => (T)exports.GetMethod(name)!.Invoke(null, null)!;
@@ -60,7 +61,7 @@ internal static class PackedChecks
         await Reject(() => Old<ISqlFromMetadataFactory>("Provisioning").CreateDatabaseAsync(new("sql"), "db", "invalid", false));
         await GeneratedAsync();
         await GeneratedExecution.RunAsync();
-        if (args.Length == 2) ContractManifest.Write(args[1]);
+        if (args.Length >= 2) ContractManifest.Write(args[1], w5: args.Length == 3);
         Console.WriteLine("Packed async and unchanged 0.9.2 binary consumers passed on " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
     }
 

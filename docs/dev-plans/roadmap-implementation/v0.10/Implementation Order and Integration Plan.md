@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-11-01 (all seven W5 design decisions accepted; W5 contract/base verification and implementation remain pending. The 2026-10-12 W4 review dispositions, including rollback-request admission, ownership and compatibility gates, remain unchanged).
+**Last reviewed:** 2026-11-01 (W5 implementation and integration evidence are ready for review, with explicit raw compatibility/platform dispositions. Reviewer acceptance, merge and final release gates remain separate. The accepted W4 and other workstream contracts are unchanged).
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -132,7 +132,7 @@ The host adapter consumes this result; it does not invent a second schema compar
 
 **W5-D06 accepted, 2026-10-31:** read the live server's `lower_case_table_names` once per owned metadata read and apply identifier-specific matching consistently, rejecting ambiguities and unreadable settings. AAPI-108 is amended to require exact compiled-model MySQL/MariaDB Include spelling before validation metadata I/O, with SQLite retaining its known comparer. Runtime validation remains independent of `datalinq.json` and model source files; no new casing option or CLI/import behavior change is introduced. See the [identifier/Include decision](W5%20Startup%20Schema%20Validation.md#w5-d06-server-name-comparison-and-before-io-include-validation).
 
-**W5-D07 accepted, 2026-11-01:** emit structured issues for the accepted detected-omission catalogue, independently of logging, including SQLite generated/hidden-column detection. Use typed owner/object/aspect identities for scope and narrow withholding of unprovable comparison claims; retain all provable differences and operational failures. Keep the default independent issue-failure policy and original messages, preserving CLI/import behavior. See the [limitation issue decision](W5%20Startup%20Schema%20Validation.md#w5-d07-typed-issues-from-successful-but-limited-metadata-reads). All seven W5 behavioral decisions are accepted; exact public declarations, implementation and verification remain pending.
+**W5-D07 accepted, 2026-11-01:** emit structured issues for the accepted detected-omission catalogue, independently of logging, including SQLite generated/hidden-column detection. Use typed owner/object/aspect identities for scope and narrow withholding of unprovable comparison claims; retain all provable differences and operational failures. Keep the default independent issue-failure policy and original messages, preserving CLI/import behavior. See the [limitation issue decision](W5%20Startup%20Schema%20Validation.md#w5-d07-typed-issues-from-successful-but-limited-metadata-reads). All seven decisions are accepted; their implementation evidence is recorded in the W5 handoff below.
 
 AAPI-106 through AAPI-109, with the [H10-1 package-placement amendment](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md#h10-1-integration-in-existing-packages), fix runtime types and hosting integration in core with separate namespaces/responsibilities, immutable result snapshots retaining Info, independent threshold/issue policy, comparison-scoped Include and empty-schema behavior, and null/default, zero/unlimited, rounded positive command timeouts capped at 2,147,483 seconds. The adapter must not discard structured differences to filter logs, fabricate empty schemas from reader failures or silently ignore timeout settings.
 
@@ -340,7 +340,7 @@ Exit gate:
 
 ### W5: Startup Schema Validation
 
-**Planning checkpoint, 2026-11-01:** [W5 Startup Schema Validation](W5%20Startup%20Schema%20Validation.md) records the completed source audit and acceptance of all seven design decisions. D01–D06 were accepted on 2026-10-31; D07 on 2026-11-01. Next complete W5.0's integration-base/public-contract verification, then W5.1's synchronous observational reads, server comparison context and typed omission transport/detection. The 120 focused metadata/SQLite/comparer foundation cases passed on the audited source during planning; they are not W5 implementation or candidate evidence. No W5 code or closeout is claimed.
+**Implementation handoff, 2026-11-01:** [W5 Startup Schema Validation](W5%20Startup%20Schema%20Validation.md#consolidated-w5-candidate-and-review-handoff-2026-11-01) reconciles W5.0–W5.7 in one PR (#254). Clean candidate `0.10.0-w5.9479fe97` passes 9,532 full-plan and 5,437 quick-plan cases, actual .NET 8/9/10 packed/published consumers and native server case-mode checks with explicit mode-2 unavailability. [Compiled contracts and exact receipts](../../../../test-infra/api-compatibility/w5/README.md) reconcile A05–A07/B16, unchanged W3 API findings and the raw failed platform token gate. All eight platform smoke executions pass; friend-metadata false positives and SQLite varargs warnings remain explicit release-review obligations. Reviewer acceptance and merge remain open, and W8/W9 acceptance is not claimed.
 
 Required work:
 

@@ -9,7 +9,7 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Validation;
 
-public sealed class SchemaComparer
+public sealed partial class SchemaComparer
 {
     private readonly SchemaComparisonOptions options;
 
@@ -32,21 +32,21 @@ public sealed class SchemaComparer
         var differences = new List<SchemaDifference>();
 
         if (options.Capabilities.CompareTables)
-            CompareTables(model, database, differences);
+            CompareTables(GetComparableTables(model), GetComparableTables(database), differences);
 
         return differences;
     }
 
     private void CompareTables(
-        DatabaseDefinition model,
-        DatabaseDefinition database,
+        IEnumerable<TableModel> model,
+        IEnumerable<TableModel> database,
         List<SchemaDifference> differences)
     {
-        var tableComparer = options.Capabilities.TableNameComparer;
-        var modelTables = GetComparableTables(model)
+        var tableComparer = identifiers?.TableNames ?? options.Capabilities.TableNameComparer;
+        var modelTables = model
             .OrderBy(x => x.Table.DbName, StringComparer.Ordinal)
             .ToList();
-        var databaseTables = GetComparableTables(database)
+        var databaseTables = database
             .OrderBy(x => x.Table.DbName, StringComparer.Ordinal)
             .ToList();
         var modelTableLookup = BuildTableLookup(modelTables, tableComparer);
@@ -128,15 +128,22 @@ public sealed class SchemaComparer
         var databaseColumns = databaseTable.Columns
             .OrderBy(x => x.DbName, StringComparer.Ordinal)
             .ToList();
+        // Runtime names can use SQLite's ASCII-only folding, which the legacy
+        // TableDefinition StringComparison lookup cannot represent.
+        var modelColumnLookup = identifiers is null ? null : modelColumns.ToDictionary(column => column.DbName, identifiers.ColumnNames);
+        var databaseColumnLookup = identifiers is null ? null : databaseColumns.ToDictionary(column => column.DbName, identifiers.ColumnNames);
 
         foreach (var modelColumn in modelColumns)
         {
-            if (databaseTable.TryGetColumnByDbName(modelColumn.DbName, columnComparison, out var databaseColumn))
+            if (databaseColumnLookup is not null
+                ? databaseColumnLookup.TryGetValue(modelColumn.DbName, out var databaseColumn)
+                : databaseTable.TryGetColumnByDbName(modelColumn.DbName, columnComparison, out databaseColumn))
             {
                 CompareColumnShape(modelColumn, databaseColumn, differences);
                 continue;
             }
 
+            if (evidence?.IsColumnOmitted(modelTable.DbName, modelColumn.DbName) == true) continue;
             var path = $"{modelTable.DbName}.{modelColumn.DbName}";
             differences.Add(new SchemaDifference(
                 SchemaDifferenceKind.MissingColumn,
@@ -150,7 +157,8 @@ public sealed class SchemaComparer
 
         foreach (var databaseColumn in databaseColumns)
         {
-            if (modelTable.TryGetColumnByDbName(databaseColumn.DbName, columnComparison, out _))
+            if (modelColumnLookup is not null ? modelColumnLookup.ContainsKey(databaseColumn.DbName)
+                : modelTable.TryGetColumnByDbName(databaseColumn.DbName, columnComparison, out _))
                 continue;
 
             var path = $"{databaseTable.DbName}.{databaseColumn.DbName}";
@@ -208,7 +216,7 @@ public sealed class SchemaComparer
             }
         }
 
-        if (options.Capabilities.CompareNullability)
+        if (options.Capabilities.CompareNullability && evidence?.IsNullabilityOmitted(modelColumn.Table.DbName, modelColumn.DbName) != true)
         {
             AddMismatchIfDifferent(
                 differences,
@@ -247,7 +255,7 @@ public sealed class SchemaComparer
                 databaseColumn);
         }
 
-        if (options.Capabilities.CompareDefaults)
+        if (options.Capabilities.CompareDefaults && evidence?.IsDefaultOmitted(modelColumn.Table.DbName, modelColumn.DbName) != true)
         {
             AddMismatchIfDifferent(
                 differences,
@@ -282,14 +290,15 @@ public sealed class SchemaComparer
         List<SchemaDifference> differences)
     {
         var modelIndexes = GetComparableIndexes(modelTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(IndexComparisonKey);
         var databaseIndexes = GetComparableIndexes(databaseTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(IndexComparisonKey);
 
         foreach (var modelIndex in modelIndexes.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (databaseIndexes.ContainsKey(modelIndex.Key))
+            if (databaseIndexes.ContainsKey(IndexComparisonKey(modelIndex)))
                 continue;
+            if (evidence?.IsIndexOmitted(modelTable.DbName, modelIndex.Name) == true) continue;
 
             differences.Add(new SchemaDifference(
                 SchemaDifferenceKind.MissingIndex,
@@ -303,7 +312,7 @@ public sealed class SchemaComparer
 
         foreach (var databaseIndex in databaseIndexes.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (modelIndexes.ContainsKey(databaseIndex.Key))
+            if (modelIndexes.ContainsKey(IndexComparisonKey(databaseIndex)))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -322,21 +331,26 @@ public sealed class SchemaComparer
         TableDefinition databaseTable,
         List<SchemaDifference> differences)
     {
+        if (identifiers is not null)
+        {
+            CompareRuntimeForeignKeys(modelTable, databaseTable, differences);
+            return;
+        }
         var modelForeignKeys = GetComparableForeignKeys(modelTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(x => ForeignKeyComparisonKey(x, shapeOnly: false));
         var databaseForeignKeys = GetComparableForeignKeys(databaseTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(x => ForeignKeyComparisonKey(x, shapeOnly: false));
         var modelForeignKeysByShape = GetComparableForeignKeys(modelTable)
-            .ToDictionary(x => x.ShapeKey, StringComparer.Ordinal);
+            .ToDictionary(x => ForeignKeyComparisonKey(x, shapeOnly: true));
         var databaseForeignKeysByShape = GetComparableForeignKeys(databaseTable)
-            .ToDictionary(x => x.ShapeKey, StringComparer.Ordinal);
+            .ToDictionary(x => ForeignKeyComparisonKey(x, shapeOnly: true));
 
         foreach (var modelForeignKey in modelForeignKeys.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (databaseForeignKeys.ContainsKey(modelForeignKey.Key))
+            if (databaseForeignKeys.ContainsKey(ForeignKeyComparisonKey(modelForeignKey, shapeOnly: false)))
                 continue;
 
-            if (databaseForeignKeysByShape.TryGetValue(modelForeignKey.ShapeKey, out var databaseForeignKey))
+            if (databaseForeignKeysByShape.TryGetValue(ForeignKeyComparisonKey(modelForeignKey, shapeOnly: true), out var databaseForeignKey))
             {
                 differences.Add(new SchemaDifference(
                     SchemaDifferenceKind.ForeignKeyActionMismatch,
@@ -361,10 +375,10 @@ public sealed class SchemaComparer
 
         foreach (var databaseForeignKey in databaseForeignKeys.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (modelForeignKeys.ContainsKey(databaseForeignKey.Key))
+            if (modelForeignKeys.ContainsKey(ForeignKeyComparisonKey(databaseForeignKey, shapeOnly: false)))
                 continue;
 
-            if (modelForeignKeysByShape.ContainsKey(databaseForeignKey.ShapeKey))
+            if (modelForeignKeysByShape.ContainsKey(ForeignKeyComparisonKey(databaseForeignKey, shapeOnly: true)))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -384,13 +398,13 @@ public sealed class SchemaComparer
         List<SchemaDifference> differences)
     {
         var modelChecks = GetEffectiveChecks(modelTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(CheckComparisonKey);
         var databaseChecks = GetEffectiveChecks(databaseTable)
-            .ToDictionary(x => x.Key, StringComparer.Ordinal);
+            .ToDictionary(CheckComparisonKey);
 
         foreach (var modelCheck in modelChecks.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (databaseChecks.ContainsKey(modelCheck.Key))
+            if (databaseChecks.ContainsKey(CheckComparisonKey(modelCheck)))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -405,7 +419,7 @@ public sealed class SchemaComparer
 
         foreach (var databaseCheck in databaseChecks.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
-            if (modelChecks.ContainsKey(databaseCheck.Key))
+            if (modelChecks.ContainsKey(CheckComparisonKey(databaseCheck)))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -494,7 +508,8 @@ public sealed class SchemaComparer
                 relation.CandidateKey.ColumnIndex.Table.DbName,
                 string.Join(",", relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName)),
                 relation.OnUpdate,
-                relation.OnDelete));
+                relation.OnDelete,
+                relation));
     }
 
     private IEnumerable<CheckSignature> GetEffectiveChecks(TableDefinition table)
@@ -510,7 +525,7 @@ public sealed class SchemaComparer
                 .ToList();
 
         return effectiveChecks
-            .Select(x => new CheckSignature(x.Name, NormalizeSql(x.Expression)));
+            .Select(x => new CheckSignature(x.Name, identifiers is null ? NormalizeSql(x.Expression) : NormalizeRuntimeSql(x.Expression, unwrap: true)));
     }
 
     private string? FormatComment(IEnumerable<Attribute> attributes)
@@ -540,6 +555,16 @@ public sealed class SchemaComparer
         var name = type.Name.ToLowerInvariant();
         var length = type.Length;
         var signed = type.Signed;
+        var decimals = type.Decimals;
+
+        if (identifiers?.DatabaseType == DatabaseType.SQLite)
+        {
+            // SQLite ignores numeric type arguments and has no unsigned storage
+            // class. Keep the declared type name (INTEGER PRIMARY KEY matters).
+            length = null;
+            decimals = null;
+            signed = null;
+        }
 
         if (options.Capabilities.DatabaseType is DatabaseType.MySQL or DatabaseType.MariaDB &&
             IsIntegerDatabaseType(name))
@@ -560,7 +585,7 @@ public sealed class SchemaComparer
             type.DatabaseType,
             name,
             length?.ToString(CultureInfo.InvariantCulture) ?? "",
-            type.Decimals?.ToString(CultureInfo.InvariantCulture) ?? "",
+            decimals?.ToString(CultureInfo.InvariantCulture) ?? "",
             signed?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
@@ -882,7 +907,7 @@ public sealed class SchemaComparer
                 defaultSql.DatabaseType != options.Capabilities.DatabaseType)
                 return null;
 
-            return $"{attribute.GetType().Name}|{defaultSql.DatabaseType}|{NormalizeSql(defaultSql.Expression)}";
+            return $"{attribute.GetType().Name}|{defaultSql.DatabaseType}|{(identifiers is null ? NormalizeSql(defaultSql.Expression) : NormalizeRuntimeSql(defaultSql.Expression, unwrap: false))}";
         }
 
         if (TryGetEnumDefaultNumericValue(column.ValueProperty, attribute, out var enumNumericValue))
@@ -1037,7 +1062,8 @@ public sealed class SchemaComparer
             string candidateKeyTable,
             string candidateKeyColumns,
             ReferentialAction onUpdate,
-            ReferentialAction onDelete)
+            ReferentialAction onDelete,
+            RelationDefinition relation)
         {
             ConstraintName = constraintName;
             ForeignKeyTable = foreignKeyTable;
@@ -1046,6 +1072,7 @@ public sealed class SchemaComparer
             CandidateKeyColumns = candidateKeyColumns;
             OnUpdate = onUpdate;
             OnDelete = onDelete;
+            Relation = relation;
         }
 
         public string ConstraintName { get; }
@@ -1055,6 +1082,7 @@ public sealed class SchemaComparer
         public string CandidateKeyColumns { get; }
         public ReferentialAction OnUpdate { get; }
         public ReferentialAction OnDelete { get; }
+        public RelationDefinition Relation { get; }
         public string ShapeKey => $"{ConstraintName}|{ForeignKeyTable}|{ForeignKeyColumns}|{CandidateKeyTable}|{CandidateKeyColumns}";
         public string Key => $"{ConstraintName}|{ForeignKeyTable}|{ForeignKeyColumns}|{CandidateKeyTable}|{CandidateKeyColumns}|{OnUpdate}|{OnDelete}";
     }

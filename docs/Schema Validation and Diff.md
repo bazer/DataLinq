@@ -1,6 +1,6 @@
 # Schema Validation and Diff
 
-DataLinq has two schema trust commands:
+DataLinq has two schema trust commands. This page describes the CLI workflow; [runtime schema validation](Runtime%20Schema%20Validation.md) in 0.10 development uses compiled models directly and can prevent host startup without tooling configuration.
 
 - `datalinq validate` compares generated model metadata with live provider metadata.
 - `datalinq diff` runs the same validation and writes a conservative SQL suggestion script.

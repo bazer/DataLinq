@@ -4,6 +4,9 @@ using DataLinq.Memory;
 using DataLinq.PackageConsumer;
 
 var database = new MemoryDatabase<PackageConsumerDatabase>();
+if (typeof(DataLinq.Interfaces.IDatabaseProvider).IsAssignableFrom(database.GetType()) ||
+    database.GetType().GetMethods().Any(method => method.Name is "ValidateSchema" or "ValidateSchemaAsync" or "EnsureSchemaValid" or "EnsureSchemaValidAsync"))
+    throw new Exception("The separate Memory root acquired a SQL validation/provider surface.");
 database.Seed<PackageConsumerRow>([new MutablePackageConsumerRow { Id = 17, GroupId = 7, Name = "memory", ExternalGuid = Guid.Empty }]);
 if ((await database.FindAsync<PackageConsumerRow>(17))?.Name != "memory") throw new Exception("Memory lookup failed.");
 if (await database.Query().Rows.Select(row => row.Id).SingleAsync() != 17) throw new Exception("Memory scalar query failed.");

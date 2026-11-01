@@ -5,7 +5,9 @@
 
 **Status:** Active.
 
-**Last reviewed:** 2026-08-30.
+**Last reviewed:** 2026-11-01 (0.10 implementation checkpoint; published-baseline limitations below are unchanged).
+
+**0.10 development checkpoint:** W4 is integrated and [W5 runtime/startup validation](roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md) is implemented for review in PR #254. Its [candidate record](../../test-infra/api-compatibility/w5/README.md) contains full/provider/packed/deployed evidence and explicit raw API/platform dispositions. Reviewer acceptance, merge and final release certification remain separate; the APIs are not yet released.
 
 ## Purpose
 

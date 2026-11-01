@@ -22,6 +22,7 @@ public static class DataLinqServiceCollectionExtensions
         var recipe = new DataLinqRegistration<TDatabase>(services, serviceKey);
         recipe.Register();
         services.AddSingleton(recipe);
+        services.AddSingleton<IDataLinqRegistration>(recipe);
         return new(recipe);
     }
 

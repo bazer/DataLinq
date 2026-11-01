@@ -19,7 +19,7 @@ using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.MySql;
 
-public sealed class NativeAsyncMetadataTests
+public sealed partial class NativeAsyncMetadataTests
 {
     [Test]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
@@ -117,6 +117,8 @@ public sealed class NativeAsyncMetadataTests
             failures.ThrowIfAny();
             await Assert.That(access.Commands.Count).IsGreaterThanOrEqualTo(10);
             await Assert.That(access.Scalars).IsEqualTo(1);
+            await Assert.That(access.Commands.Count(command => command.CommandText == "SELECT @@lower_case_table_names")).IsEqualTo(1);
+            await Assert.That(settings.Identifiers!.LowerCaseTableNames).IsNotNull();
             foreach (var command in access.Commands)
             {
                 // Read after actual dispatch: null must inherit the native connection's default.

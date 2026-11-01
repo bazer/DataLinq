@@ -69,7 +69,9 @@ public partial class SQLiteDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReader
                     throw new NotSupportedException("Captured SQLite parameters must be Microsoft.Data.Sqlite parameters.");
         }
 
-        public IAsyncOwnedCommand Create()
+        public IAsyncOwnedCommand Create() => new NativeOwnedCommand(CreateCommand());
+
+        internal SqliteCommand CreateCommand()
         {
             var command = new SqliteCommand(statement.Text);
             try
@@ -78,7 +80,7 @@ public partial class SQLiteDbAccess : IAsyncEagerCommandFactory, IAsyncSqlReader
                     command.Parameters.Add(parameter.ProviderParameter ??
                         new SqliteParameter(parameter.ParameterName, parameter.Value is Guid guid
                             ? guid.ToString("D") : parameter.Value ?? DBNull.Value));
-                return new NativeOwnedCommand(command);
+                return command;
             }
             catch
             {

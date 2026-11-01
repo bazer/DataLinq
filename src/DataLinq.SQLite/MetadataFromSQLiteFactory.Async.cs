@@ -9,6 +9,7 @@ using DataLinq.Execution;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.Query;
+using DataLinq.Validation;
 using Microsoft.Data.Sqlite;
 using ThrowAway;
 using ThrowAway.Extensions;
@@ -54,6 +55,7 @@ public partial class MetadataFromSQLiteFactory : IAsyncMetadataFactory
             Include = request.Settings.Include.ToList(),
             Log = request.Settings.Log
         });
+        parser.limitations = request.Settings.Limitations;
         return new NativeMetadataPlan(parser, request, createSession, validateLifecycle);
     }
 
@@ -69,13 +71,17 @@ public partial class MetadataFromSQLiteFactory : IAsyncMetadataFactory
     private async Task<Option<DatabaseDefinition, IDLOptionFailure>> ReadNativeMetadataAsync(
         MetadataReadContext context, MetadataImportRequest request, CancellationToken token)
     {
+        if (request.Settings.Purpose == MetadataReadPurpose.RuntimeValidation)
+            request.Settings.SetIdentifiers(SchemaIdentifierRules.SQLite);
         // Session opening never creates a file or acquires an owning keeper.
         // Even connection visibility setup goes through the context so an
         // explicit metadata timeout reaches every actual native command.
         await context.ExecuteScalarAsync(new Sql(SQLiteConnectionPolicy.CommittedVisibilitySql)).ConfigureAwait(false);
         var database = new SQLiteProviderDatabaseDraft(request.Name,
             new CsTypeDeclaration(request.CsTypeName, request.CsNamespace, ModelCsType.Class), request.DatabaseName);
-        var catalog = await context.ReadAsync(new Sql("SELECT type, tbl_name, sql FROM sqlite_master WHERE type <> 'index' AND tbl_name <> 'sqlite_sequence'"),
+        var catalog = await context.ReadAsync(new Sql(limitations is null
+            ? "SELECT type, tbl_name, sql FROM sqlite_master WHERE type <> 'index' AND tbl_name <> 'sqlite_sequence'"
+            : RuntimeCatalogSql),
             row => (Type: row.GetString(0), Name: row.GetString(1), Definition: row.IsDbNull(2) ? null : row.GetString(2))).ConfigureAwait(false);
         var failures = new List<IDLOptionFailure>();
         foreach (var item in catalog.Where(row => IsTableOrViewNameInOptionsList(row.Name)))
@@ -85,12 +91,13 @@ public partial class MetadataFromSQLiteFactory : IAsyncMetadataFactory
             var table = new SQLiteProviderTableDraft(item.Name, type);
             if (type == TableType.View) table.Definition = ParseViewDefinition(item.Definition!);
             var name = table.DbName.ToCSharpIdentifier(options.CapitaliseNames);
-            var columns = await context.ReadAsync(new Sql($"SELECT * FROM pragma_table_info({QuoteSqlLiteral(table.DbName)})"),
-                row => ParseColumn(table, row, type == TableType.Table ? item.Definition : null)).ConfigureAwait(false);
+            var columns = await context.ReadAsync(new Sql($"SELECT * FROM {(limitations is null ? "pragma_table_info" : "pragma_table_xinfo")}({QuoteSqlLiteral(table.DbName)})"),
+                row => ReadNativeColumn(table, row, type == TableType.Table ? item.Definition : null)).ConfigureAwait(false);
             foreach (var column in columns)
             {
                 token.ThrowIfCancellationRequested();
-                if (column.TryUnwrap(out var imported, out var failure)) table.Columns.Add(imported);
+                if (column.Omitted) continue;
+                if (column.Column.TryUnwrap(out var imported, out var failure)) table.Columns.Add(imported);
                 else failures.Add(failure);
             }
             database.TableModels.Add(new(name, new CsTypeDeclaration(name, database.CsType.Namespace, ModelCsType.Class), table));
@@ -116,10 +123,13 @@ public partial class MetadataFromSQLiteFactory : IAsyncMetadataFactory
         foreach (var table in database.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.Table))
         {
             var relations = await context.ReadAsync(new Sql(RelationsSql(table.DbName)), CatalogRelation.Read).ConfigureAwait(false);
+            ValidateNativeRelationCompleteness(database, table, relations, failures);
+            if (failures.Count != 0) return SingleOrAggregate(failures);
             foreach (var relation in relations)
             {
                 token.ThrowIfCancellationRequested();
-                ParseRelation(database, table, relation, failures);
+                ParseRelation(database, table, relation, failures,
+                    limitations is null ? null : relations.Where(part => part.Name == relation.Name).ToArray());
             }
         }
         token.ThrowIfCancellationRequested();
