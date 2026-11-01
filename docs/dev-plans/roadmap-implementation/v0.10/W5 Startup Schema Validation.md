@@ -400,3 +400,27 @@ Added the accepted public options, internally constructed result, and result-bas
 `SchemaValidationContractTests` passes **35/35**, no failures/skips, in run `20261101T120259686Z-8c094432f2d74c5b8a82632c483e9afe` on the implementation working tree above `abb36938`. Cases cover the difference/issue policy truth tables, undefined thresholds, timeout boundaries, malformed Include, callback identity/timing, subsequent input/option mutation, read-only snapshots and public construction restrictions. The first 34-case pass is superseded by this strengthened mutation coverage. Core Release builds pass on net8.0/net9.0/net10.0 with zero warnings/errors.
 
 This is the supporting-contract portion only. Direct entry points, complete consumer-shaped overload compilation, observational sync reads, D06/D07 comparison behavior and hosting remain open; no W5 stage is declared complete by these tests.
+
+### W5.1 synchronous observational metadata foundation
+
+Added a private synchronous provider capability, owned-session coordinator and buffered command context. SQLite, MySQL and MariaDB now have internal runtime observation paths using native synchronous open/execute/read/dispose calls. These paths retain effective provider identity, use read-only SQLite file connections, borrow neither application transactions nor root/keeper ownership, and accept a readable empty schema. Existing public import APIs are unchanged. The native command construction and local catalog interpretation are shared with the async path; execution and cleanup remain genuinely synchronous.
+
+The context applies explicit timeouts after command ownership transfers, settles each reader/command before the next command, rejects reentry, retains swallowed command failures, and preserves ordered reader/command/session cleanup evidence. A failed metadata Option remains a failed Option even when cleanup adds another failure. The coordinator never publishes incomplete metadata or successful metadata whose cleanup failed. Native command/row diagnostics use provider evidence without replacing callback/materialization causes.
+
+Verification on the implementation working tree above `c4147837`:
+
+| Check | Result | Run ID |
+| --- | --- | --- |
+| `/*/*/*/SyncMetadata_*`, unit | 30/30, no failures/skips | `20261101T123051019Z-da2634f347eb46e8a7ca5dafa4b727fd` |
+| Complete SQLite native metadata class, including old async/import tests | 25/25, no failures/skips | `20261101T123444505Z-5cda1630ce5444ce93e40a053e8b2082` |
+| Existing controlled `MetadataRead_*` regressions | 58/58, no failures/skips | `20261101T123635696Z-fb9815a8028142598da1629043b8bad7` |
+| Server `SyncMetadata_*`, MySQL 9.7 and MariaDB 12.3 | 8/8, no failures/skips | `20261101T123756292Z-55fd3f5da03841f5a7c482b5bee4cba1` |
+| Server native metadata/import/fallback regressions plus sync cases, latest targets | 26/26, no failures/skips | `20261101T123935362Z-5784af299f1545f6b19dbf69340d859f` |
+
+Counts were checked against TRX; the rows overlap and are not a unique-case aggregate. Core and both SQL provider projects build in Release on net8.0/net9.0/net10.0 with zero warnings/errors. Controlled cases verify native synchronous call/thread use, timeout boundaries, no fallback, complete-result/failed-Option separation, reentry and exact failure identities/cleanup order. SQLite fixtures cover file/shared-memory identity, freshness, empty/missing distinction, transaction independence, every command's effective timeout, and real scalar/reader lock timeouts. Server fixtures cover metadata/warning parity, effective schema override, freshness, empty/missing distinction, command defaults/overrides, native timeout and one-connection-pool reuse.
+
+Retained failed attempts: initial test-fixture placement/renaming compilation errors were corrected before test execution. The 30-case run `20261101T122840608Z-bd392dcbdb9e458a98d58d64902de882` passed 28 and failed both SQLite lock-timeout cases because a nested Unknown cause masked provider classification; the native evidence correction produced the passing receipt above. Server commands through the profile-isolated wrapper could not reach Podman, including outside the sandbox. Normal-profile Podman inspection succeeded and showed stopped targets. The same Testing CLI, invoked with normal-profile `dotnet` inside the sandbox and `DATALINQ_TEST_DB_HOST=127.0.0.1`, successfully started the latest targets and ran the server checks. No tooling configuration was changed.
+
+This completes a bounded synchronous foundation slice, not W5.1's entire exit gate. D06 server identifier context and D07 typed omission transport/detection remain next, followed by scoped comparison/public entry points and hosting. All-server/case-setting fixtures, isolated deployment, packed compatibility and final candidate gates remain open.
+
+Execution sequencing clarification: internal foundation work overlaps the still-open W5.0 contract gate. Full consumer-shaped compilation will close that gate with the real runtime/host entry-point wiring; the verified options/result declarations alone do not freeze the remaining public surface or satisfy the complete entry gate.

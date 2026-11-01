@@ -21,7 +21,7 @@ using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.SQLite;
 
-public sealed class SQLiteNativeAsyncMetadataTests
+public sealed partial class SQLiteNativeAsyncMetadataTests
 {
     [Test]
     [Arguments(false)]

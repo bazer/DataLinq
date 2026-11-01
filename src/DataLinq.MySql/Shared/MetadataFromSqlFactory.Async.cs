@@ -250,9 +250,9 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
     }
 
     private static IDLOptionFailure Combine(IReadOnlyCollection<IDLOptionFailure> failures) => failures.Count == 1 ? failures.Single() : DLOptionFailure.AggregateFail(failures);
-    private static string? Text(IAsyncDataReader row, string name) => row.IsDbNull(row.GetOrdinal(name)) ? null : row.GetString(row.GetOrdinal(name));
-    private static ulong? ULong(IAsyncDataReader row, string name) => row.IsDbNull(row.GetOrdinal(name)) ? null : Convert.ToUInt64(row.GetValue(row.GetOrdinal(name)), CultureInfo.InvariantCulture);
-    private static int Number(IAsyncDataReader row, string name) => Convert.ToInt32(row.GetValue(row.GetOrdinal(name)), CultureInfo.InvariantCulture);
+    private static string? Text(IDataLinqDataReader row, string name) => row.IsDbNull(row.GetOrdinal(name)) ? null : row.GetString(row.GetOrdinal(name));
+    private static ulong? ULong(IDataLinqDataReader row, string name) => row.IsDbNull(row.GetOrdinal(name)) ? null : Convert.ToUInt64(row.GetValue(row.GetOrdinal(name)), CultureInfo.InvariantCulture);
+    private static int Number(IDataLinqDataReader row, string name) => Convert.ToInt32(row.GetValue(row.GetOrdinal(name)), CultureInfo.InvariantCulture);
     private sealed record NativeTable(string Name, string? Type, string? Comment);
     private sealed record NativeKey(string? Table, string? Column, string? ReferencedTable, string? ReferencedColumn, string? Constraint, int Ordinal);
     private sealed record NativeIndex(string? Table, string? Name, string? Column, int Ordinal, string Type, int NonUnique, ulong? Prefix, string? Collation, string? Expression, string? Visible);
@@ -261,7 +261,7 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
         ulong? NUMERIC_PRECISION, ulong? NUMERIC_SCALE, ulong? CHARACTER_MAXIMUM_LENGTH, string IS_NULLABLE, COLUMN_KEY COLUMN_KEY,
         string? EXTRA, string? GENERATION_EXPRESSION, string? COLUMN_DEFAULT, string? COLUMN_NAME, string COLUMN_COMMENT, string? IS_GENERATED) : ICOLUMNS
     {
-        internal static NativeColumn Read(IAsyncDataReader row) => new(Text(row, "TABLE_SCHEMA"), Text(row, "TABLE_NAME"), Text(row, "DATA_TYPE"), Text(row, "COLUMN_TYPE")!,
+        internal static NativeColumn Read(IDataLinqDataReader row) => new(Text(row, "TABLE_SCHEMA"), Text(row, "TABLE_NAME"), Text(row, "DATA_TYPE"), Text(row, "COLUMN_TYPE")!,
             ULong(row, "NUMERIC_PRECISION"), ULong(row, "NUMERIC_SCALE"), ULong(row, "CHARACTER_MAXIMUM_LENGTH"), Text(row, "IS_NULLABLE")!,
             Text(row, "COLUMN_KEY") switch { "PRI" => COLUMN_KEY.PRI, "UNI" => COLUMN_KEY.UNI, "MUL" => COLUMN_KEY.MUL, _ => COLUMN_KEY.Empty },
             Text(row, "EXTRA"), Text(row, "GENERATION_EXPRESSION"), Text(row, "COLUMN_DEFAULT"), Text(row, "COLUMN_NAME"), Text(row, "COLUMN_COMMENT")!, Text(row, "IS_GENERATED"));

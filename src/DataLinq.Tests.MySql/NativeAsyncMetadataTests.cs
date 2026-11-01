@@ -19,7 +19,7 @@ using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.MySql;
 
-public sealed class NativeAsyncMetadataTests
+public sealed partial class NativeAsyncMetadataTests
 {
     [Test]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
