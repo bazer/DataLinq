@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using DataLinq.Attributes;
 using DataLinq.Metadata;
 
 namespace DataLinq.Validation;
@@ -10,5 +12,7 @@ internal interface ISchemaComparisonEvidence
     bool IsDefaultOmitted(string table, string column);
     bool IsNullabilityOmitted(string table, string column);
     bool IsIndexOmitted(string table, string index);
-    int GetForeignKeyOmissionCount(RelationDefinition relation);
+    IReadOnlyList<SchemaForeignKeyOmission> GetForeignKeyOmissions(RelationDefinition relation);
 }
+
+internal sealed record SchemaForeignKeyOmission(string Identity, ReferentialAction? OnUpdate, ReferentialAction? OnDelete);

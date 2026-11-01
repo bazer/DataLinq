@@ -14,6 +14,30 @@ public sealed partial class NativeAsyncMetadataTests
     [Test]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task RuntimeLimitations_OmittedTargetRetainsProvenReferentialActionMismatch(TestProviderDescriptor descriptor)
+    {
+        using var schema = ServerSchemaDatabase.Create(descriptor, nameof(RuntimeLimitations_OmittedTargetRetainsProvenReferentialActionMismatch),
+            "CREATE TABLE parent(id INT PRIMARY KEY)",
+            "CREATE TABLE child(id INT PRIMARY KEY, parent_id INT, CONSTRAINT fk_parent FOREIGN KEY(parent_id) REFERENCES parent(id) ON DELETE RESTRICT)");
+        using var provider = Provider(descriptor, schema.Connection.ConnectionString, schema.Connection.DataSourceName);
+        var model = provider.ReadValidationMetadataCore().ValueOrException();
+        schema.ExecuteNonQuery("ALTER TABLE child DROP FOREIGN KEY fk_parent; ALTER TABLE child ADD CONSTRAINT fk_parent FOREIGN KEY(parent_id) REFERENCES parent(id) ON DELETE CASCADE");
+        schema.ExecuteNonQuery("SET FOREIGN_KEY_CHECKS=0; DROP TABLE parent; SET FOREIGN_KEY_CHECKS=1");
+        foreach (var asynchronous in new[] { false, true })
+        {
+            var settings = MetadataReadSettings.Runtime(null, null);
+            var live = (asynchronous ? await provider.ReadValidationMetadataAsyncCore(settings) : provider.ReadValidationMetadataCore(settings)).ValueOrException();
+            var selected = SchemaComparisonScope.Capture(model, descriptor.DatabaseType, ["child"]).Resolve(live, settings.Identifiers!);
+            var evidence = settings.Limitations!.Capture(settings.Identifiers!, ["child"]);
+            var difference = new SchemaComparer(settings.Identifiers!, evidence).CompareRuntime(selected.Model, selected.Database).Single();
+            await Assert.That(difference.Kind).IsEqualTo(SchemaDifferenceKind.ForeignKeyActionMismatch);
+            await Assert.That(difference.Message).Contains("Cascade");
+        }
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task RuntimeLimitations_ServerCatalogueDoesNotDependOnLogging(TestProviderDescriptor descriptor)
     {
         using var schema = ServerSchemaDatabase.Create(descriptor, nameof(RuntimeLimitations_ServerCatalogueDoesNotDependOnLogging),

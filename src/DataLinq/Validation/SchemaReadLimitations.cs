@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 
@@ -20,7 +21,7 @@ internal sealed class SchemaReadLimitation
     internal SchemaReadLimitation(string? table, string? name, SchemaReadAspect aspect,
         SchemaReadLimitationReason reason, string message,
         IReadOnlyList<string>? foreignColumns = null, string? targetTable = null, IReadOnlyList<string>? targetColumns = null,
-        string? comparisonName = null)
+        string? comparisonName = null, ReferentialAction? onUpdate = null, ReferentialAction? onDelete = null)
     {
         Table = table;
         Name = name;
@@ -30,6 +31,8 @@ internal sealed class SchemaReadLimitation
         ForeignColumns = Array.AsReadOnly(foreignColumns?.ToArray() ?? []);
         TargetTable = targetTable;
         TargetColumns = Array.AsReadOnly(targetColumns?.ToArray() ?? []);
+        OnUpdate = onUpdate;
+        OnDelete = onDelete;
         Diagnostic = new(DataLinqDiagnosticSeverity.Warning, DLFailureType.NotImplemented, message,
             objectPath: table is null ? null : name is null ? table : $"{table}.{name}",
             contextMessages: Array.AsReadOnly(Array.Empty<string>()));
@@ -43,6 +46,8 @@ internal sealed class SchemaReadLimitation
     internal IReadOnlyList<string> ForeignColumns { get; }
     internal string? TargetTable { get; }
     internal IReadOnlyList<string> TargetColumns { get; }
+    internal ReferentialAction? OnUpdate { get; }
+    internal ReferentialAction? OnDelete { get; }
     internal DataLinqDiagnosticIssue Diagnostic { get; }
 }
 
@@ -71,6 +76,7 @@ internal sealed class SchemaReadLimitations
 
     private static bool Equivalent(SchemaReadLimitation left, SchemaReadLimitation right, SchemaIdentifierRules identifiers) =>
         left.Aspect == right.Aspect && left.Reason == right.Reason && identifiers.TableNames.Equals(left.Table, right.Table) &&
+        left.OnUpdate == right.OnUpdate && left.OnDelete == right.OnDelete &&
         ObjectNames(left.Aspect, identifiers).Equals(left.Name, right.Name) &&
         ObjectNames(left.Aspect, identifiers).Equals(left.ComparisonName, right.ComparisonName) &&
         StringComparer.Ordinal.Equals(left.Diagnostic.Message, right.Diagnostic.Message) &&
@@ -110,9 +116,9 @@ internal sealed class SchemaComparisonEvidence : ISchemaComparisonEvidence
         issue.Aspect == aspect && issue.Table is not null && issue.ComparisonName is not null &&
         identifiers.TableNames.Equals(issue.Table, table) && names.Equals(issue.ComparisonName, name));
 
-    internal bool IsForeignKeyOmitted(RelationDefinition relation) => GetForeignKeyOmissionCount(relation) != 0;
+    internal bool IsForeignKeyOmitted(RelationDefinition relation) => GetForeignKeyOmissions(relation).Count != 0;
 
-    public int GetForeignKeyOmissionCount(RelationDefinition relation)
+    public IReadOnlyList<SchemaForeignKeyOmission> GetForeignKeyOmissions(RelationDefinition relation)
     {
         var source = relation.ForeignKey.ColumnIndex;
         var target = relation.CandidateKey.ColumnIndex;
@@ -129,6 +135,7 @@ internal sealed class SchemaComparisonEvidence : ISchemaComparisonEvidence
                 : issue.ForeignColumns.Count != 0 && issue.TargetTable is not null && issue.TargetColumns.Count != 0))
             // One omitted constraint can produce multiple diagnostics, but
             // remains evidence for only one unrepresented relationship.
-            .Select(issue => issue.Name!).Distinct(identifiers.ConstraintNames).Count();
+            .GroupBy(issue => issue.Name!, identifiers.ConstraintNames)
+            .Select(group => new SchemaForeignKeyOmission(group.Key, group.First().OnUpdate, group.First().OnDelete)).ToArray();
     }
 }

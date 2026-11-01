@@ -97,7 +97,7 @@ public sealed partial class SchemaComparer
             if (match >= 0) database.RemoveAt(match);
             else unmatched.Add(key);
         }
-        var omissionsUsed = new Dictionary<ComparisonKey, int>();
+        var unrepresented = new List<ForeignKeySignature>();
         foreach (var key in unmatched)
         {
             var match = database.FindIndex(candidate => ForeignKeyComparisonKey(key, true).Equals(ForeignKeyComparisonKey(candidate, true)));
@@ -111,17 +111,41 @@ public sealed partial class SchemaComparer
             }
             else
             {
-                var shape = ForeignKeyComparisonKey(key, true);
-                omissionsUsed.TryGetValue(shape, out var consumed);
-                if ((evidence?.GetForeignKeyOmissionCount(key.Relation) ?? 0) > consumed)
+                unrepresented.Add(key);
+            }
+        }
+        var omissionsUsed = new HashSet<string>(identifiers!.ConstraintNames);
+        // Consume compatible observed actions before pairing disagreements, and
+        // consume each observed constraint only once across duplicate shapes.
+        // Prefer specific evidence over unknown actions for every declaration.
+        for (var known = 2; known >= 0; known--)
+            foreach (var key in unrepresented.ToArray())
+            {
+                var omitted = evidence?.GetForeignKeyOmissions(key.Relation).FirstOrDefault(candidate =>
+                    !omissionsUsed.Contains(candidate.Identity) &&
+                    (candidate.OnUpdate.HasValue ? 1 : 0) + (candidate.OnDelete.HasValue ? 1 : 0) == known &&
+                    (!candidate.OnUpdate.HasValue || RuntimeAction(key.OnUpdate) == candidate.OnUpdate) &&
+                    (!candidate.OnDelete.HasValue || RuntimeAction(key.OnDelete) == candidate.OnDelete));
+                if (omitted is not null)
                 {
-                    omissionsUsed[shape] = consumed + 1;
-                    continue;
+                    omissionsUsed.Add(omitted.Identity);
+                    unrepresented.Remove(key);
                 }
+            }
+        foreach (var key in unrepresented)
+        {
+            var omitted = evidence?.GetForeignKeyOmissions(key.Relation).FirstOrDefault(candidate => !omissionsUsed.Contains(candidate.Identity));
+            if (omitted is not null)
+            {
+                omissionsUsed.Add(omitted.Identity);
+                differences.Add(new(SchemaDifferenceKind.ForeignKeyActionMismatch, SchemaDifferenceSeverity.Error, SchemaDifferenceSafety.Ambiguous,
+                    $"{key.ForeignKeyTable}.{key.ConstraintName}",
+                    $"Foreign key '{key.ConstraintName}' has observed referential actions that differ despite an unrepresented endpoint. Model: ON UPDATE {FormatReferentialAction(key.OnUpdate)}, ON DELETE {FormatReferentialAction(key.OnDelete)}; database: ON UPDATE {(omitted.OnUpdate is { } update ? FormatReferentialAction(update) : "unknown")}, ON DELETE {(omitted.OnDelete is { } delete ? FormatReferentialAction(delete) : "unknown")}.", modelTable, databaseTable));
+            }
+            else
                 differences.Add(new(SchemaDifferenceKind.MissingForeignKey, SchemaDifferenceSeverity.Error, SchemaDifferenceSafety.Additive,
                     $"{key.ForeignKeyTable}.{key.ConstraintName}",
                     $"Database is missing foreign key '{key.ConstraintName}' from '{key.ForeignKeyTable}' ({key.ForeignKeyColumns}) to '{key.CandidateKeyTable}' ({key.CandidateKeyColumns}).", modelTable, null));
-            }
         }
         foreach (var key in database)
             differences.Add(new(SchemaDifferenceKind.ExtraForeignKey, SchemaDifferenceSeverity.Warning, SchemaDifferenceSafety.Destructive,

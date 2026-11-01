@@ -11,6 +11,31 @@ namespace DataLinq.Tests.Unit.SQLite;
 public sealed partial class SQLiteNativeAsyncMetadataTests
 {
     [Test]
+    public async Task RuntimeLimitations_OmittedSourceRetainsProvenReferentialActionMismatch()
+    {
+        using var fixture = new Fixture(true, """
+            CREATE TABLE parent(id INTEGER PRIMARY KEY);
+            CREATE TABLE child(id INTEGER PRIMARY KEY, parent_id INTEGER, FOREIGN KEY(parent_id) REFERENCES parent(id));
+            """);
+        var model = fixture.Provider.ReadValidationMetadataCore().ValueOrException();
+        fixture.Provider.DatabaseAccess.ExecuteNonQuery("""
+            DROP TABLE child;
+            CREATE TABLE child(id INTEGER PRIMARY KEY, parent_id INTEGER GENERATED ALWAYS AS(id + 1) STORED,
+                FOREIGN KEY(parent_id) REFERENCES parent(id) ON DELETE CASCADE);
+            """);
+        foreach (var asynchronous in new[] { false, true })
+        {
+            var settings = MetadataReadSettings.Runtime(null, null);
+            var live = (asynchronous ? await fixture.Provider.ReadValidationMetadataAsyncCore(settings) : fixture.Provider.ReadValidationMetadataCore(settings)).ValueOrException();
+            var selected = SchemaComparisonScope.Capture(model, DatabaseType.SQLite, ["child"]).Resolve(live, settings.Identifiers!);
+            var evidence = settings.Limitations!.Capture(settings.Identifiers!, ["child"]);
+            var difference = new SchemaComparer(settings.Identifiers!, evidence).CompareRuntime(selected.Model, selected.Database).Single();
+            await Assert.That(difference.Kind).IsEqualTo(SchemaDifferenceKind.ForeignKeyActionMismatch);
+            await Assert.That(difference.Message).Contains("Cascade");
+        }
+    }
+
+    [Test]
     [Arguments(false)]
     [Arguments(true)]
     public async Task RuntimeLimitations_SelectedRelationshipKeepsItsUnrepresentedEndpointIssue(bool omittedSource)

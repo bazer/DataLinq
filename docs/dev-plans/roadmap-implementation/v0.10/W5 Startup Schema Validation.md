@@ -514,3 +514,17 @@ Source-project Release builds pass on all three TFMs with zero warnings/errors. 
 The new W5 verifier checks candidate archive/runtime hashes and is prepared to execute framework-dependent published copies outside the checkout, first with no tooling/model files and then with malformed `datalinq.json` and `datalinq.user.json`. It has only syntax validation at this point; packed and isolated runs remain pending. The W3 verifier gains an explicit W5 mode while its default still rejects an unexpected validation surface. Original binding sources and locked-binary probes are unchanged. The Memory consumer adds a reflection check that its separate root exposes neither `IDatabaseProvider` nor SQL validation methods; package execution and SQL-free graph verification remain pending with the common candidate.
 
 This completes initial consumer-shaped compilation and source-based HTTP evidence, not the final W5.6 package/deployment/platform gate. Native case-setting/all-server checks, final package/API compatibility, shipped documentation and candidate consolidation remain open.
+
+### Omitted relationship actions and complete native server matrix, 2026-11-01
+
+The working tree above `f017a292` closes an additional D07 evidence gap: a skipped relationship previously retained raw endpoints but not its observed referential actions. SQLite/MySQL/MariaDB now retain those actions, and comparison reports a proven action mismatch even when an endpoint cannot be represented. Matching consumes each observed constraint once, preferring known compatible actions before pairing disagreements or using unknown-action evidence. Multiple diagnostic entries cannot reuse one omitted constraint to hide multiple model relationships. A server foreign key with no corresponding referential-action catalog row is now an incomplete acquisition failure in the runtime path; legacy import behavior is unchanged.
+
+| Check | Result | Run receipt |
+| --- | --- | --- |
+| Comparer regressions, including known/unknown action matching and multiplicity | 77/77, no failures/skips | `20261101T151353458Z-cb4a13ddbbc24d60a76cc02725a0650b` |
+| Complete SQLite native metadata class, including startup ownership | 40/40, no failures/skips | `20261101T151552850Z-9fbd6af5b0cd4eafacb84491495db401` |
+| Native metadata/import/public validation across all six server versions | 126/126, no failures/skips, three 42-case batches | `20261101T151442277Z-1c63b441f75244d987cdf0cfe12797aa` |
+
+TRX counters were checked. Server targets are MySQL 8.4/9.7 and MariaDB 10.11/11.4/11.8/12.3. Native cases verify the omitted-action correction, and controlled empty catalog queries over real owned sessions verify incomplete-acquisition rejection and pool reuse. Core and MySQL/MariaDB Release builds pass on net8.0/net9.0/net10.0 with zero warnings/errors. The initial comparer run (`20261101T151026909Z-fcc6d753bed847c4957c2c9729ec8c3a`) passed 74/77; all three failures were an assertion expecting uppercase action names while existing diagnostics use enum spelling. The corrected assertions pass above; diagnostic formatting was not changed for the test.
+
+All normal server targets remain available, with complete runtime inventory preserved. These are complete native metadata-class receipts across the supported server matrix, not the broad full-suite or final candidate gate. Dedicated case-insensitive native configurations, anonymous-memory public proof, final packed/deployed/API/platform verification and shipped documentation remain open.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Validation;
@@ -18,7 +19,7 @@ public abstract partial class MetadataFromSqlFactory
     }
 
     private void ReportForeignKeyLimitation(NativeKey key, IReadOnlyList<NativeKey> keys, SchemaIdentifierRules? identifiers,
-        SchemaReadLimitationReason reason, string message)
+        SchemaReadLimitationReason reason, string message, ReferentialAction onUpdate, ReferentialAction onDelete)
     {
         if (limitations is not null && identifiers is not null)
         {
@@ -26,7 +27,8 @@ public abstract partial class MetadataFromSqlFactory
                 identifiers.ConstraintNames.Equals(part.Constraint, key.Constraint)).OrderBy(part => part.Ordinal).ToArray();
             limitations.Add(new(key.Table, key.Constraint, SchemaReadAspect.ForeignKey, reason, message,
                 group.All(part => part.Column is not null) ? group.Select(part => part.Column!).ToArray() : null,
-                key.ReferencedTable, group.All(part => part.ReferencedColumn is not null) ? group.Select(part => part.ReferencedColumn!).ToArray() : null));
+                key.ReferencedTable, group.All(part => part.ReferencedColumn is not null) ? group.Select(part => part.ReferencedColumn!).ToArray() : null,
+                onUpdate: onUpdate, onDelete: onDelete));
         }
         options.Log?.Invoke(message);
     }

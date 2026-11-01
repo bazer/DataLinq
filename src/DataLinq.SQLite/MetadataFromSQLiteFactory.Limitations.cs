@@ -21,7 +21,8 @@ public partial class MetadataFromSQLiteFactory
         var columns = (group ?? new[] { row }).OrderBy(part => part.Ordinal).ToArray();
         limitations?.Add(new(table.DbName, row.Name, SchemaReadAspect.ForeignKey, reason, message,
             columns.All(part => part.From is not null) ? columns.Select(part => part.From!).ToArray() : null,
-            row.Table, columns.All(part => !string.IsNullOrWhiteSpace(part.To)) ? columns.Select(part => part.To!).ToArray() : null));
+            row.Table, columns.All(part => !string.IsNullOrWhiteSpace(part.To)) ? columns.Select(part => part.To!).ToArray() : null,
+            onUpdate: row.OnUpdate, onDelete: row.OnDelete));
         options.Log?.Invoke(message);
     }
 

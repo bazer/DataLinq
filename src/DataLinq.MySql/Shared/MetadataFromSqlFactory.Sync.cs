@@ -139,13 +139,19 @@ public abstract partial class MetadataFromSqlFactory
             if (!ParseForeignKeyReference(database.DbName, key.Table, key.Column, key.ReferencedTable, key.ReferencedColumn, key.Constraint)
                 .TryUnwrap(out var reference, out var failure)) { failures.Add(failure); continue; }
             if (ReportExternalReference(database, key, identifiers)) continue;
+            if (!actions.TryGetValue((reference.TableName, reference.ConstraintName), out var action) && identifiers is not null)
+            {
+                failures.Add(DLOptionFailure.Fail(DLFailureType.InvalidModel,
+                    $"Foreign key '{reference.ConstraintName}' on table '{reference.TableName}' has no referential action catalog row."));
+                continue;
+            }
             var column = database.TableModels.SingleOrDefault(x => x.Table.DbName == reference.TableName)?
                 .Table.Columns.SingleOrDefault(x => x.Column.DbName == reference.ColumnName);
             if (column is null)
             {
                 if (limitations is not null)
                     ReportForeignKeyLimitation(key, keys, identifiers, SchemaReadLimitationReason.UnrepresentedForeignKeySource,
-                        $"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because source column '{reference.ColumnName}' was not imported.");
+                        $"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because source column '{reference.ColumnName}' was not imported.", action.Update, action.Delete);
                 continue;
             }
             var target = database.TableModels.SingleOrDefault(x => x.Table.DbName == reference.ReferencedTableName)?
@@ -153,10 +159,9 @@ public abstract partial class MetadataFromSqlFactory
             if (target is null)
             {
                 ReportForeignKeyLimitation(key, keys, identifiers, SchemaReadLimitationReason.UnrepresentedForeignKeyTarget,
-                    $"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because referenced column '{reference.ReferencedTableName}.{reference.ReferencedColumnName}' was not imported.");
+                    $"Warning: Skipping foreign key '{reference.ConstraintName}' on table '{reference.TableName}' because referenced column '{reference.ReferencedTableName}.{reference.ReferencedColumnName}' was not imported.", action.Update, action.Delete);
                 continue;
             }
-            actions.TryGetValue((reference.TableName, reference.ConstraintName), out var action);
             column.Column.ForeignKey = true;
             column.Attributes.Add(new ForeignKeyAttribute(reference.ReferencedTableName, reference.ReferencedColumnName,
                 reference.ConstraintName, key.Ordinal, action.Update, action.Delete));
