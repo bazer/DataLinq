@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Metadata;
 
 namespace DataLinq.Validation;
@@ -59,20 +60,73 @@ public sealed partial class SchemaComparer
         var candidate = key.Relation.CandidateKey.ColumnIndex;
         var parts = new List<(StringComparer, string)>
         {
-            (identifiers.ConstraintNames, key.ConstraintName),
             (identifiers.TableNames, key.ForeignKeyTable),
             (identifiers.TableNames, key.CandidateKeyTable),
             // Preserve sequence boundaries even when identifiers contain commas or pipes.
             (StringComparer.Ordinal, foreign.Columns.Count.ToString(System.Globalization.CultureInfo.InvariantCulture))
         };
+        // SQLite's PRAGMA reports a catalog ordinal, not the SQL constraint name.
+        // Match relationships by endpoints/actions while preserving multiplicity.
+        if (identifiers.DatabaseType != DatabaseType.SQLite)
+            parts.Insert(0, (identifiers.ConstraintNames, key.ConstraintName));
         parts.AddRange(foreign.Columns.Select(column => (identifiers.ColumnNames, column.DbName)));
         parts.AddRange(candidate.Columns.Select(column => (identifiers.ColumnNames, column.DbName)));
         if (!shapeOnly)
         {
-            parts.Add((StringComparer.Ordinal, key.OnUpdate.ToString()));
-            parts.Add((StringComparer.Ordinal, key.OnDelete.ToString()));
+            parts.Add((StringComparer.Ordinal, RuntimeAction(key.OnUpdate).ToString()));
+            parts.Add((StringComparer.Ordinal, RuntimeAction(key.OnDelete).ToString()));
         }
         return new(parts);
+    }
+
+    // Provider GetCreateSql uses restrict=true for omitted DataLinq actions.
+    // Explicit NO ACTION remains distinct; this does not assume a storage engine.
+    private static ReferentialAction RuntimeAction(ReferentialAction action) =>
+        action == ReferentialAction.Unspecified ? ReferentialAction.Restrict : action;
+
+    private void CompareRuntimeForeignKeys(TableDefinition modelTable, TableDefinition databaseTable, List<SchemaDifference> differences)
+    {
+        var model = GetComparableForeignKeys(modelTable).OrderBy(key => key.Key, StringComparer.Ordinal).ToList();
+        var database = GetComparableForeignKeys(databaseTable).OrderBy(key => key.Key, StringComparer.Ordinal).ToList();
+        // Consume all exact matches before pairing changed actions. Otherwise a
+        // duplicate shape could steal an exact match from a later declaration.
+        var unmatched = new List<ForeignKeySignature>();
+        foreach (var key in model)
+        {
+            var match = database.FindIndex(candidate => ForeignKeyComparisonKey(key, false).Equals(ForeignKeyComparisonKey(candidate, false)));
+            if (match >= 0) database.RemoveAt(match);
+            else unmatched.Add(key);
+        }
+        var omissionsUsed = new Dictionary<ComparisonKey, int>();
+        foreach (var key in unmatched)
+        {
+            var match = database.FindIndex(candidate => ForeignKeyComparisonKey(key, true).Equals(ForeignKeyComparisonKey(candidate, true)));
+            if (match >= 0)
+            {
+                var live = database[match];
+                database.RemoveAt(match);
+                differences.Add(new(SchemaDifferenceKind.ForeignKeyActionMismatch, SchemaDifferenceSeverity.Error, SchemaDifferenceSafety.Ambiguous,
+                    $"{key.ForeignKeyTable}.{key.ConstraintName}",
+                    $"Foreign key '{key.ConstraintName}' exists, but referential actions differ. Model: ON UPDATE {FormatReferentialAction(key.OnUpdate)}, ON DELETE {FormatReferentialAction(key.OnDelete)}; database: ON UPDATE {FormatReferentialAction(live.OnUpdate)}, ON DELETE {FormatReferentialAction(live.OnDelete)}.", modelTable, databaseTable));
+            }
+            else
+            {
+                var shape = ForeignKeyComparisonKey(key, true);
+                omissionsUsed.TryGetValue(shape, out var consumed);
+                if ((evidence?.GetForeignKeyOmissionCount(key.Relation) ?? 0) > consumed)
+                {
+                    omissionsUsed[shape] = consumed + 1;
+                    continue;
+                }
+                differences.Add(new(SchemaDifferenceKind.MissingForeignKey, SchemaDifferenceSeverity.Error, SchemaDifferenceSafety.Additive,
+                    $"{key.ForeignKeyTable}.{key.ConstraintName}",
+                    $"Database is missing foreign key '{key.ConstraintName}' from '{key.ForeignKeyTable}' ({key.ForeignKeyColumns}) to '{key.CandidateKeyTable}' ({key.CandidateKeyColumns}).", modelTable, null));
+            }
+        }
+        foreach (var key in database)
+            differences.Add(new(SchemaDifferenceKind.ExtraForeignKey, SchemaDifferenceSeverity.Warning, SchemaDifferenceSafety.Destructive,
+                $"{key.ForeignKeyTable}.{key.ConstraintName}",
+                $"Database has extra foreign key '{key.ConstraintName}' from '{key.ForeignKeyTable}' ({key.ForeignKeyColumns}) to '{key.CandidateKeyTable}' ({key.CandidateKeyColumns}).", null, databaseTable));
     }
 
     private ComparisonKey CheckComparisonKey(CheckSignature check) => identifiers is null

@@ -8,6 +8,7 @@ internal interface ISchemaComparisonEvidence
 {
     bool IsColumnOmitted(string table, string column);
     bool IsDefaultOmitted(string table, string column);
+    bool IsNullabilityOmitted(string table, string column);
     bool IsIndexOmitted(string table, string index);
-    bool IsForeignKeyOmitted(RelationDefinition relation);
+    int GetForeignKeyOmissionCount(RelationDefinition relation);
 }

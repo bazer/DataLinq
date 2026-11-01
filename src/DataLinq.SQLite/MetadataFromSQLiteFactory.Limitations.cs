@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.ErrorHandling;
+using DataLinq.Metadata;
 using DataLinq.Validation;
 using ThrowAway;
 
@@ -53,6 +54,10 @@ public partial class MetadataFromSQLiteFactory
     {
         if (limitations is not null)
         {
+            if (table.Type == TableType.View)
+                ReportLimitation(table.DbName, row.GetString(1), SchemaReadAspect.ColumnNullability,
+                    SchemaReadLimitationReason.UnreportedViewNullability,
+                    $"Warning: SQLite metadata cannot establish nullability of view column '{table.DbName}.{row.GetString(1)}'.");
             var hidden = row.GetInt32(row.GetOrdinal("hidden"));
             if (hidden is < 0 or > 3)
                 return (false, DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Unknown SQLite column visibility value '{hidden}' in table '{table.DbName}'."));

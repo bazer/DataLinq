@@ -209,7 +209,7 @@ public sealed partial class SchemaComparer
             }
         }
 
-        if (options.Capabilities.CompareNullability)
+        if (options.Capabilities.CompareNullability && evidence?.IsNullabilityOmitted(modelColumn.Table.DbName, modelColumn.DbName) != true)
         {
             AddMismatchIfDifferent(
                 differences,
@@ -324,6 +324,11 @@ public sealed partial class SchemaComparer
         TableDefinition databaseTable,
         List<SchemaDifference> differences)
     {
+        if (identifiers is not null)
+        {
+            CompareRuntimeForeignKeys(modelTable, databaseTable, differences);
+            return;
+        }
         var modelForeignKeys = GetComparableForeignKeys(modelTable)
             .ToDictionary(x => ForeignKeyComparisonKey(x, shapeOnly: false));
         var databaseForeignKeys = GetComparableForeignKeys(databaseTable)
@@ -351,7 +356,6 @@ public sealed partial class SchemaComparer
                 continue;
             }
 
-            if (evidence?.IsForeignKeyOmitted(modelForeignKey.Relation) == true) continue;
             differences.Add(new SchemaDifference(
                 SchemaDifferenceKind.MissingForeignKey,
                 SchemaDifferenceSeverity.Error,
@@ -544,6 +548,16 @@ public sealed partial class SchemaComparer
         var name = type.Name.ToLowerInvariant();
         var length = type.Length;
         var signed = type.Signed;
+        var decimals = type.Decimals;
+
+        if (identifiers?.DatabaseType == DatabaseType.SQLite)
+        {
+            // SQLite ignores numeric type arguments and has no unsigned storage
+            // class. Keep the declared type name (INTEGER PRIMARY KEY matters).
+            length = null;
+            decimals = null;
+            signed = null;
+        }
 
         if (options.Capabilities.DatabaseType is DatabaseType.MySQL or DatabaseType.MariaDB &&
             IsIntegerDatabaseType(name))
@@ -564,7 +578,7 @@ public sealed partial class SchemaComparer
             type.DatabaseType,
             name,
             length?.ToString(CultureInfo.InvariantCulture) ?? "",
-            type.Decimals?.ToString(CultureInfo.InvariantCulture) ?? "",
+            decimals?.ToString(CultureInfo.InvariantCulture) ?? "",
             signed?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 

@@ -6,13 +6,13 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Validation;
 
-internal enum SchemaReadAspect { Unknown, Column, ColumnDefault, Index, ForeignKey }
+internal enum SchemaReadAspect { Unknown, Column, ColumnDefault, Index, ForeignKey, ColumnNullability }
 internal enum SchemaReadLimitationReason
 {
     GeneratedColumn, HiddenColumn, PartialIndex, ExpressionIndex, DescendingIndex,
     PrefixLengthIndex, InvisibleIndex, IgnoredIndex, UnsupportedDefault, BlobDefault,
     ZeroDateDefault, UnrepresentedIndexColumn, UnrepresentedForeignKeySource,
-    UnrepresentedForeignKeyTarget, ExternalForeignKeyTarget
+    UnrepresentedForeignKeyTarget, ExternalForeignKeyTarget, UnreportedViewNullability
 }
 
 internal sealed class SchemaReadLimitation
@@ -80,7 +80,7 @@ internal sealed class SchemaReadLimitations
 
     private static StringComparer ObjectNames(SchemaReadAspect aspect, SchemaIdentifierRules identifiers) => aspect switch
     {
-        SchemaReadAspect.Column or SchemaReadAspect.ColumnDefault => identifiers.ColumnNames,
+        SchemaReadAspect.Column or SchemaReadAspect.ColumnDefault or SchemaReadAspect.ColumnNullability => identifiers.ColumnNames,
         SchemaReadAspect.Index => identifiers.IndexNames,
         SchemaReadAspect.ForeignKey => identifiers.ConstraintNames,
         _ => StringComparer.Ordinal
@@ -103,17 +103,20 @@ internal sealed class SchemaComparisonEvidence : ISchemaComparisonEvidence
 
     public bool IsColumnOmitted(string table, string column) => Contains(SchemaReadAspect.Column, table, column, identifiers.ColumnNames);
     public bool IsDefaultOmitted(string table, string column) => Contains(SchemaReadAspect.ColumnDefault, table, column, identifiers.ColumnNames);
+    public bool IsNullabilityOmitted(string table, string column) => Contains(SchemaReadAspect.ColumnNullability, table, column, identifiers.ColumnNames);
     public bool IsIndexOmitted(string table, string index) => Contains(SchemaReadAspect.Index, table, index, identifiers.IndexNames);
 
     private bool Contains(SchemaReadAspect aspect, string table, string name, StringComparer names) => limitations.Any(issue =>
         issue.Aspect == aspect && issue.Table is not null && issue.ComparisonName is not null &&
         identifiers.TableNames.Equals(issue.Table, table) && names.Equals(issue.ComparisonName, name));
 
-    public bool IsForeignKeyOmitted(RelationDefinition relation)
+    internal bool IsForeignKeyOmitted(RelationDefinition relation) => GetForeignKeyOmissionCount(relation) != 0;
+
+    public int GetForeignKeyOmissionCount(RelationDefinition relation)
     {
         var source = relation.ForeignKey.ColumnIndex;
         var target = relation.CandidateKey.ColumnIndex;
-        return limitations.Any(issue => issue.Aspect == SchemaReadAspect.ForeignKey && issue.Table is not null &&
+        return limitations.Where(issue => issue.Aspect == SchemaReadAspect.ForeignKey && issue.Table is not null && issue.Name is not null &&
             issue.Reason != SchemaReadLimitationReason.ExternalForeignKeyTarget &&
             identifiers.TableNames.Equals(issue.Table, source.Table.DbName) &&
             // Even an omitted object can prove that the model points at a
@@ -123,6 +126,9 @@ internal sealed class SchemaComparisonEvidence : ISchemaComparisonEvidence
             (issue.TargetColumns.Count == 0 || issue.TargetColumns.SequenceEqual(target.Columns.Select(column => column.DbName), identifiers.ColumnNames)) &&
             (identifiers.DatabaseType != DatabaseType.SQLite
                 ? issue.Name is not null && identifiers.ConstraintNames.Equals(issue.Name, relation.ConstraintName)
-                : issue.ForeignColumns.Count != 0 && issue.TargetTable is not null && issue.TargetColumns.Count != 0));
+                : issue.ForeignColumns.Count != 0 && issue.TargetTable is not null && issue.TargetColumns.Count != 0))
+            // One omitted constraint can produce multiple diagnostics, but
+            // remains evidence for only one unrepresented relationship.
+            .Select(issue => issue.Name!).Distinct(identifiers.ConstraintNames).Count();
     }
 }
