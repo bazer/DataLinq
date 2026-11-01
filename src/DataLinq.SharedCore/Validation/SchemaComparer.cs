@@ -518,7 +518,7 @@ public sealed partial class SchemaComparer
                 .ToList();
 
         return effectiveChecks
-            .Select(x => new CheckSignature(x.Name, NormalizeSql(x.Expression)));
+            .Select(x => new CheckSignature(x.Name, identifiers is null ? NormalizeSql(x.Expression) : NormalizeRuntimeSql(x.Expression, unwrap: true)));
     }
 
     private string? FormatComment(IEnumerable<Attribute> attributes)
@@ -900,7 +900,7 @@ public sealed partial class SchemaComparer
                 defaultSql.DatabaseType != options.Capabilities.DatabaseType)
                 return null;
 
-            return $"{attribute.GetType().Name}|{defaultSql.DatabaseType}|{NormalizeSql(defaultSql.Expression)}";
+            return $"{attribute.GetType().Name}|{defaultSql.DatabaseType}|{(identifiers is null ? NormalizeSql(defaultSql.Expression) : NormalizeRuntimeSql(defaultSql.Expression, unwrap: false))}";
         }
 
         if (TryGetEnumDefaultNumericValue(column.ValueProperty, attribute, out var enumNumericValue))

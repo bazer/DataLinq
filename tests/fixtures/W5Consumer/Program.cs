@@ -6,6 +6,12 @@ using DataLinq.Validation;
 using SessionConsumer;
 using W5Consumer;
 
+if (args.Length > 0 && args[0] == "--server-case")
+{
+    await ServerCaseScenarios.Run(args);
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--isolated")
 {
     Fixture.Check(Path.GetFullPath(Environment.CurrentDirectory) == Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar),
@@ -14,6 +20,17 @@ if (args.Length > 0 && args[0] == "--isolated")
     Fixture.Check(!Directory.EnumerateFiles(".", "DataLinq.Tools*", SearchOption.AllDirectories).Any(), "Published directory contains Tools.");
 }
 SQLiteProvider.RegisterProvider();
+using (var anonymous = new SQLiteDatabase<TestDb>("Data Source=:memory:"))
+using (var independent = new SQLiteDatabase<TestDb>("Data Source=:memory:"))
+{
+    Fixture.CreateSchema(anonymous);
+    var effectiveConnection = anonymous.Provider.ConnectionString;
+    Fixture.Check(!anonymous.ValidateSchema().HasFailures && !(await anonymous.ValidateSchemaAsync()).HasFailures,
+        "Anonymous memory validation lost the provider's effective identity.");
+    Fixture.Check(independent.ValidateSchema().DatabaseTableCount == 0, "Independent anonymous databases were merged.");
+    Fixture.Check(anonymous.Provider.ConnectionString == effectiveConnection && anonymous.Provider.TableExists("rows"),
+        "Validation changed anonymous identity or disposed its keeper.");
+}
 using (var database = Fixture.Database())
 {
     Fixture.CreateSchema(database); // Application-owned migration, before validation.

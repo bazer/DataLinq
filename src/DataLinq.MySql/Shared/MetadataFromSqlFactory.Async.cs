@@ -203,7 +203,7 @@ public abstract partial class MetadataFromSqlFactory : IAsyncMetadataFactory
             row => (Table: Text(row, "TABLE_NAME"), Constraint: Text(row, "CONSTRAINT_NAME")!, Clause: Text(row, "CHECK_CLAUSE")!)).ConfigureAwait(false);
         foreach (var check in checks)
             database.TableModels.SingleOrDefault(x => identifiers is null ? x.Table.DbName == check.Table : identifiers.TableNames.Equals(x.Table.DbName, check.Table))?.ModelAttributes
-                .Add(new CheckAttribute(databaseType, check.Constraint, NormalizeCheckClause(check.Clause)));
+                .Add(new CheckAttribute(databaseType, check.Constraint, identifiers is null ? NormalizeCheckClause(check.Clause) : check.Clause));
         token.ThrowIfCancellationRequested();
         return new MetadataDefinitionFactory().BuildProviderMetadata(database.ToMetadataDraft());
     }
