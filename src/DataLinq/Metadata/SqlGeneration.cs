@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Query;
+using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Metadata;
 
@@ -18,68 +21,82 @@ public class SqlGeneration
             sql.AddText(generatedText.Replace("%datetime%", DateTime.Now.ToString()));
     }
 
-    // Sort tables when generating SQL code to ensure that tables with foreign key columns are created after the candidate key tables.
+    // Keep the throwing entry points for existing callers; schema factories use
+    // the failure-returning entry points to diagnose unsupported dependency cycles.
     public List<TableDefinition> SortTablesByForeignKeys(List<TableDefinition> tables)
+        => TrySortTablesByForeignKeys(tables).ValueOrException();
+
+    public Option<List<TableDefinition>, IDLOptionFailure> TrySortTablesByForeignKeys(
+        List<TableDefinition> tables, bool allowCycles = false)
+        => SortByDependencies(tables, table => table.ColumnIndices
+            .Where(index => index.Characteristic == IndexCharacteristic.ForeignKey)
+            .SelectMany(index => index.RelationParts)
+            .Where(part => part.Type == RelationPartType.ForeignKey)
+            .Select(part => part.GetOtherSide().ColumnIndex.Table)
+            .Where(other => other != table).Distinct(), allowCycles, "foreign key", table => table.DbName);
+
+    public List<ViewDefinition> SortViewsByForeignKeys(List<ViewDefinition> views)
+        => TrySortViewsByForeignKeys(views).ValueOrException();
+
+    public Option<List<ViewDefinition>, IDLOptionFailure> TrySortViewsByForeignKeys(List<ViewDefinition> views)
+        => SortByDependencies(views, view => views.Where(other => other != view &&
+            view.Definition?.Contains(other.DbName) == true), false, "view", view => view.DbName);
+
+    private static Option<List<T>, IDLOptionFailure> SortByDependencies<T>(List<T> items,
+        Func<T, IEnumerable<T>> dependencies, bool allowCycles, string dependencyKind, Func<T, string> name)
+        where T : class
     {
-        for (var i = 0; i < tables.Count; i++)
+        var positions = items.Select((item, index) => (item, index)).ToDictionary(x => x.item, x => x.index);
+        var states = new byte[items.Count]; // unseen, visiting, complete
+        var ordered = new List<T>(items.Count);
+        var path = new List<int>();
+        var stack = new Stack<(int Index, IEnumerator<T> Dependencies)>();
+        try
         {
-            var table = tables[i];
-            for (var columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)
+            for (var i = 0; i < items.Count; i++)
             {
-                var column = table.Columns[columnIndex];
-                if (!column.ForeignKey)
+                if (states[i] != 0)
                     continue;
-
-                var indices = table.GetColumnIndices(column);
-                for (var indexPosition = 0; indexPosition < indices.Count; indexPosition++)
+                Visit(i);
+                while (stack.Count > 0)
                 {
-                    var index = indices[indexPosition];
-                    if (index.Characteristic != Attributes.IndexCharacteristic.ForeignKey)
-                        continue;
-
-                    for (var relationPartPosition = 0; relationPartPosition < index.RelationParts.Count; relationPartPosition++)
+                    var current = stack.Peek();
+                    if (!current.Dependencies.MoveNext())
                     {
-                        var fk = index.RelationParts[relationPartPosition];
-                        var otherTable = fk.GetOtherSide().ColumnIndex.Table;
-
-                        if (otherTable == null)
-                            continue;
-
-                        var fkIndex = tables.IndexOf(otherTable);
-                        var fkTable = tables[fkIndex];
-                        if (fkIndex > i)
-                        {
-                            tables[i] = fkTable;
-                            tables[fkIndex] = table;
-                            return SortTablesByForeignKeys(tables);
-                        }
+                        stack.Pop().Dependencies.Dispose();
+                        path.RemoveAt(path.Count - 1);
+                        states[current.Index] = 2;
+                        ordered.Add(items[current.Index]);
+                        continue;
+                    }
+                    // A referenced table outside this script may already exist.
+                    if (!positions.TryGetValue(current.Dependencies.Current, out var next))
+                        continue;
+                    if (states[next] == 0)
+                        Visit(next);
+                    else if (states[next] == 1 && !allowCycles)
+                    {
+                        var cycle = path.Skip(path.IndexOf(next)).Append(next).Select(index => name(items[index]));
+                        return DLOptionFailure.Fail(DLFailureType.NotImplemented,
+                            $"Cyclic {dependencyKind} dependencies cannot be ordered for schema creation: {string.Join(" -> ", cycle)}.");
                     }
                 }
             }
+            items.Clear();
+            items.AddRange(ordered);
+            return items;
         }
-        return tables;
-    }
-
-    public List<ViewDefinition> SortViewsByForeignKeys(List<ViewDefinition> views)
-    {
-        for (var i = 0; i < views.Count; i++)
+        finally
         {
-            var view = views[i];
-
-            foreach (var fkView in views.Where(x => x.Definition?.Contains(view.DbName) == true))
-            {
-                var fkIndex = views.IndexOf(fkView);
-                //var fkTable = views[fkIndex];
-                if (fkIndex < i)
-                {
-                    views[i] = fkView;
-                    views[fkIndex] = view;
-                    return SortViewsByForeignKeys(views);
-                }
-            }
-
+            while (stack.Count > 0)
+                stack.Pop().Dependencies.Dispose();
         }
-        return views;
+        void Visit(int index)
+        {
+            states[index] = 1;
+            path.Add(index);
+            stack.Push((index, dependencies(items[index]).GetEnumerator()));
+        }
     }
 
     public int IndentationSpaces { get; set; } = 4;

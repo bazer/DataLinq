@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
@@ -53,6 +54,9 @@ internal sealed class DatabaseEmissionInput
         }
 
         Add(database.Name);
+        Add(database.UseCache.ToString());
+        // Attribute presence affects public metadata even when the effective flag stays false.
+        Add(database.Attributes.OfType<UseCacheAttribute>().FirstOrDefault()?.UseCache.ToString());
         AddType(database.CsType);
         Add(databaseOptions.UseNullableReferenceTypes.ToString());
         Add(databaseOptions.SupportsReadSourceDatabaseConstruction.ToString());
@@ -76,7 +80,11 @@ internal sealed class DatabaseEmissionInput
         foreach (var declaration in declarations)
         {
             if (dependencies.Contains((declaration.Snapshot.Namespace, declaration.Snapshot.Name)))
+            {
                 AddSnapshot(declaration.Snapshot);
+                foreach (var value in declaration.TypeAttributeSignature)
+                    Add(value);
+            }
         }
         CanReuse = dependencies.All(dependency => declarations.Any(declaration =>
             declaration.Snapshot.Namespace == dependency.Namespace && declaration.Snapshot.Name == dependency.Name));
@@ -94,6 +102,7 @@ internal sealed class DatabaseEmissionInput
         foreach (var table in database.TableModels)
         {
             Add(table.Table.DbName); AddType(table.Model.CsType); Add(table.IsStub.ToString());
+            Add(table.Table.explicitUseCache?.ToString());
             foreach (var item in table.Model.Usings)
                 Add(item.FullNamespaceName);
             Add("/model-usings");
@@ -112,6 +121,12 @@ internal sealed class DatabaseEmissionInput
                 Add(property.PropertyName);
                 Add(options.RuntimeValuePropertyTypeNames.TryGetValue(property, out var typeName) ? typeName : null);
                 Add(options.SuppressedDefaultValueProperties.Contains(property).ToString());
+                if (options.ResolvedEnumDefaultValues.TryGetValue(property, out var defaultConstant))
+                {
+                    Add(defaultConstant.GetType().FullName);
+                    Add(Convert.ToString(defaultConstant, System.Globalization.CultureInfo.InvariantCulture));
+                }
+                Add("/resolved-enum-default");
                 var mapping = property.Column.ScalarMapping;
                 AddType(mapping.ModelCsType); AddType(mapping.ProviderCsType);
                 Add(mapping.HasConverter.ToString());

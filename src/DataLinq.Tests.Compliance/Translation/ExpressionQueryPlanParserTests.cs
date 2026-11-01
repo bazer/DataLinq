@@ -713,7 +713,7 @@ public class ExpressionQueryPlanParserTests
             "LINQ Select projection");
 
         var filteredDepartments = databaseScope.Database.Query().Departments
-            .Where(department => department.Name == "Sales");
+            .Where(department => department.Name == "Sales").Take(1);
         await AssertParserFailure(
             databaseScope.Database,
             databaseScope.Database.Query().DepartmentEmployees

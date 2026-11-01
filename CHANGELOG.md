@@ -4,6 +4,141 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.9.3 - Join Queries and Model Generation Fixes](https://github.com/bazer/DataLinq/releases/tag/0.9.3)
+
+**Released on:** 2026-10-05
+
+0.9.3 fixes explicit inner-join composition, generated model defaults, cache attributes on partial declarations, and schema regeneration. It resolves all nine issues in the [0.9.3 milestone](https://github.com/bazer/DataLinq/milestone/5).
+
+**Upgrade all DataLinq packages together to 0.9.3 and rebuild generated models.** Regenerate imported model files to pick up corrected defaults and foreign-key handling. Review the compatibility notes below when regenerating existing schemas.
+
+## Join queries
+
+- Nullable checks after an explicit inner-join projection now resolve directly forwarded members to their source columns. This includes `HasValue`, its negation, and supported predicates combining `Value` with local `Contains`. Predicates execute in the database. [#233](https://github.com/bazer/DataLinq/pull/233)
+- Explicit inner joins now accept supported `Where` filters on either input, including repeated filters, self joins, and captured parameters whose values change between executions. Ordering, paging, grouping, outer joins, and additional chained joins remain outside this extension. [#234](https://github.com/bazer/DataLinq/pull/234)
+
+## Defaults and generated metadata
+
+- Fixed `DateTime`, `DateTimeOffset`, and `TimeSpan` defaults generate legal C# attributes through `DefaultDateTime`, `DefaultDateTimeOffset`, and `DefaultTimeSpan`. Generated initialization preserves ticks, date-time kind, and explicit offsets. SQLite default literals preserve timestamp fractions and duration signs, days, and fractions; MySQL/MariaDB `DateTime` literals retain microseconds and reject finer fractions. [#235](https://github.com/bazer/DataLinq/pull/235)
+- Symbolic enum defaults and constant expressions resolve to their integral values in generated metadata. MySQL/MariaDB integer columns receive numeric defaults, while native `ENUM` columns retain their mapped labels. Changing enum constants refreshes incremental generator output. [#236](https://github.com/bazer/DataLinq/pull/236)
+- Unsigned MySQL/MariaDB columns place `UNSIGNED` before `DEFAULT`, producing valid DDL for unsigned columns with defaults. [#241](https://github.com/bazer/DataLinq/pull/241)
+- `TypeAttribute` constructor arguments accept named constants, constant expressions, named arguments, and constants from referenced assemblies. Changes to their resolved values invalidate affected generated metadata. [#242](https://github.com/bazer/DataLinq/pull/242)
+- Database and table `UseCache` attributes are honored across partial declarations. Generated metadata preserves database defaults and table overrides, including incremental changes between an absent attribute and explicit `UseCache(false)`. [#247](https://github.com/bazer/DataLinq/pull/247)
+
+## Schema generation and regeneration
+
+- Cyclic dependencies no longer cause recursive schema ordering to overflow the stack. SQLite supports cyclic table references. MySQL/MariaDB support self-references and report cycles between distinct tables with an actionable diagnostic. Cyclic view dependencies produce a diagnostic on all SQL providers. [#246](https://github.com/bazer/DataLinq/pull/246)
+- Model regeneration handles differently named foreign-key constraints with the same source and target columns without throwing a duplicate dictionary-key exception. Constraint identity is preserved; ambiguous matches after constraint renames produce a diagnostic. [#249](https://github.com/bazer/DataLinq/pull/249)
+
+## Upgrade and compatibility notes
+
+- The new temporal default attributes require matching 0.9.3 runtime, generator, and tooling packages. Fixed `DateOnly` and `TimeOnly` defaults still have no supported attribute carriers: metadata-to-model generation rejects those defaults explicitly. The property types themselves remain supported.
+- MySQL/MariaDB cyclic constraints between different tables still require creating tables before adding the constraints. This release does not generate deferred `ALTER TABLE` statements for them.
+- Partial-declaration attribute support added here is scoped to `UseCache`; it does not imply that every model attribute can be moved to a separate partial declaration.
+- `DataLinq.Memory` remains an experimental read-only backend with its existing bounded query surface.
+
+## Full changelog
+
+[Changes since 0.9.2](https://github.com/bazer/DataLinq/compare/0.9.2...0.9.3) · [0.9.3 milestone](https://github.com/bazer/DataLinq/milestone/5)
+
+
+---
+
+## [DataLinq v0.9.2 – SQL Safety, Cache Correctness, and Reliability](https://github.com/bazer/DataLinq/releases/tag/0.9.2)
+
+**Released on:** 2026-09-07
+
+0.9.2 fixes query correctness, SQL identifier handling, cache publication races, provider value preservation, and resource cleanup. It also reduces work in cache eviction, Memory paging, and incremental source generation.
+
+**Upgrade all DataLinq packages together and rebuild generated models.** This release includes compatibility changes for custom provider registration and previously unimplemented mutation APIs, detailed below.
+
+## Upgrade and compatibility notes
+
+- **Custom provider registration:** `PluginHook.DatabaseProviders`, `SqlFromMetadataFactories`, and `MetadataFromSqlFactories` are now read-only snapshot properties instead of mutable fields. Register all three provider services together with `PluginHook.RegisterProvider(...)`; use `replaceExisting: true` when replacement is intentional. Custom integrations that wrote directly to the old dictionaries must migrate and recompile. [#131](https://github.com/bazer/DataLinq/pull/131)
+- **Previously unimplemented mutation methods now produce compile-time errors.** The direct `Insert/Update/Delete` methods on `SqlQuery` and `WhereGroup`, and `Insert/Update/Delete.Execute()`, never provided working execution. Use tracked `Transaction.Insert/Update/Delete` operations for model changes, or the retained query builders' `ToDbCommand()` methods for caller-owned raw commands. Raw writes bypass tracked cache publication, so callers must arrange cache invalidation. [#136](https://github.com/bazer/DataLinq/pull/136)
+- **Regenerated wide BIT properties change type.** MySQL/MariaDB `BIT(1)` remains `bool`; `BIT(2)` through `BIT(64)` now generate `ulong` or nullable `ulong`, preserving the declared width and full unsigned value range. Review affected generated model consumers. [#119](https://github.com/bazer/DataLinq/pull/119)
+- **Invalid time-of-day conversions now fail explicitly.** Reading negative or 24-hour-and-longer MySQL/MariaDB `TIME` values as `TimeOnly` throws instead of silently wrapping. Declare `TimeSpan` for duration columns. Model generation retains `TimeOnly` as its default mapping. [#118](https://github.com/bazer/DataLinq/pull/118)
+- **SQL parameter values are redacted by default.** Explicitly enable `SqlParameterLoggingOptions.IncludeSensitiveValues` when needed; formatting remains bounded and supports additional parameter redaction. Command text is still logged, so embedded SQL literals are not protected by parameter redaction. [#125](https://github.com/bazer/DataLinq/pull/125)
+- **Model generation honors overwrite policy.** An operation with overwriting disabled now refuses existing targets, including files created after planning. Enable overwriting explicitly when replacing generated files is intended. [#130](https://github.com/bazer/DataLinq/pull/130)
+
+## SQL and query correctness
+
+- Primary-key queries preserve restrictive joins, grouping, derived sources, zero limits, and offsets instead of incorrectly bypassing those clauses through a direct key lookup. Includes scalar and composite keys, cold/warm caches, and public LINQ pagination. [#114](https://github.com/bazer/DataLinq/pull/114)
+- Identifier arguments are quoted consistently across predicates, projections, ordering, aliases, table/database names, schema generation, and view inspection. Embedded quote delimiters remain part of the identifier. Explicit raw SQL and expression APIs remain trusted-input boundaries. [#115](https://github.com/bazer/DataLinq/pull/115)
+- Database and table existence checks use parameterized equality. Names containing wildcard characters are treated literally rather than as patterns. [#126](https://github.com/bazer/DataLinq/pull/126)
+- Empty `IN` and `NOT IN` collections render as false and true predicates. Nonempty collections containing `NULL` retain SQL three-valued logic, including under negation and grouping. [#127](https://github.com/bazer/DataLinq/pull/127)
+- Cached entity hydration preserves the database's returned key order, including collation, direction, tie-breakers, and paging, instead of sorting the result again with CLR comparison rules. [#121](https://github.com/bazer/DataLinq/pull/121)
+
+## Cache concurrency and eviction
+
+- Loads that overlap invalidation can no longer repopulate row or relation-index caches with obsolete data. Publication checks the generation captured before the source read. An already-running read may finish with its old snapshot; later reads are protected against stale repopulation. [#132](https://github.com/bazer/DataLinq/pull/132)
+- Relation collections and single foreign-key references publish coherent snapshots and validate invalidation after subscribing. Delayed notifications for an older snapshot cannot clear a newer one; transaction-source transitions are checked on cache hits. [#133](https://github.com/bazer/DataLinq/pull/133)
+- Concurrent first subscriptions share one atomically published notification manager. [#128](https://github.com/bazer/DataLinq/pull/128)
+- Cache-history reads, additions, clears, counts, and capacity changes use one synchronization boundary. Reducing capacity immediately retains only the newest allowed entries; callbacks run outside the lock. [#122](https://github.com/bazer/DataLinq/pull/122)
+- Index expiration metadata belongs to live entries. Removing and reinserting a key no longer leaves an old expiration record that can evict its replacement, and insertion churn no longer accumulates obsolete records. [#123](https://github.com/bazer/DataLinq/pull/123)
+- Row eviction maintains timestamp order instead of repeatedly scanning the entire cache for each victim. Removal and replacement also remove the row's ordering node, including during clock rollback. [#124](https://github.com/bazer/DataLinq/pull/124)
+
+## Provider values and resource ownership
+
+- Duration defaults preserve sign, total hours, and microseconds in generated SQL, and exact ticks in generated C#. Sub-microsecond SQL defaults are rejected instead of silently losing precision. [#118](https://github.com/bazer/DataLinq/pull/118)
+- Wide BIT import, generated defaults, nullable values, and insert/read round trips preserve unsigned values through `ulong.MaxValue`. [#119](https://github.com/bazer/DataLinq/pull/119)
+- Enum schema regeneration preserves original database labels and numeric identities independently of generated C# member names. Quoted, escaped, empty, and NULL-like labels/defaults are handled, with explicit `NoBackslashEscapes` configuration for DDL targeting that SQL mode. [#120](https://github.com/bazer/DataLinq/pull/120)
+- MySQL/MariaDB reader setup disposes its owned connection when command setup, logging, or reader creation fails, preventing pool exhaustion after repeated failures. [#117](https://github.com/bazer/DataLinq/pull/117)
+- Internally created commands are disposed at the owning operation, including mutation failures and long-lived transactions. Reader-returning string overloads transfer command ownership to the reader, preserving the optional binary-buffer interface. Caller-supplied commands retain caller ownership. [#134](https://github.com/bazer/DataLinq/pull/134)
+- Provider registration publishes a complete set of runtime, SQL-generation, and metadata-import services atomically. [#131](https://github.com/bazer/DataLinq/pull/131)
+
+## Generation, schema scripts, and retained APIs
+
+- Generated-file backup cleanup is separate from write rollback. Cleanup failures retain committed output, missing backups do not cause deletion of replacements, and rollback continues after individual restoration failures. [#116](https://github.com/bazer/DataLinq/pull/116)
+- Overwrite policy is enforced during both planning and file replacement, including late target collisions. [#130](https://github.com/bazer/DataLinq/pull/130)
+- Missing views produce explicit manual `CREATE VIEW` actions instead of incorrect `CREATE TABLE` statements. Definitions and diagnostic text remain inside SQL comments. [#137](https://github.com/bazer/DataLinq/pull/137)
+- New-table scripts identify omitted foreign keys, effective checks, and unsupported physical index characteristics as manual actions. They exclude internal virtual indexes and already-rendered primary keys. [#138](https://github.com/bazer/DataLinq/pull/138)
+- Source generation reuses unchanged per-database emission while refreshing compilation-based validation and diagnostic locations. Imports, aliases, converter metadata, and nullability participate in invalidation. [#141](https://github.com/bazer/DataLinq/pull/141)
+- Retained update/delete builders construct executable caller-owned commands. `ImmutableRelationMock<T>` implements its collection and keyed-lookup contract using coherent lazy snapshots, with duplicate-key validation and reload after `Clear()`. [#136](https://github.com/bazer/DataLinq/pull/136)
+
+## Memory backend, tooling, and verification
+
+- Small ordered Memory pages retain a bounded best `Skip + Take` prefix while preserving stable ordering, filtering, and cancellation. Larger pages retain the stable-sort path. [#140](https://github.com/bazer/DataLinq/pull/140)
+- Shared child-process execution drains stdout and stderr concurrently, including binary output. Timeout, cancellation, and pipe failures trigger child cleanup; both Podman transports use the shared helper. [#129](https://github.com/bazer/DataLinq/pull/129)
+- New test containers bind to loopback by default through both Podman transports. Remote setups can opt in to an explicit bind address; existing containers retain their current bindings until recreated. [#135](https://github.com/bazer/DataLinq/pull/135)
+- Latest CI now requires a dedicated dependency-advisory audit, also available daily and manually. The audit includes transitive dependencies and all severities, checks project coverage, and fails when the advisory feed cannot be verified. [#139](https://github.com/bazer/DataLinq/pull/139)
+- The SQLite compatibility smoke exercises generated insert, update, rollback, and delete operations. WebAssembly documentation records the tested native-call boundary and exact dependency versions. Native extension loading and direct raw SQLite configuration remain outside that verification; existing `WASM0001` diagnostics are not suppressed. [#142](https://github.com/bazer/DataLinq/pull/142)
+
+The performance notes for eviction, Memory paging, and generator emission describe bounded diagnostic measurements. They do not claim guaranteed production latency or canonical package-release evidence.
+
+## Full changelog
+
+[Changes since 0.9.1](https://github.com/bazer/DataLinq/compare/0.9.1...0.9.2) · [0.9.2 milestone](https://github.com/bazer/DataLinq/milestone/4)
+
+
+
+---
+
+## [DataLinq v0.9.1 – MutateOrNew Primary-Key Fix](https://github.com/bazer/DataLinq/releases/tag/0.9.1)
+
+**Released on:** 2026-09-01
+
+This is a focused patch release fixing an incompatibility between generated `MutateOrNew(...)` helpers and the primary-key mutation guard introduced in 0.9.0.
+
+For existing rows with required, non-auto-increment primary keys, `MutateOrNew(...)` could incorrectly track an unchanged key as a mutation, causing `Save()` to reject the update. DataLinq now validates the supplied key using its canonical key semantics without adding it to the update set.
+
+This preserves the intended behavior:
+
+- existing rows update normally when the supplied key matches;
+- genuine primary-key changes are rejected immediately;
+- missing rows still insert using the supplied key;
+- composite, `Guid`, typed/scalar-converted, and binary keys use canonical comparison semantics.
+
+Upgrade all DataLinq packages together to 0.9.1 and rebuild generated models. No database migration is required.
+
+Fixes [#112](https://github.com/bazer/DataLinq/issues/112) via [#113](https://github.com/bazer/DataLinq/pull/113).
+
+## Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.9.0...0.9.1
+
+---
+
 ## [DataLinq v0.9.0 - Typed IDs, Prepared Queries, and an Experimental Memory Backend](https://github.com/bazer/DataLinq/releases/tag/0.9.0)
 
 **Released on:** 2026-08-25

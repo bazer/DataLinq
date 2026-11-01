@@ -206,7 +206,8 @@ public class ModelGenerator : Generator
                     overwritePropertyTypes: this.options.OverwritePropertyTypes
                 );
                 var transformer = new MetadataTransformer(transformerOptions);
-                dbMetadata = transformer.TransformDatabaseSnapshot(srcMetadata, dbMetadata);
+                if (!transformer.TryTransformDatabaseSnapshot(srcMetadata, dbMetadata).TryUnwrap(out dbMetadata, out var mergeFailure))
+                    return mergeFailure;
                 sourceModelsApplied = true;
             }
         }

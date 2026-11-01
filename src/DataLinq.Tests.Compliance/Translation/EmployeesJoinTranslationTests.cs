@@ -805,6 +805,91 @@ public class EmployeesJoinTranslationTests
             "not supported");
     }
 
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_FilteredInputsPreserveParametersAndComposition(TestProviderDescriptor provider)
+    {
+        using var scope = EmployeesTestDatabase.OpenSharedSeeded(provider,
+            nameof(ExplicitInnerJoin_FilteredInputsPreserveParametersAndComposition), EmployeesFixtureProfile.FullSeeded);
+        var database = scope.Database;
+        var employees = database.Query().DepartmentEmployees.ToArray();
+        var departments = database.Query().Departments.ToArray();
+
+        foreach (var (filterOuter, filterInner) in new[] { (true, false), (false, true), (true, true) })
+        {
+            var minimum = employees.Min(x => x.emp_no);
+            var maximum = minimum + 20;
+            var prefix = "d00";
+            var outer = database.Query().DepartmentEmployees.AsQueryable();
+            var inner = database.Query().Departments.AsQueryable();
+            if (filterOuter)
+                outer = outer.Where(x => x.emp_no >= minimum).Where(x => x.emp_no <= maximum);
+            if (filterInner)
+                inner = inner.Where(x => x.DeptNo.StartsWith(prefix)).Where(x => x.DeptNo != "missing");
+            var query = outer.Join(inner, x => x.dept_no, x => x.DeptNo,
+                    (employee, department) => new { employee.emp_no, employee.dept_no, DepartmentName = department.Name })
+                .Where(x => x.emp_no > 0).OrderBy(x => x.emp_no).ThenBy(x => x.dept_no).Take(20);
+
+            for (var invocation = 0; invocation < 3; invocation++)
+            {
+                var expected = employees.Where(x => !filterOuter || (x.emp_no >= minimum && x.emp_no <= maximum))
+                    .Join(departments.Where(x => !filterInner || (x.DeptNo.StartsWith(prefix, StringComparison.Ordinal) && x.DeptNo != "missing")),
+                        x => x.dept_no, x => x.DeptNo,
+                        (employee, department) => new { employee.emp_no, employee.dept_no, DepartmentName = department.Name })
+                    .OrderBy(x => x.emp_no).ThenBy(x => x.dept_no, StringComparer.Ordinal).Take(20).ToArray();
+                await Assert.That(FormatDepartmentRows(query.ToArray())).IsEqualTo(FormatDepartmentRows(expected));
+                var sql = CurrentQueryTranslationInspection.BuildSql(database, query);
+                await Assert.That(sql.Text).Contains("JOIN");
+                await Assert.That(sql.Text).Contains("WHERE");
+                if (filterOuter)
+                    await Assert.That(sql.Parameters.Any(x => Equals(x.Value, minimum))).IsTrue();
+                minimum += 5;
+                prefix = invocation == 0 ? "d001" : "no matching department";
+            }
+        }
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_FilteredSelfJoinPreservesSourceAliasesAndMultiplicity(TestProviderDescriptor provider)
+    {
+        using var scope = EmployeesTestDatabase.OpenSharedSeeded(provider,
+            nameof(ExplicitInnerJoin_FilteredSelfJoinPreservesSourceAliasesAndMultiplicity), EmployeesFixtureProfile.FullSeeded);
+        var rows = scope.Database.Query().DepartmentEmployees.ToArray();
+        var group = rows.GroupBy(x => x.dept_no).First(x => x.Count() >= 3).ToArray();
+        var leftIds = group.Take(2).Select(x => x.emp_no).ToArray();
+        var rightIds = group.Skip(1).Take(3).Select(x => x.emp_no).ToArray();
+        var expected = rows.Where(x => leftIds.Contains(x.emp_no))
+            .Join(rows.Where(x => rightIds.Contains(x.emp_no)), x => x.dept_no, x => x.dept_no,
+                (left, right) => new { Left = left.emp_no, Right = right.emp_no, left.dept_no })
+            .Select(x => $"{x.Left}:{x.Right}:{x.dept_no}").OrderBy(x => x).ToArray();
+        var query = scope.Database.Query().DepartmentEmployees.Where(x => leftIds.Contains(x.emp_no))
+            .Join(scope.Database.Query().DepartmentEmployees.Where(x => rightIds.Contains(x.emp_no)),
+                x => x.dept_no, x => x.dept_no,
+                (left, right) => new { Left = left.emp_no, Right = right.emp_no, left.dept_no });
+        var actual = query.ToArray().Select(x => $"{x.Left}:{x.Right}:{x.dept_no}").OrderBy(x => x).ToArray();
+        await Assert.That(expected).IsNotEmpty();
+        await Assert.That(actual).IsEquivalentTo(expected);
+    }
+
+    [Test]
+    public async Task ExplicitInnerJoin_UnsupportedInputOperatorsRemainRejected()
+    {
+        using var scope = EmployeesTestDatabase.OpenSharedSeeded(TestProviderMatrix.SQLiteInMemory,
+            nameof(ExplicitInnerJoin_UnsupportedInputOperatorsRemainRejected), EmployeesFixtureProfile.FullSeeded);
+        var database = scope.Database;
+        await AssertTranslationFailure(() => database.Query().DepartmentEmployees.Take(1)
+            .Join(database.Query().Departments, x => x.dept_no, x => x.DeptNo,
+                (employee, department) => new { employee.emp_no, department.Name }).ToArray(),
+            "Join outer sequence", "optional Where filters");
+        await AssertTranslationFailure(() => database.Query().DepartmentEmployees
+            .Join(database.Query().Departments.OrderBy(x => x.DeptNo), x => x.dept_no, x => x.DeptNo,
+                (employee, department) => new { employee.emp_no, department.Name }).ToArray(),
+            "Join inner sequence", "optional Where filters");
+    }
+
     private static string FormatDepartmentRows<T>(T[] rows)
     {
         return string.Join(
