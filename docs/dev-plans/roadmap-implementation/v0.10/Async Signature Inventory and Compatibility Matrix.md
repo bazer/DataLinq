@@ -17,6 +17,8 @@
 
 **W3 implementation evidence, 2026-09-28:** The original pending labels below describe this inventory's planning baseline. W3 implementation and B01-B15 verification are complete at clean commit db2b71df; see the [compiled contract reconciliation](../../../../test-infra/api-compatibility/w3/README.md) and [W3 compatibility evidence](W3%20Compatibility%20Evidence.md) for emitted declarations, clean package/consumer results and the final full CI matrix. Raw compatibility diagnostics remain individually dispositioned, not suppressed. W4/W5 APIs and B16 remain outside W3.
 
+**W5 implementation evidence, 2026-11-01:** A05–A07 and B16 are implemented and reconciled in the [W5 compiled-contract record](../../../../test-infra/api-compatibility/w5/README.md#public-contracts-and-compatibility), using clean candidate `0.10.0-w5.9479fe97`. The 13-type W5 projection is identical across actual .NET 8/9/10 executions. Direct/hosted, ownership, effective-identity, callback capture and isolated-deployment evidence pass. Original W3/W4 manifests remain historical and unchanged; raw API/platform findings retain explicit dispositions. The pending language in the original tables describes their planning baseline, not the current absence of these APIs. Reviewer acceptance remains separate.
+
 ## Reading The Inventory
 
 - **Accepted target** means the family and stated contract follow an accepted AAPI decision. It is not evidence of implementation.

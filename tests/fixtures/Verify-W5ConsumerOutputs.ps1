@@ -13,6 +13,8 @@ $ErrorActionPreference = 'Stop'
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $candidate = (Resolve-Path -LiteralPath $CandidateDirectory).Path
 $runtime9 = (Resolve-Path -LiteralPath $DotNet9).Path
+$nativeDotnet = (Get-Command dotnet -CommandType Application).Source
+$deploymentTempRoot = [IO.Path]::GetTempPath()
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $output) { throw 'Use a fresh output directory.' }
 New-Item -ItemType Directory -Path $output | Out-Null
@@ -21,6 +23,7 @@ $packages = [Collections.Generic.List[object]]::new()
 $inputs = [Collections.Generic.List[object]]::new()
 $report = [ordered]@{ SchemaVersion = 'w5.consumer-output-verification.v1'; Passed = $false; CandidateVersion = $CandidateVersion }
 function Hash([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
+$report.VerifierSha256 = Hash $PSCommandPath
 
 Push-Location $repo
 try {
@@ -63,7 +66,10 @@ try {
             if ($fixture -eq 'W5Consumer') { $arguments += Join-Path $output "contract-$tfm.json" }
             $log = Join-Path $output "$fixture-$tfm.log"
             if ($tfm -eq 'net9.0') { $lines = @(& $runtime9 @arguments 2>&1) }
-            else { $lines = @(& (Join-Path $repo 'scripts/dotnet-sandbox.ps1') @arguments 2>&1) }
+            # Executing an already-built DLL needs no restore/build profile.
+            # Keep the caller's environment: the sandbox build wrapper changes
+            # TEMP and would move the later deployment back into the checkout.
+            else { $lines = @(& $nativeDotnet @arguments 2>&1) }
             $exit = $LASTEXITCODE
             $lines | Set-Content -LiteralPath $log
             $major = $tfm.Substring(3).Split('.')[0]
@@ -71,22 +77,24 @@ try {
             $executions.Add(@{ Fixture = $fixture; Framework = $tfm; ExitCode = $exit; AssemblySha256 = Hash $dll; Log = $log })
         }
     }
-    foreach ($fixture in 'W5Consumer','AsyncPackageConsumer') {
+    foreach ($fixture in 'W5Consumer') {
         foreach ($file in Get-ChildItem (Join-Path $PSScriptRoot $fixture) -File | Where-Object Extension -in '.cs','.csproj') {
             $inputs.Add(@{ Path = "$fixture/$($file.Name)"; Sha256 = Hash $file.FullName })
         }
     }
+    foreach ($linked in 'W4SessionConsumer/BindingModels.cs','PublicAsyncQueryConsumer/LegacyProvider.cs','Verify-W5ConsumerOutputs.ps1') {
+        $inputs.Add(@{ Path = $linked; Sha256 = Hash (Join-Path $PSScriptRoot $linked) })
+    }
     # Published bytes are copied outside the checkout, then executed with no
     # tooling/source files and again with deliberately invalid tooling files.
     $published = (Resolve-Path -LiteralPath $PublishedDirectory).Path
-    $isolated = Join-Path ([IO.Path]::GetTempPath()) ("datalinq-w5-" + [Guid]::NewGuid().ToString('N'))
+    $isolated = Join-Path $deploymentTempRoot ("datalinq-w5-" + [Guid]::NewGuid().ToString('N'))
     if ([IO.Path]::GetFullPath($isolated).StartsWith($repo + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
         throw 'The isolated deployment must be outside the development checkout.'
     }
     $report.IsolatedDirectory = $isolated
     $deployment = [Collections.Generic.List[object]]::new()
     $report.Deployment = $deployment
-    $nativeDotnet = (Get-Command dotnet -CommandType Application).Source
     foreach ($tfm in 'net8.0','net9.0','net10.0') {
         $source = Join-Path $published $tfm
         $destination = Join-Path $isolated $tfm

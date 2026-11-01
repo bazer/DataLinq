@@ -1,5 +1,5 @@
 > [!WARNING]
-> Implementation plan and execution record. All seven W5 design decisions are accepted and runtime/startup validation is implemented on the W5 branch. Final candidate, compatibility/platform, broad regression and review-handoff gates remain open; implementation evidence is recorded below.
+> Implementation plan and execution record. W5 implementation and its functional, consumer and documentation work are complete for review. Candidate evidence and explicit platform/compatibility dispositions are recorded below. Reviewer acceptance, merge and final release acceptance remain separate.
 
 # W5: Startup Schema Validation
 
@@ -7,7 +7,7 @@
 
 **Audited source:** `967fbc17bf98f05098d5892f3db95c8043293158` on `codex/0.10-w4`, initially clean.
 
-**Status, 2026-11-01:** Implementation is on `codex/0.10-w5` from `v0.10` commit `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464`, containing completed W4 (#251), the accepted W5 plan (#252), and the master integration (#253). One draft PR against `v0.10` collects incremental implementation commits and their evidence, following W4. The user explicitly authorized W5 commits and pushes. W5.0's integration baseline and public source-consumer compilation are complete; functional slices are implemented with focused native/controlled evidence. Consolidated candidate and integration gates remain open. Review acceptance, merge and publication remain separate.
+**Status, 2026-11-01:** Implementation is complete for review on `codex/0.10-w5`, based on `v0.10` commit `f5ac9ded4eb3dca746ae1a0a84c8291f7c370464` containing W4 (#251), W5 planning (#252) and master integration (#253). The user-authorized incremental commits and pushes are collected in one PR against `v0.10`. Candidate `0.10.0-w5.9479fe97` has complete functional/provider/package/consumer evidence and explicit compatibility/platform dispositions. The raw strict platform report remains failed on independently audited friend-metadata token matches; it is not certified release evidence. Review acceptance, merge, W8/W9 release obligations and publication remain separate.
 
 **PR:** [#254, Implement W5: startup schema validation](https://github.com/bazer/DataLinq/pull/254).
 
@@ -548,3 +548,26 @@ The working tree above `69af124d` adds the normal runtime validation guide, link
 The public host consumer now covers full and explicit Include scope in each mode/order/concurrency case, using an unrelated table to prove count exclusion. All **48 combinations**, direct checks (including anonymous memory), and callback provenance pass on actual **.NET 8.0.33, 9.0.20 and 10.0.14** after a zero-warning/error three-TFM source build. The .NET 10 HTTP scenarios also pass. `artifacts/w5-contract-scope-net{8,9,10}.json` retains the captures. A reproducible W5 package/publish workflow is documented under `tests/fixtures/W5 Consumers.md`; package execution remains pending.
 
 The initial full-plan attempt (`20261101T153750774Z-e26378ef951140a686303f3dce813f00`) failed before tests because a Release Testing CLI runner held DLLs that the Release unit dependency graph rebuilt. The retry uses the Debug runner with Release tests. Its unit suite reached only the ten known sandbox junction/socket-path failures; these are not product failures or a passing full gate. Full verification outside that sandbox remains required and will be recorded separately.
+
+### Consolidated W5 candidate and review handoff, 2026-11-01
+
+The [compiled contract and candidate record](../../../../test-infra/api-compatibility/w5/README.md) identifies clean source **`9479fe9760a796fa1cbe18334160759cf869b182`**, exact candidate **`0.10.0-w5.9479fe97`**, commands, hashes, raw failures and their bounded dispositions. Six public package/symbol pairs pass strict inspection. All six external consumer projects build cleanly on net8/net9/net10. W3's nine executions (including unchanged locked 0.9.2 binaries), W4's six and W5's three pass on actual .NET 8.0.33/9.0.20/10.0.14. W5 additionally passes six isolated published executions outside the checkout: without tooling inputs and with invalid tooling inputs, with full/Include direct and hosted pass/drift checks and net10 HTTP barriers. The verifier correction preserves the original deployment environment and records its own/linked-source hashes; candidate product and consumer bytes are unchanged.
+
+Release **full passes 9,532/9,532** in `20261101T155641760Z-b3495c0cf21a461a905f6a4cfd5506de`; Release **quick passes 5,437/5,437** in `20261101T161535475Z-571b3a8913da472aa399c7cc62637d8b`. TRX counters confirm zero failures/skips. These supersede the sandbox-only full failure, whose ten junction/socket cases pass outside that sandbox. Dedicated native mode-1/mode-2-disposition checks also pass against the same packed consumer. [CI #713](https://github.com/bazer/DataLinq/actions/runs/41322894894) passes on the candidate source.
+
+The W5 contract export contains 13 actual types with identical projections across all three runtimes; A05–A07 and B16 are reconciled. ApiCompat retains exactly the 13 accepted W3 fingerprints, 1,065 additive/compatible findings, two inherited divergences and zero new framework mismatches. The dependency/analyzer and Memory-only graph checks pass; core adds only Hosting.Abstractions and no Tools/full Hosting/ASP.NET dependency.
+
+All eight constrained-runtime targets publish and run, including browser no-AOT/AOT smoke. The **raw strict platform gate remains failed**, with valid clean provenance, on 14 Memory byte-token findings. A reproducible metadata audit proves the exact hits are pre-existing core friend-assembly declarations, not provider references; complete Memory restore graphs contain no SQL packages. The scanner and raw report are unchanged. Both SQLite browser lanes retain the known 13 WASM0001 diagnostic lines for varargs imports. These bounded dispositions support W5 dependency-graph integration, not final release certification or proof that every validation API runs under each constrained runtime. Native mode 2 remains unavailable on the tested Linux filesystem. Final metadata-aware payload acceptance, SQLite provider warnings, W8 performance and W9 release approval remain explicit later obligations.
+
+| W5 slice | Implementation handoff |
+| --- | --- |
+| W5.0 | Accepted D01–D07, verified integrated base, actual public consumer contracts. |
+| W5.1 | Owned sync/native-async observational reads, effective identities, timeout/cancellation settlement, typed omissions; import and complete provider regressions pass. |
+| W5.2 | Captured immutable policy/results, scoped counts, live identifier rules, narrow evidence-aware comparison and unchanged legacy comparison behavior verified. |
+| W5.3 | Direct/static sync/async entry points, original operational evidence, unsupported capability, compiled-model and isolated deployment proof complete. |
+| W5.4 | Canonical registrations, defaults/overrides, alias deduplication, disabled activation, per-container state and W4 ownership verified. |
+| W5.5 | StartingAsync barrier, mode truth table, ordered settlement, diagnostic fidelity, cancellation, Generic Host and real HTTP proof complete. |
+| W5.6 | One candidate joins provider/compatibility/packed/deployed evidence; exact API/platform differences and unavailable mode-2 coverage are explicitly dispositioned above. No blanket raw compatibility/platform pass is claimed. |
+| W5.7 | Runtime guide, CLI/DI links, generated navigation inspection, exported inventory, roadmap reconciliation and review handoff complete. Reviewer acceptance is not asserted. |
+
+Later verifier/audit/record commits do not change the tested runtime, providers, generator, dependencies or consumer binaries. The PR remains the single review vehicle; no merge or package publication has been performed.

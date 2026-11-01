@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-11-01 (all seven W5 design decisions accepted; runtime/startup implementation and verification remain pending. The 2026-10-12 H10 review dispositions and other workstream scope remain unchanged).
+**Last reviewed:** 2026-11-01 (W5 implementation is ready for review with one source-identified candidate, complete functional/consumer evidence and explicit compatibility/platform dispositions. Reviewer acceptance and final release gates remain separate; other workstream scope is unchanged).
 
 **Prerequisite:** DataLinq 0.9.2 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -15,7 +15,9 @@
 
 ## Release Thesis
 
-**Current checkpoint, 2026-09-29:** [W1 is closed](W1%20Closeout.md), [W2 is closed](W2%20Closeout.md), and [W3 is closed](W3%20Closeout.md). The user confirmed reviewer acceptance and authorized merge-commit integration of [PR #230](https://github.com/bazer/DataLinq/pull/230) into `v0.10`. Review fixes through `2988aeac` pass all 4,971 Release quick-plan tests and twelve required CI checks, with clean .NET 8/9/10 builds. W4 (DI, hosting and unit of work) is next; runtime schema validation remains W5. Earlier package/full-matrix evidence retains its original commit identity. Performance investigation, optimization and acceptance remain deferred until after feature implementation; official SQLite package adoption, affected reruns, W0-F1 and release acceptance remain separate obligations.
+**Historical checkpoint, 2026-09-29:** [W1 is closed](W1%20Closeout.md), [W2 is closed](W2%20Closeout.md), and [W3 is closed](W3%20Closeout.md). The user confirmed reviewer acceptance and authorized merge-commit integration of [PR #230](https://github.com/bazer/DataLinq/pull/230) into `v0.10`. Review fixes through `2988aeac` pass all 4,971 Release quick-plan tests and twelve required CI checks, with clean .NET 8/9/10 builds. Earlier package/full-matrix evidence retains its original commit identity. Performance investigation, optimization and acceptance remain deferred until after feature implementation; official SQLite package adoption, affected reruns, W0-F1 and release acceptance remain separate obligations.
+
+**Current checkpoint, 2026-11-01:** W4 is integrated through PR #251. [W5](W5%20Startup%20Schema%20Validation.md) is implemented for review in PR #254 against `v0.10`. Candidate `0.10.0-w5.9479fe97` passes 9,532 full-plan and 5,437 quick-plan tests, packed/deployed consumers on actual .NET 8/9/10 and all eight constrained-runtime smoke executions. Raw ApiCompat findings remain the 13 accepted W3 diagnostics. The strict platform report still fails on audited pre-existing friend-metadata token matches; SQLite WASM0001 warnings and native mode-2 platform limits remain explicit. See [exact evidence and dispositions](../../../../test-infra/api-compatibility/w5/README.md). This is implementation handoff, not reviewer acceptance, merge or final release certification.
 
 > Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class database-free testing support.
 
@@ -184,7 +186,7 @@ Explicit non-goals:
 
 Durable design source: [Schema Validation Hooks](../../providers-and-features/Schema%20Validation%20Hooks.md).
 
-**W5 planning, 2026-11-01:** [Source audit and detailed implementation plan](W5%20Startup%20Schema%20Validation.md) now records all seven accepted decisions (D01–D06 on 2026-10-31, D07 on 2026-11-01). Next complete the W5.0 contract/base gate and W5.1 metadata foundation. W5 is not implemented; public declaration, provider, host and package-consumer evidence remains required.
+**W5 implementation handoff, 2026-11-01:** The [execution record](W5%20Startup%20Schema%20Validation.md#consolidated-w5-candidate-and-review-handoff-2026-11-01) reconciles W5.0–W5.7 against accepted D01–D07, with native provider, host/HTTP, exact-package, isolated-deployment and emitted-contract evidence. Reviewer acceptance remains open. Raw compatibility/platform findings and remaining release obligations retain their explicit dispositions; they are not relabeled as blanket passing gates.
 
 Required contract:
 
