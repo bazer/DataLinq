@@ -1,11 +1,12 @@
 # Repository Instructions
 
 - At a coherent stopping point, review and stage only the changes belonging to the task. Preserve unrelated working-tree and staged changes.
-- When a commit is sensible, ask whether to commit and recommend either a direct commit to `master` or a branch and PR. Resolve the destination with the user before committing; do not assume the current branch is the intended destination.
+- When a commit is sensible, ask whether to commit and push, and recommend either a direct commit to `master` or a branch and PR. Name the push remote and destination branch; for a PR, also agree on its base branch. Resolve these destinations with the user before committing; do not assume the current branch is intended.
 - Do not commit until the user approves the scoped change. Approval to commit includes pushing to the agreed remote branch unless the user explicitly requests a local-only commit. Do not ask again for actions already authorized for that task. Amending commits, rewriting history, merging PRs, and publishing packages require their own explicit authorization. A squash or rebase merge also needs a concrete reason and explicit approval for that exception.
+- Before pushing, inspect the entire outgoing commit range for the agreed destination, including any older local commits. Do not publish unrelated or unapproved commits; follow the outgoing-range checks in the agent development loop.
 - Commit-message and merge conventions live in `docs/Contributing.md`. Do not routinely post suggested commit messages in chat; provide one when requested.
 - The agent development loop lives in `docs/contributing/AI Assistant Guidance.md`. Read it before implementation, then consult only the tooling pages relevant to the task.
-- While iterating, run very focused tests for the behavior under change. Run `quick` once at a coherent stopping point for code changes; consider `latest` locally when MySQL/MariaDB behavior is affected. Leave broader coverage to CI by default. Use documentation checks for documentation-only changes.
+- Follow the [contributor feedback loop](docs/Contributing.md#local-feedback-loop) for local test selection and documentation-only validation. Keep iteration focused.
 - New tests belong in the active TUnit projects, not the removed legacy xUnit projects.
 - Prefer the repo-local Dev, Testing, and Benchmark CLIs when they fit the task. See `docs/contributing/Internal Tooling.md` for routing, platform setup, and troubleshooting.
 - When a sandbox is available, try build, test, local CLI, and non-destructive git inspection commands there first. Request escalation only after a likely sandbox, network, cache, or permission failure and only when the execution environment supports it. Native Windows commands and known failure modes are documented in Internal Tooling.

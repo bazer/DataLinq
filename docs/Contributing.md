@@ -161,7 +161,7 @@ Do not let roadmap material pretend to be shipped behavior. For documentation-on
 
 ## 6. Commits and Pull Requests
 
-For agent-assisted changes, `AGENTS.md` defines staging and authorization. Agents prepare and stage the completed task, then ask whether to commit when appropriate and recommend a direct commit to `master` or a branch and PR. Approval to commit includes pushing to the agreed destination unless a local-only commit is explicitly requested.
+For agent-assisted changes, `AGENTS.md` defines staging and authorization. Follow the [agent handoff workflow](contributing/AI%20Assistant%20Guidance.md#4-review-stage-and-hand-off) to inspect outgoing commits and confirm the push remote, destination branch, and PR base.
 
 ### Merge strategy
 

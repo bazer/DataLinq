@@ -86,7 +86,7 @@ dotnet run --project DataLinq.Testing.CLI -- run --suite memory --output failure
 
 ## Run Plans
 
-For everyday development, run very focused tests while editing and `quick` once at a code stopping point. Consider `latest` locally when MySQL/MariaDB behavior is affected; otherwise leave broader coverage to CI. `smoke` is optional, and `full` is for explicit investigations or release-verification work. See the [contributor feedback loop](../Contributing.md#local-feedback-loop).
+Use the [contributor feedback loop](../Contributing.md#local-feedback-loop) to choose a plan during development. This section describes each plan's coverage and prerequisites.
 
 Run plans answer **what tests should run now?** Provider aliases and `--targets` independently answer **which database implementations should provider-backed tests use?** Do not conflate those axes.
 

@@ -38,7 +38,7 @@ Use this decision table:
 | run or compare benchmarks | [`DataLinq.Benchmark.CLI`](DataLinq.Benchmark.CLI.md) |
 | audit direct/transitive dependencies against the online advisory feed | `scripts/audit-dependencies.ps1`, documented in [CI Test Lanes](CI%20Test%20Lanes.md#dependency-advisory-audit) |
 
-For the local test-selection policy, see the [contributor feedback loop](../Contributing.md#local-feedback-loop). Run focused tests while editing, `quick` at a code stopping point, and consider `latest` locally for MySQL/MariaDB changes. Broader coverage normally runs in CI.
+The [contributor feedback loop](../Contributing.md#local-feedback-loop) owns local test selection and when to leave broader coverage to CI. Use the table above to route the selected work to the appropriate tool.
 
 ## Child process execution
 
