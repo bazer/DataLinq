@@ -86,6 +86,8 @@ dotnet run --project DataLinq.Testing.CLI -- run --suite memory --output failure
 
 ## Run Plans
 
+For everyday development, run very focused tests while editing and `quick` once at a code stopping point. Consider `latest` locally when MySQL/MariaDB behavior is affected; otherwise leave broader coverage to CI. `smoke` is optional, and `full` is for explicit investigations or release-verification work. See the [contributor feedback loop](../Contributing.md#local-feedback-loop).
+
 Run plans answer **what tests should run now?** Provider aliases and `--targets` independently answer **which database implementations should provider-backed tests use?** Do not conflate those axes.
 
 | Plan | Intent | Default prerequisites | Warm budget |
@@ -252,7 +254,7 @@ Each server-backed command row records the normalized effective database host re
 
 `Outcome` and `IsCompleteForInvocation` describe the selected invocation. A focused or filtered run can therefore pass and be complete for what it was asked to execute while still having `ValidForEvidence` set to `false`. `ValidForEvidence` is deliberately stricter: it requires a passed, complete, artifact-complete, unfiltered `all`-suite/`all`-target run over the exact five-suite (`generators`, `unit`, `memory`, `compliance`, `mysql`) and eight-target (`sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mysql-9.7`, `mariadb-10.11`, `mariadb-11.4`, `mariadb-11.8`, `mariadb-12.3`) release catalog. The reporter reconstructs the expected suite/batch rows from that resolved invocation and requires an exact expected-versus-observed match, with one target per provider-backed result row; it does not trust the aggregate coverage flags alone. Valid evidence also requires a clean checkout whose commit and status remain stable and matching Testing CLI and DevTools assemblies built from that clean commit. Missing counts, expected rows, build records, or referenced logs make the requested summary incomplete or invalid rather than silently producing release evidence.
 
-Provider totals are aggregate within a target batch. Use `--batch-size 1` for the authoritative release matrix so each provider-backed result row has exactly one `TargetIds` entry and `HasPerTargetProviderTotals` is true. Warnings and skipped tests still require the separate dispositions defined by the release plan; `ValidForEvidence` does not waive that review.
+Provider totals are aggregate within a target batch. Use `--batch-size 1` when per-provider local totals are needed, so each provider-backed result row has exactly one `TargetIds` entry and `HasPerTargetProviderTotals` is true. This report's `ValidForEvidence` flag validates its local invocation contract; it does not replace the successful canonical shard aggregate required by [CI Test Lanes](CI%20Test%20Lanes.md#nightly-full-matrix) for a release. Warnings and skipped tests still require the separate dispositions defined by the release plan.
 
 The active suites run on TUnit and Microsoft.Testing.Platform, so this is not the old VSTest `FullyQualifiedName~Foo` filter grammar. Use the TUnit tree-node shape:
 
