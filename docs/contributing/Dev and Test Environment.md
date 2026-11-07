@@ -200,27 +200,17 @@ podman ps
 
 ## Run Tests
 
-Follow the [local feedback loop](../Contributing.md#local-feedback-loop). While editing, select the smallest meaningful test group with a TUnit tree-node filter and failure-focused output:
+Follow the [contributor feedback loop](../Contributing.md#local-feedback-loop) for test selection and stopping-point checks. From `src`, a focused run uses a TUnit tree-node filter and failure-focused output:
 
 ```powershell
 dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
 ```
 
-At a coherent code stopping point, run the no-Podman pre-commit check:
-
-```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --plan quick --output failures
-```
-
-Consider the latest provider-family run locally when MySQL/MariaDB behavior is affected. The CLI brings missing server containers up before running their tests:
-
-```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4 --output failures
-```
+The CLI brings missing server containers up before running provider-backed tests.
 
 For a focused server regression, use the matching suite, explicit target, and tree-node filter. The targetless `memory` suite is distinct from the `sqlite-memory` compliance target; see [Testing CLI suites](DataLinq.Testing.CLI.md#suites).
 
-`smoke` is available for an optional representative signal. Local `full --batch-size 1` is available for an explicit all-provider investigation, but neither is a mandatory iteration step. CI handles the broader matrix and the release aggregate.
+For plan coverage and prerequisites, see [Testing CLI run plans](DataLinq.Testing.CLI.md#run-plans). CI coverage and release evidence are described in [CI Test Lanes](CI%20Test%20Lanes.md).
 
 On a fresh checkout, let `dotnet run` build the CLI. After a Debug build, reuse the CLI binary for focused runs while retaining the default rebuild of changed test/product sources:
 
@@ -346,4 +336,4 @@ dotnet run --project DataLinq.Dev.CLI -- doctor --profile repo
 dotnet run --project DataLinq.Testing.CLI -- run --plan quick --output failures
 ```
 
-When MySQL/MariaDB work requires server tests, initialize and start Podman as described above. The Testing CLI starts the selected containers as needed. For subsequent edits, use focused tests and the stopping-point checks described in [Run Tests](#run-tests).
+When MySQL/MariaDB work requires server tests, initialize and start Podman as described above. The Testing CLI starts the selected containers as needed. For subsequent edits, follow the [contributor feedback loop](../Contributing.md#local-feedback-loop).

@@ -10,7 +10,7 @@ This page describes the development loop for AI assistants and coding agents wor
 - [Internal Tooling](Internal%20Tooling.md) routes build, test, benchmark, and release-evidence work to the appropriate tools and owns platform troubleshooting.
 - Per-tool pages document command behavior. Read the pages relevant to the task instead of loading every tool reference.
 
-Keep rules in their owning page and link to them. Do not introduce separate instruction files for individual agent products or use planning documents as competing operating guides.
+Keep rules in their owning page and link to them. Thin compatibility entry points such as `.github/copilot-instructions.md` may direct clients to the root `AGENTS.md`; they must not duplicate policy. Do not use product-specific instruction files or planning documents as competing operating guides.
 
 ## Development Loop
 
@@ -34,17 +34,11 @@ dotnet run --project src/DataLinq.Testing.CLI -- run --plan focused --suite unit
 
 Select a specific provider target when the regression needs a server database. The `memory` suite is targetless and distinct from the `sqlite-memory` compliance target; see [Testing CLI suites](DataLinq.Testing.CLI.md#suites).
 
-Restore or diagnose the environment when needed, and build only the affected projects during iteration. A full solution build, repeated `doctor` runs, smoke runs, and provider matrices are not mandatory steps after every edit. Use the [contributor testing loop](../Contributing.md#3-testing) to choose the next check.
+Restore or diagnose the environment when needed, and build only the affected projects during iteration. A full solution build, repeated `doctor` runs, smoke runs, and provider matrices are not mandatory steps after every edit. Use the [contributor feedback loop](../Contributing.md#local-feedback-loop) to choose the next check.
 
 ### 3. Verify the completed slice
 
-Once code changes and focused tests are ready, run `quick` once. Consider `latest` locally when the change affects MySQL/MariaDB behavior, including shared code that changes their SQL, mappings, schema handling, or runtime behavior. Otherwise leave server and full-matrix coverage to CI.
-
-```bash
-dotnet run --project src/DataLinq.Testing.CLI -- run --plan quick --output failures
-```
-
-Rerun checks when subsequent changes or failures invalidate the result. Do not repeat successful broad checks without a reason. For documentation-only work, validate links and examples and build docs when appropriate; application test plans are unnecessary unless executable behavior also changed.
+Apply the [contributor feedback loop](../Contributing.md#local-feedback-loop) to choose the stopping-point checks for the completed slice. That section owns local test selection, rerun criteria, and documentation-only validation. Its command examples run from `src`; when running them from the repository root, prefix project paths with `src/`.
 
 Report exactly what was verified and any unavailable or failing checks. A local passing run does not replace the CI gate or release evidence; see [CI Test Lanes](CI%20Test%20Lanes.md).
 
@@ -52,7 +46,9 @@ Report exactly what was verified and any unavailable or failing checks. A local 
 
 Review the final diff for correctness, unintended changes, missing coverage, and documentation impact. Check whitespace and inspect the staged diff after staging the task's changes. If a file also contains unrelated work, stage only the relevant hunks; do not sweep unrelated files or existing staged edits into the task.
 
-Summarize what changed, the checks and outcomes, and any remaining limitations. At a sensible commit point, ask whether to commit and recommend either a direct commit to `master` or a branch and PR, based on the actual diff and branch state. Settle the destination before committing. Follow the authorization rules in `AGENTS.md`: commit approval includes pushing to the agreed branch, and already-authorized actions do not need another confirmation.
+Before requesting approval, refresh the relevant remote refs and inspect the entire outgoing commit range, including older local commits. For an existing remote branch, compare against its current tip; for a new remote branch, compare against the intended PR base. Inspect the commit list as well as the resulting diff, since a scoped staged change does not guarantee a scoped push. If the range includes unrelated or unapproved commits, isolate the approved work on a suitable branch or obtain approval for the expanded scope before publishing it. Recheck before pushing if either the local history or remote destination has changed.
+
+Summarize what changed, the checks and outcomes, and any remaining limitations. At a sensible commit point, ask whether to commit and push, naming the remote and destination branch. Recommend either a direct commit to `master` or a branch and PR based on the diff and branch state. For a PR, also agree on its base, such as `master` or the active development branch. Settle these destinations before committing. Follow `AGENTS.md` for authorization and local-only exceptions; already-authorized actions do not need another confirmation.
 
 Use the [commit-message conventions](../Contributing.md#commit-messages) when a commit is authorized, and follow the [merge strategy](../Contributing.md#merge-strategy) when separately authorized to merge. The handoff does not need a pasted suggested commit message unless the user asks for one. A review-only task with no changes does not need staging or a commit question.
 
