@@ -82,87 +82,64 @@ Detailed tool documentation lives here:
 - [DataLinq.Benchmark.CLI](contributing/DataLinq.Benchmark.CLI.md)
 - [AI Assistant Guidance](contributing/AI%20Assistant%20Guidance.md)
 
-Check the local `dotnet` execution profile before you start blaming the repo:
+### Local feedback loop
+
+Keep the local loop fast. While editing, run very focused tests for the behavior under change. At a coherent stopping point for code changes, run `quick` once. Consider `latest` locally when MySQL/MariaDB behavior is affected, including changes in shared code used by those providers. Otherwise leave server and full-matrix coverage to CI.
+
+Start with a method, class, or small group using a TUnit tree-node filter:
 
 ```bash
-dotnet run --project DataLinq.Dev.CLI -- doctor --profile repo
+dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
 ```
 
-Prefer the developer wrapper for restore/build so the repo uses its local `.dotnet` home, AppData, NuGet cache, and artifact paths:
+Choose the matching suite and, for server-specific regressions, explicit targets. The filter grammar is `/<Assembly>/<Namespace>/<Class>/<Test>`, not the old VSTest syntax. The Testing CLI builds the selected test projects by default; a full solution build is not required before every focused run.
+
+Once the slice is ready, run the local pre-commit check:
 
 ```bash
-dotnet run --project DataLinq.Dev.CLI -- restore
-dotnet run --project DataLinq.Dev.CLI -- build
-dotnet run --project DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
+dotnet run --project DataLinq.Testing.CLI -- run --plan quick --output failures
 ```
 
-The wrapper resolves explicit target paths from the repo root, so target arguments still use `src/...` paths even though you invoke the wrapper from inside `src`.
+When MySQL/MariaDB changes warrant broader local verification:
 
-Useful output modes:
+```bash
+dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4 --output failures
+```
 
-- `--output quiet`
-  One-line success, concise failure summary.
-- `--output errors`
-  Distinct compiler/NuGet errors only.
-- `--output failures`
-  Test-failure focused output.
-- `--output diag`
-  Full diagnostic output with raw artifacts.
+`smoke` remains available for a representative no-Podman signal when useful, but is not an extra mandatory iteration step. Reserve local `full` runs for an explicit investigation or release-verification task. CI owns the normal broader coverage; local checks do not replace the required CI gate or the release aggregate described in [CI Test Lanes](contributing/CI%20Test%20Lanes.md).
 
-List the feedback plans, suites, provider target sets, estimates/measurements, and current runtime state:
+Rerun successful checks only when further changes or failures justify it. For documentation-only changes, validate the docs instead of running application test plans.
+
+### Supporting tools
+
+Inspect available plans, suites, targets, and recorded measurements:
 
 ```bash
 dotnet run --project DataLinq.Testing.CLI -- list
 ```
 
-Run the normal pre-push lane:
+Use the Dev CLI when the environment needs diagnosis or an explicit restore/build is needed. Scope build targets to the work:
 
 ```bash
-dotnet run --project DataLinq.Testing.CLI -- run --plan quick
+dotnet run --project DataLinq.Dev.CLI -- doctor --profile repo
+dotnet run --project DataLinq.Dev.CLI -- build src/DataLinq.Tools/DataLinq.Tools.csproj
 ```
 
-Run the main latest server-backed lane:
+The wrapper resolves explicit target paths from the repo root, so target arguments use `src/...` even when the wrapper is invoked from `src`. Full setup and native Windows sandbox bootstrap instructions live in [Dev and Test Environment](contributing/Dev%20and%20Test%20Environment.md) and [Internal Tooling](contributing/Internal%20Tooling.md).
+
+Use `--output failures` for tests, `--output errors` for compiler/NuGet errors, and `--output diag` when full diagnostic artifacts are needed.
+
+For repeated runs, outer `dotnet run --no-build` reuses the CLI binary only. Keep the Testing CLI's default test-project build while test or product sources are changing:
 
 ```bash
-dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4
+dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
 ```
 
-Run only a specific suite:
+Build the CLI in the same configuration first, and rebuild it after changes to its sources or dependencies. Inner `run --no-build` is only for unchanged, already-built test hosts; stale outputs are rejected.
 
-```bash
-dotnet run --project DataLinq.Testing.CLI -- run --suite generators
-dotnet run --project DataLinq.Testing.CLI -- run --suite unit
-dotnet run --project DataLinq.Testing.CLI -- run --suite memory --output failures
-dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias latest --batch-size 4
-dotnet run --project DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
-```
+Visual Studio runsettings live under `src`: `tests.quick.runsettings`, `tests.latest.runsettings`, and `tests.all.runsettings`.
 
-Run a focused subset inside a suite with a TUnit tree-node filter:
-
-```bash
-dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
-```
-
-When invoking the CLI repeatedly from the same build output, prefer `--no-build` together with an explicit configuration and framework:
-
-```bash
-dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --plan latest --batch-size 4 --no-build
-```
-
-Visual Studio runsettings live under `src`:
-
-- `src/tests.quick.runsettings`
-- `src/tests.latest.runsettings`
-- `src/tests.all.runsettings`
-
-If you are only changing one slice of the codebase, prefer targeted suite runs over blanket full-matrix execution.
-
-For benchmark work, use the benchmark wrapper instead of calling BenchmarkDotNet directly:
-
-```bash
-dotnet run --project DataLinq.Benchmark.CLI -- list
-dotnet run --project DataLinq.Benchmark.CLI -- run
-```
+For performance work, use [DataLinq.Benchmark.CLI](contributing/DataLinq.Benchmark.CLI.md) for discovery, execution, and comparison rather than invoking BenchmarkDotNet directly.
 
 ## 4. Documentation Changes
 
@@ -172,7 +149,7 @@ If behavior changes, update the matching docs:
 - internal architecture docs only when the implementation still matches them
 - dev-plan documents only when you are intentionally updating migration or design history
 
-Do not let roadmap material pretend to be shipped behavior.
+Do not let roadmap material pretend to be shipped behavior. For documentation-only changes, check links and command examples and build the docs when feasible for broad edits. If navigation or presentation changes, inspect generated `_site` output. Use a local HTTP server for browser previews.
 
 ## 5. Coding Guidelines
 
@@ -182,7 +159,17 @@ Do not let roadmap material pretend to be shipped behavior.
 - Add comments only when they explain something non-obvious.
 - Prefer updating the shared test harness instead of rebuilding ad hoc fixtures in individual test projects.
 
-## 6. Pull Requests
+## 6. Commits and Pull Requests
+
+For agent-assisted changes, `AGENTS.md` defines staging and authorization. Agents prepare and stage the completed task, then ask whether to commit when appropriate and recommend a direct commit to `master` or a branch and PR. Approval to commit includes pushing to the agreed destination unless a local-only commit is explicitly requested.
+
+### Commit messages
+
+Use a concise, descriptive subject, a blank line, and a body explaining the actual change and why it matters. Describe the final behavior and motivation for a reader who has not seen the conversation. Mention meaningful regression coverage when useful and include issue references when appropriate.
+
+Do not copy conversation history, discarded approaches, or a sequence of work-in-progress messages into the final message. For a squash merge, compose one coherent message for the final change. Conventional Commit prefixes are not required. Release descriptions, not commit prefixes, feed the generated changelog.
+
+### Pull request descriptions
 
 - Keep PRs small enough to review.
 - Explain behavioral changes clearly.

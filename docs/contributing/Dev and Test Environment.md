@@ -6,7 +6,7 @@ If you only want to use DataLinq from another application, start with the normal
 
 ## TLDR
 
-For the normal Windows contributor path, install Git, the .NET 10 SDK, and Podman with WSL 2 support. Then run:
+For the normal Windows contributor path, install Git and the .NET 10 SDK. Install Podman with WSL 2 support when server-backed tests are needed. Start with:
 
 ```powershell
 git clone https://github.com/bazer/DataLinq.git
@@ -14,17 +14,12 @@ cd DataLinq/src
 
 dotnet workload restore
 
-podman machine init # first time only; skip if the default machine already exists
-podman machine start
-
-dotnet run --project DataLinq.Dev.CLI -- build
-
-dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4 --output failures
+dotnet run --project DataLinq.Testing.CLI -- run --plan quick --output failures
 ```
 
-`build` restores packages as part of normal .NET behavior. The test CLI brings missing server containers up before running server-backed batches.
+Normal `dotnet run` restores and builds the CLI, and the Testing CLI builds the selected test projects. The `quick` plan requires no Podman. The native Windows sandbox wrapper disables implicit restore; see [cold-checkout bootstrap](Internal%20Tooling.md#wrapper-and-cold-checkout-bootstrap) before using it.
 
-Use `--plan smoke` while iterating, `--plan quick` before pushing, and `--plan full --batch-size 1` for authoritative all-provider evidence.
+During iteration, run only focused tests for the behavior being edited. Run `quick` once at a code stopping point, and consider `latest` locally for MySQL/MariaDB changes. Leave broader coverage to CI by default. Local full-matrix runs do not replace the canonical release aggregate; see [CI Test Lanes](CI%20Test%20Lanes.md#nightly-full-matrix).
 
 ## Required Tools
 
@@ -32,7 +27,7 @@ Install these first:
 
 - Git
 - .NET 10 SDK
-- Podman
+- Podman for MySQL/MariaDB tests; focused local suites and `quick` do not need it
 
 On Windows, install Podman with the WSL 2 backend. The server-backed tests use Linux containers, not Windows containers.
 
@@ -112,14 +107,14 @@ Run the repo-local environment check:
 dotnet run --project DataLinq.Dev.CLI -- doctor --profile repo
 ```
 
-Restore and build through the developer wrapper:
+For a full checkout build, restore and build through the developer wrapper:
 
 ```powershell
 dotnet run --project DataLinq.Dev.CLI -- restore
 dotnet run --project DataLinq.Dev.CLI -- build
 ```
 
-Raw `dotnet restore` and `dotnet build` can work, but the wrapper is the better default because it keeps repo-local caches and artifacts predictable.
+The wrapper keeps repo-local caches and artifacts predictable. This full solution build is a setup or explicit verification step, not a prerequisite for each focused test run. During iteration, the Testing CLI builds the selected test projects and their dependencies.
 
 ## Check Podman
 
@@ -205,59 +200,35 @@ podman ps
 
 ## Run Tests
 
-Curated no-Podman smoke run (30-second warm budget):
+Follow the [local feedback loop](../Contributing.md#local-feedback-loop). While editing, select the smallest meaningful test group with a TUnit tree-node filter and failure-focused output:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --plan smoke
+dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
 ```
 
-Normal no-Podman pre-push run (60-second warm budget):
+At a coherent code stopping point, run the no-Podman pre-commit check:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --plan quick
+dotnet run --project DataLinq.Testing.CLI -- run --plan quick --output failures
 ```
 
-Latest provider-family run:
+Consider the latest provider-family run locally when MySQL/MariaDB behavior is affected. The CLI brings missing server containers up before running their tests:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4 --output failures
 ```
 
-Full provider matrix:
+For a focused server regression, use the matching suite, explicit target, and tree-node filter. The targetless `memory` suite is distinct from the `sqlite-memory` compliance target; see [Testing CLI suites](DataLinq.Testing.CLI.md#suites).
+
+`smoke` is available for an optional representative signal. Local `full --batch-size 1` is available for an explicit all-provider investigation, but neither is a mandatory iteration step. CI handles the broader matrix and the release aggregate.
+
+On a fresh checkout, let `dotnet run` build the CLI. After a Debug build, reuse the CLI binary for focused runs while retaining the default rebuild of changed test/product sources:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --plan full --batch-size 1
+dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
 ```
 
-Run specific suites:
-
-```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --suite generators
-dotnet run --project DataLinq.Testing.CLI -- run --suite unit
-dotnet run --project DataLinq.Testing.CLI -- run --suite memory --output failures
-dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias latest --batch-size 4
-dotnet run --project DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
-```
-
-The Memory suite does not start or multiply across provider targets. Its test project intentionally references SQLite for focused differential parity, so use the separate constrained-runtime and package-consumer lanes for provider-free and packaged evidence.
-
-Run a focused subset inside a suite with a TUnit tree-node filter:
-
-```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
-```
-
-Use failure-focused output while iterating:
-
-```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --plan latest --output failures
-```
-
-On a fresh checkout, do not add `--no-build` to the outer `dotnet run` command. Let the CLI and `dotnet run` build what is missing. Use `--no-build` only after the CLI project has already been built:
-
-```powershell
-dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --plan latest --batch-size 4 --no-build
-```
+Rebuild the CLI after changing its sources or dependencies. Inner `run --no-build` separately skips test-project builds and is only appropriate for unchanged, already-built test hosts; stale outputs are rejected.
 
 ## Stop or Reset Containers
 
@@ -363,7 +334,7 @@ dotnet run --project DataLinq.Testing.CLI -- up --alias latest
 
 ## Practical First Run
 
-For a new Windows contributor, this is the compact version:
+For a new Windows contributor, verify the local test setup before starting server infrastructure:
 
 ```powershell
 git clone https://github.com/bazer/DataLinq.git
@@ -371,16 +342,8 @@ cd DataLinq/src
 
 dotnet --info
 dotnet workload restore
-podman machine init # first time only; skip if the default machine already exists
-podman machine start
-podman info
-
 dotnet run --project DataLinq.Dev.CLI -- doctor --profile repo
-dotnet run --project DataLinq.Dev.CLI -- restore
-dotnet run --project DataLinq.Dev.CLI -- build
-
-dotnet run --project DataLinq.Testing.CLI -- up --alias latest
-dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4 --output failures
+dotnet run --project DataLinq.Testing.CLI -- run --plan quick --output failures
 ```
 
-Use `--plan smoke` when you need the shortest representative signal, `--plan quick` before pushing, and `--plan full --batch-size 1` before broad provider/release changes.
+When MySQL/MariaDB work requires server tests, initialize and start Podman as described above. The Testing CLI starts the selected containers as needed. For subsequent edits, use focused tests and the stopping-point checks described in [Run Tests](#run-tests).
