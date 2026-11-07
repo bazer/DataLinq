@@ -163,11 +163,17 @@ Do not let roadmap material pretend to be shipped behavior. For documentation-on
 
 For agent-assisted changes, `AGENTS.md` defines staging and authorization. Agents prepare and stage the completed task, then ask whether to commit when appropriate and recommend a direct commit to `master` or a branch and PR. Approval to commit includes pushing to the agreed destination unless a local-only commit is explicitly requested.
 
+### Merge strategy
+
+Use merge commits by default for feature and fix PRs, merges between long-lived branches, and final release integration such as `v0.10` into `master`. Preserve individual commits and explicit integration points so the history shows both the development work and how it reached the target branch.
+
+Squash and rebase merges are exceptional choices. Explain the concrete reason and obtain explicit maintainer approval for the exception before using either; do not routinely combine a feature or an entire release into one replacement commit. Do not rebase or force-push shared integration branches.
+
 ### Commit messages
 
 Use a concise, descriptive subject, a blank line, and a body explaining the actual change and why it matters. Describe the final behavior and motivation for a reader who has not seen the conversation. Mention meaningful regression coverage when useful and include issue references when appropriate.
 
-Do not copy conversation history, discarded approaches, or a sequence of work-in-progress messages into the final message. For a squash merge, compose one coherent message for the final change. Conventional Commit prefixes are not required. Release descriptions, not commit prefixes, feed the generated changelog.
+Do not copy conversation history, discarded approaches, or a sequence of work-in-progress messages into a commit message. For an explicitly approved squash exception, compose one coherent message for the combined change. Conventional Commit prefixes are not required. Release descriptions, not commit prefixes, feed the generated changelog.
 
 ### Pull request descriptions
 

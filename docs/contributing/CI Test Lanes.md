@@ -18,7 +18,7 @@ The smoke result is independent and normally appears first; slower server setup 
 
 Pull-request and branch runs use a workflow/ref concurrency group with cancellation. A newer commit cancels obsolete work for the same pull request or branch. Master uses the same complete latest-provider-family contract; it does not treat a green smoke job as permission to ignore a failed server shard.
 
-Push checks also cover version integration branches such as `v0.10`. Feature PRs target that branch. Require PRs and `Latest required gate`, forbid force pushes/deletion, and retain merge commits for merges between long-lived branches. The sole-maintainer setup requires zero additional approving reviewers; that avoids making a second person a prerequisite for every PR. Squash short-lived feature PRs.
+Push checks also cover version integration branches such as `v0.10`. Feature PRs target that branch. Require PRs and `Latest required gate`, and forbid force pushes/deletion. Follow the [contributor merge strategy](../Contributing.md#merge-strategy): use merge commits by default for feature PRs and branch/release integration, preserving individual commits. The sole-maintainer setup requires zero additional approving reviewers; that avoids making a second person a prerequisite for every PR.
 
 Each shard builds `DataLinq.Testing.CLI`, asks the CLI to build its selected test project exactly once, and then executes the resolved host DLL directly. Shards upload raw logs, HTML, TRX, fixture telemetry, and their summary with `if: always()`. Artifact names contain the logical shard, Actions run id, and run attempt, so retries and concurrent runs cannot overwrite one another.
 

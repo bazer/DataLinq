@@ -54,7 +54,9 @@ Review the final diff for correctness, unintended changes, missing coverage, and
 
 Summarize what changed, the checks and outcomes, and any remaining limitations. At a sensible commit point, ask whether to commit and recommend either a direct commit to `master` or a branch and PR, based on the actual diff and branch state. Settle the destination before committing. Follow the authorization rules in `AGENTS.md`: commit approval includes pushing to the agreed branch, and already-authorized actions do not need another confirmation.
 
-Use the [commit-message conventions](../Contributing.md#commit-messages) when a commit is authorized. The handoff does not need a pasted suggested commit message unless the user asks for one. A review-only task with no changes does not need staging or a commit question.
+Use the [commit-message conventions](../Contributing.md#commit-messages) when a commit is authorized, and follow the [merge strategy](../Contributing.md#merge-strategy) when separately authorized to merge. The handoff does not need a pasted suggested commit message unless the user asks for one. A review-only task with no changes does not need staging or a commit question.
+
+For work delivered through a PR, the creating agent's responsibility ends after committing and pushing the approved changes, opening the PR, and handing it over. Include the PR reference, validation results, and any known outstanding work; distinguish completed checks from checks that are pending or were not run. The maintainer coordinates subsequent review and merging. The creating agent does not need to keep the session open, wait for another agent's review, or monitor the PR unless explicitly asked. Later feedback can be handled in another session when assigned.
 
 ## Tool Selection and Environment
 
