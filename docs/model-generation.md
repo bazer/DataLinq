@@ -27,6 +27,8 @@ Supported edits in files under `ModelDirectory`:
 
 DataLinq preserves those supported edits by matching the C# declarations back to database metadata through mapping attributes such as `[Database]`, `[Table]`, `[Column]`, `[ForeignKey]`, and `[Relation]`.
 
+Automatically named relation properties avoid names already used by mapped properties or the enclosing model type. For example, a self-reference on `Forsandelser` uses `ForsandelserRelation` for its reverse navigation instead of the invalid member name `Forsandelser`. Further collisions receive a suffix. The CLI reports the fallback name; you can rename the relation property while keeping its `[Relation]` attribute unchanged, and normal regeneration preserves that edit.
+
 Do not edit mapping attributes just to rename C# members. For example, rename the C# property and keep `[Column("database_column")]` pointing at the real database column.
 
 Do edit mapping attributes when the database mapping itself changed and the model file must describe that new mapping.

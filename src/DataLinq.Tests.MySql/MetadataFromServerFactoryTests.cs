@@ -283,7 +283,7 @@ public class MetadataFromServerFactoryTests
 
     [Test]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
-    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.MySqlProviders))]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_RecursiveRelation_CreatesLinkedForeignKeyAndCandidateKeySides(TestProviderDescriptor provider)
     {
         using var schema = ServerSchemaDatabase.Create(
@@ -305,12 +305,13 @@ public class MetadataFromServerFactoryTests
             new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
 
         var employeeModel = database.TableModels.Single(tm => tm.Table.DbName == "employee").Model;
-        var managerProperty = employeeModel.RelationProperties.Values.Single(p => p.PropertyName == "Manager");
-        var subordinateProperty = employeeModel.RelationProperties.Values.Single(p => p.PropertyName == "Employee");
+        var managerProperty = employeeModel.RelationProperties.Values.Single(p => p.RelationPart?.Type == RelationPartType.ForeignKey);
+        var subordinateProperty = employeeModel.RelationProperties.Values.Single(p => p.RelationPart?.Type == RelationPartType.CandidateKey);
 
         await Assert.That(employeeModel.RelationProperties.Count).IsEqualTo(2);
-        await Assert.That(managerProperty.RelationPart?.Type).IsEqualTo(RelationPartType.ForeignKey);
-        await Assert.That(subordinateProperty.RelationPart?.Type).IsEqualTo(RelationPartType.CandidateKey);
+        await Assert.That(employeeModel.CsType.Name).IsEqualTo("Employee");
+        await Assert.That(managerProperty.PropertyName).IsEqualTo("Manager");
+        await Assert.That(subordinateProperty.PropertyName).IsEqualTo("EmployeeRelation");
         await Assert.That(managerProperty.CsType.Name.Contains("IImmutableRelation", StringComparison.Ordinal)).IsFalse();
         await Assert.That(subordinateProperty.CsType.Name.Contains("IImmutableRelation", StringComparison.Ordinal)).IsTrue();
         await Assert.That(ReferenceEquals(managerProperty.RelationPart!.Relation, subordinateProperty.RelationPart!.Relation)).IsTrue();

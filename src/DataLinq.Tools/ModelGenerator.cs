@@ -292,8 +292,11 @@ public class ModelGenerator : Generator
             }
 
             var relation = relationProperty.RelationPart.Relation;
+            var conflict = existingPropertyKind == "enclosing model type"
+                ? $"that name matches the enclosing model type '{relationProperty.Model.CsType.Name}'"
+                : $"model '{relationProperty.Model.CsType.Name}' already defines a {existingPropertyKind} with that name";
             log(
-                $"Warning: Foreign key '{relation.ConstraintName}' on table '{relation.ForeignKey.ColumnIndex.Table.DbName}' would generate relation property '{relationProperty.Model.CsType.Name}.{preferredPropertyName}', but model '{relationProperty.Model.CsType.Name}' already defines a {existingPropertyKind} with that name. Generated relation property '{relationProperty.Model.CsType.Name}.{relationProperty.PropertyName}' instead. Add an explicit [Relation] property with a non-conflicting name to control this.");
+                $"Warning: Foreign key '{relation.ConstraintName}' on table '{relation.ForeignKey.ColumnIndex.Table.DbName}' would generate relation property '{relationProperty.Model.CsType.Name}.{preferredPropertyName}', but {conflict}. Generated relation property '{relationProperty.Model.CsType.Name}.{relationProperty.PropertyName}' instead. Add an explicit [Relation] property with a non-conflicting name to control this.");
         }
     }
 

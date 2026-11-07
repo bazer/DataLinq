@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -127,6 +128,47 @@ public class ModelGeneratorModelDirectoryTests
         await Assert.That(File.Exists(Path.Combine(fixture.ModelDirectory, "AppDb.cs"))).IsFalse();
     }
 
+    [Test]
+    [NotInParallel]
+    [Arguments(true, false)]
+    [Arguments(false, false)]
+    [Arguments(true, true)]
+    [Arguments(false, true)]
+    public async Task CreateModels_SelfReference_UsesSafeNameAndPreservesItOnRegeneration(bool capitalize, bool rename)
+    {
+        using var fixture = ModelGeneratorFixture.Create(
+            """
+            CREATE TABLE forsandelser (
+                ForsandelseID INTEGER NOT NULL PRIMARY KEY,
+                GammalFK INTEGER NULL,
+                FOREIGN KEY (GammalFK) REFERENCES forsandelser(ForsandelseID)
+            );
+            """, capitalize);
+        var result = fixture.Generate(readExistingModels: false);
+        ThrowIfFailed(result);
+        var modelName = capitalize ? "Forsandelser" : "forsandelser";
+        var propertyName = modelName + "Relation";
+        var modelPath = Path.Combine(fixture.ModelDirectory, modelName + ".cs");
+        var declaration = $"IImmutableRelation<{modelName}> {propertyName} {{ get; }}";
+        var contents = File.ReadAllText(modelPath);
+        await Assert.That(contents).Contains(declaration);
+        await Assert.That(fixture.Logs.Any(message => message.Contains("enclosing model type") && message.Contains(propertyName))).IsTrue();
+
+        if (rename)
+        {
+            propertyName = "Children";
+            File.WriteAllText(modelPath, contents.Replace(declaration, $"IImmutableRelation<{modelName}> Children {{ get; }}"));
+        }
+        fixture.Logs.Clear();
+        ThrowIfFailed(fixture.Generate(readExistingModels: true, overwriteExistingModels: true));
+        var regenerated = File.ReadAllText(modelPath);
+        await Assert.That(regenerated).Contains($"IImmutableRelation<{modelName}> {propertyName} {{ get; }}");
+        await Assert.That(regenerated).Contains("[Relation(\"forsandelser\", \"GammalFK\", \"0\")]");
+        await Assert.That(fixture.Logs.Any(message => message.Contains("would generate relation property"))).IsFalse();
+        if (!rename)
+            await Assert.That(regenerated).IsEqualTo(contents);
+    }
+
     private static void ThrowIfFailed(Option<DatabaseDefinition, IDLOptionFailure> result)
     {
         if (result.HasFailed)
@@ -135,16 +177,19 @@ public class ModelGeneratorModelDirectoryTests
 
     private sealed class ModelGeneratorFixture : IDisposable
     {
-        private ModelGeneratorFixture(string basePath)
+        private ModelGeneratorFixture(string basePath, bool capitalize)
         {
             BasePath = basePath;
             ModelDirectory = Path.Combine(basePath, "Models");
+            Capitalize = capitalize;
         }
 
         public string BasePath { get; }
         public string ModelDirectory { get; }
+        public bool Capitalize { get; }
+        public List<string> Logs { get; } = [];
 
-        public static ModelGeneratorFixture Create()
+        public static ModelGeneratorFixture Create(string? schema = null, bool capitalize = true)
         {
             SQLiteProvider.RegisterProvider();
 
@@ -155,7 +200,7 @@ public class ModelGeneratorModelDirectoryTests
             using var connection = new SqliteConnection($"Data Source={databasePath}");
             connection.Open();
             using var command = connection.CreateCommand();
-            command.CommandText =
+            command.CommandText = schema ??
                 """
                 CREATE TABLE "account" (
                     "id" INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -164,7 +209,7 @@ public class ModelGeneratorModelDirectoryTests
                 """;
             command.ExecuteNonQuery();
 
-            return new ModelGeneratorFixture(basePath);
+            return new ModelGeneratorFixture(basePath, capitalize);
         }
 
         public Option<DatabaseDefinition, IDLOptionFailure> Generate(bool readExistingModels, bool overwriteExistingModels = false)
@@ -194,7 +239,7 @@ public class ModelGeneratorModelDirectoryTests
                             Namespace = "DataLinq.Tests.GeneratedModels",
                             SourceDirectories = ["ignored-source-models"],
                             ModelDirectory = "Models",
-                            CapitalizeNames = true,
+                            CapitalizeNames = Capitalize,
                             FileEncoding = "UTF-8",
                             Connections =
                             [
@@ -211,12 +256,12 @@ public class ModelGeneratorModelDirectoryTests
 
             var connection = config.GetConnection("app_db", DatabaseType.SQLite).Value.connection;
             return (new ModelGenerator(
-                _ => { },
+                Logs.Add,
                 new ModelGeneratorOptions
                 {
                     ReadSourceModels = readExistingModels,
                     OverwriteExistingModels = overwriteExistingModels,
-                    CapitalizeNames = true
+                    CapitalizeNames = Capitalize
                 }), connection);
         }
 
