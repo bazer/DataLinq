@@ -472,6 +472,25 @@ public class MetadataFactoryTests
     }
 
     [Test]
+    public async Task AddRelationProperty_FinalSuffixSkipsEnclosingModelName()
+    {
+        var (_, _, model, table) = CreateTestHierarchy(modelName: "Related_2");
+        var id = CreateTestValueProperty(model, "Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]);
+        CreateTestValueProperty(model, "Related", typeof(int), [new ColumnAttribute("related")]);
+        var column = ParseMetadataColumn(table, id);
+        var index = new ColumnIndex("pk", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [column]);
+        var relation = new RelationDefinition("fk_self", RelationType.OneToMany);
+        var part = new RelationPart(index, relation, RelationPartType.CandidateKey, "");
+
+        MetadataFactory.AddRelationPropertyCore(model, "Related",
+            new CsTypeDeclaration("IImmutableRelation<Related_2>", "DataLinq.Instances", ModelCsType.Interface),
+            part, new RelationAttribute(table.DbName, "id", "fk_self"));
+
+        await Assert.That(model.RelationProperties.Keys).IsEquivalentTo(new[] { "Related_3" });
+        await Assert.That(model.RelationProperties["Related_3"].RelationPart).IsSameReferenceAs(part);
+    }
+
+    [Test]
     public async Task ParseRelationAttribute_PreservesRelationMetadata()
     {
         var (_, _, model, _) = CreateTestHierarchy();

@@ -4203,7 +4203,7 @@ public static partial class MetadataFactory
         if (string.Equals(relationProperty.PropertyName, preferredPropertyName, StringComparison.Ordinal))
             return false;
 
-        var existingKind = GetExistingPropertyKind(relationProperty.Model, preferredPropertyName, relationProperty);
+        var existingKind = GetRelationPropertyNameConflict(relationProperty.Model, preferredPropertyName, relationProperty);
         if (existingKind is null)
             return false;
 
@@ -4220,7 +4220,7 @@ public static partial class MetadataFactory
 
     private static string ResolveGeneratedRelationPropertyName(ModelDefinition model, string propertyName)
     {
-        return GetExistingPropertyKind(model, propertyName) is null
+        return GetRelationPropertyNameConflict(model, propertyName) is null
             ? propertyName
             : GetAvailableGeneratedRelationPropertyName(model, propertyName);
     }
@@ -4297,32 +4297,26 @@ public static partial class MetadataFactory
         RelationProperty? ignoredRelationProperty = null)
     {
         var fallbackName = $"{propertyName}Relation";
-        if (!ModelDefinesProperty(model, fallbackName, ignoredRelationProperty))
+        if (GetRelationPropertyNameConflict(model, fallbackName, ignoredRelationProperty) is null)
             return fallbackName;
 
         for (var suffix = 2; ; suffix++)
         {
             var candidateName = $"{fallbackName}{suffix}";
-            if (!ModelDefinesProperty(model, candidateName, ignoredRelationProperty))
+            if (GetRelationPropertyNameConflict(model, candidateName, ignoredRelationProperty) is null)
                 return candidateName;
         }
     }
 
-    private static bool ModelDefinesProperty(
+    private static string? GetRelationPropertyNameConflict(
         ModelDefinition model,
         string propertyName,
         RelationProperty? ignoredRelationProperty = null)
     {
-        return model.ValueProperties.ContainsKey(propertyName) ||
-               model.RelationProperties.TryGetValue(propertyName, out var relationProperty) &&
-               !ReferenceEquals(relationProperty, ignoredRelationProperty);
-    }
+        // C# disallows a member with the same name as its enclosing type.
+        if (string.Equals(model.CsType.Name, propertyName, StringComparison.Ordinal))
+            return "enclosing model type";
 
-    private static string? GetExistingPropertyKind(
-        ModelDefinition model,
-        string propertyName,
-        RelationProperty? ignoredRelationProperty = null)
-    {
         if (model.ValueProperties.ContainsKey(propertyName))
             return "value property";
 
@@ -4445,7 +4439,7 @@ public static partial class MetadataFactory
     {
         var originalPropertyName = propertyName;
         var i = 2;
-        while (model.RelationProperties.ContainsKey(propertyName) || model.ValueProperties.ContainsKey(propertyName))
+        while (GetRelationPropertyNameConflict(model, propertyName) is not null)
         {
             propertyName = $"{originalPropertyName}_{i++}";
         }
