@@ -13,6 +13,8 @@
 
 **Authority:** The [release roadmap](README.md) owns scope. This record owns the accepted public async API decisions and remaining questions under D10-1/D10-2. The [implementation order](Implementation%20Order%20and%20Integration%20Plan.md) owns sequencing; the [release evidence plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md) owns verification.
 
+**T10 scope accepted on 2026-11-14.** The public `DataLinq.Testing` fixture uses the real SQLite runtime, transactional session callbacks and DI replacement. Existing collection-double and Memory compatibility checks continue in their original suites. W6 adds zero public mock types. [W6 contract](W6%20Testing%20Support.md)
+
 ## Purpose And Decision Boundary
 
 Record the API decisions agreed between 2026-08-30 and 2026-09-16 without pretending that every signature or failure case is settled. Public design discussion can precede implementation; it does not replace the before-state evidence or provider feasibility gate.
@@ -236,7 +238,7 @@ IEnumerable<Salary> rows = relation.AsEnumerable();
 IEnumerable<KeyValuePair<DataLinqKey, Salary>> keyedRows = relation.AsKeyValuePairs();
 ```
 
-The framework `AsEnumerable()` returns the same relation as `IEnumerable<T>` without loading, copying, or creating a snapshot. Enumerating it follows the existing synchronous relation-loading path. `AsKeyValuePairs()` retains the old keyed operation: keys are the related rows' primary keys, including composite keys, not the parent relation's foreign key. Calling it may synchronously load rows and construct the frozen dictionary; it does not acquire a deferred-I/O guarantee from the rename. It promises no new ordering. `Values`, `Keys`, the indexer, `Get`, and `ToFrozenDictionary` keep their existing contracts. The rename did not itself repair mock stubs. As reviewed on 2026-09-08, commit `6e415b2f` separately completed synchronous relation-mock methods; T10 still owns async/test-helper follow-through.
+The framework `AsEnumerable()` returns the same relation as `IEnumerable<T>` without loading, copying, or creating a snapshot. Enumerating it follows the existing synchronous relation-loading path. `AsKeyValuePairs()` retains the old keyed operation: keys are the related rows' primary keys, including composite keys, not the parent relation's foreign key. Calling it may synchronously load rows and construct the frozen dictionary; it does not acquire a deferred-I/O guarantee from the rename. It promises no new ordering. `Values`, `Keys`, the indexer, `Get`, and `ToFrozenDictionary` keep their existing contracts. The rename did not itself repair mock stubs. As reviewed on 2026-09-08, commit `6e415b2f` separately completed synchronous relation-mock methods; retain compatibility checks for the existing collection double.
 
 Migration and compatibility requirements:
 
@@ -314,7 +316,7 @@ Implementation and compatibility requirements:
 
 **Accepted:** 2026-08-30. Generated `<PropertyName>Async(CancellationToken cancellationToken = default)` instance methods must be callable through the public model base type used by applications, not only the generated immutable implementation. Use an overridable implementation backed by shared relation loading, metadata, cache, and source ownership; never obtain the result by evaluating the synchronous navigation property first.
 
-Do not automatically add these methods to every generated model interface: those interfaces may also be implemented by mutable models. This is not an interface-first model rewrite or approval for separate generated test-shape interfaces. T10 builders/doubles must support the accepted public model navigation behavior without requiring a database.
+Do not automatically add these methods to every generated model interface: those interfaces may also be implemented by mutable models. This is not an interface-first model rewrite or approval for separate generated test-shape interfaces. T10 exercises generated navigation on models persisted in its SQLite fixture.
 
 If the generated name conflicts with a user-defined member or inheritance/overload rules make the intended call ambiguous, emit a focused generator diagnostic. Do not silently rename the accepted API or assume a user-defined method with a matching signature supplies DataLinq's loading contract. Audit inherited members and optional-token calls as well as direct name collisions.
 
@@ -339,7 +341,7 @@ Requirements:
 - Keep optional missing-reference behavior nullable, including absent keys and missing targets; validate scalar/composite and converted-key cases against relation metadata.
 - Resolve through shared loading/validation behavior. Nullability enforcement must not add a second load, and async validation must not call a synchronous getter after awaiting.
 - Report the affected model/relation clearly. Exact exception types and diagnostic details must be selected during the compatibility review, rather than invented independently by sync and async paths. Cancellation and provider failures keep their own meaning.
-- T10 reference/graph helpers must reproduce optional, required-missing, and duplicate-target outcomes. A test double must not make an invalid required graph look valid by returning `null`.
+- Exercise optional, required-missing and duplicate-target outcomes through the runtime. T10 uses real SQLite navigation for states permitted by its enforced constraints. Controlled runtime tests cover the remaining cases.
 - Document the deliberate sync behavior change in 0.10 migration/release evidence. Existing consumers relying on a broken required reference yielding `null` must correct the data or declare the relationship optional. Do not relax the public annotation to preserve the bug or treat this as permission for unrelated lookup changes.
 
 **Owner/gate:** A10 owns the sync/async runtime and generator correction, with T10 parity and explicit compatibility evidence. Record the plan now; implementation still follows W0/W1/W2 and the agreed public-surface gate.
@@ -1304,7 +1306,7 @@ Share lookup logic while forwarding cancellation through lookup/materialization 
 
 **Accepted:** 2026-09-14. This async slice does not add Memory relation navigation, a Memory/neutral-source prepared-query execution overload, or an SQL-capable interface implementation on Memory. Public [prepared execution](../../../../src/DataLinq/Linq/PreparedQuery.cs) retains its existing `IDataSourceAccess<TDatabase>` source boundary. Shared internal query plans do not imply a public Memory prepared-query execution contract.
 
-Async ordinary Memory queries and AAPI-75 lookup are supported without those additions. Preserve T10's standalone async relation graph/test doubles: providing an explicitly constructed graph is separate from supplying Memory backend navigation. Queryable fixtures use the actual Memory capability subset; prepared execution and provider ownership evidence use compatible execution sources. Any later Memory navigation/prepared-source proposal must address both sync and async behavior.
+Async ordinary Memory queries and AAPI-75 lookup are supported without those additions. Preserve the existing collection double and Memory capability checks. T10 uses real SQLite navigation and the W4 session. Any later Memory navigation/prepared-source proposal must address both sync and async behavior.
 
 **Owner/gate:** A10/T10, D10-1/D10-5; packed consumers prove the public source boundaries, standalone relation doubles retain accepted async behavior, and neither fixture convenience nor internal plan reuse invents unsupported Memory capabilities.
 
@@ -1742,7 +1744,7 @@ Reuse the existing shared comparer, difference and diagnostic types. Preserve To
 
 The result is sealed, constructed internally and exposes getter-only `DatabaseName`, `DatabaseType`, `ModelTableCount`, `DatabaseTableCount`, `Differences`, `Issues`, `HasDifferences` and `HasFailures`. Preserve the exact property types in the [validation specification](../../providers-and-features/Schema%20Validation%20Hooks.md#31-public-surface). Copy read-only collection snapshots, including issue context messages. Keep existing difference references to finalized metadata without claiming deep graph cloning. Flags reflect the captured policy, never subsequent option changes.
 
-The sealed exception has `public DataLinqSchemaValidationException(DataLinqSchemaValidationResult result)`, rejects null and exposes that same result. Do not add a public arbitrary result builder, retain live provider/connection/options objects or add an automatic serialization contract. T10 uses its controlled fixtures.
+The sealed exception has `public DataLinqSchemaValidationException(DataLinqSchemaValidationResult result)`, rejects null and exposes that same result. Do not add a public arbitrary result builder, retain live provider/connection/options objects or add an automatic serialization contract. T10 exercises enabled validation on the SQLite fixture’s actual schema.
 
 **Owner/gate:** V10/A10, D10-4 with H10/T10 consultation; verify package references, public declarations, immutable capture and snapshots, result construction, exception identity and preserved Tools consumers.
 
@@ -1924,7 +1926,7 @@ OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's fa
 - AAPI-100 through AAPI-102 evidence covers raw model reader signatures and legacy subclasses, provider-transaction virtual completion/disposal and managed ownership boundaries, exact diagnostic enum assignments and the DataLinq execution-options namespace. Source/consumer compatibility and provider behavior still require proof after policy acceptance.
 - AAPI-91 through AAPI-99 evidence covers diagnostic namespace/immutable getters, direct-only accessor and snapshot/identity semantics, independent public enum mappings and numeric assignments, exact recovery flags, ordered defensive secondary failures and exception compatibility/privacy, preserved provider/base constructors and interface settings defaults, bounded pre-setup configuration capture, DLG004 binding/location/isolation/release tracking, and preserved MariaDB constructor probe timing/fallback. Consolidation remains distinct from packed-consumer/runtime proof.
 - AAPI-82 through AAPI-90 evidence covers local construction versus SQLite provider setup, journal-mode completion without effective-mode guarantees, explicit provisioning signatures/custom defaults and partial-creation/error/lifetime behavior, registration/input capture, complete fluent read helper results, private mutable-builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callback boundaries. Verify all source and compatibility details before claiming the inventory complete.
-- AAPI-73 through AAPI-81 evidence covers explicit navigation results/DTO boundaries without strict sync-I/O enforcement, Memory's existing query subset and narrow async lookup, retained prepared/navigation source exclusions and separate graph doubles, immediate completion/cooperative cancellation, explicit missing capability, SQLite phase-specific blocking/locking/cleanup, MySQL/MariaDB cancellation/trust/settings distinctions, and the backend/consumer matrix. Constructor/setup and administrative I/O remain explicitly inventoried under OAPI-7.
+- AAPI-73 through AAPI-81 evidence covers explicit navigation results/DTO boundaries without strict sync-I/O enforcement, Memory's existing query subset and narrow async lookup, retained prepared/navigation source exclusions and existing collection-double compatibility, immediate completion/cooperative cancellation, explicit missing capability, SQLite phase-specific blocking/locking/cleanup, MySQL/MariaDB cancellation/trust/settings distinctions, and the backend/consumer matrix. Constructor/setup and administrative I/O remain explicitly inventoried under OAPI-7.
 - A complete signature inventory identifies receiver, result type, token position/default, backend support, ownership, and failure behavior.
 - Consumer-shaped compilation tests cover token-free and token-supplied calls, generated single-reference methods, collection relation terminals, sync/async mixing, and both disposal forms.
 - Signature/consumer checks enforce AAPI-8, including task-returning callbacks, direct single consumption of value tasks, and one-time `.AsTask()` conversion for reusable operations.

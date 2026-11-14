@@ -9,6 +9,8 @@
 **Dependency:** The shipped 0.9 backend/source boundary and the 0.10 async contracts must be stable before host integration freezes public service abstractions.
 **Goal:** Make DataLinq straightforward to configure, validate, and consume from ASP.NET Core, generic host, background workers, Blazor, MAUI, Avalonia, and other .NET application surfaces without hiding database I/O or transaction boundaries.
 
+**W6 scope accepted on 2026-11-14.** The public `DataLinq.Testing` fixture replaces a configured database with an isolated SQLite store for hosted tests. W4 supplies the real factory and W5 validates the selected schema. The supplied fixture is borrowed by the host. [Testing plan](../roadmap-implementation/v0.10/W6%20Testing%20Support.md)
+
 **0.10 failure contract:** [AAPI-21 through AAPI-26](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-21-validate-first-then-honor-pre-cancellation-even-on-cache-hits) own cancellation validation, initialization/read/mutation recovery, confirmed/unknown completion, cleanup precedence, and structured failure information. Host unit-of-work helpers must consume these policies, including an independent configurable 30-second starting recovery rollback budget subject to provider verification rather than the canceled request token. Do not promise a hard total-disposal deadline or infer rollback from cancellation.
 
 **0.10 mutation/callback contract:** [AAPI-27 through AAPI-33](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-27-capture-mutation-inputs-before-the-first-suspension) settle mutation input capture/exclusive lifetime, synchronous local edits, finite multi-model capture, task-returning callback families, borrowed completion restrictions, explicit token delivery, and results after successful commit/finalization/cleanup. Apply those policies to host helpers without hidden transaction retention or callback replay.
@@ -109,7 +111,7 @@ The DI design should preserve those semantics instead of flattening everything i
 
 Organize these APIs under extension namespaces, such as `DataLinq.Extensions.DependencyInjection` and `DataLinq.Extensions.Hosting`, with corresponding provider namespaces. Exact public namespace/type spelling remains part of the API review; these names do not identify new assemblies or NuGet packages. Runtime validation retains its accepted `DataLinq.Validation` and `DataLinq.Exceptions` placement.
 
-Do not introduce DI-only, provider-DI, or hosting-only DataLinq packages for this scope. The existing provider-to-core dependency direction remains. Future helpers that actually require ASP.NET Core types/dependencies must live in a separate package; W4/W5 require neither an ASP.NET Core dependency nor an ASP.NET-specific package. Testing-package layout remains a separate T10 decision.
+Do not introduce DI-only, provider-DI, or hosting-only DataLinq packages for this scope. The existing provider-to-core dependency direction remains. Future helpers that actually require ASP.NET Core types/dependencies must live in a separate package; W4/W5 require neither an ASP.NET Core dependency nor an ASP.NET-specific package. T10 places the fixture and its DI replacement in the public `DataLinq.Testing` package.
 
 **Rationale:** basic DI abstractions already arrive through DataLinq's logging dependency. Keeping registration with the runtime/provider packages avoids additional package selection, version alignment, and release maintenance for common application setup. Consumers using direct construction, including Memory consumers, will also inherit any added dependency graph; namespaces do not make dependencies optional.
 
@@ -613,7 +615,7 @@ This decision closes the ownership/composition question; it does not freeze a co
 - prove generated and handwritten composition with consumer-shaped tests, including same-type/string payloads, failure mapping, ignored vetoes, rejection of new execution after a veto, borrowed completion, cancellation, cleanup errors, and no callback replay;
 - retain separate follow-up for native union compilation/compatibility and for a possible repository-wide ThrowAway replacement.
 
-Exact mechanics may be settled during API review; they must not silently change these accepted semantics. H10-4 settles registration/configuration behavior, H10-5 settles resource ownership/shutdown rules, H10-9 settles the registration/options surface and factory-ownership refinement, and H10-10 settles the existing-instance transfer boundary. Exact overloads remain for verification; H10-5's alias registration proof is a prerequisite for dependent wiring, not routine disposal bookkeeping. W6B fakes consume the final W4 signatures and these behaviors rather than inventing a competing lifecycle.
+Exact mechanics may be settled during API review; they must not silently change these accepted semantics. H10-4 settles registration/configuration behavior, H10-5 settles resource ownership/shutdown rules, H10-9 settles the registration/options surface and factory-ownership refinement, and H10-10 settles the existing-instance transfer boundary. Exact overloads remain for verification; H10-5's alias registration proof is a prerequisite for dependent wiring, not routine disposal bookkeeping. W6B host replacement uses the real W4 factory and its ownership rules.
 
 ## Service Lifetimes
 
@@ -1224,7 +1226,7 @@ Remaining implementation/API work:
 - First prove a supported concrete/base/keyed/default alias registration strategy under H10-5, including H10-10's transfer boundary and generated disposable service lifetimes. Document supported combinations and explicitly amend/restrict any unachievable promise before building dependent wiring; do not treat this as routine alias bookkeeping.
 - Complete consumer, generator, runtime, dependency, and disposal tests/evidence before W4 closure. These checks may reveal necessary corrections; they are not additional broad design questions or permission to silently change accepted semantics.
 
-Startup schema comparison/policy execution remains W5. W6B fakes depend on the final production contracts. This design checkpoint does not authorize implementation or close W4.
+Startup schema comparison/policy execution remains W5. W6B registration replacement and host tests depend on the final production contracts. This design checkpoint does not authorize implementation or close W4.
 
 Later-scope questions:
 

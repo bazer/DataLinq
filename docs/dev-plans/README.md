@@ -98,7 +98,7 @@ Implemented generator/CLI slices should be read as historical rationale when the
 - [Dependency Injection and Hosting Integration](architecture/Dependency%20Injection%20and%20Hosting%20Integration.md)
 - [Model Testing and Mocking Support](testing/Model%20Testing%20and%20Mocking%20Support.md)
 
-The testing plan should keep pure model/relation graph builders distinct from a real memory backend. Neither memory nor LINQ-to-Objects fakes prove SQL-provider behavior.
+The 0.10 testing plan provisions isolated SQLite databases, seeds rows through ordinary session mutations and runs application handlers through their real unit-of-work factory. Provider suites cover behavior specific to their database engine.
 
 ### Memory persistence
 

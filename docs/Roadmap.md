@@ -122,7 +122,7 @@ These are current SQL-provider correctness requirements, not features invented f
 
 DataLinq 0.10 is planned as an application-adoption and integration release:
 
-> Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class database-free testing support.
+> Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class testing support using isolated SQLite-in-memory fixtures and transactional seeding.
 
 The required release outcomes are:
 
@@ -130,11 +130,13 @@ The required release outcomes are:
 - cancellation propagated to provider commands without `Task.Run`, sync-over-async, or hidden property I/O
 - dependency-injection registration with explicit read-root, provider, unit-of-work, transaction, and disposal ownership
 - opt-in startup schema validation with fail-fast, warning-only, and disabled policies
-- metadata-aware immutable builders, relation test doubles and graphs, Memory-backed read registration, and unit-of-work test support
+- a public `DataLinq.Testing` package with isolated SQLite-in-memory fixtures, transactional seeding for single and related rows, and DI replacement for hosted application tests
 - correct generated model and metadata output for C# source type aliases
 - package, API, provider-matrix, compatibility, documentation, and benchmark evidence for the exact release claim
 
 The internal `docs/dev-plans/roadmap-implementation/v0.10/` plan owns the detailed scope and dependency order. There are no pre-authorized stretch goals. Adding work to the release requires an explicit roadmap revision with dependencies and exit evidence.
+
+SQLite-backed application tests require no external database server and exercise real DataLinq execution with SQLite semantics. They do not establish MySQL/MariaDB-specific behavior. New Memory testing adapters and backend expansion are deferred; existing Memory support is retained.
 
 ## Later Work
 
@@ -142,7 +144,7 @@ Set-based and relation-aware mutations, including atomic conditional updates, re
 
 Tooling-process interoperability for external tools and DataLinq Studio also remains after the initial 0.10 boundary. It should use versioned, cancelable, machine-consumable contracts instead of exposing CLI or Roslyn internals.
 
-Memory mutation, memory transactions, deterministic forks, canonical committed-change batches, JSON flush-on-commit durability, commit logs, replay, compaction, browser persistence adapters, and related CLI commands remain later work. They need provider-neutral mutation and trustworthy transaction semantics first.
+New Memory testing adapters and DI integration, query/navigation expansion, mutation, transactions, deterministic forks, canonical committed-change batches, JSON flush-on-commit durability, commit logs, replay, compaction, browser persistence adapters, and related CLI commands remain later work. Stateful Memory testing needs provider-neutral mutation and trustworthy transaction semantics first.
 
 Dependency-tracked result-set caching remains deferred until provider-value normalization, joins, projection semantics, invalidation, freshness vocabulary, and DataLinq.Store module contracts are stronger. A cached result-set feature without a boring correctness story would be clever in the worst way.
 

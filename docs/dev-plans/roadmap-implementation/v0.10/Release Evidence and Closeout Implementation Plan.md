@@ -170,7 +170,7 @@ Required focused evidence:
 - AAPI-71 unchanged update warm/cold result lookup, no unnecessary write, missing-result failure, native async reads, pre-cancellation, initialization/read recovery distinctions, and no stale immutable substitution
 - AAPI-72 four untyped provider callback families and typed database families, defaults and interface/base binding, shared helper recovery/result timing, generated source-less forwarding, and no Action/synchronous-result/ValueTask callback additions
 - AAPI-73 explicit navigation results and DTO examples, no later synchronous getter/cache guarantee, and no strict sync-I/O mode, analyzer, eager loading, or batching scope
-- AAPI-74 through AAPI-78 supported/rejected Memory async query parity, narrow single-model-key FindAsync normalization/errors/cancellation/cache behavior, retained generated/prepared/navigation source exclusions, standalone async graph doubles, immediate completion and cooperative scan/sort/iteration cancellation, and explicit unsupported capability without fallback or public flags
+- AAPI-74 through AAPI-78 supported/rejected Memory async query parity, narrow single-model-key FindAsync normalization/errors/cancellation/cache behavior, retained generated/prepared/navigation source exclusions, existing async collection-double compatibility, immediate completion and cooperative scan/sort/iteration cancellation, and explicit unsupported capability without fallback or public flags
 - AAPI-79 SQLite file/in-memory per-operation opening/initialization/command/row/completion/cleanup behavior, busy/locked command and implicit-command timeout distinctions, no native-interruption or hard cleanup deadline promise, and preservation of known completion
 - AAPI-80 MySQL/MariaDB native async dispatch, soft/hard interruption, reader cleanup and connection/transaction trust, mutation poisoning despite socket survival, unchanged connector settings, and distinct caller/command/cancellation/recovery budgets
 - AAPI-81 per-operation backend matrix with both immediate and suspended controllable execution, supported .NET packed consumers, Memory-only package evidence without SQL dependencies, and explicit remaining OAPI-7 constructor/setup/administrative I/O counterparts or exclusions; policy acceptance does not complete implementation/provider evidence
@@ -226,23 +226,23 @@ Required focused evidence:
 
 ### Testing Support
 
+**W6 scope accepted on 2026-11-14.** Verify the public `DataLinq.Testing` package with isolated SQLite fixtures, real session seeding and host replacement. The internal test harness moves to `DataLinq.TestInfrastructure`. [W6 testing contract](W6%20Testing%20Support.md)
+
 Required focused evidence:
 
-- immutable scalar values, nullability, defaults, primary keys, equality, `GetValues()`, and `Mutate()`
-- empty/single/multiple/duplicate relation behavior
-- one-to-many, many-to-one, nullable foreign-key, and composite-key graphs
-- relation direction and key mismatch diagnostics
-- Memory fixture seeding/reset and capability rejection
-- fake unit-of-work recording, commit/rollback/disposal, and failure injection
-- failure fixtures represent AAPI-21 through AAPI-26 cause/outcome/cleanup distinctions without claiming that an in-memory fake proves provider interruption or safe connection reuse
+- external .NET 8/9/10 consumers can reference the package, import `DataLinq.Testing`, provision a fixture and seed their own models. Verify package contents and dependency closure, and run the renamed harness's existing consumers
+- isolated in-memory identities, keeper and connection cleanup, enforced FKs, and cleanup on failed or canceled schema creation and seeding
+- void and result-returning sync/async callbacks for single and related inserts. Verify returned generated keys, committed scalar values, nullable references, composite keys and real navigation
+- application writes through the real W4 factory, read-your-writes, visibility after commit, rollback after a constraint failure on the second write, disposal without commit, and relation/cache freshness
+- AAPI-21 through AAPI-26 provider failure, outcome and cleanup evidence stays in the appropriate runtime and controlled-provider suites
 - mutation/callback fixtures follow AAPI-27 through AAPI-33 capture, exclusive mutable use, delegate invocation, collection preflight, token propagation, borrowed completion, and post-cleanup result timing contracts; provider evidence remains separate
 - concurrency fixtures follow AAPI-34 through AAPI-41 ownership, independent wait cancellation, invalidation-safe completeness, and isolation; collection doubles alone do not prove provider concurrency, recovery, or connection lifetime
 - query-capable fixtures follow AAPI-42 through AAPI-48 provider rejection, supported expression/default/numeric semantics, and explicit local async composition; a LINQ-to-Objects IQueryable is not automatically a DataLinq async execution source
 - key/relation fixtures follow AAPI-49 through AAPI-55 normalization, primitive/default dispatch, membership/key consistency, covariance/capability, generated failure, and collision contracts; packed consumers and runtime/provider tests establish different parts of the evidence
 - lower-level/failure fixtures follow AAPI-56 through AAPI-63 capability, cursor/resource ownership, raw/managed gates, attachment/disposal, immutable context, and recovery-configuration contracts; use controllable providers and host tests for guarantees that collection doubles cannot establish
 - metadata/mutation fixtures follow AAPI-64 through AAPI-72 probe/Option/validation distinctions, effective-source ownership, finite insertion, generated helper lifetimes, nullable Save and unchanged-update behavior, and provider callbacks; actual provider/host evidence remains separate from in-memory fixture fidelity
-- navigation/backend fixtures follow AAPI-73 through AAPI-81 explicit returned-result guidance, Memory query/lookup limits and separate graph doubles, retained prepared-source exclusions, cooperative immediate completion, and explicit missing capability; actual SQLite/server interruption, connection reuse, recovery and suspended execution require provider-backed/controllable evidence
-- DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
+- navigation/backend fixtures follow AAPI-73 through AAPI-81 explicit returned-result guidance and existing capability/cancellation contracts; use actual SQLite navigation and existing collection-double coverage, preserving existing Memory regressions without adding a new adapter
+- SQLite DI replacement including generated service factory capture, keyed/default identity, borrowed fixture and host cleanup, original concrete-provider rejection, and attached W5 target rebinding
 - helper fixtures follow AAPI-82 through AAPI-90 construction/provisioning boundaries, captured fluent execution, disabled mutation exclusions, canonical cache lookup and synchronous invalidation/callback semantics; actual SQLite setup/journal/provisioning and resource-lifetime evidence remains provider-backed
 
 ### Source Type Aliases

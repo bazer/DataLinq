@@ -42,7 +42,7 @@ The [W2 implementation plan](W2%20Native%20Provider%20Async%20Execution.md) owns
 
 - Keep coherent implementation/test commits, stable history, milestone verification and the [W4 execution record](W4%20DI%20Hosting%20and%20Unit%20of%20Work.md) current.
 - Prove alias ownership before dependent registration/generator wiring, and preserve the accepted source-compatibility and transaction admission gates.
-- Runtime startup validation remains W5, fake unit-of-work support remains W6B, and performance work remains deferred to W8.
+- Runtime startup validation remains W5, SQLite test-host registration replacement belongs to W6B, and performance work remains deferred to W8.
 - Opening, updating and completing the PR do not authorize merging, tagging or publishing. Preserve meaningful commits with merge-commit integration after review and separate authorization.
 
 ## CI, Publication And Release Evidence
