@@ -25,8 +25,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Install workload required to restore the complete solution
-        run: dotnet workload install wasm-tools --skip-manifest-update
+      - name: Restore workloads required by the solution
+        run: dotnet workload restore src/DataLinq.sln --skip-manifest-update
       - name: Verify advisory and feed failure detection
         shell: pwsh
         run: ./scripts/audit-dependencies.ps1 -SelfTestOnly
