@@ -3,7 +3,7 @@
 
 # Branch, PR And Benchmark Workflow
 
-**Accepted:** 2026-09-16. Records the user's approval of the branch/PR proposal and addition of a website development benchmark line.
+**Accepted:** 2026-09-16. Records the user's approval of the branch/PR proposal and addition of a website development benchmark line. **Updated:** 2026-11-08 to make merge commits the default for all PRs and preserve individual commit history.
 
 ## Branches And Review
 
@@ -11,7 +11,7 @@
 - Create `v0.10` from current master, including the accepted plans and evidence tooling. The locked published API compatibility baseline remains 0.9.2; it is not the source branch starting point.
 - Use short-lived `codex/0.10-...` branches and separate worktrees for independent implementation slices. Feature PRs target `v0.10` and name their wave, accepted decisions, tests and evidence.
 - Keep the shared integration branch buildable. Prefer landing a dependency before its dependent PR; explicitly identify any necessary stacked PRs.
-- Squash ordinary feature PRs with descriptive commit messages. Use merge commits between master and the shared release branch, including final release integration. Do not rebase or force-push the shared branch.
+- Follow the [contributor merge strategy](../../../Contributing.md#merge-strategy): use merge commits by default for ordinary feature PRs, merges between master and the shared release branch, and final release integration. Preserve individual commit history. Squash or rebase merges need a concrete reason and explicit maintainer approval for the exception. Do not rebase or force-push the shared branch.
 - Fix defects affecting current consumers on master, then merge the fixes forward into the development branch rather than independently recreating them.
 - Require PRs and the existing Latest required gate on the development branch, and disallow force pushes/deletion. A sole-maintainer workflow must not require an unavailable second GitHub approver; human review remains part of the working process.
 

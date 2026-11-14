@@ -80,24 +80,24 @@ Useful options:
 - `--framework`
   Optional target framework.
 - `--filter`
-  Standard `dotnet test` filter expression.
+  Passed unchanged as `dotnet test --filter`; this wrapper does not translate it into a TUnit tree-node filter. For focused runs of the active TUnit suites, use `DataLinq.Testing.CLI run --plan focused --suite ... --filter ...`, which forwards `--treenode-filter` to the host.
 - `--no-build`
   Skips build before test.
 - `--no-restore`
   Skips restore before test.
 
-The optional target defaults to `src/DataLinq.sln`.
+The optional target defaults to `src/DataLinq.sln`. During iteration, use explicit affected targets and the [focused testing loop](../Contributing.md#local-feedback-loop) rather than defaulting to a whole-solution test run.
 
 ### `size-report`
 
 Publishes the constrained-platform smoke targets and writes a repeatable compatibility payload report. `--target` selects a target set and still defaults to the historical `phase8c` set so existing commands keep their four-target SQLite behavior. Use `--target v0.9` for the explicit eight-target SQLite/Memory release catalog. That catalog uses source-project references by default; pair `--package-dir` with `--version` when the release gate must exercise an exact local package candidate instead.
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- size-report --target phase8c
-dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --targets memory --format markdown
-dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --targets aot,trim
-dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --format markdown
-dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --package-dir artifacts/nuget-release/<exact-version> --version <exact-version> --output artifacts/release/v0.9/<exact-version>/compatibility --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --release-evidence --format markdown
+dotnet run --project DataLinq.Dev.CLI -- size-report --target phase8c
+dotnet run --project DataLinq.Dev.CLI -- size-report --target v0.9 --targets memory --format markdown
+dotnet run --project DataLinq.Dev.CLI -- size-report --target v0.9 --targets aot,trim
+dotnet run --project DataLinq.Dev.CLI -- size-report --target v0.9 --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --format markdown
+dotnet run --project DataLinq.Dev.CLI -- size-report --target v0.9 --package-dir artifacts/nuget-release/<exact-version> --version <exact-version> --output artifacts/release/v0.9/<exact-version>/compatibility --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --release-evidence --format markdown
 ```
 
 The default `phase8c` target set preserves these original target ids and project graphs:
