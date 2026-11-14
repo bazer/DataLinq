@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-11-01 (W5 implementation and integration evidence are ready for review, with explicit raw compatibility/platform dispositions. Reviewer acceptance, merge and final release gates remain separate. The accepted W4 and other workstream contracts are unchanged).
+**Last reviewed:** 2026-11-14 (W6 package migration, transactional seeding and DI replacement).
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -24,7 +24,7 @@ It does not authorize implementation outside the 0.10 roadmap.
 | A10 native async and cancellation | [Async and Lazy Loading](../../query-and-runtime/Async%20and%20Lazy%20Loading.md) | async provider/access contracts, cancellation, sync/async parity | A10 gate |
 | H10 DI, hosting, and unit of work | [Dependency Injection and Hosting Integration](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md) | service lifetimes, read root, unit-of-work factory, disposal | H10 gate |
 | V10 startup validation | [Schema Validation Hooks](../../providers-and-features/Schema%20Validation%20Hooks.md) | host policy, structured result, cancellation/timeout behavior | V10 gate |
-| T10 testing support | [Model Testing and Mocking Support](../../testing/Model%20Testing%20and%20Mocking%20Support.md) | builders, relation graphs, Memory fixtures, fake unit of work | T10 gate |
+| T10 testing support | [Model Testing and Mocking Support](../../testing/Model%20Testing%20and%20Mocking%20Support.md) | public SQLite fixture, transactional seeding, host registration replacement | T10 gate |
 | G10 source aliases | [Issue #93](https://github.com/bazer/DataLinq/issues/93) | semantic type identity and incremental dependencies | G10 gate |
 | R10 release evidence | [Release Evidence and Closeout Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md) | manifests, candidate identity, evidence validity, go/no-go | final gate |
 
@@ -60,7 +60,7 @@ Complete the audit and decide/test:
 - enforce AAPI-62/AAPI-63: typed immutable failure snapshots through exception access and Transaction.FailureContext, plus validated provider-scoped DataLinqExecutionOptions.RecoveryRollbackTimeout with preserved constructors and no global/live/per-operation timeout proliferation
 - enforce AAPI-64 through AAPI-67: distinct async probe/metadata semantics, cancellation outside metadata Option failures, complete runtime validation and captured configuration, effective database identity and owned resources, fresh metadata without hidden mutation or atomic-DDL promises
 - enforce AAPI-68 through AAPI-72: existing mutation/finite collection-insert families, generated typed bridges and independently owned source-less helpers, narrow nullable Save behavior, genuine async reads for unchanged updates, and untyped provider callbacks without overload/batch expansion
-- enforce AAPI-73 through AAPI-78: explicit returned navigation/DTO results without strict sync-I/O enforcement, existing Memory query subset and narrow async lookup, retained navigation/prepared-source exclusions, separate graph doubles, immediate cooperative completion, and explicit missing capability without fallback or public flags
+- enforce AAPI-73 through AAPI-78: explicit returned navigation/DTO results without strict sync-I/O enforcement, existing Memory query subset and narrow async lookup, retained navigation/prepared-source exclusions, existing collection-double compatibility, immediate cooperative completion, and explicit missing capability without fallback or public flags
 - enforce AAPI-79 through AAPI-81: operation-level SQLite limits, MySQL/MariaDB operation/connection trust and timeout separation, backend/consumer evidence, and an explicit remaining constructor/setup/administrative I/O audit
 - enforce AAPI-82 through AAPI-85: synchronous construction/preparation and preserved SQLite setup timing, explicit journal-mode/provisioning counterparts, unsupported custom defaults, captured registration/inputs and partial-creation/error/resource behavior without migrations or destructive recovery
 - enforce AAPI-86 through AAPI-90: complete fluent read helper results, private per-invocation mutable-builder state, disabled fluent mutation exclusions, public canonical-key TableCache lookup, and synchronous local maintenance/callbacks
@@ -138,18 +138,7 @@ AAPI-106 through AAPI-109, with the [H10-1 package-placement amendment](../../ar
 
 ### D10-5: Testing Fidelity Boundary
 
-Freeze the ladder of test guarantees:
-
-1. plain/business model shape
-2. real metadata-aware immutable instance
-3. real relation graph over testing infrastructure
-4. real `DataLinq.Memory` capability execution
-5. fake unit of work for application behavior
-6. SQLite/server-backed provider behavior
-
-Every helper name and document must reveal which layer it belongs to.
-
-AAPI-74 through AAPI-78 preserve these boundaries for async execution: Memory queries/FindAsync use the admitted read-only subset; standalone relation graphs do not add Memory navigation; public prepared execution retains SQL-capable sources. AAPI-81 requires Memory-only package evidence without accidental SQL dependencies and controllable/provider-backed evidence for interruption, ownership, and connection trust.
+**W6 scope accepted on 2026-11-14.** Application tests seed a real SQLite fixture through the session and verify committed state. Stand-alone business tests can supply application-owned collaborators or use the existing core collection double. SQL dialect, native cancellation, locking and uncertain commit outcomes require evidence from their provider suites. AAPI-74 through AAPI-81 govern existing Memory regression evidence.
 
 ### D10-6: Performance Evidence Policy
 
@@ -164,8 +153,8 @@ flowchart TD
     W2 --> W3["W3 public async surface"]
     W3 --> W4["W4 DI and unit of work"]
     W4 --> W5["W5 startup validation"]
-    W4 --> W6B["W6B fake UoW and DI testing"]
-    W1 --> W6A["W6A builders and Memory fixtures"]
+    W4 --> W6B["W6B application workflows and host replacement"]
+    W4 --> W6A["W6A SQLite fixture and session seeding"]
     W6A --> W6B
     W0 --> W7["W7 source alias correctness"]
     W3 --> W8["W8 provisional integration evidence"]
@@ -360,34 +349,19 @@ Exit gate:
 
 ### W6: Testing Support
 
-#### W6A: Builders, Relations, And Memory Fixtures
+**Scope accepted on 2026-11-14.** The public package and namespace are `DataLinq.Testing`. W6 uses existing session mutations for all seeding and introduces zero public mock types. The earlier row/graph builders, typed handles and automatic FK propagation are deferred. [W6 contract](W6%20Testing%20Support.md)
 
-May proceed after W1 establishes the relevant read/cancellation contracts.
+#### W6A: SQLite fixture and transactional seeding
 
-Required work:
+- Rename the internal harness to `DataLinq.TestInfrastructure` and update its consumers. Add the new public project, package inventory and API documentation.
+- Create an isolated SQLite-in-memory schema with enforced FKs and deterministic resource cleanup.
+- Provide sync and async seed callbacks, with void and result-returning forms. Test a single insert, dependent inserts using returned keys, cancellation and rollback on failure.
 
-- relation/reference doubles
-- metadata-aware immutable builder
-- relation graph builder
-- Memory fixture and reset adapter
-- deterministic test data support required by those builders
+#### W6B: Application workflows and DI replacement
 
-#### W6B: Fake Unit Of Work And DI Replacement
-
-Begins only after W4 freezes the real unit-of-work contract.
-
-Required work:
-
-- fake unit of work and failure injection
-- DI replacements for Memory-backed reads and fake writes
-- distinctly named SQLite-in-memory provider helper
-- docs/examples that separate test guarantees
-
-Exit gate:
-
-- builders preserve actual metadata/key/relation invariants
-- Memory helpers do not widen Memory capabilities
-- fake write behavior mirrors the public unit-of-work lifecycle without simulating provider semantics
+- Give a handler the real W4 factory directly or replace its configured database in a test host. Exercise successful writes and a constraint failure that rolls back an earlier write.
+- Route the target model/key, default alias and generated services to the borrowed fixture. Validate its initialized schema when W5 validation is enabled.
+- Verify fresh committed reads, host/fixture lifetimes and external .NET 8/9/10 consumers. Keep provider-specific and existing Memory regression evidence in their respective suites.
 
 ### W7: Source Alias Correctness
 
@@ -438,7 +412,7 @@ Exit gate: all requirements in the [release evidence plan](Release%20Evidence%20
 ## Safe Parallel Lanes
 
 - W7 can run beside W1-W6 after W0.
-- W6A can begin after W1 while provider work continues, but it cannot invent a second query engine.
+- W6A consumes the established SQLite/W4 runtime; fixture tooling must not invent a second query or transaction engine.
 - H10 integration scaffolding may begin during W3, but public lifetimes cannot freeze until W3 contracts are stable; H10-1 places it in existing packages.
 - Release tooling can add new suite/package registrations incrementally, but final evidence waits for W8/W9.
 - Documentation plans and examples may be drafted early; shipped-behavior wording waits for W9.
@@ -452,7 +426,7 @@ The accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%2
 3. Provider changes preserve the other providers or land behind an internal unused seam until parity is ready.
 4. Public API additions require XML docs, ApiCompat review, and at least one consumer-shaped test.
 5. New packages enter central versions, pack tooling, inspection, consumer smoke, and compatibility inventories together.
-6. Testing helpers consume production metadata/Memory/unit-of-work contracts rather than copying semantics.
+6. W6 testing helpers consume production metadata/SQLite/unit-of-work contracts rather than copying semantics; new Memory integration is deferred.
 7. Public docs do not describe a workstream as shipped until W9 evidence is green.
 8. No commit may quietly add an explicitly excluded feature because a nearby abstraction makes it convenient.
 

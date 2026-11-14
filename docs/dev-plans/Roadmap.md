@@ -5,7 +5,7 @@
 
 **Status:** Active.
 
-**Last reviewed:** 2026-11-01 (0.10 implementation checkpoint; published-baseline limitations below are unchanged).
+**Last reviewed:** 2026-11-14 (accepted W6 package, seeding and DI scope).
 
 **0.10 development checkpoint:** W4 is integrated and [W5 runtime/startup validation](roadmap-implementation/v0.10/W5%20Startup%20Schema%20Validation.md) is implemented for review in PR #254. Its [candidate record](../../test-infra/api-compatibility/w5/README.md) contains full/provider/packed/deployed evidence and explicit raw API/platform dispositions. Reviewer acceptance, merge and final release certification remain separate; the APIs are not yet released.
 
@@ -37,7 +37,7 @@ The important current limitations are equally real:
 - DataLinq has no first-class dependency-injection or Generic Host integration package
 - unit-of-work and host lifetime ownership are not expressed through one supported application contract
 - startup schema validation has no standard host integration
-- application tests lack a complete metadata-aware immutable/relation graph and unit-of-work testing surface
+- application authors need a public way to provision an isolated SQLite database and run services against it
 - C# source type aliases can escape into generated files without a valid semantic type identity
 - full migration execution, provider-neutral set-based mutation, Memory mutation/persistence, and tooling-process interoperability are not shipped
 
@@ -58,7 +58,7 @@ The important current limitations are equally real:
 
 DataLinq 0.10 is an application-adoption and integration release:
 
-> Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class database-free testing support.
+> Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class testing support using isolated SQLite-in-memory fixtures and transactional seeding.
 
 The release does not attempt to combine adoption with migrations, Memory persistence, broad query expansion, Studio protocols, or a new write-path engine. Those are separate programs with different prerequisites and evidence.
 
@@ -132,17 +132,14 @@ Durable design owner:
 
 - [Model Testing and Mocking Support](testing/Model%20Testing%20and%20Mocking%20Support.md)
 
-Required 0.10 subset:
+**W6 scope accepted on 2026-11-14.** Rename the repository harness to `DataLinq.TestInfrastructure` and use `DataLinq.Testing` for the public package and namespace.
 
-- metadata-aware immutable row builders with correct values, primary keys, equality, and `Mutate()` behavior
-- complete collection and reference relation test doubles
-- relation graph builders that validate relation direction, keys, nullability, and deterministic ordering
-- fixture-oriented registration over the real `DataLinq.Memory` capability set
-- fake unit-of-work behavior aligned with the real 0.10 unit-of-work contract, including commit, rollback, disposal, and failure injection
-- DI replacement helpers for Memory-backed reads, fake units of work, and clearly named SQLite-in-memory provider tests
-- documentation that labels exactly what each testing layer proves and does not prove
+- Create an isolated SQLite-in-memory fixture from model metadata and release it on disposal.
+- Seed one or several rows through one session callback. Use generated mutables and the keys returned by ordinary inserts.
+- Exercise application writes, navigation, rollback and subsequent committed reads with the real unit-of-work factory.
+- Replace the target registration in hosted tests while preserving generated-service routing, keyed/default identity, ownership and W5 validation.
 
-Generated test-shape interfaces, a broad query-assertion DSL, and simulated provider transaction semantics are later decisions. Builders and doubles must prove whether those additions are necessary first.
+Row/graph builders, automatic graph FK propagation, new public mock types and new Memory integration are outside W6. [W6 plan](roadmap-implementation/v0.10/W6%20Testing%20Support.md)
 
 ### Source Type Alias Correctness
 
@@ -207,7 +204,7 @@ The condensed order is:
 4. expose the supported public async query, relation, mutation, and transaction surface
 5. build DI registration and explicit unit-of-work ownership on the settled async contracts
 6. integrate startup schema validation through the host boundary
-7. complete testing builders, Memory registration, fake unit of work, and DI replacement helpers against the real contracts
+7. complete SQLite fixture creation, session-based seeding and DI replacement using the public testing package
 8. integrate source-alias correctness on its independent lane
 9. run provisional package, API, provider, compatibility, documentation, and benchmark evidence
 10. freeze one candidate and run final release closeout without feature additions

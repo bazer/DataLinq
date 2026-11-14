@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-11-01 (W5 implementation is ready for review with one source-identified candidate, complete functional/consumer evidence and explicit compatibility/platform dispositions. Reviewer acceptance and final release gates remain separate; other workstream scope is unchanged).
+**Last reviewed:** 2026-11-14 (W6 package migration, transactional seeding and DI replacement).
 
 **Prerequisite:** DataLinq 0.9.2 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -19,7 +19,7 @@
 
 **Current checkpoint, 2026-11-01:** W4 is integrated through PR #251. [W5](W5%20Startup%20Schema%20Validation.md) is implemented for review in PR #254 against `v0.10`. Candidate `0.10.0-w5.9479fe97` passes 9,532 full-plan and 5,437 quick-plan tests, packed/deployed consumers on actual .NET 8/9/10 and all eight constrained-runtime smoke executions. Raw ApiCompat findings remain the 13 accepted W3 diagnostics. The strict platform report still fails on audited pre-existing friend-metadata token matches; SQLite WASM0001 warnings and native mode-2 platform limits remain explicit. See [exact evidence and dispositions](../../../../test-infra/api-compatibility/w5/README.md). This is implementation handoff, not reviewer acceptance, merge or final release certification.
 
-> Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class database-free testing support.
+> Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class testing support using isolated SQLite-in-memory fixtures and transactional seeding.
 
 The release is successful when an ordinary ASP.NET Core or Generic Host application can register DataLinq, perform supported reads and writes through honest async APIs, propagate cancellation to the provider, validate schema at startup under an explicit policy, and test application behavior without constructing invalid runtime mocks or pretending that Memory proves SQL-provider semantics.
 
@@ -97,7 +97,7 @@ Acceptance summary:
 - metadata/existence behavior follows AAPI-64 through AAPI-67: distinct probes, async metadata Option/cancellation semantics, complete runtime validation with captured configuration, and fresh reads of the effective existing database without creation/repair or atomic-DDL promises
 - mutation/callback inventory follows AAPI-68 through AAPI-72: existing families and finite collection insertion, generated helper ownership, narrow nullable Save behavior, unchanged-update async reads, and untyped provider callbacks
 - navigation guidance follows AAPI-73: retain explicit async-loaded results and materialized DTO boundaries without a strict sync-I/O mode or guarantees about later synchronous cache access
-- Memory/capability behavior follows AAPI-74 through AAPI-78: existing query subset, narrow FindAsync lookup, no navigation/prepared-source expansion, legitimate immediate completion and cooperative cancellation, and explicit missing capability without fallback or public SupportsAsync flags; standalone relation graph doubles remain separate
+- Memory/capability behavior follows AAPI-74 through AAPI-78: existing query subset, narrow FindAsync lookup, no navigation/prepared-source expansion, legitimate immediate completion and cooperative cancellation, and explicit missing capability without fallback or public SupportsAsync flags; existing collection doubles retain their own compatibility coverage
 - provider/evidence policy follows AAPI-79 through AAPI-81: SQLite operation-level blocking/locking/cancellation limits, MySQL/MariaDB connection and operation outcomes, separate timeout/recovery settings, and backend/packed-consumer evidence
 - helper boundaries follow AAPI-82 through AAPI-90: synchronous construction/preparation with documented SQLite setup, explicit journal-mode/provisioning execution without automatic creation/repair or atomicity/replay guarantees, complete fluent reads and private builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callbacks
 - diagnostic/configuration behavior follows AAPI-91 through AAPI-99: immutable typed failure snapshots and direct access, independent classification/outcome/recovery, ordered secondary exceptions, preserved constructors and provider settings defaults, bounded pre-setup capture, DLG004 and retained synchronous MariaDB constructor probing
@@ -220,32 +220,14 @@ Explicit non-goals:
 
 Durable design source: [Model Testing and Mocking Support](../../testing/Model%20Testing%20and%20Mocking%20Support.md).
 
-Required contract:
+**Scope accepted on 2026-11-14.** Rename the internal harness to `DataLinq.TestInfrastructure`. The new public project, assembly, NuGet package and namespace use `DataLinq.Testing`. [W6 implementation plan](W6%20Testing%20Support.md)
 
-- metadata-aware immutable builders with valid row/table/key identity
-- collection and reference relation doubles that implement their full supported interfaces
-- async relation defaults/overrides and generated model-base navigation usable without a database, including the same optional/required/multiple-target outcomes as production; no relation-query capability is required
-- relation graph builders that use DataLinq relation metadata rather than hand-wired property substitution
-- fixture construction and registration over the real `DataLinq.Memory` capability set
-- fake unit-of-work behavior derived from H10, including writes, commit/rollback/disposal recording, and failure injection
-- DI replacement helpers with distinct names for Memory-backed tests and SQLite-in-memory provider tests
-- deterministic IDs, clocks, defaults, and reset behavior where those values are owned by the testing surface
+- Provision and dispose an isolated SQLite-in-memory database using the consumer's model metadata.
+- Supply transactional `Seed` and `SeedAsync` callbacks over the production session, including result-returning forms. Seed related rows explicitly using the keys returned by inserts.
+- Run handlers with the real unit-of-work factory. In hosted tests, replace the selected model/key and preserve generated-service routing, borrowed ownership and W5 startup selections.
+- Prove that committed rows are visible, a constraint failure rolls back preceding writes, fixtures are isolated, and external .NET 8/9/10 consumers can use the packed library.
 
-Acceptance summary:
-
-- application code can test scalar immutable behavior and relation graphs without a live database
-- primary keys, equality, `GetValues()`, and `Mutate()` behave like real generated immutable instances
-- relation direction, missing keys, duplicate keys, nullable references, and composite keys have focused diagnostics
-- Memory-backed tests expose Memory capability failures rather than broadening query behavior
-- provider-backed tests remain the documented authority for SQL translation, physical types, defaults, transactions, and provider behavior
-
-Explicit non-goals:
-
-- a second LINQ-to-Objects query provider
-- mocks that bypass metadata or key invariants
-- simulated provider transaction semantics
-- generated test-shape interfaces before builders demonstrate a concrete need
-- a broad query-assertion DSL in the baseline
+W6 adds zero public mock types. The earlier row and graph builders, typed node handles, automatic FK propagation and new Memory integration are deferred. The production relation mutation design owns future graph insert semantics.
 
 ### G10: Source Type Alias Correctness
 
@@ -292,14 +274,14 @@ flowchart LR
     H --> V["V10 startup validation"]
     H --> T["T10 unit-of-work testing"]
     A --> T
-    M["DataLinq.Memory 0.9 preview"] --> T
+    S["SQLite in-memory provider"] --> T
     G["G10 source aliases"] --> R["R10 release closeout"]
     V --> R
     T --> R
     U --> R
 ```
 
-G10 may proceed independently after the baseline is frozen. Relation doubles and immutable builders may start while H10 is being designed, but fake unit-of-work and DI replacement helpers cannot freeze before the real H10 contract.
+G10 may proceed independently after the baseline is frozen. W6 seeding and DI replacement consume the implemented H10, W5 and SQLite contracts.
 
 ## Release Exit Criteria
 

@@ -8,7 +8,7 @@
 
 The [integration specification](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md), H10-1 through H10-10, and the [W4 integration gates](Implementation%20Order%20and%20Integration%20Plan.md#w4-di-hosting-and-unit-of-work) own the contract. Implement integration in the existing core/provider packages, explicit participant/owner/factory contracts over the existing transaction engine, synchronous rollback intent, optional native results, and generated service composition.
 
-Runtime startup schema validation remains W5. Fake units of work and DI testing replacements remain W6B. Further performance investigation and acceptance remain W8 after feature implementation. No ambient transactions, savepoints, distributed transactions, live configuration, ASP.NET-dependent runtime package, or package publication is introduced.
+Runtime startup schema validation remains W5. W6B covers SQLite test-host registration replacement. Further performance investigation and acceptance remain W8 after feature implementation. No ambient transactions, savepoints, distributed transactions, live configuration, ASP.NET-dependent runtime package, or package publication is introduced.
 
 ## Implementation Order
 
@@ -231,7 +231,7 @@ All five candidate fixture projects build without warnings/errors. **Fifteen pac
 
 Selected compiled contracts capture 29 core/SQLite/generated-service types and four MySQL/MariaDB registration types. They reconcile participant rights, owner inheritance, factory callbacks, all prepared forms, native results, keyed settings and generated overloads. Nineteen original async mutation methods remain distinct from twenty additive typed-transaction/participant forms. Net9/net10 projections match; the sole net8 nullable reflection difference disappears when the exact net8 bytes execute under runtime 10, as documented in the evidence record.
 
-Memory and graph doubles retain their existing capabilities: neither becomes a SQL transaction owner or receives prepared SQL execution through registration. The participant prepared route delegates to the existing transaction machinery; controlled and all-provider tests above retain its admission/capture/cancellation/reader restrictions. Fake unit-of-work implementations and DI replacements remain W6B.
+Memory and graph doubles retain their existing capabilities: neither becomes a SQL transaction owner or receives prepared SQL execution through registration. The participant prepared route delegates to the existing transaction machinery; controlled and all-provider tests above retain its admission/capture/cancellation/reader restrictions. W6B routes these production contracts to the SQLite test fixture.
 
 The [unreleased usage guide](../../../Dependency%20Injection%20and%20Unit%20of%20Work.md) documents registration precedence, identity, manual/callback ownership, explicit vetoes versus result data, prepared participation, generated authoring and supported disposal combinations. DocFX builds with **zero warnings/errors**; generated guide content and navigation are verified in `_site`.
 
@@ -246,7 +246,7 @@ Initial stale report-runner provenance, sandbox NuGet/profile failures and two i
 | W4.5 generated composition | Complete for the bounded declaration inventory, both constructor styles, explicit lifetimes, cross-registration participation and diagnostics. |
 | W4.6 integration/evidence/docs | Complete through host/shutdown, package/dependency/old-binary/API evidence and the verified unreleased guide. |
 
-No further W4 implementation item is known open. PR review, its final check receipt and merge remain separate. W5 schema validation, W6B fakes, W8/W9 performance/release acceptance and package publication remain outside this implementation handoff.
+No further W4 implementation item is known open. PR review, its final check receipt and merge remain separate. W5 schema validation, W6B SQLite test-host replacement, W8/W9 performance/release acceptance and package publication remain outside this implementation handoff.
 
 ### Review Corrections: Optional Service Defaults
 

@@ -87,7 +87,7 @@ Existing coverage includes ExistenceQueryTests, ProviderMetadataFailureTests, Pr
 | Emitted declarations, navigation naming/conflicts, required/optional missing behavior, positive/negative packed consumers and old/custom compatibility | W3 |
 | DI/service lifetimes, hosted initialization and unit-of-work ownership | W4 |
 | Fresh schema validation, Include/empty/missing results, timeout propagation and operational failures | W5 |
-| Fixture/builder support using the established execution contracts | W6 |
+| SQLite fixture and transactional seeding using the established execution contracts | W6 |
 | New package graph Native AOT, trimming, browser and full release closeout | W8/W9 |
 
 Current warning debt and the final-0.8 allocation parity issue #26 remain visible in the baseline index. Neither successful synchronous tests nor provider API availability makes any future-only row complete.

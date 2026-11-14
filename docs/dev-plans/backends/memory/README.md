@@ -13,6 +13,8 @@ This folder contains durable design notes for `DataLinq.Memory`.
 
 ## Current Direction
 
+**W6 scope accepted on 2026-11-14.** All new Memory testing integration and backend development are deferred to a later release. W6 covers SQLite fixture provisioning, transactional seeding and DI replacement. Preserve existing Memory regression and package compatibility evidence. [W6 plan](../../roadmap-implementation/v0.10/W6%20Testing%20Support.md)
+
 The immediate target is deliberately narrow:
 
 > DataLinq 0.9 should ship, at most, an experimental read-only memory preview that starts from generated metadata, accepts explicit seed data, supports primary-key lookup and a small capability-gated query subset, and proves AOT/browser execution without SQL.
