@@ -361,7 +361,7 @@ Exit gate:
 
 - Give a handler the real W4 factory directly or replace its configured database in a test host. Exercise successful writes and a constraint failure that rolls back an earlier write.
 - Route the target model/key, default alias and generated services to the borrowed fixture. Validate its initialized schema when W5 validation is enabled.
-- Verify fresh committed reads, host/fixture lifetimes and external .NET 8/9/10 consumers. Keep provider-specific and existing Memory regression evidence in their respective suites.
+- Verify persisted state independently of the fixture cache. Cover host/fixture lifetimes and external .NET 8/9/10 consumers. Keep provider-specific and existing Memory regression evidence in their respective suites.
 
 ### W7: Source Alias Correctness
 

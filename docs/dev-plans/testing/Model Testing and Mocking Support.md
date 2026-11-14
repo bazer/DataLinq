@@ -8,7 +8,7 @@
 |---|---|---|
 | A rule operating on already supplied values | Ordinary application inputs, or the existing collection double for an API taking `IImmutableRelation<T>` | The returned value or business decision |
 | A handler inserts or updates related rows | Seed a fresh SQLite fixture and pass its factory into the handler | Returned values and committed rows, read after the handler finishes |
-| Several writes must succeed or fail together | Arrange a real FK or uniqueness violation on the second write | The application's failure outcome and the original state of the first row |
+| Several writes must succeed or fail together | Arrange a real FK or uniqueness violation on the second write | The application's failure outcome and the original stored state of the first row, checked by direct SQLite read or after clearing the fixture cache |
 | The hosted application uses the intended database | Replace one DataLinq registration before building the host, then resolve the normal service | Its writes reach the intended fixture, including through generated services and keyed/default aliases |
 | The application contacts an external service | Supply a test implementation of the application's own interface | The interaction the application contract promises |
 | Behavior depends on SQL dialect, locking or connection failures | Use the relevant provider or controlled provider harness | The outcome for that provider |
