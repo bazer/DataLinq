@@ -70,7 +70,14 @@ A separate test can supply a spy for an application dependency such as a receipt
 
 ## DI replacement and W5 startup
 
-Replace the configured registration for one model and service key before building the service provider. Its default alias, generated services, query root and unit-of-work factory must all resolve to the fixture. Other registrations retain their original bindings. Generated services capture the canonical registration, so changing only an interface descriptor would leave a path back to the original database. Remove the original concrete provider alias for that target. A caller explicitly requiring the old provider type should fail resolution. [Registration](../../../../src/DataLinq/Extensions/DependencyInjection/DataLinqRegistration.cs) · [Generated service routing](../../../../src/DataLinq/Extensions/DependencyInjection/DataLinqServiceRegistration.cs)
+The replacement helper selects one registration for the requested database model during test setup, before the service provider is built.
+
+| Service key supplied by the test | Target | Failure during the replacement call |
+|---|---|---|
+| Omitted | The model's default registration, either unkeyed or a keyed registration marked with `AsDefault()` | If the model has no default, fail and identify the model as missing a default. A lone keyed registration still requires its key unless marked as default. |
+| Explicit key | The registration for that model and key | If the key is missing for that model, fail and identify the model and requested key, even when the model has a default. |
+
+The selected registration's generated services, query root, unit-of-work factory and any default alias must all resolve to the fixture. Other registrations retain their original bindings. Generated services capture the canonical registration, so changing only an interface descriptor would leave a path back to the original database. Remove the original concrete provider alias for that target. A caller explicitly requiring the old provider type should fail resolution. [Registration](../../../../src/DataLinq/Extensions/DependencyInjection/DataLinqRegistration.cs) · [Generated service routing](../../../../src/DataLinq/Extensions/DependencyInjection/DataLinqServiceRegistration.cs)
 
 The supplied fixture is borrowed. Disposing a host or scope must leave the fixture usable until the test disposes it. Preserve service lifetimes and existing W4 ownership rules. Rebind W5's attached and keyed selections. Enabled startup validation inspects the fixture's actual initialized schema. Disabled validation performs no validation I/O or activation of otherwise unused targets. Explicit creation of the fixture has already provisioned its schema.
 

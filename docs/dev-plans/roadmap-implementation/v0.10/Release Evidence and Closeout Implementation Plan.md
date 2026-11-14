@@ -243,6 +243,7 @@ Required focused evidence:
 - metadata/mutation fixtures follow AAPI-64 through AAPI-72 probe/Option/validation distinctions, effective-source ownership, finite insertion, generated helper lifetimes, nullable Save and unchanged-update behavior, and provider callbacks; actual provider/host evidence remains separate from in-memory fixture fidelity
 - navigation/backend fixtures follow AAPI-73 through AAPI-81 explicit returned-result guidance and existing capability/cancellation contracts; use actual SQLite navigation and existing collection-double coverage, preserving existing Memory regressions without adding a new adapter
 - SQLite DI replacement including generated service factory capture, keyed/default identity, borrowed fixture and host cleanup, original concrete-provider rejection, and attached W5 target rebinding
+- verify that omitting the key selects an unkeyed default or a keyed registration marked with `AsDefault()`, and that supplying an existing key selects that registration. Assert failure at the replacement call for an omitted key with only a non-default keyed registration, and for a missing explicit key even when a default exists
 - helper fixtures follow AAPI-82 through AAPI-90 construction/provisioning boundaries, captured fluent execution, disabled mutation exclusions, canonical cache lookup and synchronous invalidation/callback semantics; actual SQLite setup/journal/provisioning and resource-lifetime evidence remains provider-backed
 
 ### Source Type Aliases
