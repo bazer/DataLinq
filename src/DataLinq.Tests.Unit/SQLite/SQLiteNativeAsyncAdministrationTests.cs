@@ -3,6 +3,7 @@ using System.Data;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Cache;
 using DataLinq.Execution;
 using DataLinq.Logging;
 using DataLinq.Mutation;
@@ -264,6 +265,68 @@ public sealed class SQLiteNativeAsyncAdministrationTests
             await Assert.That(command.ExecuteScalar()).IsEqualTo(0L);
         }
         ClearExecutionPools(options.ConnectionString);
+    }
+
+    [Test]
+    public async Task FailedKeeperOpenDisposesModelCache()
+    {
+        CacheCleanupScheduler? scheduler = null;
+        FixtureCheckDb.Observe.Value = source => scheduler = source.Provider.State.Cache.CleanupScheduler;
+        try
+        {
+            // The bundled native SQLite library rejects encryption during Open.
+            var failure = await Assert.That(() =>
+            {
+                using var database = new SQLiteDatabase<FixtureCheckDb>("Data Source=:memory:;Password=fixture;Pooling=False");
+            }).Throws<InvalidOperationException>();
+            await Assert.That(failure!.Message).Contains("encryption");
+            await Assert.That(scheduler).IsNotNull();
+            await Assert.That(scheduler!.IsRunning).IsFalse();
+        }
+        finally
+        {
+            FixtureCheckDb.Observe.Value = null;
+            scheduler?.Dispose();
+        }
+    }
+
+    [Test]
+    public async Task FailedJournalInitializationReleasesAcquiredKeeperAndModelCache()
+    {
+        CacheCleanupScheduler? scheduler = null;
+        var name = $"failed_journal_{Guid.NewGuid():N}";
+        var connectionString = $"Data Source={name};Mode=Memory;Cache=Shared;Pooling=False";
+        var injected = new InvalidOperationException("Journal initialization failed.");
+        using var logger = new CallbackLogger();
+        logger.Callback = message =>
+        {
+            if (!message.Contains("PRAGMA journal_mode", StringComparison.OrdinalIgnoreCase)) return;
+            using var probe = new SqliteConnection(connectionString);
+            probe.Open();
+            using var marker = new SqliteCommand("PRAGMA user_version = 73", probe);
+            marker.ExecuteNonQuery();
+            throw injected;
+        };
+        FixtureCheckDb.Observe.Value = source => scheduler = source.Provider.State.Cache.CleanupScheduler;
+        try
+        {
+            var failure = await Assert.That(() =>
+            {
+                using var database = new SQLiteDatabase<FixtureCheckDb>(connectionString, logger);
+            }).Throws<InvalidOperationException>();
+            await Assert.That(failure).IsSameReferenceAs(injected);
+            using var reopened = new SqliteConnection(connectionString);
+            reopened.Open();
+            using var command = new SqliteCommand("PRAGMA user_version", reopened);
+            await Assert.That(command.ExecuteScalar()).IsEqualTo(0L);
+            await Assert.That(scheduler).IsNotNull();
+            await Assert.That(scheduler!.IsRunning).IsFalse();
+        }
+        finally
+        {
+            FixtureCheckDb.Observe.Value = null;
+            scheduler?.Dispose();
+        }
     }
 
     private sealed class CallbackLogger : ILoggerFactory, ILogger
