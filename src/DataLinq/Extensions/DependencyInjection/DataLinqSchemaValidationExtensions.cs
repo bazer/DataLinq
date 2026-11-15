@@ -37,7 +37,7 @@ public static class DataLinqSchemaValidationExtensions
         where TDatabase : class, IDatabaseModel<TDatabase> where TOptions : DataLinqProviderOptions
     {
         ArgumentNullException.ThrowIfNull(builder);
-        builder.Registration.ValidateSchemaOnStartup(configure);
+        builder.CurrentRegistration.ValidateSchemaOnStartup(configure);
         return builder;
     }
 

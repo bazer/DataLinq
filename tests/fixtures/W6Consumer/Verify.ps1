@@ -41,6 +41,9 @@ foreach ($id in $ids) {
 }
 foreach ($tfm in 'net8.0', 'net9.0', 'net10.0') {
     $graph = $assets.targets[$tfm]
+    if ($tfm -eq 'net8.0' -and -not $graph.ContainsKey('Microsoft.Extensions.DependencyInjection/8.0.1')) {
+        throw 'The net8.0 ownership regression requires the DI 8.0.1 container.'
+    }
     $packages = @($graph.Keys | ForEach-Object { ($_ -split '/')[0] })
     $actual = @($packages | Where-Object { $_ -like 'DataLinq*' })
     if (Compare-Object $ids $actual) { throw "Unexpected DataLinq closure on $tfm ($actual)." }

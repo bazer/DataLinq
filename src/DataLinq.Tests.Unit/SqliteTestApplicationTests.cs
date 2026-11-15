@@ -14,6 +14,7 @@ using DataLinq.Testing;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Tests.Unit.Core;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -202,6 +203,42 @@ public sealed class SqliteTestApplicationTests
             await Assert.That(failure!.Message).Contains("container-owned");
         }
         await Assert.That(original.Query().Departments.Any()).IsFalse();
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task DisplacedProviderBuilderCannotRedirectSiblingWrites(bool freezeBeforeReplacement)
+    {
+        using var original = SqliteTestDatabase<EmployeesDb>.Create();
+        using var replacement = SqliteTestDatabase<EmployeesDb>.Create();
+        IServiceCollection owner = new ServiceCollection();
+        var builder = owner.AddDataLinq<EmployeesDb>().UseSQLite(original.Database.Provider.ConnectionString);
+        IServiceCollection sibling = new ServiceCollection();
+        foreach (var descriptor in owner) sibling.Add(descriptor);
+        if (freezeBeforeReplacement)
+        {
+            using var first = sibling.BuildServiceProvider();
+            first.GetRequiredService<IDataLinqUnitOfWorkFactory<EmployeesDb>>();
+            await Assert.That(() => builder.Configure(_ => { })).Throws<InvalidOperationException>();
+        }
+
+        owner.ReplaceDataLinqWithSqliteInMemory(replacement);
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        configuration["ConnectionString"] = replacement.Database.Provider.ConnectionString;
+        await Assert.That(() => builder.Bind(configuration)).Throws<InvalidOperationException>();
+        await Assert.That(() => builder.Configure(options => options.ConnectionString = replacement.Database.Provider.ConnectionString))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(() => builder.AsDefault()).Throws<InvalidOperationException>();
+        await Assert.That(() => builder.ValidateSchemaOnStartup()).Throws<InvalidOperationException>();
+
+        using var host = sibling.BuildServiceProvider();
+        host.GetRequiredService<IDataLinqUnitOfWorkFactory<EmployeesDb>>()
+            .Execute(s => s.Insert(new MutableDepartment("a", "Original")));
+        const string count = "SELECT COUNT(*) FROM departments";
+        await Assert.That(original.Database.Provider.DatabaseAccess.ExecuteScalar<long>(count)).IsEqualTo(1L);
+        await Assert.That(replacement.Database.Provider.DatabaseAccess.ExecuteScalar<long>(count)).IsEqualTo(0L);
     }
 
     [Test]

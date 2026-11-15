@@ -23,7 +23,7 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     {
         internal Type? ImplementationType { get; init; }
         internal Func<IServiceProvider, Database<TDatabase>>? Factory { get; init; }
-        internal bool ProviderFactory { get; init; }
+        internal object? ProviderBuilder { get; init; }
         internal Database<TDatabase>? Instance { get; init; }
         internal DataLinqOwnership Ownership { get; init; } = DataLinqOwnership.Container;
         internal ReadOnlyAccess<TDatabase>? BorrowedAccess { get; init; }
@@ -62,6 +62,12 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
         if (recipe.Frozen) throw new InvalidOperationException("This DataLinq registration was already resolved; its construction recipe is frozen.");
     }
 
+    internal void EnsureCurrentProvider(object builder)
+    {
+        if (!ReferenceEquals(recipe.ProviderBuilder, builder))
+            throw new InvalidOperationException("This provider builder was displaced by a replacement registration.");
+    }
+
     internal void SelectDefault()
     {
         EnsureMutable();
@@ -88,11 +94,11 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     internal IDataLinqUnitOfWorkFactory<TDatabase> ResolveFactory(IServiceProvider provider) =>
         provider.GetRequiredKeyedService<DataLinqActivation<TDatabase>>(activationKey).Get().Factory;
 
-    internal void SetFactory(Type implementation, Func<IServiceProvider, Database<TDatabase>> create, bool providerFactory = false)
+    internal void SetFactory(Type implementation, Func<IServiceProvider, Database<TDatabase>> create, object? providerBuilder = null)
     {
         EnsureSourceAvailable(implementation);
         RejectDisposableOwnedModel();
-        InstallRecipe(new() { ImplementationType = implementation, Factory = create, ProviderFactory = providerFactory });
+        InstallRecipe(new() { ImplementationType = implementation, Factory = create, ProviderBuilder = providerBuilder });
     }
 
     internal void SetInstance(Type implementation, Database<TDatabase> supplied, DataLinqOwnership requestedOwnership)
@@ -225,12 +231,18 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
             try { database = existing ?? create?.Invoke(provider) ?? throw new InvalidOperationException("This DataLinq registration has no provider or its factory returned null."); }
             catch (Exception failure)
             {
-                if (!recipe.ProviderFactory || create is null) DataLinqActivationFailureScope.ReportConfiguration(failure);
+                if (recipe.ProviderBuilder is null || create is null) DataLinqActivationFailureScope.ReportConfiguration(failure);
                 throw;
             }
             // Reject a factory that returns a known borrowed provider before taking
             // any ownership. Disposing that conflicting result would harm its caller.
-            try { EnsureProviderOwnership(database, recipe.Ownership, provider.GetKeyedServices<ActivationRecipe>(KeyedService.AnyKey)); }
+            try
+            {
+                // DI 8.0.1 returns no recipes for AnyKey. Resolve each concrete key in this host.
+                var recipes = provider.GetServices<DataLinqRegistration<TDatabase>>()
+                    .Select(registration => provider.GetRequiredKeyedService<ActivationRecipe>(registration.activationKey));
+                EnsureProviderOwnership(database, recipe.Ownership, recipes);
+            }
             catch (Exception failure) { DataLinqActivationFailureScope.ReportConfiguration(failure); throw; }
             try
             {
