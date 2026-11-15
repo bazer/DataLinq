@@ -17,6 +17,7 @@
 		<InternalsVisibleTo Include="DataLinq.Benchmark" />
 		<InternalsVisibleTo Include="DataLinq.Memory" />
 		<InternalsVisibleTo Include="DataLinq.SQLite" />
+		<InternalsVisibleTo Include="DataLinq.Testing" />
 		<InternalsVisibleTo Include="DataLinq.MySql" />
 		<InternalsVisibleTo Include="DataLinq.Memory.PlatformCompatibility.Smoke" />
 		<InternalsVisibleTo Include="DataLinq.Tools" />
