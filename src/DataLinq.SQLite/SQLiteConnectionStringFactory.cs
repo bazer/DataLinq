@@ -50,7 +50,7 @@ internal static class SQLiteConnectionStringFactory
                 if (entry.ReferenceCount == 0) entry.HasFallbackOwner = true;
                 return;
             }
-            finally { entry.Gate.Release(); }
+            finally { FinishAcquisition(entry); }
         }
     }
 
@@ -72,7 +72,7 @@ internal static class SQLiteConnectionStringFactory
                 entry.HasFallbackOwner = false;
                 return new KeepAliveLease(entry);
             }
-            finally { entry.Gate.Release(); }
+            finally { FinishAcquisition(entry); }
         }
     }
 
@@ -92,9 +92,21 @@ internal static class SQLiteConnectionStringFactory
                 if (entry.ReferenceCount == 0) entry.HasFallbackOwner = true;
                 return;
             }
-            finally { entry.Gate.Release(); }
+            finally { FinishAcquisition(entry); }
         }
     }
+
+    private static void FinishAcquisition(KeepAliveEntry entry)
+    {
+        // A failed first open has no lease to remove its dictionary entry.
+        RemoveIfUnowned(entry);
+        entry.Gate.Release();
+    }
+
+    // Callers hold the entry's gate. Waiters on a removed entry retry acquisition.
+    private static bool RemoveIfUnowned(KeepAliveEntry entry) =>
+        entry.ReferenceCount == 0 && !entry.HasFallbackOwner && IsCurrent(entry)
+        && KeepAliveConnections.TryRemove(entry.ConnectionString, out _);
 
     private static bool IsCurrent(KeepAliveEntry entry) =>
         KeepAliveConnections.TryGetValue(entry.ConnectionString, out var current) && ReferenceEquals(current, entry);
@@ -119,9 +131,8 @@ internal static class SQLiteConnectionStringFactory
         // Caller holds this entry's gate. Removal and reference release must be
         // atomic with acquisition; an acquirer holding a removed entry retries.
         if (entry.ReferenceCount > 0) entry.ReferenceCount--;
-        if (entry.ReferenceCount == 0 && !entry.HasFallbackOwner && IsCurrent(entry))
+        if (RemoveIfUnowned(entry))
         {
-            KeepAliveConnections.TryRemove(entry.ConnectionString, out _);
             var connection = entry.Connection;
             entry.Connection = null;
             return connection;

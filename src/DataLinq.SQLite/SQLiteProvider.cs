@@ -83,11 +83,23 @@ public partial class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
             connectionOptions.DatabaseName,
             executionOptions)
     {
-        connectionStringBuilder = new SqliteConnectionStringBuilder(ConnectionString);
-        keepAliveConnection = SQLiteConnectionStringFactory.AcquireKeepAliveConnectionIfInMemory(connectionStringBuilder.ConnectionString);
-        dbAccess = new SQLiteDbAccess(this, ConnectionString, LoggingConfiguration, () => RootDisposal.EnsureUsable());
-        SetJournalMode(SQLiteJournalMode.WAL);
-
+        try
+        {
+            connectionStringBuilder = new SqliteConnectionStringBuilder(ConnectionString);
+            keepAliveConnection = SQLiteConnectionStringFactory.AcquireKeepAliveConnectionIfInMemory(connectionStringBuilder.ConnectionString);
+            dbAccess = new SQLiteDbAccess(this, ConnectionString, LoggingConfiguration, () => RootDisposal.EnsureUsable());
+            SetJournalMode(SQLiteJournalMode.WAL);
+        }
+        catch (Exception initializationFailure)
+        {
+            // The base provider owns cache state even if SQLite failed before opening a keeper.
+            try { RootDisposal.Dispose(); }
+            catch (Exception cleanupFailure)
+            {
+                throw new AggregateException("SQLite provider initialization and cleanup both failed.", initializationFailure, cleanupFailure);
+            }
+            throw;
+        }
     }
 
     private sealed record SQLiteConnectionOptions(string ConnectionString, string DatabaseName);
