@@ -1,9 +1,7 @@
 using System;
-using System.Linq;
 using DataLinq.Extensions.Hosting;
 using DataLinq.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -17,9 +15,9 @@ public static class DataLinqSchemaValidationExtensions
         Action<DataLinqSchemaStartupOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-        var registration = GetOrAdd(services);
-        if (configure is not null) registration.Defaults.Add(configure);
-        return new(services, registration);
+        AddHostedValidator(services);
+        if (configure is not null) services.AddSingleton(new SchemaValidationDefaults(configure));
+        return new(services);
     }
 
     /// <summary>Selects this canonical registration for startup validation. A second explicit target configuration is rejected.</summary>
@@ -27,7 +25,8 @@ public static class DataLinqSchemaValidationExtensions
         Action<DataLinqSchemaStartupOptions>? configure = null) where TDatabase : class, IDatabaseModel<TDatabase>
     {
         ArgumentNullException.ThrowIfNull(builder);
-        GetOrAdd(builder.Services).Selections.Add(new(typeof(TDatabase), builder.ServiceKey, builder.Registration, configure));
+        AddHostedValidator(builder.Services);
+        builder.Services.AddSingleton(new SchemaValidationSelection(typeof(TDatabase), builder.ServiceKey, builder.Registration, configure));
         return builder;
     }
 
@@ -37,19 +36,11 @@ public static class DataLinqSchemaValidationExtensions
         where TDatabase : class, IDatabaseModel<TDatabase> where TOptions : DataLinqProviderOptions
     {
         ArgumentNullException.ThrowIfNull(builder);
-        builder.CurrentRegistration.ValidateSchemaOnStartup(configure);
+        builder.Registration.ValidateSchemaOnStartup(configure);
         return builder;
     }
 
-    private static SchemaValidationRegistration GetOrAdd(IServiceCollection services)
-    {
-        var existing = services.Where(descriptor => !descriptor.IsKeyedService).Select(descriptor => descriptor.ImplementationInstance)
-            .OfType<SchemaValidationRegistration>().SingleOrDefault();
-        if (existing is not null) return existing;
-        var registration = new SchemaValidationRegistration();
-        services.AddSingleton(registration);
-        services.AddSingleton<IHostedService>(provider => new SchemaValidationHostedService(provider, registration,
+    private static void AddHostedValidator(IServiceCollection services) =>
+        services.AddHostedService<SchemaValidationHostedService>(static provider => new(provider,
             provider.GetService<ILogger<SchemaValidationHostedService>>() ?? NullLogger<SchemaValidationHostedService>.Instance));
-        return registration;
-    }
 }

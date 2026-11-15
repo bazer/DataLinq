@@ -16,7 +16,7 @@ namespace DataLinq.Extensions.Hosting;
 
 // Generic Host awaits every StartingAsync before invoking any StartAsync,
 // including concurrent service starts. Constructors never resolve databases.
-internal sealed class SchemaValidationHostedService(IServiceProvider services, SchemaValidationRegistration registration,
+internal sealed class SchemaValidationHostedService(IServiceProvider services,
     ILogger<SchemaValidationHostedService> logger) : IHostedLifecycleService
 {
     private readonly object sync = new();
@@ -33,7 +33,7 @@ internal sealed class SchemaValidationHostedService(IServiceProvider services, S
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var targets = registration.Capture(services);
+            var targets = SchemaValidationRegistration.Capture(services);
             foreach (var target in targets)
             {
                 if (target.Mode == DataLinqSchemaStartupMode.Disabled) continue;

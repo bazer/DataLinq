@@ -13,6 +13,7 @@ using DataLinq.SQLite.Extensions.DependencyInjection;
 using DataLinq.Testing;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Tests.Unit.Core;
+using DataLinq.Validation;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -232,6 +233,8 @@ public sealed class SqliteTestApplicationTests
 
         await Assert.That(() => builder.AsDefault()).Throws<InvalidOperationException>();
         await Assert.That(() => builder.ValidateSchemaOnStartup()).Throws<InvalidOperationException>();
+        await Assert.That(() => builder.Registration.ValidateSchemaOnStartup(o => o.Mode = DataLinqSchemaStartupMode.Disabled))
+            .Throws<InvalidOperationException>();
 
         using var host = sibling.BuildServiceProvider();
         host.GetRequiredService<IDataLinqUnitOfWorkFactory<EmployeesDb>>()
@@ -239,6 +242,79 @@ public sealed class SqliteTestApplicationTests
         const string count = "SELECT COUNT(*) FROM departments";
         await Assert.That(original.Database.Provider.DatabaseAccess.ExecuteScalar<long>(count)).IsEqualTo(1L);
         await Assert.That(replacement.Database.Provider.DatabaseAccess.ExecuteScalar<long>(count)).IsEqualTo(0L);
+    }
+
+    [Test]
+    [Arguments("common builder")]
+    [Arguments("central builder")]
+    [Arguments("global defaults")]
+    public async Task OwnerValidationChangesLeaveCopiedHostCheckingItsSchema(string path)
+    {
+        using var original = SqliteTestDatabase<TransactionMutationGuardDb>.Create();
+        using var replacement = SqliteTestDatabase<TransactionMutationGuardDb>.Create();
+        IServiceCollection owner = new ServiceCollection();
+        var providerBuilder = owner.AddDataLinq<TransactionMutationGuardDb>("orders").UseSQLite(original.Database.Provider.ConnectionString);
+        var common = providerBuilder.Registration;
+        var central = owner.AddDataLinqSchemaValidation().ValidateDatabase<TransactionMutationGuardDb>("orders");
+        IServiceCollection sibling = new ServiceCollection();
+        foreach (var descriptor in owner) sibling.Add(descriptor);
+        owner.ReplaceDataLinqWithSqliteInMemory(replacement, "orders");
+        const string drop = "DROP TABLE transaction_mutation_guard_rows";
+        original.Database.Provider.DatabaseAccess.ExecuteNonQuery(drop);
+        replacement.Database.Provider.DatabaseAccess.ExecuteNonQuery(drop);
+
+        static void Disable(DataLinqSchemaStartupOptions options) => options.Mode = DataLinqSchemaStartupMode.Disabled;
+        switch (path)
+        {
+            case "common builder":
+                common.ValidateSchemaOnStartup(Disable);
+                break;
+            case "central builder":
+                central.ValidateDatabase<TransactionMutationGuardDb>("orders", Disable);
+                break;
+            case "global defaults":
+                owner.AddDataLinqSchemaValidation(Disable);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(path));
+        }
+
+        await StartValidation(owner);
+        var failure = await Assert.That(() => StartValidation(sibling)).Throws<DataLinqSchemaStartupException>();
+        var result = failure!.Outcomes.Single().Result!;
+        await Assert.That(result.HasFailures).IsTrue();
+        var missing = result.Differences.Single(difference => difference.Kind == SchemaDifferenceKind.MissingTable);
+        await Assert.That(missing.Path).IsEqualTo("transaction_mutation_guard_rows");
+    }
+
+    [Test]
+    public async Task SelectingOwnerDefaultLeavesCopiedHostWithoutAValidationDefault()
+    {
+        using var original = SqliteTestDatabase<TransactionMutationGuardDb>.Create();
+        using var replacement = SqliteTestDatabase<TransactionMutationGuardDb>.Create();
+        IServiceCollection owner = new ServiceCollection();
+        var common = owner.AddDataLinq<TransactionMutationGuardDb>("orders").UseInstance(original.Database);
+        owner.AddDataLinqSchemaValidation().ValidateDatabase<TransactionMutationGuardDb>();
+        IServiceCollection sibling = new ServiceCollection();
+        foreach (var descriptor in owner) sibling.Add(descriptor);
+
+        owner.ReplaceDataLinqWithSqliteInMemory(replacement, "orders");
+        common.AsDefault();
+
+        await StartValidation(owner);
+        var failure = await Assert.That(() => StartValidation(sibling)).Throws<DataLinqSchemaStartupException>();
+        await Assert.That(failure!.RunFailure!.Message).Contains("unnamed/default target");
+        await Assert.That(failure.Outcomes).IsEmpty();
+
+        sibling.AddDataLinq<TransactionMutationGuardDb>().UseInstance(original.Database);
+        await StartValidation(sibling);
+    }
+
+    private static async Task StartValidation(IServiceCollection services)
+    {
+        using var host = services.BuildServiceProvider();
+        var validator = (IHostedLifecycleService)host.GetServices<IHostedService>().Single();
+        await validator.StartingAsync(default);
     }
 
     [Test]

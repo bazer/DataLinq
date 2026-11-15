@@ -17,7 +17,7 @@ public static class DataLinqServiceCollectionExtensions
         if (ReferenceEquals(serviceKey, KeyedService.AnyKey))
             throw new ArgumentException("A DataLinq registration requires a concrete service key, not AnyKey.", nameof(serviceKey));
         if (services.Any(descriptor => !descriptor.IsKeyedService && descriptor.ImplementationInstance is DataLinqRegistration<TDatabase> registration &&
-            (Equals(registration.Key, serviceKey) || serviceKey is null && registration.IsDefault)))
+            (Equals(registration.Key, serviceKey) || serviceKey is null && registration.IsDefaultIn(services))))
             throw new InvalidOperationException($"A DataLinq registration or default already exists for model '{typeof(TDatabase).FullName}' and the requested key.");
         var recipe = new DataLinqRegistration<TDatabase>(services, serviceKey);
         recipe.Register();
