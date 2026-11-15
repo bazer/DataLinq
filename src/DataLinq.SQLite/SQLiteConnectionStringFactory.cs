@@ -47,14 +47,19 @@ internal static class SQLiteConnectionStringFactory
             {
                 if (!IsCurrent(entry)) continue;
                 entry.EnsureOpen();
-                if (entry.ReferenceCount == 0) entry.HasFallbackOwner = true;
+                if (entry.ProviderCount == 0) entry.HasFallbackOwner = true;
                 return;
             }
             finally { FinishAcquisition(entry); }
         }
     }
 
-    public static IDisposable? AcquireKeepAliveConnectionIfInMemory(string normalizedConnectionString)
+    internal interface IKeepAliveLease : IDisposable, IAsyncDisposable
+    {
+        void AdoptForProvider();
+    }
+
+    public static IKeepAliveLease? AcquireKeepAliveConnectionIfInMemory(string normalizedConnectionString)
     {
         var builder = new SqliteConnectionStringBuilder(normalizedConnectionString);
         if (!IsInMemory(builder))
@@ -69,7 +74,6 @@ internal static class SQLiteConnectionStringFactory
                 if (!IsCurrent(entry)) continue;
                 entry.EnsureOpen();
                 entry.ReferenceCount++;
-                entry.HasFallbackOwner = false;
                 return new KeepAliveLease(entry);
             }
             finally { FinishAcquisition(entry); }
@@ -89,7 +93,7 @@ internal static class SQLiteConnectionStringFactory
             {
                 if (!IsCurrent(entry)) continue;
                 await entry.EnsureOpenAsync(token).ConfigureAwait(false);
-                if (entry.ReferenceCount == 0) entry.HasFallbackOwner = true;
+                if (entry.ProviderCount == 0) entry.HasFallbackOwner = true;
                 return;
             }
             finally { FinishAcquisition(entry); }
@@ -126,11 +130,12 @@ internal static class SQLiteConnectionStringFactory
         return anonymousInMemoryDatabaseName ?? "datalinq_memory";
     }
 
-    private static SqliteConnection? ReleaseKeepAliveConnection(KeepAliveEntry entry)
+    private static SqliteConnection? ReleaseKeepAliveConnection(KeepAliveEntry entry, bool providerOwner)
     {
         // Caller holds this entry's gate. Removal and reference release must be
         // atomic with acquisition; an acquirer holding a removed entry retries.
-        if (entry.ReferenceCount > 0) entry.ReferenceCount--;
+        if (providerOwner) entry.ProviderCount--;
+        entry.ReferenceCount--;
         if (RemoveIfUnowned(entry))
         {
             var connection = entry.Connection;
@@ -146,6 +151,7 @@ internal static class SQLiteConnectionStringFactory
         public SemaphoreSlim Gate { get; } = new(1, 1);
         public SqliteConnection? Connection { get; set; }
         public int ReferenceCount { get; set; }
+        public int ProviderCount { get; set; }
         public bool HasFallbackOwner { get; set; }
 
         public void EnsureOpen()
@@ -191,16 +197,32 @@ internal static class SQLiteConnectionStringFactory
         }
     }
 
-    private sealed class KeepAliveLease(KeepAliveEntry entry) : IDisposable, IAsyncDisposable
+    private sealed class KeepAliveLease(KeepAliveEntry entry) : IKeepAliveLease
     {
         private int disposed;
+        private bool providerOwner;
+
+        public void AdoptForProvider()
+        {
+            entry.Gate.Wait();
+            try
+            {
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+                if (providerOwner) return;
+                // A successfully initialized provider takes over a publicly provisioned store.
+                providerOwner = true;
+                entry.ProviderCount++;
+                entry.HasFallbackOwner = false;
+            }
+            finally { entry.Gate.Release(); }
+        }
 
         public void Dispose()
         {
             if (Interlocked.Exchange(ref disposed, 1) != 0) return;
             SqliteConnection? connection;
             entry.Gate.Wait();
-            try { connection = ReleaseKeepAliveConnection(entry); }
+            try { connection = ReleaseKeepAliveConnection(entry, providerOwner); }
             finally { entry.Gate.Release(); }
             connection?.Dispose();
         }
@@ -210,7 +232,7 @@ internal static class SQLiteConnectionStringFactory
             if (Interlocked.Exchange(ref disposed, 1) != 0) return;
             SqliteConnection? connection;
             await entry.Gate.WaitAsync().ConfigureAwait(false);
-            try { connection = ReleaseKeepAliveConnection(entry); }
+            try { connection = ReleaseKeepAliveConnection(entry, providerOwner); }
             finally { entry.Gate.Release(); }
             if (connection is not null) await connection.DisposeAsync().ConfigureAwait(false);
         }

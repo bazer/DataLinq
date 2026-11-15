@@ -50,7 +50,7 @@ public partial class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel<T>
 {
     private readonly SqliteConnectionStringBuilder connectionStringBuilder;
-    private readonly IDisposable? keepAliveConnection;
+    private readonly SQLiteConnectionStringFactory.IKeepAliveLease? keepAliveConnection;
     private readonly SQLiteDataLinqDataWriter dataWriter = new(new SqlFromSQLiteFactory());
     private readonly SQLiteDbAccess dbAccess;
     public override IDatabaseProviderConstants Constants { get; } = new SQLiteProviderConstants();
@@ -89,6 +89,7 @@ public partial class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
             keepAliveConnection = SQLiteConnectionStringFactory.AcquireKeepAliveConnectionIfInMemory(connectionStringBuilder.ConnectionString);
             dbAccess = new SQLiteDbAccess(this, ConnectionString, LoggingConfiguration, () => RootDisposal.EnsureUsable());
             SetJournalMode(SQLiteJournalMode.WAL);
+            keepAliveConnection?.AdoptForProvider();
         }
         catch (Exception initializationFailure)
         {
