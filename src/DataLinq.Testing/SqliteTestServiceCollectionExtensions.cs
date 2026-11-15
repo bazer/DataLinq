@@ -34,7 +34,7 @@ public static class SqliteTestServiceCollectionExtensions
         if (!ReferenceEquals(registration.Services, services))
             throw new InvalidOperationException($"Replace the registration for '{typeof(TDatabase).FullName}' on its original service collection. Copied descriptors share that registration.");
 
-        // W4 services and W5 attached selections retain this registration's identity.
+        // Generated services and attached startup validation resolve the recipe from their host.
         registration.ReplaceWithBorrowedInstance(fixture.Database, fixture.Factory);
         return services;
     }
