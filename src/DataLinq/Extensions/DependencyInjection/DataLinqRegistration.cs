@@ -6,6 +6,7 @@ using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace DataLinq.Extensions.DependencyInjection;
 
@@ -16,15 +17,22 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     private readonly object activationKey = new();
     private readonly List<ServiceDescriptor> aliases = [];
     private readonly List<IDataLinqServiceRegistration> applicationServices = [];
-    private Func<IServiceProvider, Database<TDatabase>>? factory;
-    private Database<TDatabase>? instance;
-    private ReadOnlyAccess<TDatabase>? borrowedAccess;
-    private TDatabase? borrowedModel;
-    private DataLinqUnitOfWorkFactory<TDatabase>? borrowedFactory;
-    private Type? implementationType;
-    private DataLinqOwnership ownership = DataLinqOwnership.Container;
-    private bool frozen;
-    private bool providerFactory;
+
+    // Each service collection binds the logical registration key to its own construction recipe.
+    private sealed class ActivationRecipe
+    {
+        internal Type? ImplementationType { get; init; }
+        internal Func<IServiceProvider, Database<TDatabase>>? Factory { get; init; }
+        internal bool ProviderFactory { get; init; }
+        internal Database<TDatabase>? Instance { get; init; }
+        internal DataLinqOwnership Ownership { get; init; } = DataLinqOwnership.Container;
+        internal ReadOnlyAccess<TDatabase>? BorrowedAccess { get; init; }
+        internal TDatabase? BorrowedModel { get; init; }
+        internal DataLinqUnitOfWorkFactory<TDatabase>? BorrowedFactory { get; init; }
+        internal bool Frozen { get; set; }
+    }
+
+    private ActivationRecipe recipe = new();
     internal IServiceCollection Services { get; } = services;
     internal object? Key { get; } = key;
     internal bool IsDefault { get; private set; } = key is null;
@@ -37,13 +45,21 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     internal void Register()
     {
         EnsureAvailable(AliasTypes(), Key);
-        Services.AddKeyedSingleton<DataLinqActivation<TDatabase>>(activationKey, (provider, _) => CreateActivation(provider));
+        InstallRecipe(recipe);
+    }
+
+    private void InstallRecipe(ActivationRecipe next)
+    {
+        Services.Replace(ServiceDescriptor.KeyedSingleton(activationKey, next));
+        Services.Replace(ServiceDescriptor.KeyedSingleton<DataLinqActivation<TDatabase>>(activationKey,
+            (provider, _) => CreateActivation(provider, next)));
+        recipe = next;
         InstallAliases();
     }
 
     internal void EnsureMutable()
     {
-        if (frozen) throw new InvalidOperationException("This DataLinq registration was already resolved; its construction recipe is frozen.");
+        if (recipe.Frozen) throw new InvalidOperationException("This DataLinq registration was already resolved; its construction recipe is frozen.");
     }
 
     internal void SelectDefault()
@@ -76,10 +92,7 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     {
         EnsureSourceAvailable(implementation);
         RejectDisposableOwnedModel();
-        implementationType = implementation;
-        factory = create;
-        this.providerFactory = providerFactory;
-        InstallAliases();
+        InstallRecipe(new() { ImplementationType = implementation, Factory = create, ProviderFactory = providerFactory });
     }
 
     internal void SetInstance(Type implementation, Database<TDatabase> supplied, DataLinqOwnership requestedOwnership)
@@ -90,7 +103,7 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
 
     internal void ReplaceWithBorrowedInstance(Database<TDatabase> supplied, DataLinqUnitOfWorkFactory<TDatabase> suppliedFactory)
     {
-        EnsureMutable();
+        // A sibling may already have resolved its copy. Only the owner's new recipe will change.
         var implementation = supplied.GetType();
         foreach (var aliasKey in AliasKeys()) EnsureAvailable([implementation], aliasKey);
         InstallInstance(implementation, supplied, DataLinqOwnership.Application, suppliedFactory);
@@ -99,7 +112,11 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     private void InstallInstance(Type implementation, Database<TDatabase> supplied, DataLinqOwnership requestedOwnership,
         DataLinqUnitOfWorkFactory<TDatabase>? suppliedFactory)
     {
-        EnsureProviderOwnership(supplied, requestedOwnership);
+        var otherRecipes = Services
+            .Where(descriptor => descriptor.IsKeyedService && descriptor.ServiceType == typeof(ActivationRecipe)
+                && !ReferenceEquals(descriptor.ServiceKey, activationKey))
+            .Select(descriptor => (ActivationRecipe)descriptor.KeyedImplementationInstance!);
+        EnsureProviderOwnership(supplied, requestedOwnership, otherRecipes);
         ReadOnlyAccess<TDatabase>? access = null;
         TDatabase? model = null;
         if (requestedOwnership == DataLinqOwnership.Container)
@@ -114,21 +131,17 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
             access = supplied.Provider.ReadOnlyAccess;
             model = access.Query();
         }
-        implementationType = implementation;
-        factory = null;
-        providerFactory = false;
-        instance = supplied;
-        ownership = requestedOwnership;
-        borrowedAccess = access;
-        borrowedModel = model;
-        borrowedFactory = suppliedFactory;
-        InstallAliases();
+        InstallRecipe(new()
+        {
+            ImplementationType = implementation, Instance = supplied, Ownership = requestedOwnership,
+            BorrowedAccess = access, BorrowedModel = model, BorrowedFactory = suppliedFactory
+        });
     }
 
     private void EnsureSourceAvailable(Type implementation)
     {
         EnsureMutable();
-        if (factory is not null || instance is not null)
+        if (recipe.Factory is not null || recipe.Instance is not null)
             throw new InvalidOperationException("A DataLinq registration can select only one provider, factory, or existing instance.");
         if (implementation != typeof(Database<TDatabase>))
             foreach (var aliasKey in AliasKeys()) EnsureAvailable([implementation], aliasKey);
@@ -140,17 +153,16 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
             throw new NotSupportedException("Container-owned registrations cannot expose a generated read model that implements disposal. Use an application-owned instance for disposable read models.");
     }
 
-    private void EnsureProviderOwnership(Database<TDatabase> database, DataLinqOwnership requestedOwnership)
+    private static void EnsureProviderOwnership(Database<TDatabase> database, DataLinqOwnership requestedOwnership,
+        IEnumerable<ActivationRecipe> recipes)
     {
-        if (Services.Any(descriptor => !descriptor.IsKeyedService &&
-            descriptor.ImplementationInstance is DataLinqRegistration<TDatabase> other && other != this &&
-            other.instance is { } otherDatabase && ReferenceEquals(otherDatabase.Provider, database.Provider) &&
-            other.ownership != requestedOwnership))
+        if (recipes.Any(other => other.Instance is { } otherDatabase && ReferenceEquals(otherDatabase.Provider, database.Provider)
+            && other.Ownership != requestedOwnership))
             throw new InvalidOperationException("The same provider cannot be both application-owned and container-owned in DataLinq registrations.");
     }
 
     private Type[] AliasTypes() => new[] { typeof(Database<TDatabase>), typeof(ReadOnlyAccess<TDatabase>), typeof(TDatabase),
-        typeof(IDataLinqUnitOfWorkFactory<TDatabase>), typeof(DataLinqUnitOfWorkFactory<TDatabase>), implementationType }
+        typeof(IDataLinqUnitOfWorkFactory<TDatabase>), typeof(DataLinqUnitOfWorkFactory<TDatabase>), recipe.ImplementationType }
         .Where(type => type is not null).Cast<Type>().Distinct().ToArray();
 
     private IEnumerable<object?> AliasKeys()
@@ -186,10 +198,10 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
 
     private object? BorrowedAlias(Type type)
     {
-        if (ownership != DataLinqOwnership.Application) return null;
-        if (type == typeof(TDatabase)) return borrowedModel;
-        if (type == typeof(ReadOnlyAccess<TDatabase>)) return borrowedAccess;
-        return type == typeof(Database<TDatabase>) || type == implementationType ? instance : null;
+        if (recipe.Ownership != DataLinqOwnership.Application) return null;
+        if (type == typeof(TDatabase)) return recipe.BorrowedModel;
+        if (type == typeof(ReadOnlyAccess<TDatabase>)) return recipe.BorrowedAccess;
+        return type == typeof(Database<TDatabase>) || type == recipe.ImplementationType ? recipe.Instance : null;
     }
 
     private object ResolveAlias(IServiceProvider provider, Type type)
@@ -201,32 +213,32 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
         return activation.Database;
     }
 
-    private DataLinqActivation<TDatabase> CreateActivation(IServiceProvider provider)
+    private static DataLinqActivation<TDatabase> CreateActivation(IServiceProvider provider, ActivationRecipe recipe)
     {
-        frozen = true;
-        var create = factory;
-        var existing = instance;
-        var owns = ownership == DataLinqOwnership.Container;
+        recipe.Frozen = true;
+        var create = recipe.Factory;
+        var existing = recipe.Instance;
+        var owns = recipe.Ownership == DataLinqOwnership.Container;
         return new(() =>
         {
             Database<TDatabase> database;
             try { database = existing ?? create?.Invoke(provider) ?? throw new InvalidOperationException("This DataLinq registration has no provider or its factory returned null."); }
             catch (Exception failure)
             {
-                if (!providerFactory || create is null) DataLinqActivationFailureScope.ReportConfiguration(failure);
+                if (!recipe.ProviderFactory || create is null) DataLinqActivationFailureScope.ReportConfiguration(failure);
                 throw;
             }
             // Reject a factory that returns a known borrowed provider before taking
             // any ownership. Disposing that conflicting result would harm its caller.
-            try { EnsureProviderOwnership(database, ownership); }
+            try { EnsureProviderOwnership(database, recipe.Ownership, provider.GetKeyedServices<ActivationRecipe>(KeyedService.AnyKey)); }
             catch (Exception failure) { DataLinqActivationFailureScope.ReportConfiguration(failure); throw; }
             try
             {
-                var access = borrowedAccess ?? database.Provider.ReadOnlyAccess;
-                var model = borrowedModel ?? access.Query();
+                var access = recipe.BorrowedAccess ?? database.Provider.ReadOnlyAccess;
+                var model = recipe.BorrowedModel ?? access.Query();
                 if (owns && (access is IDisposable or IAsyncDisposable || model is IDisposable or IAsyncDisposable))
                     throw new NotSupportedException("Container-owned read aliases cannot implement disposal. Use an application-owned instance for custom disposable read objects.");
-                var result = new ActivatedDataLinq<TDatabase>(database, access, model, borrowedFactory ?? new(database));
+                var result = new ActivatedDataLinq<TDatabase>(database, access, model, recipe.BorrowedFactory ?? new(database));
                 if (owns) database.EnableContainerOwnership();
                 return result;
             }

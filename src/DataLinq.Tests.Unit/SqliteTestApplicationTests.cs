@@ -141,6 +141,70 @@ public sealed class SqliteTestApplicationTests
     }
 
     [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ReplacingOnOwnerKeepsSiblingWritesServicesAndStartupBoundToItsOriginalStore(bool resolveSiblingFirst)
+    {
+        using var original = SqliteTestDatabase<TransactionMutationGuardDb>.Create();
+        using var replacement = SqliteTestDatabase<TransactionMutationGuardDb>.Create();
+        IServiceCollection owner = new ServiceCollection();
+        owner.AddSingleton(new GeneratedServiceProbe());
+        owner.AddDataLinq<TransactionMutationGuardDb>("orders").UseInstance(original.Database)
+            .AsDefault().AddScopedService<GeneratedPlainService>().ValidateSchemaOnStartup();
+        IServiceCollection sibling = new ServiceCollection();
+        foreach (var descriptor in owner) sibling.Add(descriptor);
+
+        if (!resolveSiblingFirst) owner.ReplaceDataLinqWithSqliteInMemory(replacement);
+        using var siblingHost = sibling.BuildServiceProvider();
+        if (resolveSiblingFirst)
+        {
+            siblingHost.GetRequiredService<IDataLinqUnitOfWorkFactory<TransactionMutationGuardDb>>();
+            owner.ReplaceDataLinqWithSqliteInMemory(replacement);
+        }
+        using var ownerHost = owner.BuildServiceProvider();
+        foreach (var (host, fixture, value) in new[] { (siblingHost, original, "sibling"), (ownerHost, replacement, "owner") })
+        {
+            using var scope = host.CreateScope();
+            var services = scope.ServiceProvider;
+            var db = services.GetRequiredKeyedService<SQLiteDatabase<TransactionMutationGuardDb>>("orders");
+            await Assert.That(db).IsSameReferenceAs(fixture.Database);
+            services.GetRequiredService<IDataLinqUnitOfWorkFactory<TransactionMutationGuardDb>>()
+                .Execute(s => s.Insert(new MutableTransactionMutationGuardAutoRow { Value = value }));
+            await Assert.That(db.Provider.DatabaseAccess.ExecuteScalar<string>(
+                "SELECT value FROM transaction_mutation_guard_auto_rows")).IsEqualTo(value);
+            var service = services.GetRequiredService<GeneratedPlainService>();
+            await Assert.That(service.Provider()).IsEqualTo(db.Provider.TelemetryInstanceId);
+        }
+
+        original.Database.Provider.DatabaseAccess.ExecuteNonQuery("DROP TABLE transaction_mutation_guard_rows");
+        var ownerStartup = (IHostedLifecycleService)ownerHost.GetServices<IHostedService>().Single();
+        var siblingStartup = (IHostedLifecycleService)siblingHost.GetServices<IHostedService>().Single();
+        await ownerStartup.StartingAsync(default);
+        await Assert.That(() => siblingStartup.StartingAsync(default)).Throws<DataLinqSchemaStartupException>();
+    }
+
+    [Test]
+    public async Task SiblingFactoryCannotTakeOwnershipOfItsOriginalBorrowedProviderAfterOwnerReplacement()
+    {
+        using var original = SqliteTestDatabase<EmployeesDb>.Create();
+        using var replacement = SqliteTestDatabase<EmployeesDb>.Create();
+        IServiceCollection owner = new ServiceCollection();
+        owner.AddDataLinq<EmployeesDb>().UseInstance(original.Database);
+        owner.AddDataLinq<EmployeesDb>("conflict").UseFactory(_ => original.Database);
+        IServiceCollection sibling = new ServiceCollection();
+        foreach (var descriptor in owner) sibling.Add(descriptor);
+        owner.ReplaceDataLinqWithSqliteInMemory(replacement);
+
+        using (var host = sibling.BuildServiceProvider())
+        {
+            var failure = await Assert.That(() => host.GetRequiredKeyedService<Database<EmployeesDb>>("conflict"))
+                .Throws<InvalidOperationException>();
+            await Assert.That(failure!.Message).Contains("container-owned");
+        }
+        await Assert.That(original.Query().Departments.Any()).IsFalse();
+    }
+
+    [Test]
     public async Task ReplacementOnCopiedDescriptorsFailsBeforeEitherHostChanges()
     {
         using var original = SqliteTestDatabase<EmployeesDb>.Create();

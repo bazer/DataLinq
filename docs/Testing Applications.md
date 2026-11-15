@@ -33,7 +33,7 @@ Each seed call owns one transaction. The callback can read its own writes and us
 
 ## Run the application
 
-Pass `fixture.UnitOfWorkFactory` to the handler's constructor. To test a hosted application, call the replacement on the same service collection that received `AddDataLinq`, before building the host. For hosts built from a common template, register DataLinq separately on each host that needs its own fixture. A collection of copied descriptors shares the template’s registration and cannot be used for replacement.
+Pass `fixture.UnitOfWorkFactory` to the handler's constructor. To test a hosted application, call the replacement on the same service collection that received `AddDataLinq`, before building the host. A sibling host that copied the descriptors before replacement keeps its original database, including for writes, generated services and startup validation. If several hosts each need a replacement, copy their common services first, then call `AddDataLinq` and apply the replacement on each host’s collection.
 
 ```csharp
 using DataLinq.Testing;
