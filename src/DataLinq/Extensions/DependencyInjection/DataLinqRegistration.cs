@@ -20,6 +20,7 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     private Database<TDatabase>? instance;
     private ReadOnlyAccess<TDatabase>? borrowedAccess;
     private TDatabase? borrowedModel;
+    private DataLinqUnitOfWorkFactory<TDatabase>? borrowedFactory;
     private Type? implementationType;
     private DataLinqOwnership ownership = DataLinqOwnership.Container;
     private bool frozen;
@@ -84,6 +85,20 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     internal void SetInstance(Type implementation, Database<TDatabase> supplied, DataLinqOwnership requestedOwnership)
     {
         EnsureSourceAvailable(implementation);
+        InstallInstance(implementation, supplied, requestedOwnership, null);
+    }
+
+    internal void ReplaceWithBorrowedInstance(Database<TDatabase> supplied, DataLinqUnitOfWorkFactory<TDatabase> suppliedFactory)
+    {
+        EnsureMutable();
+        var implementation = supplied.GetType();
+        foreach (var aliasKey in AliasKeys()) EnsureAvailable([implementation], aliasKey);
+        InstallInstance(implementation, supplied, DataLinqOwnership.Application, suppliedFactory);
+    }
+
+    private void InstallInstance(Type implementation, Database<TDatabase> supplied, DataLinqOwnership requestedOwnership,
+        DataLinqUnitOfWorkFactory<TDatabase>? suppliedFactory)
+    {
         EnsureProviderOwnership(supplied, requestedOwnership);
         ReadOnlyAccess<TDatabase>? access = null;
         TDatabase? model = null;
@@ -100,10 +115,13 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
             model = access.Query();
         }
         implementationType = implementation;
+        factory = null;
+        providerFactory = false;
         instance = supplied;
         ownership = requestedOwnership;
         borrowedAccess = access;
         borrowedModel = model;
+        borrowedFactory = suppliedFactory;
         InstallAliases();
     }
 
@@ -208,7 +226,7 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
                 var model = borrowedModel ?? access.Query();
                 if (owns && (access is IDisposable or IAsyncDisposable || model is IDisposable or IAsyncDisposable))
                     throw new NotSupportedException("Container-owned read aliases cannot implement disposal. Use an application-owned instance for custom disposable read objects.");
-                var result = new ActivatedDataLinq<TDatabase>(database, access, model, new(database));
+                var result = new ActivatedDataLinq<TDatabase>(database, access, model, borrowedFactory ?? new(database));
                 if (owns) database.EnableContainerOwnership();
                 return result;
             }
