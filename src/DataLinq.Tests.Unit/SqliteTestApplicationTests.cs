@@ -141,6 +141,33 @@ public sealed class SqliteTestApplicationTests
     }
 
     [Test]
+    public async Task ReplacementOnCopiedDescriptorsFailsBeforeEitherHostChanges()
+    {
+        using var original = SqliteTestDatabase<EmployeesDb>.Create();
+        using var replacement = SqliteTestDatabase<EmployeesDb>.Create();
+        IServiceCollection template = new ServiceCollection();
+        template.AddDataLinq<EmployeesDb>().UseInstance(original.Database);
+        IServiceCollection copy = new ServiceCollection();
+        foreach (var descriptor in template) copy.Add(descriptor);
+        var before = template.ToArray();
+
+        var failure = await Assert.That(() => copy.ReplaceDataLinqWithSqliteInMemory(replacement)).Throws<InvalidOperationException>();
+        await Assert.That(failure!.Message).Contains("original service collection");
+        await Assert.That(template.SequenceEqual(before)).IsTrue();
+        await Assert.That(copy.SequenceEqual(before)).IsTrue();
+
+        foreach (var (services, code) in new[] { (template, "a"), (copy, "b") })
+        {
+            using var host = services.BuildServiceProvider();
+            await Assert.That(host.GetRequiredService<SQLiteDatabase<EmployeesDb>>()).IsSameReferenceAs(original.Database);
+            var factory = host.GetRequiredService<IDataLinqUnitOfWorkFactory<EmployeesDb>>();
+            factory.Execute(session => session.Insert(new MutableDepartment(code, "Department " + code)));
+        }
+        await Assert.That(original.Query().Departments.Count()).IsEqualTo(2);
+        await Assert.That(replacement.Query().Departments.Any()).IsFalse();
+    }
+
+    [Test]
     public async Task MissingDefaultOrExplicitKeyFailsDuringSelection()
     {
         using var fixture = SqliteTestDatabase<EmployeesDb>.Create();

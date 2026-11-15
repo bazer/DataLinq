@@ -35,17 +35,8 @@ public abstract partial class DatabaseProvider<T> : DatabaseProvider, IDatabaseP
     /// <param name="connectionString">The connection string to the database.</param>
     /// <param name="databaseType">The type of the database.</param>
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration)
-        : base(
-            connectionString,
-            typeof(T),
-            databaseType,
-            loggingConfiguration,
-            databaseName: null,
-            metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
-            createReadOnlyAccess: false,
-            metadataBinder: BindGeneratedMetadata)
+        : this(connectionString, databaseType, loggingConfiguration, databaseName: null)
     {
-        ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 
     /// <summary>
@@ -55,17 +46,8 @@ public abstract partial class DatabaseProvider<T> : DatabaseProvider, IDatabaseP
     /// <param name="databaseType">The type of the database.</param>
     /// <param name="databaseName">The name of the database.</param>
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName)
-        : base(
-            connectionString,
-            typeof(T),
-            databaseType,
-            loggingConfiguration,
-            databaseName: databaseName,
-            metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
-            createReadOnlyAccess: false,
-            metadataBinder: BindGeneratedMetadata)
+        : this(connectionString, databaseType, loggingConfiguration, databaseName, new DataLinqExecutionOptions())
     {
-        ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 
     // Keep the delegate target as an ordinary static method. Mono WebAssembly AOT cannot

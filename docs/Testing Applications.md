@@ -29,11 +29,11 @@ var (employee, salary) = await fixture.SeedAsync(async (session, ct) =>
 var storedSalary = fixture.Query().Employees.Single().salaries.Single();
 ```
 
-Each seed call owns one transaction. The callback can read its own writes and use the key returned by a principal insert for the dependent. The call returns its result after commit and cleanup. An exception in the callback rolls back earlier writes. Synchronous tests can use `Create()` and `Seed(session => ...)`. Pass asynchronous callbacks to `SeedAsync`.
+Each seed call owns one transaction. The callback can read its own writes and use the key returned by a principal insert for the dependent. The call returns its result after commit and cleanup. An exception in the callback rolls back earlier writes. Synchronous tests can use `Create()` and `Seed(session => ...)`. Pass one callback to `SeedAsync`. To run several steps in one transaction, await them in order inside that callback. Both async overloads reject multicast delegates before running any step.
 
 ## Run the application
 
-Pass `fixture.UnitOfWorkFactory` to the handler's constructor. To test a hosted application, apply the replacement to its configured service collection before building the host.
+Pass `fixture.UnitOfWorkFactory` to the handler's constructor. To test a hosted application, call the replacement on the same service collection that received `AddDataLinq`, before building the host. For hosts built from a common template, register DataLinq separately on each host that needs its own fixture. A collection of copied descriptors shares the template’s registration and cannot be used for replacement.
 
 ```csharp
 using DataLinq.Testing;
@@ -58,4 +58,4 @@ For rollback coverage, arrange a constraint violation on the second write and as
 
 The fixture uses shared-cache connections with foreign keys enabled and pooling disabled. Its keeper holds the store until fixture disposal. A separately opened connection can keep the store alive until that connection closes too.
 
-Supply a model and view SQL that SQLite can execute. During creation the fixture prepares a zero-row query against each view to resolve its sources and declared columns. SQLite provisioning currently rejects applicable model check constraints and index shapes it cannot reproduce. The package carries the SQLite native runtime through `DataLinq.SQLite`. The test host must support that native library. Exercise MySQL/MariaDB dialects, collations, server defaults, locking and provider-specific failures against those servers. See [dependency injection and unit of work](Dependency%20Injection%20and%20Unit%20of%20Work.md) and [runtime schema validation](Runtime%20Schema%20Validation.md).
+Supply a model and view SQL that SQLite can execute. During creation the fixture prepares a zero-row query against each view to resolve its sources and declared columns. SQLite provisioning currently rejects applicable model check constraints, physical indexes declared on views, and other index shapes it cannot reproduce. The package carries the SQLite native runtime through `DataLinq.SQLite`. The test host must support that native library. Exercise MySQL/MariaDB dialects, collations, server defaults, locking and provider-specific failures against those servers. See [dependency injection and unit of work](Dependency%20Injection%20and%20Unit%20of%20Work.md) and [runtime schema validation](Runtime%20Schema%20Validation.md).

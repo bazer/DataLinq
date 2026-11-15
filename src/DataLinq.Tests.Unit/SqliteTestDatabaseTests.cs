@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Cache;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
@@ -105,6 +106,22 @@ public sealed class SqliteTestDatabaseTests
     }
 
     [Test]
+    public async Task AsyncSeedRejectsMulticastDelegatesBeforeAnyCallbackRuns()
+    {
+        using var fixture = SqliteTestDatabase<EmployeesDb>.Create();
+        var calls = 0;
+        Task<int> Step(IDataLinqSession<EmployeesDb> session, CancellationToken token) => Task.FromResult(++calls);
+        Func<IDataLinqSession<EmployeesDb>, CancellationToken, Task> action = Step;
+        action += Step;
+        Func<IDataLinqSession<EmployeesDb>, CancellationToken, Task<int>> result = Step;
+        result += Step;
+
+        await Assert.That(async () => await fixture.SeedAsync(action)).Throws<ArgumentException>();
+        await Assert.That(async () => { await fixture.SeedAsync(result); }).Throws<ArgumentException>();
+        await Assert.That(calls).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task AsyncSeedWaitsForTheWholeCallbackBeforeReturningItsResult()
     {
         using var fixture = SqliteTestDatabase<EmployeesDb>.Create();
@@ -167,9 +184,9 @@ public sealed class SqliteTestDatabaseTests
     public async Task UnsupportedCheckReleasesTheStoreAndNamesTheConstraint(bool asynchronous)
     {
         using var observer = new SqliteConnection();
-        FixtureCheckDb.Observe.Value = identity =>
+        FixtureCheckDb.Observe.Value = source =>
         {
-            observer.ConnectionString = identity;
+            observer.ConnectionString = source.Provider.ConnectionString;
             observer.Open();
             using var command = observer.CreateCommand();
             command.CommandText = "CREATE TABLE keeper_marker (id INTEGER)";
@@ -208,6 +225,46 @@ public sealed class SqliteTestDatabaseTests
     }
 
     [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task PhysicalIndexOnViewFailsDuringProvisioning(bool asynchronous)
+    {
+        var failure = asynchronous
+            ? await Assert.That(async () => { using var fixture = await SqliteTestDatabase<RelationViewDb>.CreateAsync(); }).Throws<NotSupportedException>()
+            : await Assert.That(() => { using var fixture = SqliteTestDatabase<RelationViewDb>.Create(); }).Throws<NotSupportedException>();
+        await Assert.That(failure!.Message).Contains("relation_unique_view").And.Contains("UX_relation_view_code");
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ThrowingModelConstructorReleasesCacheMaintenance(bool asynchronous)
+    {
+        CacheCleanupScheduler? scheduler = null;
+        var constructorFailure = new InvalidOperationException("The test model failed to initialize.");
+        FixtureCheckDb.Observe.Value = source =>
+        {
+            scheduler = source.Provider.State.Cache.CleanupScheduler;
+            throw constructorFailure;
+        };
+        try
+        {
+            var failure = asynchronous
+                ? await Assert.That(async () => { await SqliteTestDatabase<FixtureCheckDb>.CreateAsync(); }).Throws<InvalidOperationException>()
+                : await Assert.That(() => SqliteTestDatabase<FixtureCheckDb>.Create()).Throws<InvalidOperationException>();
+            await Assert.That(failure).IsSameReferenceAs(constructorFailure);
+            await Assert.That(scheduler).IsNotNull();
+            await Assert.That(scheduler!.IsRunning).IsFalse();
+            await Assert.That(() => scheduler.Start()).Throws<ObjectDisposedException>();
+        }
+        finally
+        {
+            FixtureCheckDb.Observe.Value = null;
+            scheduler?.Dispose();
+        }
+    }
+
+    [Test]
     public async Task CancellationAfterModelConstructionReleasesTheKeeper()
     {
         using var observer = new SqliteConnection();
@@ -241,14 +298,14 @@ public sealed class SqliteTestDatabaseTests
     };
 }
 
-[Database("fixture_check")]
+[Database("fixture_check"), CacheCleanup(CacheCleanupType.Minutes, 1)]
 public sealed partial class FixtureCheckDb : IDatabaseModel
 {
-    internal static AsyncLocal<Action<string>?> Observe { get; } = new();
+    internal static AsyncLocal<Action<DataSourceAccess>?> Observe { get; } = new();
     public DbRead<FixtureAmount> Amounts { get; }
     public FixtureCheckDb(DataSourceAccess source)
     {
-        Observe.Value?.Invoke(source.Provider.ConnectionString);
+        Observe.Value?.Invoke(source);
         Amounts = new(source);
     }
 }

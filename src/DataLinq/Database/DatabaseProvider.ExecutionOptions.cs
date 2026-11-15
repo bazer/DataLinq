@@ -17,7 +17,20 @@ public abstract partial class DatabaseProvider<T> where T : class, IDatabaseMode
         : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName,
             MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>, false, BindGeneratedMetadata, executionOptions)
     {
-        ReadOnlyAccess = new ReadOnlyAccess<T>(this);
+        try
+        {
+            ReadOnlyAccess = new ReadOnlyAccess<T>(this);
+        }
+        catch (Exception modelFailure)
+        {
+            // Cache maintenance can already be running. Release the initialized state directly during construction.
+            try { State.Dispose(); }
+            catch (Exception cleanupFailure)
+            {
+                throw new AggregateException("Model construction and provider state cleanup both failed.", modelFailure, cleanupFailure);
+            }
+            throw;
+        }
     }
 }
 
