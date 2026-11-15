@@ -41,6 +41,7 @@ public sealed class PackageConsumerSmokeTests
             "DataLinq=[$(DataLinqCandidateVersion)]|" +
             "DataLinq.Memory=[$(DataLinqCandidateVersion)]|" +
             "DataLinq.SQLite=[$(DataLinqCandidateVersion)]|" +
+            "DataLinq.Testing=[$(DataLinqCandidateVersion)]|" +
             "DataLinq.MySql=[$(DataLinqCandidateVersion)]");
         await Assert.That(document.Descendants().Count(static element => element.Name.LocalName == "ProjectReference"))
             .IsEqualTo(0);
@@ -90,8 +91,8 @@ public sealed class PackageConsumerSmokeTests
     }
 
     [Test]
-    [Arguments(false, "candidate-directory-missing", 5)]
-    [Arguments(true, "candidate-required-package-missing", 4)]
+    [Arguments(false, "candidate-directory-missing", 6)]
+    [Arguments(true, "candidate-required-package-missing", 5)]
     public async Task Runner_MissingOrEmptyCandidatesFailClosedWithoutCommands(
         bool createCandidateDirectory,
         string expectedFindingCode,
@@ -107,7 +108,7 @@ public sealed class PackageConsumerSmokeTests
         await Assert.That(report.CandidatePackages).IsEmpty();
         await Assert.That(report.ResolvedPackages).IsEmpty();
         await Assert.That(report.Findings.Select(static finding => finding.Code)).Contains(expectedFindingCode);
-        await Assert.That(report.Summary.RequiredPackageCount).IsEqualTo(4);
+        await Assert.That(report.Summary.RequiredPackageCount).IsEqualTo(5);
         await Assert.That(report.Summary.CandidatePackageCount).IsEqualTo(0);
         await Assert.That(report.Summary.FindingCount).IsEqualTo(expectedFindingCount);
         await Assert.That(report.Summary.HardFailureCount).IsEqualTo(expectedFindingCount);
@@ -201,7 +202,7 @@ public sealed class PackageConsumerSmokeTests
         await Assert.That(root.GetProperty("overallExitCode").GetInt32()).IsEqualTo(1);
         await Assert.That(root.GetProperty("profile").GetString()).IsEqualTo("Sandbox");
         await Assert.That(root.GetProperty("commands").GetArrayLength()).IsEqualTo(0);
-        await Assert.That(summary.GetProperty("requiredPackageCount").GetInt32()).IsEqualTo(4);
+        await Assert.That(summary.GetProperty("requiredPackageCount").GetInt32()).IsEqualTo(5);
         await Assert.That(summary.GetProperty("hasHardFailures").GetBoolean()).IsTrue();
         await Assert.That(markdown).IsEqualTo(PackageConsumerSmokeRunner.ToMarkdown(report));
         await Assert.That(markdown)

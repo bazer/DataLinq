@@ -7,11 +7,14 @@ using DataLinq.MySql;
 using DataLinq.Mutation;
 using DataLinq.PackageConsumer;
 using DataLinq.SQLite;
+using DataLinq.Testing;
 
 var memory = CaptureMemoryExecution();
 var sqlite = CaptureSQLiteExecution();
 var mySqlCompilationProbe = CaptureMySqlCompilationProbe();
-var passed = memory.Passed && sqlite.Passed && mySqlCompilationProbe;
+using var fixture = SqliteTestDatabase<PackageConsumerDatabase>.Create();
+var seeded = fixture.Seed(session => session.Insert(CreateRows()[0]));
+var passed = memory.Passed && sqlite.Passed && mySqlCompilationProbe && fixture.Query().Rows.Single().Id == seeded.Id;
 
 var result = new PackageConsumerExecutionResult(
     SchemaVersion: "v0.9.package-consumer-execution.v1",

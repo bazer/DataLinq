@@ -48,6 +48,8 @@ Important directories and projects:
   Shared repo-local `dotnet`/NuGet execution, output parsing, and artifact logging primitives for developer-facing CLIs.
 - `src/DataLinq.Dev.CLI`
   Developer wrapper for `doctor`, `restore`, `build`, and `test` with repo-local environment isolation and concise output.
+- `src/DataLinq.Testing`
+  Public SQLite fixture and application test-host replacement.
 - `src/DataLinq.TestInfrastructure`
   Shared test infrastructure, seeded harnesses, provider matrix logic, and environment helpers.
 - `src/DataLinq.Testing.CLI`
