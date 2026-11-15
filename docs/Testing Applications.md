@@ -33,7 +33,9 @@ Each seed call owns one transaction. The callback can read its own writes and us
 
 ## Run the application
 
-Pass `fixture.UnitOfWorkFactory` to the handler's constructor. To test a hosted application, call the replacement on the same service collection that received `AddDataLinq`, before building the host. Replacement closes the old provider builder to further configuration. A sibling host that copied the descriptors before replacement keeps its original database, including for writes, generated services and startup validation. If several hosts each need a replacement, copy their common services first, then call `AddDataLinq` and apply the replacement on each host’s collection.
+Pass `fixture.UnitOfWorkFactory` to the handler's constructor. To test a hosted application, call the replacement on the same service collection that received `AddDataLinq`, before building the host.
+
+After replacement, configuring the old provider builder or accessing its `Registration` property throws `InvalidOperationException`. A common builder obtained before replacement can still configure the owner’s startup validation. A sibling host that copied the descriptors before replacement continues to use its original database for writes, generated services and startup validation. It also keeps the validation selections and defaults it copied. If several hosts each need a replacement, copy their common services first, then call `AddDataLinq` and apply the replacement on each host’s collection.
 
 ```csharp
 using DataLinq.Testing;

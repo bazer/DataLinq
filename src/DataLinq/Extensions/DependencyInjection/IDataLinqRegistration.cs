@@ -9,7 +9,7 @@ internal interface IDataLinqRegistration
 {
     Type ModelType { get; }
     object? Key { get; }
-    bool IsDefault { get; }
+    bool IsDefaultFor(IServiceProvider provider);
     IDatabaseProvider ResolveProvider(IServiceProvider services);
 }
 

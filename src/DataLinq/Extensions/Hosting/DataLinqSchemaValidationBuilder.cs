@@ -7,9 +7,8 @@ namespace DataLinq.Extensions.Hosting;
 /// <summary>Selects explicit existing DataLinq registrations for startup validation.</summary>
 public sealed class DataLinqSchemaValidationBuilder
 {
-    private readonly SchemaValidationRegistration registration;
-    internal DataLinqSchemaValidationBuilder(IServiceCollection services, SchemaValidationRegistration registration)
-    { Services = services; this.registration = registration; }
+    internal DataLinqSchemaValidationBuilder(IServiceCollection services) => Services = services;
+
     /// <summary>Gets the application service collection.</summary>
     public IServiceCollection Services { get; }
 
@@ -19,7 +18,7 @@ public sealed class DataLinqSchemaValidationBuilder
     {
         if (ReferenceEquals(serviceKey, KeyedService.AnyKey))
             throw new ArgumentException("Startup validation requires a concrete key, not AnyKey.", nameof(serviceKey));
-        registration.Selections.Add(new(typeof(TDatabase), serviceKey, null, configure));
+        Services.AddSingleton(new SchemaValidationSelection(typeof(TDatabase), serviceKey, null, configure));
         return this;
     }
 }

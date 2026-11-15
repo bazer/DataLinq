@@ -12,33 +12,34 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     where TDatabase : class, IDatabaseModel<TDatabase>
     where TOptions : DataLinqProviderOptions
 {
+    private readonly DataLinqRegistrationBuilder<TDatabase> registration;
     private readonly List<IConfiguration> bindings = [];
     private readonly List<Action<TOptions>> configurations = [];
 
-    private DataLinqProviderRegistrationBuilder(DataLinqRegistrationBuilder<TDatabase> registration) => Registration = registration;
+    private DataLinqProviderRegistrationBuilder(DataLinqRegistrationBuilder<TDatabase> registration) => this.registration = registration;
 
     /// <summary>Gets the common registration builder for service wiring.</summary>
-    public DataLinqRegistrationBuilder<TDatabase> Registration { get; }
-    internal DataLinqRegistrationBuilder<TDatabase> CurrentRegistration
+    /// <exception cref="InvalidOperationException">This provider builder has been displaced by a replacement.</exception>
+    public DataLinqRegistrationBuilder<TDatabase> Registration
     {
         get
         {
-            Registration.Registration.EnsureCurrentProvider(this);
-            return Registration;
+            registration.Registration.EnsureCurrentProvider(this);
+            return registration;
         }
     }
 
     /// <summary>Gets the service collection.</summary>
-    public IServiceCollection Services => Registration.Services;
+    public IServiceCollection Services => registration.Services;
     /// <summary>Gets this registration's key.</summary>
-    public object? ServiceKey => Registration.ServiceKey;
+    public object? ServiceKey => registration.ServiceKey;
 
     /// <summary>Registers a generated application service with singleton lifetime and this registration's factory/key.</summary>
     /// <remarks>Disposable singleton/scoped services require one identity; keyed-plus-default transients use independent activations.</remarks>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AddSingletonService<TService>()
         where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
     {
-        CurrentRegistration.AddSingletonService<TService>();
+        Registration.AddSingletonService<TService>();
         return this;
     }
 
@@ -47,7 +48,7 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AddScopedService<TService>()
         where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
     {
-        CurrentRegistration.AddScopedService<TService>();
+        Registration.AddScopedService<TService>();
         return this;
     }
 
@@ -56,14 +57,14 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AddTransientService<TService>()
         where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
     {
-        CurrentRegistration.AddTransientService<TService>();
+        Registration.AddTransientService<TService>();
         return this;
     }
 
     /// <summary>Exposes this keyed registration through unnamed injection.</summary>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AsDefault()
     {
-        CurrentRegistration.AsDefault();
+        Registration.AsDefault();
         return this;
     }
 
@@ -72,7 +73,7 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> Bind(IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        CurrentRegistration.Registration.EnsureMutable();
+        Registration.Registration.EnsureMutable();
         bindings.Add(configuration);
         return this;
     }
@@ -81,7 +82,7 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> Configure(Action<TOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        CurrentRegistration.Registration.EnsureMutable();
+        Registration.Registration.EnsureMutable();
         configurations.Add(configure);
         return this;
     }

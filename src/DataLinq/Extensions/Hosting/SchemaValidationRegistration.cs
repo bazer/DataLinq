@@ -7,25 +7,23 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DataLinq.Extensions.Hosting;
 
+internal sealed record SchemaValidationDefaults(Action<DataLinqSchemaStartupOptions> Configure);
 internal sealed record SchemaValidationSelection(Type ModelType, object? Key, IDataLinqRegistration? Attached,
     Action<DataLinqSchemaStartupOptions>? Configure);
 internal sealed record CapturedStartupTarget(IDataLinqRegistration Registration, DataLinqSchemaValidationTarget Identity,
     DataLinqSchemaStartupMode Mode, CapturedSchemaValidationOptions Validation);
 
-internal sealed class SchemaValidationRegistration
+internal static class SchemaValidationRegistration
 {
-    internal List<Action<DataLinqSchemaStartupOptions>> Defaults { get; } = [];
-    internal List<SchemaValidationSelection> Selections { get; } = [];
-
-    internal IReadOnlyList<CapturedStartupTarget> Capture(IServiceProvider services)
+    internal static IReadOnlyList<CapturedStartupTarget> Capture(IServiceProvider services)
     {
-        var callbacks = Defaults.ToArray();
-        var selections = Selections.ToArray();
         var defaults = new DataLinqSchemaStartupOptions();
-        foreach (var configure in callbacks) configure(defaults);
+        foreach (var entry in services.GetServices<SchemaValidationDefaults>()) entry.Configure(defaults);
         _ = defaults.Capture();
         defaults = defaults.Copy();
         if (defaults.Mode == DataLinqSchemaStartupMode.Disabled) return Array.Empty<CapturedStartupTarget>();
+
+        var selections = services.GetServices<SchemaValidationSelection>().ToArray();
         if (selections.Length == 0) throw new InvalidOperationException("Enabled DataLinq schema validation requires at least one selected registration.");
 
         var registrations = services.GetServices<IDataLinqRegistration>().ToArray();
@@ -34,7 +32,7 @@ internal sealed class SchemaValidationRegistration
         {
             var matches = registrations.Where(registration => selection.Attached is not null
                 ? ReferenceEquals(registration, selection.Attached)
-                : registration.ModelType == selection.ModelType && (selection.Key is null ? registration.IsDefault : Equals(selection.Key, registration.Key))).ToArray();
+                : registration.ModelType == selection.ModelType && (selection.Key is null ? registration.IsDefaultFor(services) : Equals(selection.Key, registration.Key))).ToArray();
             if (matches.Length != 1)
                 throw new InvalidOperationException($"Startup validation selection for model '{selection.ModelType.FullName}' does not resolve to exactly one DataLinq registration. Select an explicit key or register an unnamed/default target.");
             var existing = canonical.FindIndex(item => ReferenceEquals(item.Registration, matches[0]));

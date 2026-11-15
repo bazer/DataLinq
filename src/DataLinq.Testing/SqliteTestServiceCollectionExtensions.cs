@@ -24,7 +24,7 @@ public static class SqliteTestServiceCollectionExtensions
             .Where(descriptor => !descriptor.IsKeyedService && descriptor.ServiceType == typeof(DataLinqRegistration<TDatabase>))
             .Select(descriptor => descriptor.ImplementationInstance)
             .OfType<DataLinqRegistration<TDatabase>>()
-            .SingleOrDefault(candidate => serviceKey is null ? candidate.IsDefault : Equals(candidate.Key, serviceKey));
+            .SingleOrDefault(candidate => serviceKey is null ? candidate.IsDefaultIn(services) : Equals(candidate.Key, serviceKey));
         if (registration is null)
         {
             var target = serviceKey is null ? "a default registration" : $"a registration for key '{serviceKey}'";

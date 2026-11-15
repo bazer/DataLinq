@@ -33,12 +33,15 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     }
 
     private ActivationRecipe recipe = new();
+    private ServiceDescriptor? defaultAlias;
     internal IServiceCollection Services { get; } = services;
     internal object? Key { get; } = key;
-    internal bool IsDefault { get; private set; } = key is null;
+    internal bool IsDefault => IsDefaultIn(Services);
+    internal bool IsDefaultIn(IServiceCollection collection) => Key is null || (defaultAlias is not null && collection.Contains(defaultAlias));
     Type IDataLinqRegistration.ModelType => typeof(TDatabase);
     object? IDataLinqRegistration.Key => Key;
-    bool IDataLinqRegistration.IsDefault => IsDefault;
+    bool IDataLinqRegistration.IsDefaultFor(IServiceProvider provider) =>
+        Key is null || ReferenceEquals(this, provider.GetKeyedService<IDataLinqRegistration>(typeof(TDatabase)));
     IDatabaseProvider IDataLinqRegistration.ResolveProvider(IServiceProvider provider) =>
         provider.GetRequiredKeyedService<DataLinqActivation<TDatabase>>(activationKey).Get().Database.Provider;
 
@@ -72,11 +75,13 @@ internal sealed class DataLinqRegistration<TDatabase>(IServiceCollection service
     {
         EnsureMutable();
         if (IsDefault) return;
-        if (Services.Any(descriptor => !descriptor.IsKeyedService && descriptor.ImplementationInstance is DataLinqRegistration<TDatabase> other && other != this && other.IsDefault))
+        if (Services.Any(descriptor => !descriptor.IsKeyedService && descriptor.ImplementationInstance is DataLinqRegistration<TDatabase> other && other != this && other.IsDefaultIn(Services)))
             throw new InvalidOperationException($"Model '{typeof(TDatabase).FullName}' already has an explicit default registration.");
         EnsureAvailable(AliasTypes(), null);
         foreach (var service in applicationServices) service.Validate(asDefault: true);
-        IsDefault = true;
+        // The default selection follows the descriptors copied to each host.
+        defaultAlias = ServiceDescriptor.KeyedSingleton<IDataLinqRegistration>(typeof(TDatabase), this);
+        Services.Add(defaultAlias);
         InstallAliases();
         foreach (var service in applicationServices) service.Install();
     }
