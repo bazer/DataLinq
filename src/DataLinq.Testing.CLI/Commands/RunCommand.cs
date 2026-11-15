@@ -11,6 +11,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DataLinq.DevTools;
+using DataLinq.TestInfrastructure;
 using MySqlConnector;
 using Spectre.Console;
 
@@ -831,21 +832,21 @@ internal static class RunCommand
         var environmentVariables = new Dictionary<string, string?>(
             settings.ToolPaths.CreateEnvironment(profile),
             StringComparer.OrdinalIgnoreCase);
-        environmentVariables[DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.FixtureTelemetryReportPathEnvironmentVariable] =
+        environmentVariables[PodmanTestEnvironmentSettings.FixtureTelemetryReportPathEnvironmentVariable] =
             artifacts.FixtureTelemetryReportPath;
         environmentVariables["TUNIT_MAX_PARALLEL_TESTS"] = maximumParallelTests?.ToString();
 
         if (selection is not null)
         {
-            environmentVariables[DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable] = "targets";
-            environmentVariables[DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable] = string.Join(",", selection.Targets.Select(x => x.Id));
-            environmentVariables[DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null;
+            environmentVariables[PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable] = "targets";
+            environmentVariables[PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable] = string.Join(",", selection.Targets.Select(x => x.Id));
+            environmentVariables[PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null;
         }
         else
         {
-            environmentVariables[DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable] = null;
-            environmentVariables[DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable] = null;
-            environmentVariables[DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null;
+            environmentVariables[PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable] = null;
+            environmentVariables[PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable] = null;
+            environmentVariables[PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null;
         }
 
         var arguments = new List<string>
@@ -897,7 +898,7 @@ internal static class RunCommand
             if (report is null)
                 return;
 
-            var environment = DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.FromEnvironment(settings.RepositoryRoot);
+            var environment = PodmanTestEnvironmentSettings.FromEnvironment(settings.RepositoryRoot);
             var samples = new JsonArray();
             foreach (var target in selection.ServerTargets)
             {
@@ -924,8 +925,8 @@ internal static class RunCommand
     }
 
     private static (long? Connections, long? ThreadsConnected) ReadServerStatusAfterTestHostExit(
-        DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings environment,
-        DataLinq.TestInfrastructure.DatabaseServerTarget target)
+        PodmanTestEnvironmentSettings environment,
+        DatabaseServerTarget target)
     {
         using var connection = new MySqlConnection(environment.CreateAdminConnectionString(target));
         connection.Open();
@@ -995,7 +996,7 @@ internal static class RunCommand
     {
         var hostOverride = ResolveEnvironmentValue(
             environmentVariables,
-            DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.HostEnvironmentVariable);
+            PodmanTestEnvironmentSettings.HostEnvironmentVariable);
         var usesDatabaseHost = targetSelection?.ServerTargets.Count > 0;
         var resolvedHost = usesDatabaseHost
             ? hostOverride ?? new TestInfraRuntimeStateStore(settings.StatePath).Load()?.Host
@@ -1004,13 +1005,13 @@ internal static class RunCommand
         var hostCaptured = usesDatabaseHost && TryNormalizeDatabaseHost(resolvedHost, out host);
         var providerSet = ResolveEnvironmentValue(
             environmentVariables,
-            DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable);
+            PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable);
         var targetAlias = ResolveEnvironmentValue(
             environmentVariables,
-            DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable);
+            PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable);
         var targetIdsValue = ResolveEnvironmentValue(
             environmentVariables,
-            DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable);
+            PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable);
         var parsedTargetIds = string.IsNullOrWhiteSpace(targetIdsValue)
             ? Array.Empty<string>()
             : targetIdsValue
@@ -1722,7 +1723,7 @@ internal static class RunCommand
     private static TestRunSummarySafeEnvironment CreateSummarySafeEnvironment()
     {
         var rawHost = NormalizeEnvironmentValue(Environment.GetEnvironmentVariable(
-            DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.HostEnvironmentVariable));
+            PodmanTestEnvironmentSettings.HostEnvironmentVariable));
         var present = rawHost is not null;
         string? host = null;
         var valid = !present || TryNormalizeDatabaseHost(rawHost, out host);

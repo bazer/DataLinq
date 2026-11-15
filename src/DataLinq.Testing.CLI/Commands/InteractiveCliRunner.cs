@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using DataLinq.DevTools;
+using DataLinq.TestInfrastructure;
 using Spectre.Console;
 
 namespace DataLinq.Testing.CLI;
