@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="DataLinq.Testing" Version="[$(DataLinqCandidateVersion)]" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="[8.0.1]" Condition="'$(TargetFramework)' == 'net8.0'" />
     <Compile Include="../AsyncPackageConsumer/AdvancedModels.cs" Link="Models.cs" />
   </ItemGroup>
   <Target Name="RequireCandidate" BeforeTargets="CollectPackageReferences;PrepareForBuild">

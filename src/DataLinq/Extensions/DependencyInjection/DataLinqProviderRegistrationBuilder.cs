@@ -19,6 +19,15 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
 
     /// <summary>Gets the common registration builder for service wiring.</summary>
     public DataLinqRegistrationBuilder<TDatabase> Registration { get; }
+    internal DataLinqRegistrationBuilder<TDatabase> CurrentRegistration
+    {
+        get
+        {
+            Registration.Registration.EnsureCurrentProvider(this);
+            return Registration;
+        }
+    }
+
     /// <summary>Gets the service collection.</summary>
     public IServiceCollection Services => Registration.Services;
     /// <summary>Gets this registration's key.</summary>
@@ -29,7 +38,7 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AddSingletonService<TService>()
         where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
     {
-        Registration.Registration.AddService<TService>(ServiceLifetime.Singleton);
+        CurrentRegistration.AddSingletonService<TService>();
         return this;
     }
 
@@ -38,7 +47,7 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AddScopedService<TService>()
         where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
     {
-        Registration.Registration.AddService<TService>(ServiceLifetime.Scoped);
+        CurrentRegistration.AddScopedService<TService>();
         return this;
     }
 
@@ -47,14 +56,14 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AddTransientService<TService>()
         where TService : class, IDataLinqService<TDatabase>, IDataLinqServiceFactory<TDatabase, TService>
     {
-        Registration.Registration.AddService<TService>(ServiceLifetime.Transient);
+        CurrentRegistration.AddTransientService<TService>();
         return this;
     }
 
     /// <summary>Exposes this keyed registration through unnamed injection.</summary>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> AsDefault()
     {
-        Registration.AsDefault();
+        CurrentRegistration.AsDefault();
         return this;
     }
 
@@ -63,7 +72,7 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> Bind(IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        Registration.Registration.EnsureMutable();
+        CurrentRegistration.Registration.EnsureMutable();
         bindings.Add(configuration);
         return this;
     }
@@ -72,7 +81,7 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
     public DataLinqProviderRegistrationBuilder<TDatabase, TOptions> Configure(Action<TOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        Registration.Registration.EnsureMutable();
+        CurrentRegistration.Registration.EnsureMutable();
         configurations.Add(configure);
         return this;
     }
@@ -96,7 +105,7 @@ public sealed class DataLinqProviderRegistrationBuilder<TDatabase, TOptions>
             }
             catch (Exception failure) { DataLinqActivationFailureScope.ReportConfiguration(failure); throw; }
             return create(settings, provider.GetService<ILoggerFactory>());
-        }, providerFactory: true);
+        }, providerBuilder: builder);
         return builder;
     }
 }
