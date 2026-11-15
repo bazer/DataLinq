@@ -9,7 +9,7 @@ using DataLinq.ErrorHandling;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using ThrowAway;
 using ThrowAway.Extensions;
 

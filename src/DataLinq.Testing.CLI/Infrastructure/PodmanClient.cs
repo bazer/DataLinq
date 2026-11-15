@@ -44,7 +44,7 @@ internal sealed class PodmanClient
 
     private static string ResolveExecutablePath()
     {
-        var configuredPath = Environment.GetEnvironmentVariable(DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable);
+        var configuredPath = Environment.GetEnvironmentVariable(DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(configuredPath))
             return configuredPath;
 
@@ -61,7 +61,7 @@ internal sealed class PodmanClient
 
     private static string? ResolveSocketPath()
     {
-        var configuredPath = Environment.GetEnvironmentVariable(DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanSocketPathEnvironmentVariable);
+        var configuredPath = Environment.GetEnvironmentVariable(DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.PodmanSocketPathEnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(configuredPath))
             return configuredPath;
 

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using ThrowAway.Extensions;

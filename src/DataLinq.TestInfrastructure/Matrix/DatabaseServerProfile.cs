@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public sealed record DatabaseServerProfile(
     string Id,

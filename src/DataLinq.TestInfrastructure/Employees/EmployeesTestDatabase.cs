@@ -3,7 +3,7 @@ using System.Linq;
 using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public sealed class EmployeesTestDatabase : IDisposable
 {

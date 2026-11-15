@@ -4,7 +4,7 @@ using System.Linq;
 using Bogus;
 using DataLinq.Tests.Models.Employees;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 internal static class EmployeesBogusSeeder
 {

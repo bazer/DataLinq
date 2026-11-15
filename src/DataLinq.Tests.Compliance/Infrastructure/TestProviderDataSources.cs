@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

@@ -33,7 +33,7 @@ public sealed class CompatibilityPackageInputTests
         await Assert.That(first.Version).IsEqualTo(CandidateVersion);
         await Assert.That(string.Join(",", first.Packages.Select(static package => package.Id)))
             .IsEqualTo(string.Join(",", expectedIds));
-        await Assert.That(first.Packages.Count).IsEqualTo(6);
+        await Assert.That(first.Packages.Count).IsEqualTo(7);
         await Assert.That(first.Packages.All(static package => Path.IsPathFullyQualified(package.PackagePath))).IsTrue();
         await Assert.That(first.Packages.All(static package => package.SizeBytes > 0)).IsTrue();
         await Assert.That(first.Packages.All(static package =>

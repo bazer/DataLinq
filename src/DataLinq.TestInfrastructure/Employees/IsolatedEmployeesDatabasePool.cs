@@ -12,7 +12,7 @@ using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
 using MySqlConnector;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 internal static class IsolatedEmployeesDatabasePool
 {

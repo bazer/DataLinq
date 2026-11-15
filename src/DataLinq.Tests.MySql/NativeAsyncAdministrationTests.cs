@@ -7,7 +7,7 @@ using DataLinq.Logging;
 using DataLinq.MariaDB;
 using DataLinq.MySql;
 using DataLinq.Query;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

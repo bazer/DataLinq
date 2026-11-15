@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Instances;
 using DataLinq.Mutation;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

@@ -9,7 +9,7 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Mutation;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using Microsoft.Extensions.Logging;
 
 namespace DataLinq.Tests.Compliance;

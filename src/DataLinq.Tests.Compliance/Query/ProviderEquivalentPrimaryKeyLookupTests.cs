@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using DataLinq.Diagnostics;
 using DataLinq.Tests.Models.Employees;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

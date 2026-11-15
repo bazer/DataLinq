@@ -5,7 +5,7 @@ using DataLinq.Cache;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using TUnit.Core;
 
 namespace DataLinq.Tests.Compliance;

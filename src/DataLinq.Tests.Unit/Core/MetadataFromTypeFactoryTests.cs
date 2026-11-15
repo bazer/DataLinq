@@ -12,7 +12,7 @@ using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Tests.Models.Allround;
 using DataLinq.Tests.Models.Employees;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;

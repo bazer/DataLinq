@@ -9,7 +9,7 @@ using DataLinq.Interfaces;
 using DataLinq.MariaDB;
 using DataLinq.Mutation;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using MySqlConnector;
 
 namespace DataLinq.Tests.Compliance;

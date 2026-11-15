@@ -10,7 +10,7 @@ using DataLinq.Interfaces;
 using DataLinq.MariaDB;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using MySqlConnector;
 using ThrowAway.Extensions;
 

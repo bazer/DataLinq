@@ -8,7 +8,7 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.MySql;
 using DataLinq.Mutation;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.MySql;

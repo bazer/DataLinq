@@ -9,7 +9,7 @@ using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.SQLite;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Validation;
 using Microsoft.Data.Sqlite;
 using ThrowAway.Extensions;

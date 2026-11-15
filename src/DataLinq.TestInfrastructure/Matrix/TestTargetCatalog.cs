@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public static class TestTargetCatalog
 {

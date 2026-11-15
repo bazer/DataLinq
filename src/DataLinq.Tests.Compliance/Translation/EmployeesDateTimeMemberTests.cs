@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Tests.Models.Employees;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

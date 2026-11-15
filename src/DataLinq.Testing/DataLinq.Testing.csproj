@@ -1,26 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<IsPackable>false</IsPackable>
+		<Description>Isolated SQLite databases, transactional seeding and dependency injection for testing DataLinq applications.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Bogus" />
-		<PackageReference Include="Microsoft.Data.Sqlite" />
-		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
-		<PackageReference Include="MySqlConnector" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="MinVer">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
-		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
-		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
-		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
 	</ItemGroup>
 
 </Project>

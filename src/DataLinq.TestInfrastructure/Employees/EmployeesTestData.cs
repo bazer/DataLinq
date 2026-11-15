@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using DataLinq.Tests.Models.Employees;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public sealed class EmployeesTestData
 {

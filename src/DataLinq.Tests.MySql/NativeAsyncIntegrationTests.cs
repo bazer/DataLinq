@@ -7,7 +7,7 @@ using DataLinq.Instances;
 using DataLinq.Execution;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Mutation;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 using MySqlConnector;
 

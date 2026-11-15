@@ -1,7 +1,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Query;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 
 namespace DataLinq.Tests.Compliance;

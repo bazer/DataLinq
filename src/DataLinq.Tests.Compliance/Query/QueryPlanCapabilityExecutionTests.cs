@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Diagnostics;
 using DataLinq.Exceptions;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

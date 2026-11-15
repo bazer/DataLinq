@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Linq.Planning.Expressions;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

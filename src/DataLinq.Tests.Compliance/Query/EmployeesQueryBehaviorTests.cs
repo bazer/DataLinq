@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Tests.Models.Employees;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

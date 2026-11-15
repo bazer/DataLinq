@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public static class DatabaseServerMatrix
 {

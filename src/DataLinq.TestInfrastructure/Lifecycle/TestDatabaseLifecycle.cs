@@ -10,7 +10,7 @@ using DataLinq.Metadata;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 internal static class TestDatabaseLifecycle
 {

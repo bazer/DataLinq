@@ -6,7 +6,7 @@ using DataLinq.Diagnostics;
 using DataLinq.Exceptions;
 using DataLinq.Linq.Planning;
 using DataLinq.Tests.Models.Employees;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

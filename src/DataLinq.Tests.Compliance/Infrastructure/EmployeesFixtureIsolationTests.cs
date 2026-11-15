@@ -2,7 +2,7 @@ using System;
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;

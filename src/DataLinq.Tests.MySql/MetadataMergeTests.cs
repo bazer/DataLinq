@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.MySql;

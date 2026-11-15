@@ -7,7 +7,7 @@ using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;

@@ -6,7 +6,7 @@ using DataLinq.Attributes;
 using DataLinq.Cache;
 using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using TUnit.Core;
 
 namespace DataLinq.Tests.Compliance;

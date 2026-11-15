@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Exceptions;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Validation;
 using MySqlConnector;

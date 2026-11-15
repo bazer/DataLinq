@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using MySqlConnector;
 
 namespace DataLinq.Tests.MySql;

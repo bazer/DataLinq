@@ -6,7 +6,7 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using MySqlConnector;
 using ThrowAway.Extensions;
 

@@ -8,7 +8,7 @@ using DataLinq.MariaDB.Extensions.DependencyInjection;
 using DataLinq.Mutation;
 using DataLinq.MySql.Extensions.DependencyInjection;
 using DataLinq.SQLite.Extensions.DependencyInjection;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

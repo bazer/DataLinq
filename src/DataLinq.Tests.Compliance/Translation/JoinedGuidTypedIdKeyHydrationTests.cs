@@ -9,7 +9,7 @@ using DataLinq.Linq;
 using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Mutation;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

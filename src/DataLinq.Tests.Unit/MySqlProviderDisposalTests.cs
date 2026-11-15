@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using DataLinq.Metadata;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 
 namespace DataLinq.Tests.Unit;
