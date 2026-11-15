@@ -196,6 +196,45 @@ public sealed class SqliteTestDatabaseTests
         birth_date = new DateOnly(1980, 1, 1), hire_date = new DateOnly(2020, 1, 1)
     };
 
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ProvisioningBindsTheColumnsOfEveryView(bool asynchronous)
+    {
+        var failure = asynchronous
+            ? await Assert.That(async () => { await SqliteTestDatabase<FixtureViewDb>.CreateAsync(); }).Throws<SqliteException>()
+            : await Assert.That(() => SqliteTestDatabase<FixtureViewDb>.Create()).Throws<SqliteException>();
+        await Assert.That(failure!.Message).Contains("missing_source");
+    }
+
+    [Test]
+    public async Task CancellationAfterModelConstructionReleasesTheKeeper()
+    {
+        using var observer = new SqliteConnection();
+        using var source = new CancellationTokenSource();
+        FixtureViewDb.Observe.Value = identity =>
+        {
+            observer.ConnectionString = identity;
+            observer.Open();
+            using var command = observer.CreateCommand();
+            command.CommandText = "PRAGMA user_version = 19";
+            command.ExecuteNonQuery();
+            source.Cancel();
+        };
+        try
+        {
+            var failure = await Assert.That(async () =>
+                { await SqliteTestDatabase<FixtureViewDb>.CreateAsync(source.Token); }).Throws<OperationCanceledException>();
+            await Assert.That(failure!.CancellationToken).IsEqualTo(source.Token);
+            observer.Close();
+            observer.Open();
+            using var command = observer.CreateCommand();
+            command.CommandText = "PRAGMA user_version";
+            await Assert.That((long)command.ExecuteScalar()!).IsEqualTo(0L);
+        }
+        finally { FixtureViewDb.Observe.Value = null; }
+    }
+
     private static MutableSalaries Salary(int id) => new()
     {
         emp_no = id, FromDate = new DateOnly(2026, 1, 1), ToDate = new DateOnly(2026, 12, 31), salary = 75000
@@ -219,4 +258,23 @@ public abstract partial class FixtureAmount(IRowData rowData, IDataSourceAccess 
     : Immutable<FixtureAmount, FixtureCheckDb>(rowData, source), ITableModel<FixtureCheckDb>
 {
     [PrimaryKey, Column("amount")] public abstract int Amount { get; }
+}
+
+[Database("fixture_invalid_view")]
+public sealed partial class FixtureViewDb : IDatabaseModel
+{
+    internal static AsyncLocal<Action<string>?> Observe { get; } = new();
+    public DbRead<FixtureView> Rows { get; }
+    public FixtureViewDb(DataSourceAccess source)
+    {
+        Observe.Value?.Invoke(source.Provider.ConnectionString);
+        Rows = new(source);
+    }
+}
+
+[View("fixture_view"), Definition("SELECT id FROM missing_source")]
+public abstract partial class FixtureView(IRowData rowData, IDataSourceAccess source)
+    : Immutable<FixtureView, FixtureViewDb>(rowData, source), IViewModel<FixtureViewDb>
+{
+    [Column("id")] public abstract int Id { get; }
 }

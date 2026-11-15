@@ -8,6 +8,7 @@ using DataLinq.Attributes;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
+using DataLinq.Query;
 using DataLinq.SQLite;
 using DataLinq.Validation;
 
@@ -41,9 +42,9 @@ public sealed class SqliteTestDatabase<TDatabase> : IDisposable, IAsyncDisposabl
         try
         {
             var provider = fixture.Database.Provider;
-            ValidateSchema(provider.Metadata);
-            var result = DatabaseType.SQLite.CreateDatabaseFromMetadata(provider.Metadata, provider.DatabaseName,
-                provider.ConnectionString, foreignKeyRestrict: true);
+            var ddl = new SqlFromSQLiteFactory();
+            var schema = BuildSchema(ddl, provider.Metadata);
+            var result = ddl.CreateDatabase(schema, provider.DatabaseName, provider.ConnectionString, foreignKeyRestrict: true);
             if (result.HasFailed) throw new InvalidOperationException($"SQLite fixture schema creation failed: {result.Failure}");
             return fixture;
         }
@@ -62,8 +63,9 @@ public sealed class SqliteTestDatabase<TDatabase> : IDisposable, IAsyncDisposabl
         try
         {
             var provider = fixture.Database.Provider;
-            ValidateSchema(provider.Metadata);
-            var result = await DatabaseType.SQLite.CreateDatabaseFromMetadataAsync(provider.Metadata, provider.DatabaseName,
+            var ddl = new SqlFromSQLiteFactory();
+            var schema = BuildSchema(ddl, provider.Metadata);
+            var result = await ddl.CreateDatabaseAsync(schema, provider.DatabaseName,
                 provider.ConnectionString, foreignKeyRestrict: true, cancellationToken).ConfigureAwait(false);
             if (result.HasFailed) throw new InvalidOperationException($"SQLite fixture schema creation failed: {result.Failure}");
             return fixture;
@@ -75,8 +77,10 @@ public sealed class SqliteTestDatabase<TDatabase> : IDisposable, IAsyncDisposabl
         }
     }
 
-    private static void ValidateSchema(DatabaseDefinition metadata)
+    private static Sql BuildSchema(SqlFromSQLiteFactory ddl, DatabaseDefinition metadata)
     {
+        SchemaIdentifierRules.RequireUnambiguous(metadata.TableModels.Select(model => model.Table.DbName),
+            SchemaIdentifierRules.SQLite.TableNames, "table/view", model: true);
         // SQLite index names are database-wide. CREATE INDEX IF NOT EXISTS would silently skip a duplicate.
         var indexNames = new HashSet<string>(SchemaIdentifierRules.SQLite.IndexNames);
         foreach (var table in metadata.TableModels.Select(model => model.Table))
@@ -95,6 +99,18 @@ public sealed class SqliteTestDatabase<TDatabase> : IDisposable, IAsyncDisposabl
                     throw new NotSupportedException($"SQLite index '{index.Name}' on '{table.DbName}' needs a unique database-wide name.");
             }
         }
+
+        var generated = ddl.GetCreateTables(metadata, foreignKeyRestrict: true);
+        if (generated.HasFailed) throw new InvalidOperationException($"SQLite fixture schema generation failed: {generated.Failure}");
+        var script = generated.Value;
+        // SQLite defers binding a view until first use. Prepare its declared columns as part
+        // of provisioning so missing sources, functions or columns fail before the fixture escapes.
+        foreach (var view in metadata.TableModels.Select(model => model.Table).Where(table => table.Type == TableType.View))
+        {
+            var columns = view.Columns.Select(column => "v." + SqlIdentifier.Quote(column.DbName, "\""));
+            script.AddText($"\nSELECT {string.Join(", ", columns)} FROM {SqlIdentifier.Quote(view.DbName, "\"")} AS v LIMIT 0;");
+        }
+        return script;
     }
 
     /// <summary>Returns the committed read root.</summary>
