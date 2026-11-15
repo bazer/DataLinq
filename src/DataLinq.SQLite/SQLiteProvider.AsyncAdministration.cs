@@ -19,7 +19,7 @@ public partial class SQLiteProvider<T> : IAsyncExistenceProbeSource, IAsyncJourn
         keepAliveConnection is null
             ? [RootCleanupStep.Resource(State.Dispose, State.DisposeAsyncCore, State.ValidateDisposal)]
             : [RootCleanupStep.Resource(State.Dispose, State.DisposeAsyncCore, State.ValidateDisposal),
-                RootCleanupStep.Resource(keepAliveConnection.Dispose, ((IAsyncDisposable)keepAliveConnection).DisposeAsync)],
+                RootCleanupStep.Resource(keepAliveConnection.Dispose, keepAliveConnection.DisposeAsync)],
         TelemetryInstanceId));
 
     ValueTask IAsyncRootDisposal.DisposeAsyncCore() => RootDisposal.DisposeAsync();

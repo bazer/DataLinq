@@ -329,6 +329,44 @@ public sealed class SQLiteNativeAsyncAdministrationTests
         }
     }
 
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task FailedFirstProviderPreservesProvisionedStoreUntilSuccessfulAdoption(bool provisionDuringInitialization)
+    {
+        var name = $"failed_adoption_{Guid.NewGuid():N}";
+        var connectionString = $"Data Source={name};Mode=Memory;Cache=Shared;Pooling=False";
+        void ProvisionStore()
+        {
+            var result = new SqlFromSQLiteFactory().CreateDatabase(
+                new Sql("CREATE TABLE seeded(id INTEGER); INSERT INTO seeded VALUES(7)"), name, connectionString, true);
+            if (result.HasFailed) throw new InvalidOperationException($"Provisioning failed: {result.Failure}");
+        }
+
+        if (!provisionDuringInitialization) ProvisionStore();
+
+        var injected = new InvalidOperationException("Journal initialization failed.");
+        using var logger = new CallbackLogger();
+        logger.Callback = message =>
+        {
+            if (!message.Contains("PRAGMA journal_mode", StringComparison.OrdinalIgnoreCase)) return;
+            if (provisionDuringInitialization) ProvisionStore();
+            throw injected;
+        };
+        var failure = await Assert.That(() =>
+        {
+            using var database = new SQLiteDatabase<EmployeesDb>(connectionString, logger);
+        }).Throws<InvalidOperationException>();
+        await Assert.That(failure).IsSameReferenceAs(injected);
+
+        using (var retry = new SQLiteDatabase<EmployeesDb>(connectionString))
+            await Assert.That(retry.Provider.DatabaseAccess.ExecuteScalar<long>("SELECT id FROM seeded")).IsEqualTo(7L);
+        using var reopened = new SqliteConnection(connectionString);
+        reopened.Open();
+        using var command = new SqliteCommand("SELECT COUNT(*) FROM sqlite_schema WHERE name='seeded'", reopened);
+        await Assert.That(command.ExecuteScalar()).IsEqualTo(0L);
+    }
+
     private sealed class CallbackLogger : ILoggerFactory, ILogger
     {
         internal Action<string>? Callback;
