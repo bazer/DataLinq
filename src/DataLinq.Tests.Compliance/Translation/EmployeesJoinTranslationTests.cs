@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using DataLinq.Exceptions;
 using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Expressions;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

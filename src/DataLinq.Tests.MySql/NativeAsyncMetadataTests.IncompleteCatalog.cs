@@ -3,7 +3,7 @@ using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Execution;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.MySql;

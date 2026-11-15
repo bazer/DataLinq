@@ -36,10 +36,10 @@ internal sealed class PodmanCliTransport(string executablePath) : IPodmanTranspo
         {
             var accessDenied = exception.NativeErrorCode == 5;
             var configuredByEnvironment = !string.IsNullOrWhiteSpace(
-                Environment.GetEnvironmentVariable(DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable));
+                Environment.GetEnvironmentVariable(DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable));
             var configurationHint = configuredByEnvironment
-                ? $" Update '{DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable}' to a sandbox-accessible Podman executable."
-                : $" Install Podman on PATH or set '{DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable}' to a sandbox-accessible Podman executable.";
+                ? $" Update '{DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable}' to a sandbox-accessible Podman executable."
+                : $" Install Podman on PATH or set '{DataLinq.TestInfrastructure.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable}' to a sandbox-accessible Podman executable.";
 
             throw new PodmanTransportUnavailableException(
                 accessDenied

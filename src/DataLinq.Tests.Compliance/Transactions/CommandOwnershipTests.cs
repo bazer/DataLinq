@@ -10,7 +10,7 @@ using DataLinq.Logging;
 using DataLinq.Mutation;
 using DataLinq.MySql;
 using DataLinq.SQLite;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
 

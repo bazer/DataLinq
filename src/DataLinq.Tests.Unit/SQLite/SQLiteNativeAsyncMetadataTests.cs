@@ -12,7 +12,7 @@ using DataLinq.Execution;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using DataLinq.SQLite;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;

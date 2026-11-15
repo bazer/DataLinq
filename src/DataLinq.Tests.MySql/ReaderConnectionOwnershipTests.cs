@@ -3,7 +3,7 @@ using System.Data;
 using System.Threading.Tasks;
 using DataLinq.Logging;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
 

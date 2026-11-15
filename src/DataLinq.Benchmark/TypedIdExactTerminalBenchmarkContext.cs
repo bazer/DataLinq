@@ -6,7 +6,7 @@ using DataLinq.Instances;
 using DataLinq.Linq;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Linq.Planning.Sql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Benchmark;
 

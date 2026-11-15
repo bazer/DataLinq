@@ -62,9 +62,9 @@ Matrix loading fails closed unless target ids, images, and host ports are unique
 ## Implementation References
 
 - `test-infra/podman/matrix.json`
-- `src/DataLinq.Testing/Matrix/DatabaseServerMatrix.cs`
-- `src/DataLinq.Testing/Matrix/TestTargetCatalog.cs`
-- `src/DataLinq.Testing/Matrix/TestProviderMatrix.cs`
+- `src/DataLinq.TestInfrastructure/Matrix/DatabaseServerMatrix.cs`
+- `src/DataLinq.TestInfrastructure/Matrix/TestTargetCatalog.cs`
+- `src/DataLinq.TestInfrastructure/Matrix/TestProviderMatrix.cs`
 - `src/DataLinq.Testing.CLI/Selection/TargetSelectionResolver.cs`
 - [Dev and Test Environment](../contributing/Dev%20and%20Test%20Environment.md)
 - [DataLinq.Testing.CLI](../contributing/DataLinq.Testing.CLI.md)

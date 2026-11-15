@@ -20,8 +20,7 @@ public sealed class ApiPackageSetInspectorTests
     private const string RepositoryUrl = "https://github.com/bazer/DataLinq";
     private const string RepositoryCommit = "1a156819e1567a4db3b8bd43e4e09e8da1a5572c";
 
-    private static readonly string[] BaselinePackageIds = PackageInspectionPolicy.PublicPackageIds
-        .Where(static id => !id.Equals(PackageInspectionPolicy.MemoryPackageId, StringComparison.Ordinal))
+    private static readonly string[] BaselinePackageIds = ApiCompatibilityReleasePolicy.ForBaseline(BaselineVersion).BaselinePackageIds
         .ToArray();
 
     [Test]

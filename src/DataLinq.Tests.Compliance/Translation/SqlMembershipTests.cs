@@ -7,7 +7,7 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 using DataLinq.Query;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

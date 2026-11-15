@@ -5,7 +5,7 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public static class MetadataEquivalenceDigest
 {

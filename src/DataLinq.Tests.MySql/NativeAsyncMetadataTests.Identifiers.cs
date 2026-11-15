@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Execution;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Validation;
 using ThrowAway.Extensions;
 

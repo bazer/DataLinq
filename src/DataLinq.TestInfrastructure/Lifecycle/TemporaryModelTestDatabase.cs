@@ -2,7 +2,7 @@ using System;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public sealed class TemporaryModelTestDatabase<TDatabase> : IDisposable
     where TDatabase : class, IDatabaseModel<TDatabase>

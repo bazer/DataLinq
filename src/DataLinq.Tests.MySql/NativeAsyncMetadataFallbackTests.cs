@@ -7,7 +7,7 @@ using DataLinq.Execution;
 using DataLinq.MariaDB;
 using DataLinq.Metadata;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 using MySqlConnector;
 using ThrowAway.Extensions;

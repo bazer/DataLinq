@@ -22,6 +22,10 @@
             "artifacts/**"
           ],
           "src": "."
+        },
+        {
+          "files": ["src/DataLinq.Testing/DataLinq.Testing.csproj"],
+          "src": "."
         }
       ],
       "output": "api",

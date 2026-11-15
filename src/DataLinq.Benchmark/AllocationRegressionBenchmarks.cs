@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using BenchmarkDotNet.Attributes;
 using DataLinq.Diagnostics;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Benchmark;
 

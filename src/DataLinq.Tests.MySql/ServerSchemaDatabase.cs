@@ -2,7 +2,7 @@ using System;
 using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using MySqlConnector;
 using ThrowAway;
 using ThrowAway.Extensions;

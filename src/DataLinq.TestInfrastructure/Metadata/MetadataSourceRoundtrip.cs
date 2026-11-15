@@ -5,7 +5,7 @@ using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public static class MetadataSourceRoundtrip
 {

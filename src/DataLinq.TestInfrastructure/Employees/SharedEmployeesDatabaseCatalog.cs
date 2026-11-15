@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using Microsoft.Data.Sqlite;
 using DataLinq.Tests.Models.Employees;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 internal static class SharedEmployeesDatabaseCatalog
 {

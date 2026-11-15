@@ -220,11 +220,12 @@ public sealed class ApiCompatibilityReporter
                     ApiCompatibilityComparisonKind.ToolAssemblyBaseline));
             }
 
-            if (policy.MemoryIsNew)
+            foreach (var newPackageId in policy.CandidatePackageIds.Except(policy.BaselinePackageIds))
             {
                 try
                 {
-                    comparisons.Add(ValidateNewMemoryPackage(
+                    comparisons.Add(ValidateNewPackage(
+                        newPackageId,
                         toolRunner,
                         candidatePackages,
                         surfaces,
@@ -233,9 +234,9 @@ public sealed class ApiCompatibilityReporter
                 }
                 catch (Exception exception) when (IsReportable(exception))
                 {
-                    AddError(findings, "comparison-exception", PackageInspectionPolicy.MemoryPackageId, exception.Message);
+                    AddError(findings, "comparison-exception", newPackageId, exception.Message);
                     comparisons.Add(CreateFailedComparison(
-                        PackageInspectionPolicy.MemoryPackageId,
+                        newPackageId,
                         ApiCompatibilityComparisonKind.NewPackage));
                 }
             }
@@ -771,16 +772,16 @@ public sealed class ApiCompatibilityReporter
         return Array.AsReadOnly(result.ToArray());
     }
 
-    private ApiCompatibilityComparisonReport ValidateNewMemoryPackage(
+    private ApiCompatibilityComparisonReport ValidateNewPackage(
+        string packageId,
         ApiCompatToolRunner runner,
         ApiPackageSetInspection candidate,
         IReadOnlyList<ApiCompatibilitySurfaceReport> surfaces,
         ICollection<ApiCompatibilityToolExecutionReport> executions,
         ICollection<ApiCompatibilityFinding> findings)
     {
-        const string packageId = PackageInspectionPolicy.MemoryPackageId;
         var package = FindPackage(candidate, packageId);
-        var execution = runner.ValidatePackage("datalinq-memory-current", package.PackagePath);
+        var execution = runner.ValidatePackage($"{packageId.Replace('.', '-').ToLowerInvariant()}-current", package.PackagePath);
         executions.Add(ToExecutionReport(execution));
         var local = new List<ApiCompatibilityFinding>();
         AddExecutionFailure(execution, packageId, null, local);
@@ -801,7 +802,7 @@ public sealed class ApiCompatibilityReporter
                 "new-package-surface",
                 packageId,
                 surface.TargetFramework,
-                $"DataLinq.Memory is new in 0.9; review its first public API snapshot '{surface.SnapshotPath}'.",
+                $"{packageId} is new in this release; review its first public API snapshot '{surface.SnapshotPath}'.",
                 ApiCompatibilityChangeKind.NewPackageSurface));
         }
 

@@ -57,6 +57,7 @@ try {
     $packageProjects = @(
         [pscustomobject]@{ Name = "DataLinq"; Project = "src\DataLinq\DataLinq.csproj"; Public = $true },
         [pscustomobject]@{ Name = "DataLinq.SQLite"; Project = "src\DataLinq.SQLite\DataLinq.SQLite.csproj"; Public = $true },
+        [pscustomobject]@{ Name = "DataLinq.Testing"; Project = "src\DataLinq.Testing\DataLinq.Testing.csproj"; Public = $true },
         [pscustomobject]@{ Name = "DataLinq.MySql"; Project = "src\DataLinq.MySql\DataLinq.MySql.csproj"; Public = $true },
         [pscustomobject]@{ Name = "DataLinq.Memory"; Project = "src\DataLinq.Memory\DataLinq.Memory.csproj"; Public = $true },
         [pscustomobject]@{ Name = "DataLinq.CLI"; Project = "src\DataLinq.CLI\DataLinq.CLI.csproj"; Public = $true },

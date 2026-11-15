@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.DevTools;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Testing.CLI;
 
 namespace DataLinq.Tests.Unit;

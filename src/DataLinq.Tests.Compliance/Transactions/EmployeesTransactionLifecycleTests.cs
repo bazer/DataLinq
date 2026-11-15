@@ -7,7 +7,7 @@ using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Mutation;
 using DataLinq.Tests.Models.Employees;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using TUnit.Core;
 using TUnit.Core.Interfaces;
 

@@ -10,7 +10,7 @@ using DataLinq.Logging;
 using DataLinq.MariaDB;
 using DataLinq.MySql;
 using DataLinq.SQLite;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

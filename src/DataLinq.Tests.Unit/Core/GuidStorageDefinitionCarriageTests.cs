@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Metadata;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;

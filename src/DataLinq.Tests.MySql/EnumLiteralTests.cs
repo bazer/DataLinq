@@ -8,7 +8,7 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;

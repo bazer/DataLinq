@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using Microsoft.Data.Sqlite;
 
 namespace DataLinq.Tests.Unit.SQLite;

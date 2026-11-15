@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Core.Factories;
 using DataLinq.Metadata;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Validation;
 using ThrowAway.Extensions;
 

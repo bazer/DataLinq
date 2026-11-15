@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public static class RepositoryLayout
 {

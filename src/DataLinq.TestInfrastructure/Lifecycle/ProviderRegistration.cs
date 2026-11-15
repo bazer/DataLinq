@@ -2,7 +2,7 @@ using DataLinq.MariaDB;
 using DataLinq.MySql;
 using DataLinq.SQLite;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public static class ProviderRegistration
 {

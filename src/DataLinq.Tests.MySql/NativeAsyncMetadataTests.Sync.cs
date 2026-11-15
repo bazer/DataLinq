@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Execution;
 using DataLinq.Query;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using MySqlConnector;
 using ThrowAway.Extensions;
 

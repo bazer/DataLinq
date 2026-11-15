@@ -1,6 +1,6 @@
 using System.Linq;
 using System.Threading.Tasks;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Tests.Compliance;
 

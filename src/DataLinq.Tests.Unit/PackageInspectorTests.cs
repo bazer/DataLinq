@@ -29,9 +29,9 @@ public class PackageInspectorTests
     public async Task Policy_ExposesExactReleasePackageAndMemoryDefaults()
     {
         await Assert.That(string.Join("|", PackageInspectionPolicy.PublicPackageIds)).IsEqualTo(
-            "DataLinq|DataLinq.SQLite|DataLinq.MySql|DataLinq.Memory|DataLinq.CLI|DataLinq.Tools");
+            "DataLinq|DataLinq.SQLite|DataLinq.MySql|DataLinq.Memory|DataLinq.CLI|DataLinq.Tools|DataLinq.Testing");
         await Assert.That(string.Join("|", PackageInspectionPolicy.RuntimePackageIds)).IsEqualTo(
-            "DataLinq|DataLinq.SQLite|DataLinq.MySql|DataLinq.Memory");
+            "DataLinq|DataLinq.SQLite|DataLinq.MySql|DataLinq.Memory|DataLinq.Testing");
         await Assert.That(string.Join("|", PackageInspectionPolicy.PublicTargetFrameworks)).IsEqualTo(
             "net8.0|net9.0|net10.0");
         await Assert.That(string.Join("|", PackageInspectionPolicy.MemoryTargetFrameworks)).IsEqualTo(
@@ -485,15 +485,15 @@ public class PackageInspectorTests
         await Assert.That(report.Candidate.AggregateSha256.Length).IsEqualTo(64);
         await Assert.That(report.Runner.ValidForEvidence).IsTrue();
         await Assert.That(report.ValidForEvidence).IsTrue();
-        await Assert.That(report.Packages.Count).IsEqualTo(6);
-        await Assert.That(report.SymbolPackages.Count).IsEqualTo(6);
+        await Assert.That(report.Packages.Count).IsEqualTo(7);
+        await Assert.That(report.SymbolPackages.Count).IsEqualTo(7);
 
         using var json = JsonDocument.Parse(File.ReadAllText(report.Artifacts.JsonPath));
         await Assert.That(json.RootElement.GetProperty("SchemaVersion").GetString()).IsEqualTo(PackageInspector.SchemaVersion);
         await Assert.That(json.RootElement.GetProperty("Outcome").GetString()).IsEqualTo("Passed");
         await Assert.That(json.RootElement.GetProperty("ValidForEvidence").GetBoolean()).IsTrue();
-        await Assert.That(json.RootElement.GetProperty("Invocation").GetProperty("ExpectedPackageIds").GetArrayLength()).IsEqualTo(6);
-        await Assert.That(json.RootElement.GetProperty("Invocation").GetProperty("RuntimePackageIds").GetArrayLength()).IsEqualTo(4);
+        await Assert.That(json.RootElement.GetProperty("Invocation").GetProperty("ExpectedPackageIds").GetArrayLength()).IsEqualTo(7);
+        await Assert.That(json.RootElement.GetProperty("Invocation").GetProperty("RuntimePackageIds").GetArrayLength()).IsEqualTo(5);
         await Assert.That(json.RootElement.GetProperty("Candidate").GetProperty("AggregateSha256").GetString()!.Length).IsEqualTo(64);
         await Assert.That(json.RootElement.GetProperty("Runner").GetProperty("ValidForEvidence").GetBoolean()).IsTrue();
         await Assert.That(json.RootElement.GetProperty("Artifacts").GetProperty("JsonPath").GetString()).IsEqualTo(report.Artifacts.JsonPath);
@@ -517,7 +517,7 @@ public class PackageInspectorTests
 
         await Assert.That(report.Outcome).IsEqualTo(PackageInspectionOutcome.Failed);
         await Assert.That(report.Findings.Count(static finding =>
-            finding.Kind == PackageInspectionFindingKind.PackageVersionMismatch && finding.IsHardFailure)).IsEqualTo(12);
+            finding.Kind == PackageInspectionFindingKind.PackageVersionMismatch && finding.IsHardFailure)).IsEqualTo(14);
         await Assert.That(report.Candidate.VersionConsistent).IsFalse();
         await Assert.That(report.ValidForEvidence).IsFalse();
     }
@@ -1209,7 +1209,8 @@ public class PackageInspectorTests
         CreateStandardPackage(PackageInspectionPolicy.MySqlPackageId),
         CreateMemoryPackage(),
         CreateStandardPackage(PackageInspectionPolicy.CliPackageId),
-        CreateStandardPackage(PackageInspectionPolicy.ToolsPackageId)
+        CreateStandardPackage(PackageInspectionPolicy.ToolsPackageId),
+        CreateStandardPackage(PackageInspectionPolicy.TestingPackageId)
     ];
 
     private static PackageDefinition CreateIncompleteUnexpectedPackage(string packageId) =>

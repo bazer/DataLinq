@@ -8,7 +8,7 @@ using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public sealed record PodmanTestEnvironmentSettings(
     string RepositoryRoot,

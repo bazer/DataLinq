@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using DataLinq.DevTools;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Testing.CLI;
 

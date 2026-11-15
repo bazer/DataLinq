@@ -8,7 +8,7 @@ using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.MySql.Shared;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using MySqlConnector;
 using ThrowAway.Extensions;
 

@@ -13,7 +13,7 @@ using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.SQLite;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Data.Sqlite;
 

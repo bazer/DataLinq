@@ -1,6 +1,6 @@
 using System;
 using BenchmarkDotNet.Attributes;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Benchmark;
 

@@ -7,7 +7,7 @@ using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.MySql;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Validation;
 using ThrowAway.Extensions;
 

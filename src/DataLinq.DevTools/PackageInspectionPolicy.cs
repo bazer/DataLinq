@@ -18,6 +18,7 @@ public static class PackageInspectionPolicy
     public const string SQLitePackageId = "DataLinq.SQLite";
     public const string MySqlPackageId = "DataLinq.MySql";
     public const string MemoryPackageId = "DataLinq.Memory";
+    public const string TestingPackageId = "DataLinq.Testing";
     public const string CliPackageId = "DataLinq.CLI";
     public const string ToolsPackageId = "DataLinq.Tools";
     public const string MemoryDescription = "Experimental read-only in-memory backend for generated DataLinq models.";
@@ -32,7 +33,8 @@ public static class PackageInspectionPolicy
         MySqlPackageId,
         MemoryPackageId,
         CliPackageId,
-        ToolsPackageId
+        ToolsPackageId,
+        TestingPackageId
     ]);
 
     public static IReadOnlyList<string> RuntimePackageIds { get; } = Array.AsReadOnly(
@@ -40,7 +42,8 @@ public static class PackageInspectionPolicy
         CorePackageId,
         SQLitePackageId,
         MySqlPackageId,
-        MemoryPackageId
+        MemoryPackageId,
+        TestingPackageId
     ]);
 
     public static IReadOnlyList<string> PublicTargetFrameworks { get; } = Array.AsReadOnly(

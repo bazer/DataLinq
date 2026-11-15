@@ -8,7 +8,7 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Linq;
 using DataLinq.Mutation;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Extensions.DependencyInjection;
 

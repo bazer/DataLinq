@@ -60,6 +60,8 @@ public sealed class ApiCompatibilityReleasePolicyTests
             ? ApiCompatibilityComparisonKind.NewPackage : ApiCompatibilityComparisonKind.PackageBaseline);
         await Assert.That(report.Findings.Any(finding => finding.PackageId == "DataLinq.Memory" &&
             finding.ChangeKind == ApiCompatibilityChangeKind.CompatibilityBreak)).IsEqualTo(!memoryIsNew);
+        await Assert.That(report.Comparisons.Any(comparison => comparison.PackageId == "DataLinq.Testing" &&
+            comparison.Kind == ApiCompatibilityComparisonKind.NewPackage)).IsEqualTo(!memoryIsNew);
         // A synthetic package/runner check must never claim actual clean release evidence.
         await Assert.That(report.Runner.ValidForEvidence).IsFalse();
     }

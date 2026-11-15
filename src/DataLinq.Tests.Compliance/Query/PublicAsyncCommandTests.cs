@@ -3,7 +3,7 @@ using System.Data;
 using System.Threading.Tasks;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 using DataLinq.Tests.Models.Employees;
 
 namespace DataLinq.Tests.Compliance;

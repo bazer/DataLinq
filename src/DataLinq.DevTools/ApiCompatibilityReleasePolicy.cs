@@ -10,7 +10,6 @@ internal sealed record ApiCompatibilityReleasePolicy(
     string Id,
     string ReportSchemaVersion,
     string LockSchemaVersion,
-    bool MemoryIsNew,
     IReadOnlyList<string> BaselinePackageIds,
     IReadOnlyList<string> LibraryComparisonPackageIds,
     IReadOnlyList<string> CandidatePackageIds)
@@ -28,16 +27,17 @@ internal sealed record ApiCompatibilityReleasePolicy(
                 nameof(baselineVersion));
         }
 
-        var baselineIds = PackageInspectionPolicy.PublicPackageIds
+        var candidateIds = PackageInspectionPolicy.PublicPackageIds
+            .Where(id => !historical || id != PackageInspectionPolicy.TestingPackageId).ToArray();
+        var baselineIds = candidateIds.Where(id => id != PackageInspectionPolicy.TestingPackageId)
             .Where(id => !historical || id != PackageInspectionPolicy.MemoryPackageId)
             .ToArray();
         return new ApiCompatibilityReleasePolicy(
             historical ? "v0.9" : "v0.10",
             historical ? ApiCompatibilityReporter.SchemaVersion : "v0.10.api-compatibility-report.v1",
             historical ? ApiCompatibilityBaselineLock.SchemaVersion : ApiCompatibilityBaselineLock.V010SchemaVersion,
-            historical,
             Array.AsReadOnly(baselineIds),
             Array.AsReadOnly(baselineIds.Where(id => id != PackageInspectionPolicy.CliPackageId).ToArray()),
-            PackageInspectionPolicy.PublicPackageIds);
+            Array.AsReadOnly(candidateIds));
     }
 }

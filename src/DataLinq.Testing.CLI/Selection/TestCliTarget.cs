@@ -1,4 +1,4 @@
-using DataLinq.Testing;
+using DataLinq.TestInfrastructure;
 
 namespace DataLinq.Testing.CLI;
 

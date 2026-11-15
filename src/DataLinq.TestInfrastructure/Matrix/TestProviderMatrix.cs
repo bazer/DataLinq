@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using DataLinq;
 
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public static class TestProviderMatrix
 {

@@ -1,4 +1,4 @@
-namespace DataLinq.Testing;
+namespace DataLinq.TestInfrastructure;
 
 public enum EmployeesFixtureProfile
 {
