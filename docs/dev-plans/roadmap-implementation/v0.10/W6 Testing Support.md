@@ -110,3 +110,19 @@ W6 follows W5's single-PR workflow. Collect package migration, fixture, applicat
 3. **Application workflows.** Use the normal factory for insert, update, delete, read-your-writes, visibility after commit, rollback after a constraint failure, and disposal without commit. Check cache freshness before clearing the cache. Verify persisted outcomes with direct SQLite reads or a cache clear followed by a new query.
 4. **DI and startup.** Exercise direct injection and host replacement, one keyed target with a default alias, a generated service, unrelated targets, borrowed fixture ownership, and enabled/disabled W5 selection.
 5. **Consumer handoff.** Use active TUnit projects for repository verification and framework-independent packed consumers for .NET 8/9/10. Document SQLite's schema, SQL and native runtime limits. Keep MySQL/MariaDB and existing Memory regression evidence in their provider lanes. W8/W9 own performance and final release acceptance.
+
+## Implementation and review handoff, 2026-11-15
+
+[PR #261](https://github.com/bazer/DataLinq/pull/261) implements W6 on `codex/0.10-w6` for `v0.10`. The [application testing guide](../../../Testing%20Applications.md) documents the public API. The candidate source is `6b1fc0e42a1865aaff69c9262b20aa3a90c2e5ad`. The [packed consumer and verifier](../../../../tests/fixtures/W6Consumer/README.md) reproduce the external tests.
+
+| Check | Result |
+| --- | --- |
+| Focused W6 tests | 19/19 passed. Both creation paths reject an unsupported check and a view with a missing source. Reopening the observed store proves cleanup after setup failure and cancellation. Callback gates cover rejection before entry, transactional rollback and waiting for async seed completion. |
+| Quick | 5,477/5,477 passed, zero skips. Generators 199, unit 4,474, Memory 223 and SQLite-file compliance 581. Local receipt `20261115T154001951Z-e3b8a6c94e494472a723a1868685a46d`. |
+| Internal harness consumers | Testing CLI ran unit and compliance, Benchmark CLI rebuilt and listed the benchmark harness, and the focused MySQL suite passed 28/28 on MySQL 9.7 and MariaDB 12.3 at the earlier `631808e2` milestone. GitHub's Latest required gate also passed on `6b1fc0e4`, including its SQLite, server and dependency-audit lanes. |
+| Packaging | Local candidate `0.10.0-w6.6b1fc0e4` passed strict inspection for seven public package/symbol pairs. Aggregate SHA-256 `58cd56022a0baa733b6f27e4c1fa2637c9f142bb51871e6a735e8c7cce9b293d`. The Testing archive contains one DLL per supported TFM and directly depends on core and SQLite. Its SHA-256 is `daaaed6119990985520ae2f380610a1d37868cc7a4ec21f0dfb87c87fdaf8e4c`. |
+| External consumers | The repository package smoke passed. The W6-only consumer restored matching archive hashes into a fresh cache, verified SQLite native dependencies and harness exclusion, and executed on .NET 8.0.34, 9.0.20 and 10.0.15. Generated relations, nullable navigation, a converted composite key and post-commit lookup passed on each runtime. |
+| Public API | Pinned ApiCompat 10.0.400 against the locked 0.9.2 packages reports 13 hard findings. All 13 match the W5 fingerprints, packages and TFMs. The new Testing comparison passed with three first-surface review entries and zero hard findings. The [compiled net10 surface](../../../../test-infra/api-compatibility/w6/compiled-contract-net10.0.txt) is copied from the candidate report. |
+| Documentation | DocFX metadata generated the fixture and DI extension API pages, with two duplicate analyzer-release-file warnings in the generator project. The final site build passed with zero warnings. The guide, table of contents and both API pages returned HTTP 200. |
+
+Raw package inspection, API and package-smoke reports are under `artifacts/w6-evidence/6b1fc0e4/`. W8 and W9 retain performance and final release acceptance.

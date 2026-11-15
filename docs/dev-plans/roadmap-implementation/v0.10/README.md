@@ -220,7 +220,7 @@ Explicit non-goals:
 
 Durable design source: [Model Testing and Mocking Support](../../testing/Model%20Testing%20and%20Mocking%20Support.md).
 
-**Scope accepted on 2026-11-14.** Rename the internal harness to `DataLinq.TestInfrastructure`. The new public project, assembly, NuGet package and namespace use `DataLinq.Testing`. [W6 implementation plan](W6%20Testing%20Support.md)
+**Implemented for review on 2026-11-15.** The internal harness uses `DataLinq.TestInfrastructure`. The public project, assembly, NuGet package and namespace use `DataLinq.Testing`. [W6 implementation and verification](W6%20Testing%20Support.md#implementation-and-review-handoff-2026-11-15)
 
 - Provision and dispose an isolated SQLite-in-memory database using the consumer's model metadata.
 - Supply transactional `Seed` and `SeedAsync` callbacks over the production session, including result-returning forms. Seed related rows explicitly using the keys returned by inserts.
