@@ -93,6 +93,8 @@ public sealed class SqliteTestDatabase<TDatabase> : IDisposable, IAsyncDisposabl
 
             foreach (var index in table.ColumnIndices.Where(index => index.Characteristic != IndexCharacteristic.VirtualDataLinq))
             {
+                if (table.Type == TableType.View)
+                    throw new NotSupportedException($"SQLite provisioning cannot create index '{index.Name}' on view '{table.DbName}'.");
                 if (index.Type != IndexType.BTREE || index.Characteristic is IndexCharacteristic.EXCLUSION or IndexCharacteristic.FILTERED)
                     throw new NotSupportedException($"SQLite provisioning cannot create {index.Type} {index.Characteristic} index '{index.Name}' on '{table.DbName}'.");
                 if (index.Characteristic is IndexCharacteristic.Simple or IndexCharacteristic.Unique && !indexNames.Add(index.Name))
@@ -141,13 +143,28 @@ public sealed class SqliteTestDatabase<TDatabase> : IDisposable, IAsyncDisposabl
     private static bool IsAsyncResult(Type type) => typeof(Task).IsAssignableFrom(type) || type == typeof(ValueTask)
         || type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ValueTask<>);
 
+    private static void RequireSingleCallback(Delegate action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        if (action.GetInvocationList().Length != 1)
+            throw new ArgumentException("SeedAsync requires one callback. Await multiple steps inside that callback.", nameof(action));
+    }
+
     /// <summary>Awaits the callback, commits its transaction and completes cleanup.</summary>
     public Task SeedAsync(Func<IDataLinqSession<TDatabase>, CancellationToken, Task> action,
-        CancellationToken cancellationToken = default) => Factory.ExecuteAsync(action, cancellationToken: cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        RequireSingleCallback(action);
+        return Factory.ExecuteAsync(action, cancellationToken: cancellationToken);
+    }
 
     /// <summary>Returns the asynchronous seed result after commit and cleanup.</summary>
     public Task<TResult> SeedAsync<TResult>(Func<IDataLinqSession<TDatabase>, CancellationToken, Task<TResult>> action,
-        CancellationToken cancellationToken = default) => Factory.ExecuteAsync(action, cancellationToken: cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        RequireSingleCallback(action);
+        return Factory.ExecuteAsync(action, cancellationToken: cancellationToken);
+    }
 
     /// <inheritdoc />
     public void Dispose() => Database.Dispose();

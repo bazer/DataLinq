@@ -10,7 +10,10 @@ namespace DataLinq.Testing;
 public static class SqliteTestServiceCollectionExtensions
 {
     /// <summary>Replaces the model's default registration or the specified key before building the host.</summary>
-    /// <remarks>The test retains ownership of the fixture. Generated services and startup validation follow the selected registration.</remarks>
+    /// <remarks>
+    /// Call this on the collection that received <c>AddDataLinq</c>. The test retains ownership of the fixture.
+    /// Generated services and startup validation follow the selected registration.
+    /// </remarks>
     public static IServiceCollection ReplaceDataLinqWithSqliteInMemory<TDatabase>(this IServiceCollection services,
         SqliteTestDatabase<TDatabase> fixture, object? serviceKey = null)
         where TDatabase : class, IDatabaseModel<TDatabase>
@@ -27,6 +30,9 @@ public static class SqliteTestServiceCollectionExtensions
             var target = serviceKey is null ? "a default registration" : $"a registration for key '{serviceKey}'";
             throw new InvalidOperationException($"Model '{typeof(TDatabase).FullName}' requires {target} for SQLite fixture replacement.");
         }
+
+        if (!ReferenceEquals(registration.Services, services))
+            throw new InvalidOperationException($"Replace the registration for '{typeof(TDatabase).FullName}' on its original service collection. Copied descriptors share that registration.");
 
         // W4 services and W5 attached selections retain this registration's identity.
         registration.ReplaceWithBorrowedInstance(fixture.Database, fixture.Factory);
