@@ -103,6 +103,8 @@ Sources inspected on checkout `c0abafa742c73d6274d970408b44a14528bbaacc`. These 
 
 ## Implementation sequence and gates
 
+W6 follows W5's single-PR workflow. Collect package migration, fixture, application integration and consumer evidence commits on `codex/0.10-w6` against `v0.10`. The starting revision is `b36a890c`.
+
 1. **Package identity.** Rename the internal library, run its direct consumers, and wire the new public package into the tooling.
 2. **Fixture and seed.** Cover parallel isolation, keeper cleanup, FK enforcement on read/write connections, setup failure, cancellation, generated IDs, converted/composite keys, real navigation and result timing. Verify that failure of a dependent insert rolls back the principal in the same seed call.
 3. **Application workflows.** Use the normal factory for insert, update, delete, read-your-writes, visibility after commit, rollback after a constraint failure, and disposal without commit. Check cache freshness before clearing the cache. Verify persisted outcomes with direct SQLite reads or a cache clear followed by a new query.
