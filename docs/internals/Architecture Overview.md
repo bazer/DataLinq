@@ -54,7 +54,8 @@ The important projects are grouped by job, not by accident:
 | Source generator | `src/DataLinq.Generators` | Compile-time model discovery and generated model output |
 | Providers | `src/DataLinq.SQLite`, `src/DataLinq.MySql` | Provider SQL, metadata reads, database access, type mapping |
 | Tools | `src/DataLinq.Tools`, `src/DataLinq.CLI` | Model generation, schema creation, validation, conservative diff scripts |
-| Testing | `src/DataLinq.Tests.*`, `src/DataLinq.Testing.*` | Unit, compliance, provider, and infrastructure coverage |
+| Application testing | `src/DataLinq.Testing` | Isolated SQLite fixtures and DI replacement |
+| Repository testing | `src/DataLinq.Tests.*`, `src/DataLinq.TestInfrastructure`, `src/DataLinq.Testing.CLI` | Unit, compliance, provider, and infrastructure coverage |
 | Benchmarks | `src/DataLinq.Benchmark`, `src/DataLinq.Benchmark.CLI` | Benchmark scenarios, history artifacts, regression comparison |
 
 ## Core Ideas

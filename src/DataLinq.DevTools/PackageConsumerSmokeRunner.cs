@@ -45,7 +45,8 @@ public sealed class PackageConsumerSmokeRunner
         "DataLinq",
         "DataLinq.Memory",
         "DataLinq.SQLite",
-        "DataLinq.MySql"
+        "DataLinq.MySql",
+        "DataLinq.Testing"
     ];
 
     private static readonly string[] RequiredTargetFrameworks =
@@ -706,7 +707,7 @@ public sealed class PackageConsumerSmokeRunner
             AddError(
                 findings,
                 "fixture-package-reference",
-                "Fixture must contain only the four approved direct PackageReference items with Include and Version attributes.");
+                "Fixture must contain only the approved direct PackageReference items with Include and Version attributes.");
         }
         else
         {

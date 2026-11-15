@@ -15,6 +15,7 @@
     <PackageReference Include="DataLinq" Version="[$(DataLinqCandidateVersion)]" />
     <PackageReference Include="DataLinq.Memory" Version="[$(DataLinqCandidateVersion)]" />
     <PackageReference Include="DataLinq.SQLite" Version="[$(DataLinqCandidateVersion)]" />
+    <PackageReference Include="DataLinq.Testing" Version="[$(DataLinqCandidateVersion)]" />
     <PackageReference Include="DataLinq.MySql" Version="[$(DataLinqCandidateVersion)]" />
   </ItemGroup>
 

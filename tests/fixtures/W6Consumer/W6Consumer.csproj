@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="DataLinq.Testing" Version="[$(DataLinqCandidateVersion)]" />
+    <Compile Include="../AsyncPackageConsumer/AdvancedModels.cs" Link="Models.cs" />
+  </ItemGroup>
+  <Target Name="RequireCandidate" BeforeTargets="CollectPackageReferences;PrepareForBuild">
+    <Error Condition="'$(DataLinqCandidateVersion)' == ''" Text="Supply the packed DataLinqCandidateVersion." />
+  </Target>
+</Project>
