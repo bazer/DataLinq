@@ -1,40 +1,60 @@
 # AI Assistant Guidance
 
-This page is the canonical operating guide for AI assistants and coding agents working in the DataLinq repo.
+This page describes the development loop for AI assistants and coding agents working in DataLinq.
 
-It exists to keep the repo rules in one place instead of letting `.github/copilot-instructions.md`, agent files, and random planning docs drift into competing sources of truth.
+## Instruction Ownership
 
-## Source of Truth
+- `AGENTS.md` owns repository rules and authorization boundaries.
+- [Contributing](../Contributing.md) owns shared contributor conventions, commit-message style, and local test selection.
+- This page owns the agent workflow from inspection through handoff.
+- [Internal Tooling](Internal%20Tooling.md) routes build, test, benchmark, and release-evidence work to the appropriate tools and owns platform troubleshooting.
+- Per-tool pages document command behavior. Read the pages relevant to the task instead of loading every tool reference.
 
-Use the repo docs in this order:
+Keep rules in their owning page and link to them. Thin compatibility entry points such as `.github/copilot-instructions.md` may direct clients to the root `AGENTS.md`; they must not duplicate policy. Do not use product-specific instruction files or planning documents as competing operating guides.
 
-1. `AGENTS.md`
-   Hard repository rules and workflow constraints.
-2. `docs/Contributing.md`
-   The general contributor guide.
-3. This page
-   Agent-specific operating guidance and repo conventions.
-4. `docs/contributing/Internal Tooling.md`
-   The canonical entry point for repo-local developer tooling.
+## Development Loop
 
-`.github/copilot-instructions.md` should stay a thin compatibility shell that points here instead of trying to be a second project brain.
+### 1. Inspect and scope
 
-## Non-Negotiable Repo Rules
+Read `AGENTS.md`, inspect the current branch and both staged and unstaged changes, and identify the code, tests, and docs affected by the request. Preserve unrelated work, including existing index state.
 
-- Do not create commits, amend commits, or push changes unless the user explicitly asks in the current conversation.
-- When stopping at a coherent commit point, include a suggested commit message at the end of the final response. Use the descriptive style preferred in this repo: concise subject, blank line, then a body explaining the actual change and why it matters.
-- Do not publish NuGet packages unless the user explicitly asks in the current conversation.
-- New tests belong in the active TUnit test projects, not the removed legacy xUnit projects.
-- Documentation must describe shipped behavior, not roadmap material pretending to be shipped.
-- For broad documentation work, start with an audit and action plan before making a large batch of edits.
-- Prefer sandboxed execution first for build, test, local project CLI, and non-destructive git inspection commands. Do not request sandbox escalation preemptively for `dotnet run`, `dotnet build`, `dotnet test`, `DataLinq.Dev.CLI`, `DataLinq.Testing.CLI`, or `DataLinq.Benchmark.CLI`; retry outside the sandbox only after a sandboxed attempt fails with a likely sandbox, network, cache, or filesystem-permission issue.
-- On native Windows, prefer `.\scripts\dotnet-sandbox.ps1 ...` for sandboxed `dotnet` commands. Raw `dotnet` may try to read or write profile-scoped .NET and NuGet state, while the wrapper pins `DOTNET_CLI_HOME`, `APPDATA`, `LOCALAPPDATA`, temp paths, NuGet HTTP cache, NuGet scratch space, and restore config to workspace-local paths. Before rewriting `LOCALAPPDATA`, the wrapper captures the real Podman executable and machine socket paths and exposes them through `DATALINQ_TEST_PODMAN_PATH` and `DATALINQ_TEST_PODMAN_SOCKET`; this is required because the Testing CLI normally resolves Podman from `LOCALAPPDATA`. For `run`, `build`, `test`, `pack`, and `publish`, the wrapper adds `--no-restore` because sandboxed execution should consume existing restore assets instead of trying blocked NuGet.org network calls. Use an explicit restore command when package assets are missing.
-- If a sandboxed restore fails with `NU1801` or `NU1101`, or a cold build cannot find package-backed types such as `Spectre.Console` or `System.CommandLine`, the likely problem is a missing workspace-local package cache plus blocked NuGet.org access. Rerun the same restore through `.\scripts\dotnet-sandbox.ps1 restore ...` with sandbox escalation, then retry the build inside the sandbox.
-- Blazor WebAssembly builds are a known native-Windows sandbox edge. `src/DataLinq.BlazorWasm/DataLinq.BlazorWasm.csproj` can fail inside the Codex sandbox with `MSB4216` and `MSB4027` from `MarshalingPInvokeScanner`, because MSBuild cannot create/connect to the WebAssembly task host. Full solution builds can also fail early with only `Build FAILED. 0 Warning(s) 0 Error(s)` and no useful raw log. Before calling this a repo regression, verify the same command outside the sandbox.
-- The WebAssembly `WASM0001` warnings that appear outside the sandbox are real. They come from `SQLitePCLRaw.provider.e_sqlite3` exposing varargs native SQLite functions such as `sqlite3_config` and `sqlite3_db_config`; the SDK says those calls are unsupported on WebAssembly and would fail at runtime. Do not blanket-suppress them without proving the affected functions are unreachable or changing the WebAssembly SQLite provider story.
-- For sandboxed server-backed Testing CLI runs on native Windows, set `DATALINQ_TEST_DB_HOST=127.0.0.1` for the command. The sandbox blocks TCP to the Podman VM host, but loopback reaches Podman's `wslrelay` listeners when the matrix ports are free. The matrix uses `13307` through `13312` specifically to avoid common local MySQL/MariaDB services. Server-backed `run` commands refresh `artifacts/testdata/testinfra-state.json` from the actually running containers, so a targeted verification should not leave the state narrowed to one server target. If server-backed sandbox connectivity looks wrong, first check whether the configured port is owned by `wslrelay`.
+For a clear, bounded request, proceed with implementation. Broad documentation, cleanup, or architectural work starts with an audit and action plan. Once scope is agreed, work autonomously until the slice is ready to review. Ask again only for a material decision or missing information that blocks the task.
 
-## Git approvals on native Windows
+### 2. Implement and iterate
+
+Add or update regression coverage for behavior changes in the active TUnit projects. Use existing shared harnesses and fixtures where appropriate.
+
+Run only the tests needed to exercise the behavior being edited: a method, class, or small relevant group. Use `DataLinq.Testing.CLI run --plan focused` with an explicit suite and TUnit tree-node filter. The shape is `/<Assembly>/<Namespace>/<Class>/<Test>`; do not use VSTest expressions such as `FullyQualifiedName~Foo`.
+
+The examples on this page run from the repository root:
+
+```bash
+dotnet run --project src/DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
+```
+
+Select a specific provider target when the regression needs a server database. The `memory` suite is targetless and distinct from the `sqlite-memory` compliance target; see [Testing CLI suites](DataLinq.Testing.CLI.md#suites).
+
+Restore or diagnose the environment when needed, and build only the affected projects during iteration. A full solution build, repeated `doctor` runs, smoke runs, and provider matrices are not mandatory steps after every edit. Use the [contributor feedback loop](../Contributing.md#local-feedback-loop) to choose the next check.
+
+### 3. Verify the completed slice
+
+Apply the [contributor feedback loop](../Contributing.md#local-feedback-loop) to choose the stopping-point checks for the completed slice. That section owns local test selection, rerun criteria, and documentation-only validation. Its command examples run from `src`; when running them from the repository root, prefix project paths with `src/`.
+
+Report exactly what was verified and any unavailable or failing checks. A local passing run does not replace the CI gate or release evidence; see [CI Test Lanes](CI%20Test%20Lanes.md).
+
+### 4. Review, stage, and hand off
+
+Review the final diff for correctness, unintended changes, missing coverage, and documentation impact. Check whitespace and inspect the staged diff after staging the task's changes. If a file also contains unrelated work, stage only the relevant hunks; do not sweep unrelated files or existing staged edits into the task.
+
+Before requesting approval, refresh the relevant remote refs and inspect the entire outgoing commit range, including older local commits. For an existing remote branch, compare against its current tip; for a new remote branch, compare against the intended PR base. Inspect the commit list as well as the resulting diff, since a scoped staged change does not guarantee a scoped push. If the range includes unrelated or unapproved commits, isolate the approved work on a suitable branch or obtain approval for the expanded scope before publishing it. Recheck before pushing if either the local history or remote destination has changed.
+
+Summarize what changed, the checks and outcomes, and any remaining limitations. At a sensible commit point, ask whether to commit and push, naming the remote and destination branch. Recommend either a direct commit to `master` or a branch and PR based on the diff and branch state. For a PR, also agree on its base, such as `master` or the active development branch. Settle these destinations before committing. Follow `AGENTS.md` for authorization and local-only exceptions; already-authorized actions do not need another confirmation.
+
+Use the [commit-message conventions](../Contributing.md#commit-messages) when a commit is authorized, and follow the [merge strategy](../Contributing.md#merge-strategy) when separately authorized to merge. The handoff does not need a pasted suggested commit message unless the user asks for one. A review-only task with no changes does not need staging or a commit question.
+
+For work delivered through a PR, the creating agent's responsibility ends after committing and pushing the approved changes, opening the PR, and handing it over. Include the PR reference, validation results, and any known outstanding work; distinguish completed checks from checks that are pending or were not run. The maintainer coordinates subsequent review and merging. The creating agent does not need to keep the session open, wait for another agent's review, or monitor the PR unless explicitly asked. Later feedback can be handled in another session when assigned.
+
+### Git approvals on native Windows
 
 In this Codex Windows runner, `.git` is read-only inside the sandbox. Git writes need the approved execution path outside it. The runner submits PowerShell command strings that do not reliably match saved bare `git add` and `git commit` prefix rules. Saving an approval for a command containing a particular file list or commit message does not cover the next different command string.
 
@@ -74,131 +94,37 @@ git -C D:/git/DataLinq commit --file=artifacts/codex-git/commit-message.txt --dr
 
 The input files live under the already-ignored `artifacts/` directory. Remove consumed input files after the operation so a later task cannot accidentally reuse a stale file list or commit message. These local rules add staging, normal commits, and commit previews; they do not add approvals for amend, push, or arbitrary PowerShell. Other existing user rules remain independent.
 
-## Use the Repo Tools, Not Ad Hoc Commands
+## Tool Selection and Environment
 
-If you need to build, restore, or run direct `dotnet test` commands, prefer [`DataLinq.Dev.CLI`](DataLinq.Dev.CLI.md).
+- [DataLinq.Dev.CLI](DataLinq.Dev.CLI.md): environment diagnosis and restore/build/direct test wrapping.
+- [DataLinq.Testing.CLI](DataLinq.Testing.CLI.md): focused TUnit runs, feedback plans, and provider infrastructure.
+- [DataLinq.Benchmark.CLI](DataLinq.Benchmark.CLI.md): benchmark discovery, runs, and comparisons when performance is in scope.
 
-If you need provider-matrix orchestration, container lifecycle management, or batched suite execution, prefer [`DataLinq.Testing.CLI`](DataLinq.Testing.CLI.md).
+Human-facing tool examples normally run from `src`; this page's examples run from the repository root. Explicit Dev CLI target arguments remain repo-root-relative in either case.
 
-If you need performance runs, history artifacts, or benchmark comparisons, prefer [`DataLinq.Benchmark.CLI`](DataLinq.Benchmark.CLI.md).
-
-That split matters:
-
-- `DataLinq.Dev.CLI` is the stable wrapper for repo-local `dotnet` execution.
-- `DataLinq.Testing.CLI` owns test infrastructure orchestration.
-- `DataLinq.Benchmark.CLI` owns the benchmark harness and its artifacts.
-
-Using raw `dotnet`, raw Podman commands, or direct BenchmarkDotNet invocation as the default path is usually the wrong move because it bypasses the repo-local environment and artifact conventions.
-
-## Preferred Workflow
-
-The agent workflow examples in this section run from the repo root because they call the root-level sandbox wrapper scripts. Human-facing setup and CLI examples generally assume the current directory is `src`.
-
-For normal code work:
+On native Windows in a sandbox, use the root wrapper. Bootstrap the CLI's restore assets before the first wrapped `run`, because the wrapper adds `--no-restore`:
 
 ```powershell
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Dev.CLI -- doctor --profile repo
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Dev.CLI -- restore
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Dev.CLI -- build
+./scripts/dotnet-sandbox.ps1 restore src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
 ```
 
-For warning or build audits, force compilation instead of trusting an up-to-date incremental build:
+The same bootstrap applies to the Dev and Benchmark CLI projects when needed. It is setup for a cold checkout or changed dependencies, not a step to repeat for every edit. On other platforms, use the normal `dotnet run --project ...` entry points and the repo-local CLI profiles.
 
-```powershell
-./scripts/dotnet-sandbox.ps1 restore src/DataLinq.sln -v minimal
-./scripts/dotnet-sandbox.ps1 build src/DataLinq.sln -c Debug -v minimal --no-incremental
-```
-
-If that solution build fails silently inside the sandbox, build the affected projects explicitly and verify the full solution outside the sandbox before diagnosing source code. The current WebAssembly smoke project is the usual culprit.
-
-For targeted tests:
-
-```powershell
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
-```
-
-For targeted `DataLinq.Testing.CLI` suite runs, use `run --filter` with TUnit tree-node filter syntax. The active suites are TUnit/Microsoft.Testing.Platform executable test projects, so old VSTest filter expressions such as `FullyQualifiedName~Foo` are the wrong syntax here.
-
-```powershell
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/*/HandleEvent_NoSubscribers_DoesNotThrow" --output failures
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite memory --output failures
-```
-
-The filter shape is `/<Assembly>/<Namespace>/<Class name>/<Test name>`, and wildcards are supported. Use this when validating a specific class, namespace, or test method through the same suite orchestration path the repo uses for broader runs.
-
-`memory` is a targetless suite and runs once even when a provider alias is supplied. Do not confuse it with the `sqlite-memory` target. The Memory test project carries SQLite fixtures for bounded differential parity, so this CLI lane is not provider-free or package-consumer evidence.
-
-For provider-matrix or server-backed runs:
-
-```powershell
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- list
-dotnet run --project src/DataLinq.Testing.CLI -- wait --alias latest
-dotnet run --project src/DataLinq.Testing.CLI -- run --plan latest --batch-size 4
-```
-
-For sandboxed server-backed verification after the containers already exist:
-
-```powershell
-$env:DATALINQ_TEST_DB_HOST = '127.0.0.1'
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI --no-build -- run --suite mysql --targets mysql-9.7 --output failures
-Remove-Item Env:DATALINQ_TEST_DB_HOST
-```
-
-The quick feedback plan is local/SQLite-oriented and is known to run successfully inside the Codex sandbox on native Windows:
-
-```powershell
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --plan quick --output failures
-```
-
-For benchmarks:
-
-```powershell
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Benchmark.CLI -- list
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Benchmark.CLI -- run
-```
+See [Native Windows Sandbox Build Notes](Internal%20Tooling.md#native-windows-sandbox-build-notes) for restore/cache failures, WebAssembly task-host issues, and server-backed connectivity. Follow the current execution environment's permission rules; a repo troubleshooting recipe cannot enable unavailable escalation.
 
 ## Documentation Boundaries
 
-The repo has several documentation classes. Do not mix them casually.
+- `README.md`: GitHub-facing overview.
+- Root `index.md`: DocFX website homepage.
+- `docs/index.md`: documentation intro.
+- Normal `docs/` pages: shipped product and contributor documentation.
+- `docs/dev-plans/`: design records, plans, and implementation history.
 
-- `README.md`
-  GitHub-facing overview.
-- `index.md`
-  DocFX website homepage.
-- `docs/index.md`
-  Documentation intro page.
-- `docs/*.md`
-  Shipped product and contributor documentation.
-- `docs/dev-plans/**`
-  Design records, plans, and implementation history.
-
-If you need current behavior, prefer normal docs and code.
-
-If you need future intent, migration context, or implementation rationale, check `docs/dev-plans/`.
-
-If you change docs navigation or site presentation, verify the generated `_site` output. Do not trust source markdown alone.
+Use code, tests, and normal docs for current behavior. Use dev plans for future intent and implementation rationale, keeping their status explicit. If navigation or presentation changes, inspect generated `_site` output. Serve pages over HTTP for browser checks.
 
 ## Release and Packaging Notes
 
-When the user asks about release workflow:
+Use `publish-nuget.ps1` for release work and prompt for secrets at execution time. Package publishing requires its own explicit authorization; commit approval does not authorize it.
 
-- prefer `publish-nuget.ps1`
-- prefer prompting for secrets at execution time
-- do not recommend long-lived NuGet API key storage unless there is a real reason
-- do not assume CI-first publishing
-
-When working on release notes:
-
-- treat `CHANGELOG.md` as generated output
-- use `generate-changelog.ps1` and the existing release-note workflow instead of manually treating the changelog as the primary authoring surface
-
-## What Still Belongs in `AGENTS.md`
-
-`AGENTS.md` should stay short and opinionated:
-
-- repo rules
-- hard workflow constraints
-- things an agent must obey even if no one reads the wider docs
-
-It should not become a dumping ground for every project detail, release history bullet, or tool walkthrough. That is exactly how instruction files become stale.
+Treat `CHANGELOG.md` as generated output. Author the release description through the release-note workflow, then use `generate-changelog.ps1` to regenerate the changelog from published GitHub releases. Commit subjects are not the changelog's authoring surface.
