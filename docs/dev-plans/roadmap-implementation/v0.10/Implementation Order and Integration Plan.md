@@ -365,7 +365,7 @@ Exit gate:
 
 ### W7: Source Alias Correctness
 
-May proceed independently after W0.
+W7 may proceed independently after W0. The [W7 implementation plan](W7%20Source%20Alias%20Correctness.md) records the agreed property and tooling scope, implementation sequence and acceptance tests.
 
 Required work:
 

@@ -231,7 +231,7 @@ W6 adds zero public mock types. The earlier row and graph builders, typed node h
 
 ### G10: Source Type Alias Correctness
 
-Issue source: [#93](https://github.com/bazer/DataLinq/issues/93).
+The [W7 implementation plan](W7%20Source%20Alias%20Correctness.md) covers mapped columns, reference and collection navigations on discovered models, and the file-reader diagnostic agreed on 2026-11-16. [Issue #93](https://github.com/bazer/DataLinq/issues/93)
 
 Required contract:
 
